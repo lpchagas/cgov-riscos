@@ -1,0 +1,17 @@
+# Dependências e artefatos de compilação
+node_modules/
+dist/
+.superpowers/
+
+# Variáveis de ambiente com segredos locais
+.env
+.env.local
+.env.*.local
+
+# Arquivos temporários do Obsidian por usuário
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+
+# Logs
+*.log
+npm-debug.log*

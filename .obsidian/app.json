@@ -1,0 +1,10 @@
+{
+  "userIgnoreFilters": [
+    "node_modules/",
+    "dist/",
+    ".git/",
+    ".superpowers/"
+  ],
+  "alwaysUpdateLinks": true,
+  "useMarkdownLinks": false
+}
