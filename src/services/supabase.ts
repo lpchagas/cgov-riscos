@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * ============================================================================
  * CLIENTE SUPABASE COM FALLBACK LOCAL SEGURO PARA DEMONSTRAÇÕES À CGTI
