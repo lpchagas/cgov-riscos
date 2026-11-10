@@ -1,0 +1,75 @@
+/**
+ * ============================================================================
+ * FOLHA DE ESTILOS PRINCIPAL — PADRÃO DIGITAL DE GOVERNO (@govbr-ds/core)
+ * ============================================================================
+ *
+ * EXPLICAÇÃO DIDÁTICA (PARA INICIANTES EM PROGRAMAÇÃO):
+ * Aqui importamos o CSS oficial do Governo Federal (@govbr-ds/core) e os ícones
+ * FontAwesome, além de definir as cores semafóricas oficiais para os 4 níveis
+ * do Quadro 8 da Metodologia RADAR (Baixo, Médio, Alto e Extremo).
+ */
+@import '@govbr-ds/core/dist/core.min.css';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+:root {
+  --govbr-azul-primario: #1351b4;
+  --govbr-azul-escuro: #071d41;
+  --govbr-azul-claro: #dbe8fb;
+  --radar-baixo-bg: #e3f5e1;
+  --radar-baixo-cor: #168821;
+  --radar-medio-bg: #fff5c2;
+  --radar-medio-cor: #8a6d00;
+  --radar-alto-bg: #ffe2cc;
+  --radar-alto-cor: #b54708;
+  --radar-extremo-bg: #fde0db;
+  --radar-extremo-cor: #e52207;
+}
+
+body {
+  margin: 0;
+  font-family: 'Rawline', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #f8f9fa;
+  color: #333333;
+}
+
+.radar-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.radar-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 1.25rem;
+}
+
+.radar-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.badge-risco-baixo {
+  background-color: var(--radar-baixo-bg);
+  color: var(--radar-baixo-cor);
+  border: 1px solid var(--radar-baixo-cor);
+}
+
+.badge-risco-medio {
+  background-color: var(--radar-medio-bg);
+  color: var(--radar-medio-cor);
+  border: 1px solid var(--radar-medio-cor);
+}
+
+.badge-risco-alto {
+  background-color: var(--radar-alto-bg);
+  color: var(--radar-alto-cor);
+  border: 1px solid var(--radar-alto-cor);
+}
+
+.badge-risco-extremo {
+  background-color: var(--radar-extremo-bg);
+  color: var(--radar-extremo-cor);
+  border: 1px solid var(--radar-extremo-cor);
+}
