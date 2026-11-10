@@ -1,0 +1,17 @@
+# ==============================================================================
+# DOCKER COMPOSE — EXECUÇÃO EM 1 COMANDO PARA DEMONSTRAÇÃO À CGTI/ICMBio
+# ==============================================================================
+# Como subir o container:
+#   docker compose up --build -d
+# Em seguida, acesse no navegador: http://localhost:8080
+# ==============================================================================
+
+services:
+  radar-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: icmbio-cgov-radar-web
+    ports:
+      - "8080:80"
+    restart: unless-stopped
