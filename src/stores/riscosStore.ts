@@ -62,7 +62,43 @@ export const useRiscosStore = defineStore('riscos', () => {
     JSON.parse(JSON.stringify(OBJETOS_CONTEXTO_SEMENTE))
   );
 
+  // Estado reativo de busca global (br-header #main-searchbox) e filtros da Matriz 5x5:
+  const termoBuscaGlobal = ref<string>('');
+  const celulaMatrizSelecionada = ref<{
+    p: NivelProbabilidade;
+    i: NivelImpacto;
+  } | null>(null);
+  const categoriaFiltroId = ref<number | null>(null);
+
   // Getters computados para os painéis da CGOV, CGs e Diretorias:
+  const riscosFiltrados = computed(() => {
+    const termo = termoBuscaGlobal.value.trim().toLowerCase();
+    return riscos.value.filter((r) => {
+      if (
+        celulaMatrizSelecionada.value &&
+        (r.probabilidade !== celulaMatrizSelecionada.value.p ||
+          r.impacto !== celulaMatrizSelecionada.value.i)
+      ) {
+        return false;
+      }
+      if (
+        categoriaFiltroId.value !== null &&
+        r.categoriaId !== categoriaFiltroId.value
+      ) {
+        return false;
+      }
+      if (!termo) return true;
+      return (
+        r.codigoRadar.toLowerCase().includes(termo) ||
+        (r.nomeObjetoCache || '').toLowerCase().includes(termo) ||
+        r.categoriaNome.toLowerCase().includes(termo) ||
+        r.descricaoPadrao.toLowerCase().includes(termo) ||
+        r.responsavelRiscoNome.toLowerCase().includes(termo) ||
+        r.kris.some((k) => k.nomeIndicador.toLowerCase().includes(termo))
+      );
+    });
+  });
+
   const riscosCriticosCarteira = computed(() =>
     riscos.value.filter((r) => r.statusCritico === 'sim')
   );
@@ -74,6 +110,46 @@ export const useRiscosStore = defineStore('riscos', () => {
   const filaHomologacaoDiretoria = computed(() =>
     riscos.value.filter((r) => r.statusFluxo === 'em_homologacao_dir')
   );
+
+  const trilhaAuditoriaGlobal = computed(() => {
+    const eventos: Array<{
+      id: string;
+      riscoId: string;
+      codigoRadar: string;
+      nomeObjeto: string;
+      categoriaNome: string;
+      nivelResidual: number;
+      classificacaoResidual: ClasseRisco;
+      etapa: string;
+      acao: string;
+      usuarioNome: string;
+      usuarioPapel: string;
+      despachoTexto?: string;
+      criadoEm: string;
+    }> = [];
+
+    for (const r of riscos.value) {
+      for (const h of r.historicoFluxo) {
+        eventos.push({
+          id: h.id,
+          riscoId: r.id,
+          codigoRadar: r.codigoRadar,
+          nomeObjeto: r.nomeObjetoCache || 'Objeto de Gestão de Riscos',
+          categoriaNome: r.categoriaNome,
+          nivelResidual: r.nivelResidual,
+          classificacaoResidual: r.classificacaoResidual,
+          etapa: h.etapa,
+          acao: h.acao,
+          usuarioNome: h.usuarioNome,
+          usuarioPapel: h.usuarioPapel,
+          despachoTexto: h.despachoTexto,
+          criadoEm: h.criadoEm,
+        });
+      }
+    }
+
+    return eventos.sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+  });
 
   const resumoPorClasse = computed(() => {
     const contagem: Record<ClasseRisco, number> = {
@@ -493,14 +569,76 @@ export const useRiscosStore = defineStore('riscos', () => {
     }
   }
 
+  function atualizarJustificativaCategoriaDAR(
+    categoriaId: number,
+    novaJustificativa: string
+  ): void {
+    const cat = categorias.value.find((c) => c.id === categoriaId);
+    if (!cat) return;
+    cat.justificativaDar = novaJustificativa;
+  }
+
+  function alternarFiltroCelulaMatriz(
+    p: NivelProbabilidade,
+    i: NivelImpacto
+  ): void {
+    if (
+      celulaMatrizSelecionada.value &&
+      celulaMatrizSelecionada.value.p === p &&
+      celulaMatrizSelecionada.value.i === i
+    ) {
+      celulaMatrizSelecionada.value = null;
+    } else {
+      celulaMatrizSelecionada.value = { p, i };
+    }
+  }
+
+  function limparFiltrosPainel(): void {
+    termoBuscaGlobal.value = '';
+    celulaMatrizSelecionada.value = null;
+    categoriaFiltroId.value = null;
+  }
+
+  function obterRiscoPorId(id: string): FichaRisco | undefined {
+    return riscos.value.find((r) => r.id === id || r.codigoRadar === id);
+  }
+
+  function salvarNovoObjetoContexto(
+    parcial: Partial<ObjetoContexto>
+  ): ObjetoContexto {
+    const novoObj: ObjetoContexto = {
+      id: parcial.id ?? `obj-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      tipoObjeto: parcial.tipoObjeto ?? 'Processo',
+      nomeObjeto: parcial.nomeObjeto ?? 'Novo Objeto de Gestão de Riscos',
+      unidadeId: parcial.unidadeId ?? unidades.value[0].id,
+      macroprocessoSupervisorId:
+        parcial.macroprocessoSupervisorId ?? 'uni-cgge',
+      diretoriaId: parcial.diretoriaId ?? 'uni-diplan',
+      objetivoEstrategicoAssociado:
+        parcial.objetivoEstrategicoAssociado ??
+        'Objetivo estratégico institucional do ICMBio',
+      insumosPrincipais: parcial.insumosPrincipais ?? 'Processos SEI e normativos',
+      entregasPrincipais: parcial.entregasPrincipais ?? 'Atos técnicos e relatórios',
+      partesInteressadas: parcial.partesInteressadas ?? 'Unidades do ICMBio e sociedade',
+      cicloAno: parcial.cicloAno ?? 2026,
+    };
+    objetosContexto.value.unshift(novoObj);
+    return novoObj;
+  }
+
   return {
     riscos,
     categorias,
     unidades,
     objetosContexto,
+    termoBuscaGlobal,
+    celulaMatrizSelecionada,
+    categoriaFiltroId,
+    riscosFiltrados,
     riscosCriticosCarteira,
     filaValidacaoCg,
     filaHomologacaoDiretoria,
+    trilhaAuditoriaGlobal,
     resumoPorClasse,
     salvarOuAtualizarRisco,
     submeterParaValidacaoCg,
@@ -512,5 +650,10 @@ export const useRiscosStore = defineStore('riscos', () => {
     reavaliarPontuacaoRiscoAprovado,
     importarMarkdownDaSkill,
     alterarApetiteCategoriaDAR,
+    atualizarJustificativaCategoriaDAR,
+    alternarFiltroCelulaMatriz,
+    limparFiltrosPainel,
+    obterRiscoPorId,
+    salvarNovoObjetoContexto,
   };
 });

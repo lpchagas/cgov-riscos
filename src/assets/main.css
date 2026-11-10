@@ -6,7 +6,8 @@
  * EXPLICAÇÃO DIDÁTICA (PARA INICIANTES EM PROGRAMAÇÃO):
  * Aqui importamos o CSS oficial do Governo Federal (@govbr-ds/core) e os ícones
  * FontAwesome, além de definir as cores semafóricas oficiais para os 4 níveis
- * do Quadro 8 da Metodologia RADAR (Baixo, Médio, Alto e Extremo).
+ * do Quadro 8 da Metodologia RADAR (Baixo, Médio, Alto e Extremo) e as regras
+ * do Template Base (`.template-base`) e Alto Contraste (`.govbr-contrast`).
  */
 @import '@govbr-ds/core/dist/core.min.css';
 @import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -30,6 +31,36 @@ body {
   font-family: 'Rawline', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background-color: #f8f9fa;
   color: #333333;
+}
+
+.template-base {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Modo de Alto Contraste Oficial Gov.br */
+.template-base.govbr-contrast {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.template-base.govbr-contrast header,
+.template-base.govbr-contrast footer,
+.template-base.govbr-contrast .br-card,
+.template-base.govbr-contrast .menu-panel {
+  background-color: #121212 !important;
+  color: #ffffff !important;
+  border-color: #ffff00 !important;
+}
+
+.template-base.govbr-contrast a,
+.template-base.govbr-contrast h1,
+.template-base.govbr-contrast h2,
+.template-base.govbr-contrast h3,
+.template-base.govbr-contrast h4,
+.template-base.govbr-contrast strong {
+  color: #ffff00 !important;
 }
 
 .radar-container {

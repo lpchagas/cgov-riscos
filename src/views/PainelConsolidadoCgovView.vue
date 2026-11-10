@@ -11,6 +11,7 @@
  * Declaração de Apetite a Riscos (DAR — Anexo III) e acompanhar KRIs e Ações 5W2H.
  */
 import { ref } from 'vue';
+import { RouterLink } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useAuthStore } from '../stores/authStore';
 import type { ApetiteDeclarado, NivelEficaciaControle, NivelImpacto, NivelProbabilidade } from '../types/radar.types';
@@ -95,10 +96,14 @@ function simularReavaliacaoNota(
     <div class="radar-grid-2 mb-3">
       <BrCard
         titulo="Matriz Assimétrica de Riscos 5×5 (Quadro 7 — SEI 024421455)"
-        subtitulo="O Impacto possui peso superior à Probabilidade (proibida multiplicação simples P × I)"
+        subtitulo="Clique em qualquer célula para filtrar a carteira abaixo (Impacto pesa mais que Probabilidade)"
         destaque-cor="#1351b4"
       >
-        <MatrizCalorAssimetrica :riscos="riscosStore.riscos" />
+        <MatrizCalorAssimetrica
+          :riscos="riscosStore.riscos"
+          :celula-ativa="riscosStore.celulaMatrizSelecionada"
+          @selecionar-celula="({ p, i }) => riscosStore.alternarFiltroCelulaMatriz(p, i)"
+        />
       </BrCard>
 
       <BrCard
@@ -156,16 +161,41 @@ function simularReavaliacaoNota(
       destaque-cor="#1351b4"
     >
       <div
-        v-for="risco in riscosStore.riscos"
+        v-if="riscosStore.celulaMatrizSelecionada || riscosStore.termoBuscaGlobal"
+        class="p-2 mb-3 rounded d-flex justify-content-between align-items-center flex-wrap gap-2"
+        style="background-color: #dbe8fb; border: 1px solid #1351b4; color: #071d41;"
+      >
+        <div class="text-down-01 font-weight-bold">
+          <i class="fas fa-filter mr-1" aria-hidden="true"></i>
+          Filtro ativo:
+          <span v-if="riscosStore.celulaMatrizSelecionada" class="mr-2">
+            Célula P={{ riscosStore.celulaMatrizSelecionada.p }}, I={{ riscosStore.celulaMatrizSelecionada.i }}
+          </span>
+          <span v-if="riscosStore.termoBuscaGlobal">
+            Busca: "{{ riscosStore.termoBuscaGlobal }}"
+          </span>
+          ({{ riscosStore.riscosFiltrados.length }} registro(s))
+        </div>
+        <BrButton variant="secondary" icon="fas fa-times" @click="riscosStore.limparFiltrosPainel()">
+          Limpar Filtros
+        </BrButton>
+      </div>
+
+      <div
+        v-for="risco in riscosStore.riscosFiltrados"
         :key="risco.id"
         class="p-3 mb-3 rounded"
         style="border: 1px solid #d1d5db; background-color: #ffffff;"
       >
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
           <div>
-            <span class="font-weight-bold mr-2" style="color: #1351b4; font-size: 1.05rem;">
+            <RouterLink
+              :to="`/riscos/${risco.id}`"
+              class="font-weight-bold mr-2 text-decoration-none"
+              style="color: #1351b4; font-size: 1.05rem;"
+            >
               [{{ risco.codigoRadar }}]
-            </span>
+            </RouterLink>
             <strong>{{ risco.nomeObjetoCache }}</strong>
             <span class="ml-2 px-2 py-1 rounded text-down-02" style="background: #e5e7eb;">
               Categoria: <strong>{{ risco.categoriaNome }}</strong>
@@ -182,7 +212,15 @@ function simularReavaliacaoNota(
             </span>
           </div>
 
-          <div class="d-flex align-items-center gap-2">
+          <div class="d-flex align-items-center flex-wrap gap-2">
+            <RouterLink
+              :to="`/riscos/${risco.id}`"
+              class="px-2 py-1 rounded text-decoration-none font-weight-bold text-down-01"
+              style="background-color: #dbe8fb; color: #1351b4; border: 1px solid #1351b4;"
+            >
+              <i class="fas fa-project-diagram mr-1" aria-hidden="true"></i>
+              Abrir Ficha Bow Tie
+            </RouterLink>
             <span class="px-2 py-1 rounded font-weight-bold text-down-01" style="background: #071d41; color: #fff;">
               Status do Fluxo: {{ risco.statusFluxo }}
             </span>

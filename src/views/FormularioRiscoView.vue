@@ -5,7 +5,8 @@
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Esta tela guia o servidor da 1ª Linha pelas etapas exatas da Metodologia RADAR:
+ * Esta tela utiliza o componente oficial `BrStep` (`div.br-step`) do Padrão Digital
+ * de Governo para guiar o servidor da 1ª Linha pelas 4 etapas da Metodologia RADAR:
  * 1. Identificação Bow Tie (Causas -> Evento -> Consequências -> Objetivo afetado)
  *    montando a frase obrigatória da Seção 4.2.1 em tempo real;
  * 2. Categorização (Quadro 2) + Teste de Integridade do Programa Integra+
@@ -30,10 +31,22 @@ import {
 } from '../utils/calculadoraRiscoRadar';
 import BrCard from '../components/govbr/BrCard.vue';
 import BrButton from '../components/govbr/BrButton.vue';
+import BrStep from '../components/govbr/BrStep.vue';
+import BrMessage from '../components/govbr/BrMessage.vue';
 import MemoriaCalculoBar from '../components/radar/MemoriaCalculoBar.vue';
 
 const router = useRouter();
 const riscosStore = useRiscosStore();
+
+const passoAtivo = ref<number>(1);
+const exibirTodasEtapas = ref<boolean>(true);
+
+const passosWizard = [
+  { numero: 1, titulo: '1. Contexto & Bow Tie', subtitulo: 'Sintaxe Seção 4.2.1' },
+  { numero: 2, titulo: '2. Categoria & Integra+', subtitulo: 'Quadros 2 e 3' },
+  { numero: 3, titulo: '3. Notas & Controles', subtitulo: 'Quadros 6, 7 e 8' },
+  { numero: 4, titulo: '4. Plano 5W2H & KRI', subtitulo: 'Tabela 8 e Seção 4.5.1' },
+];
 
 const nomeObjeto = ref('Processo de Concessão e Autorização Ambiental');
 const responsavelNome = ref('Gestor Ponto Focal (1ª Linha)');
@@ -98,6 +111,7 @@ function salvarRisco(submeterDiretoParaCg: boolean) {
 
   if (!validacaoIntegridade.valido) {
     erroFormulario.value = validacaoIntegridade.erro || 'Erro de validação normativa.';
+    passoAtivo.value = 2;
     return;
   }
 
@@ -166,7 +180,7 @@ function salvarRisco(submeterDiretoParaCg: boolean) {
   if (submeterDiretoParaCg) {
     riscosStore.submeterParaValidacaoCg(ficha.id);
   }
-  router.push('/');
+  router.push(`/riscos/${ficha.id}`);
 }
 </script>
 
@@ -177,143 +191,170 @@ function salvarRisco(submeterDiretoParaCg: boolean) {
       subtitulo="Ciclo RADAR: Contexto → Identificação (Bow Tie) → Análise (Quadros 6, 7 e 8) → Tratamento 5W2H e KRI"
       destaque-cor="#1351b4"
     >
-      <div
-        v-if="erroFormulario"
-        class="p-3 mb-3 rounded font-weight-bold"
-        style="background-color: #fde0db; color: #c91c00; border: 1px solid #e52207;"
-      >
-        <i class="fas fa-exclamation-circle mr-1"></i>
-        {{ erroFormulario }}
+      <!-- Barra de Progresso br-step Oficial + Alternador de Modo -->
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <span class="text-down-01 font-weight-bold" style="color: #071d41;">
+          Navegação por Etapas (<code>.br-step</code>):
+        </span>
+        <label class="d-flex align-items-center gap-1 text-down-01 font-weight-semi-bold">
+          <input v-model="exibirTodasEtapas" type="checkbox" />
+          Exibir todas as 4 etapas simultaneamente na página
+        </label>
       </div>
+
+      <BrStep
+        :passos="passosWizard"
+        :passo-ativo="passoAtivo"
+        @selecionar-passo="
+          (n) => {
+            passoAtivo = n;
+          }
+        "
+      />
+
+      <BrMessage
+        v-if="erroFormulario"
+        state="danger"
+        titulo="Bloqueio Normativo RADAR:"
+      >
+        {{ erroFormulario }}
+      </BrMessage>
 
       <!-- ETAPA 1: CONTEXTO E BOW TIE -->
-      <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
-        1. Contexto e Identificação (Método Bow Tie + Sintaxe Seção 4.2.1)
-      </h4>
-      <div class="radar-grid-2 mb-3">
-        <div>
-          <label class="font-weight-bold d-block mb-1">Objeto de Gestão de Riscos (Processo/Macroprocesso):</label>
-          <input v-model="nomeObjeto" type="text" class="w-100 p-2 rounded border" />
+      <div v-show="exibirTodasEtapas || passoAtivo === 1" class="mb-3">
+        <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
+          1. Contexto e Identificação (Método Bow Tie + Sintaxe Seção 4.2.1)
+        </h4>
+        <div class="radar-grid-2 mb-3">
+          <div>
+            <label class="font-weight-bold d-block mb-1">Objeto de Gestão de Riscos (Processo/Macroprocesso):</label>
+            <input v-model="nomeObjeto" type="text" class="w-100 p-2 rounded border" />
+          </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Servidor Responsável (1ª Linha):</label>
+            <input v-model="responsavelNome" type="text" class="w-100 p-2 rounded border" />
+          </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Causas (Fontes antes do evento):</label>
+            <textarea v-model="causas" rows="2" class="w-100 p-2 rounded border"></textarea>
+          </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Evento de Risco (O que pode acontecer):</label>
+            <textarea v-model="eventoRisco" rows="2" class="w-100 p-2 rounded border"></textarea>
+          </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Consequências (Desdobramentos após o evento):</label>
+            <textarea v-model="consequencias" rows="2" class="w-100 p-2 rounded border"></textarea>
+          </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Objetivo ou Resultado Afetado:</label>
+            <textarea v-model="objetivoAfetado" rows="2" class="w-100 p-2 rounded border"></textarea>
+          </div>
         </div>
-        <div>
-          <label class="font-weight-bold d-block mb-1">Servidor Responsável (1ª Linha):</label>
-          <input v-model="responsavelNome" type="text" class="w-100 p-2 rounded border" />
-        </div>
-        <div>
-          <label class="font-weight-bold d-block mb-1">Causas (Fontes antes do evento):</label>
-          <textarea v-model="causas" rows="2" class="w-100 p-2 rounded border"></textarea>
-        </div>
-        <div>
-          <label class="font-weight-bold d-block mb-1">Evento de Risco (O que pode acontecer):</label>
-          <textarea v-model="eventoRisco" rows="2" class="w-100 p-2 rounded border"></textarea>
-        </div>
-        <div>
-          <label class="font-weight-bold d-block mb-1">Consequências (Desdobramentos após o evento):</label>
-          <textarea v-model="consequencias" rows="2" class="w-100 p-2 rounded border"></textarea>
-        </div>
-        <div>
-          <label class="font-weight-bold d-block mb-1">Objetivo ou Resultado Afetado:</label>
-          <textarea v-model="objetivoAfetado" rows="2" class="w-100 p-2 rounded border"></textarea>
-        </div>
-      </div>
 
-      <div class="p-3 mb-3 rounded" style="background-color: #dbe8fb; border-left: 4px solid #1351b4;">
-        <div class="text-down-01 font-weight-bold" style="color: #071d41;">
-          Sintaxe Obrigatória Gerada Automaticamente (Seção 4.2.1 da Metodologia):
+        <div class="p-3 mb-3 rounded" style="background-color: #dbe8fb; border-left: 4px solid #1351b4;">
+          <div class="text-down-01 font-weight-bold" style="color: #071d41;">
+            Sintaxe Obrigatória Gerada Automaticamente (Seção 4.2.1 da Metodologia):
+          </div>
+          <div class="mt-1">{{ frasePadraoEmTempoReal }}</div>
         </div>
-        <div class="mt-1">{{ frasePadraoEmTempoReal }}</div>
       </div>
 
       <!-- ETAPA 2: CATEGORIA E TESTE DE INTEGRIDADE (INTEGRA+) -->
-      <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
-        2. Categorização (Quadro 2) e Teste de Integridade (Portaria ICMBio nº 253/2026 — Integra+)
-      </h4>
-      <div class="radar-grid-2 mb-3">
-        <div>
-          <label class="font-weight-bold d-block mb-1">Categoria Principal do Risco (Quadro 2 — vedada categoria mista):</label>
-          <select v-model="categoriaId" class="w-100 p-2 rounded border">
-            <option v-for="cat in riscosStore.categorias" :key="cat.id" :value="cat.id">
-              {{ cat.nome }} (Apetite na DAR: {{ cat.apetiteDeclarado }})
-            </option>
-          </select>
-        </div>
+      <div v-show="exibirTodasEtapas || passoAtivo === 2" class="mb-3">
+        <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
+          2. Categorização (Quadro 2) e Teste de Integridade (Portaria ICMBio nº 253/2026 — Integra+)
+        </h4>
+        <div class="radar-grid-2 mb-3">
+          <div>
+            <label class="font-weight-bold d-block mb-1">Categoria Principal do Risco (Quadro 2 — vedada categoria mista):</label>
+            <select v-model="categoriaId" class="w-100 p-2 rounded border">
+              <option v-for="cat in riscosStore.categorias" :key="cat.id" :value="cat.id">
+                {{ cat.nome }} (Apetite na DAR: {{ cat.apetiteDeclarado }})
+              </option>
+            </select>
+          </div>
 
-        <div v-if="categoriaAtual.nome === 'Integridade'">
-          <label class="font-weight-bold d-block mb-1" style="color: #c91c00;">
-            Subcategoria Obrigatória de Integridade (Quadro 3 — Programa Integra+):
-          </label>
-          <select v-model="subcategoriaIntegridade" class="w-100 p-2 rounded border">
-            <option value="">-- Selecione uma das 6 subcategorias do Quadro 3 --</option>
-            <option v-for="sub in SUBCATEGORIAS_INTEGRIDADE_QUADRO_3" :key="sub" :value="sub">
-              {{ sub }}
-            </option>
-          </select>
-        </div>
+          <div v-if="categoriaAtual.nome === 'Integridade'">
+            <label class="font-weight-bold d-block mb-1" style="color: #c91c00;">
+              Subcategoria Obrigatória de Integridade (Quadro 3 — Programa Integra+):
+            </label>
+            <select v-model="subcategoriaIntegridade" class="w-100 p-2 rounded border">
+              <option value="">-- Selecione uma das 6 subcategorias do Quadro 3 --</option>
+              <option v-for="sub in SUBCATEGORIAS_INTEGRIDADE_QUADRO_3" :key="sub" :value="sub">
+                {{ sub }}
+              </option>
+            </select>
+          </div>
 
-        <div v-else>
-          <label class="d-flex align-items-center gap-2 font-weight-bold mb-1">
-            <input v-model="testeIntegridadeAplicavel" type="checkbox" />
-            Há vulnerabilidade de fraude, favorecimento, conflito de interesses ou pressão indevida?
-          </label>
-          <input
-            v-if="testeIntegridadeAplicavel"
-            v-model="justificativaNaoIntegridade"
-            type="text"
-            placeholder="Justifique formalmente por que NÃO foi classificado como Integridade..."
-            class="w-100 p-2 rounded border"
-          />
+          <div v-else>
+            <label class="d-flex align-items-center gap-2 font-weight-bold mb-1">
+              <input v-model="testeIntegridadeAplicavel" type="checkbox" />
+              Há vulnerabilidade de fraude, favorecimento, conflito de interesses ou pressão indevida?
+            </label>
+            <input
+              v-if="testeIntegridadeAplicavel"
+              v-model="justificativaNaoIntegridade"
+              type="text"
+              placeholder="Justifique formalmente por que NÃO foi classificado como Integridade..."
+              class="w-100 p-2 rounded border"
+            />
+          </div>
         </div>
       </div>
 
       <!-- ETAPA 3: ANÁLISE INERENTE E RESIDUAL COM TRAVA DE EVIDÊNCIA -->
-      <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
-        3. Análise de Riscos Inerente (Quadro 7) e Residual (Quadro 6 com Trava de Evidência)
-      </h4>
-      <div class="radar-grid-2 mb-3">
-        <div>
-          <label class="font-weight-bold d-block mb-1">Probabilidade (Quadro 4 — 1 a 5):</label>
-          <select v-model.number="probabilidade" class="w-100 p-2 rounded border">
-            <option :value="1">1 — Muito baixa (&lt; 10%)</option>
-            <option :value="2">2 — Baixa (10% a 30%)</option>
-            <option :value="3">3 — Média (31% a 60%)</option>
-            <option :value="4">4 — Alta (61% a 90%)</option>
-            <option :value="5">5 — Muito alta (&gt; 90%)</option>
-          </select>
-        </div>
+      <div v-show="exibirTodasEtapas || passoAtivo === 3" class="mb-3">
+        <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
+          3. Análise de Riscos Inerente (Quadro 7) e Residual (Quadro 6 com Trava de Evidência)
+        </h4>
+        <div class="radar-grid-2 mb-3">
+          <div>
+            <label class="font-weight-bold d-block mb-1">Probabilidade (Quadro 4 — 1 a 5):</label>
+            <select v-model.number="probabilidade" class="w-100 p-2 rounded border">
+              <option :value="1">1 — Muito baixa (&lt; 10%)</option>
+              <option :value="2">2 — Baixa (10% a 30%)</option>
+              <option :value="3">3 — Média (31% a 60%)</option>
+              <option :value="4">4 — Alta (61% a 90%)</option>
+              <option :value="5">5 — Muito alta (&gt; 90%)</option>
+            </select>
+          </div>
 
-        <div>
-          <label class="font-weight-bold d-block mb-1">Impacto (Quadro 5 — 1 a 5):</label>
-          <select v-model.number="impacto" class="w-100 p-2 rounded border">
-            <option :value="1">1 — Muito baixo</option>
-            <option :value="2">2 — Baixo</option>
-            <option :value="3">3 — Médio</option>
-            <option :value="4">4 — Alto</option>
-            <option :value="5">5 — Muito alto</option>
-          </select>
-        </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Impacto (Quadro 5 — 1 a 5):</label>
+            <select v-model.number="impacto" class="w-100 p-2 rounded border">
+              <option :value="1">1 — Muito baixo</option>
+              <option :value="2">2 — Baixo</option>
+              <option :value="3">3 — Médio</option>
+              <option :value="4">4 — Alto</option>
+              <option :value="5">5 — Muito alto</option>
+            </select>
+          </div>
 
-        <div>
-          <label class="font-weight-bold d-block mb-1">Nível de Eficácia dos Controles Existentes (Quadro 6):</label>
-          <select v-model="nivelEficaciaControle" class="w-100 p-2 rounded border">
-            <option value="Inexistente">Inexistente (Fator 1,0)</option>
-            <option value="Fraco">Fraco (Fator 0,9)</option>
-            <option value="Mediano">Mediano (Fator 0,75 — exige evidência)</option>
-            <option value="Satisfatório">Satisfatório (Fator 0,6 — exige evidência)</option>
-            <option value="Forte">Forte (Fator 0,5 — exige evidência)</option>
-          </select>
-        </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Nível de Eficácia dos Controles Existentes (Quadro 6):</label>
+            <select v-model="nivelEficaciaControle" class="w-100 p-2 rounded border">
+              <option value="Inexistente">Inexistente (Fator 1,0)</option>
+              <option value="Fraco">Fraco (Fator 0,9)</option>
+              <option value="Mediano">Mediano (Fator 0,75 — exige evidência)</option>
+              <option value="Satisfatório">Satisfatório (Fator 0,6 — exige evidência)</option>
+              <option value="Forte">Forte (Fator 0,5 — exige evidência)</option>
+            </select>
+          </div>
 
-        <div class="d-flex flex-column justify-content-center">
-          <label class="d-flex align-items-center gap-2 font-weight-bold">
-            <input v-model="possuiEvidenciaControle" type="checkbox" />
-            Possui evidência documental comprovada de funcionamento do controle?
-          </label>
-          <small class="text-muted">
-            Sem evidência comprovada, o sistema trava automaticamente o fator no máximo em Fraco (0,9).
-          </small>
+          <div class="d-flex flex-column justify-content-center">
+            <label class="d-flex align-items-center gap-2 font-weight-bold">
+              <input v-model="possuiEvidenciaControle" type="checkbox" />
+              Possui evidência documental comprovada de funcionamento do controle?
+            </label>
+            <small class="text-muted">
+              Sem evidência comprovada, o sistema trava automaticamente o fator no máximo em Fraco (0,9).
+            </small>
+          </div>
         </div>
       </div>
 
+      <!-- Barra "Mostre a Conta" sempre visível no Assistente -->
       <MemoriaCalculoBar
         :probabilidade="probabilidade"
         :impacto="impacto"
@@ -329,43 +370,65 @@ function salvarRisco(submeterDiretoParaCg: boolean) {
       />
 
       <!-- ETAPA 4: PLANO DE AÇÃO 5W2H E KRI -->
-      <h4 class="h6 font-weight-bold mt-3 mb-2" style="color: #1351b4;">
-        4. Estratégia de Resposta (Tabela 8), Ação 5W2H e Indicador KRI
-      </h4>
-      <div class="radar-grid-2 mb-3">
-        <div>
-          <label class="font-weight-bold d-block mb-1">Estratégia Oficial (Tabela 8):</label>
-          <select v-model="estrategiaPrincipal" class="w-100 p-2 rounded border">
-            <option value="Mitigar">Mitigar</option>
-            <option value="Compartilhar">Compartilhar</option>
-            <option value="Evitar">Evitar</option>
-            <option value="Aceitar">Aceitar</option>
-          </select>
-        </div>
-        <div>
-          <label class="font-weight-bold d-block mb-1">Indicador-Chave de Risco (KRI):</label>
-          <input v-model="nomeKri" type="text" class="w-100 p-2 rounded border" />
-        </div>
-        <div>
-          <label class="font-weight-bold d-block mb-1">Ação de Tratamento (O que será feito — 5W2H):</label>
-          <input v-model="acao5w2hOQue" type="text" class="w-100 p-2 rounded border" />
-        </div>
-        <div>
-          <label class="font-weight-bold d-block mb-1">Responsável pela Ação e Prazo:</label>
-          <div class="d-flex gap-2">
-            <input v-model="acao5w2hQuem" type="text" class="w-100 p-2 rounded border" />
-            <input v-model="acao5w2hQuando" type="date" class="p-2 rounded border" />
+      <div v-show="exibirTodasEtapas || passoAtivo === 4" class="mt-3 mb-3">
+        <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
+          4. Estratégia de Resposta (Tabela 8), Ação 5W2H e Indicador KRI
+        </h4>
+        <div class="radar-grid-2 mb-3">
+          <div>
+            <label class="font-weight-bold d-block mb-1">Estratégia Oficial (Tabela 8):</label>
+            <select v-model="estrategiaPrincipal" class="w-100 p-2 rounded border">
+              <option value="Mitigar">Mitigar</option>
+              <option value="Compartilhar">Compartilhar</option>
+              <option value="Evitar">Evitar</option>
+              <option value="Aceitar">Aceitar</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Indicador-Chave de Risco (KRI):</label>
+            <input v-model="nomeKri" type="text" class="w-100 p-2 rounded border" />
+          </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Ação de Tratamento (O que será feito — 5W2H):</label>
+            <input v-model="acao5w2hOQue" type="text" class="w-100 p-2 rounded border" />
+          </div>
+          <div>
+            <label class="font-weight-bold d-block mb-1">Responsável pela Ação e Prazo:</label>
+            <div class="d-flex gap-2">
+              <input v-model="acao5w2hQuem" type="text" class="w-100 p-2 rounded border" />
+              <input v-model="acao5w2hQuando" type="date" class="p-2 rounded border" />
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="d-flex gap-2 justify-content-end pt-2" style="border-top: 1px solid #eee;">
-        <BrButton variant="secondary" icon="fas fa-save" @click="salvarRisco(false)">
-          Salvar como Rascunho (1ª Linha)
-        </BrButton>
-        <BrButton variant="primary" icon="fas fa-paper-plane" @click="salvarRisco(true)">
-          Salvar e Submeter à Coordenação-Geral (1 Clique)
-        </BrButton>
+      <div class="d-flex gap-2 justify-content-between align-items-center flex-wrap pt-2" style="border-top: 1px solid #eee;">
+        <div v-if="!exibirTodasEtapas" class="d-flex gap-2">
+          <BrButton
+            variant="secondary"
+            :disabled="passoAtivo === 1"
+            @click="passoAtivo = Math.max(1, passoAtivo - 1)"
+          >
+            ← Etapa Anterior
+          </BrButton>
+          <BrButton
+            variant="secondary"
+            :disabled="passoAtivo === 4"
+            @click="passoAtivo = Math.min(4, passoAtivo + 1)"
+          >
+            Próxima Etapa →
+          </BrButton>
+        </div>
+        <div v-else></div>
+
+        <div class="d-flex gap-2 flex-wrap">
+          <BrButton variant="secondary" icon="fas fa-save" @click="salvarRisco(false)">
+            Salvar como Rascunho (1ª Linha)
+          </BrButton>
+          <BrButton variant="primary" icon="fas fa-paper-plane" @click="salvarRisco(true)">
+            Salvar e Submeter à Coordenação-Geral (1 Clique)
+          </BrButton>
+        </div>
       </div>
     </BrCard>
   </div>

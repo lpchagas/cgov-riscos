@@ -199,6 +199,42 @@ export const OBJETOS_CONTEXTO_SEMENTE: ObjetoContexto[] = [
       'Diretorias, Coordenações-Gerais, Unidades de Conservação e sociedade.',
     cicloAno: 2026,
   },
+  {
+    id: 'obj-fiscalizacao-autos',
+    tipoObjeto: 'Macroprocesso',
+    nomeObjeto:
+      'Lavratura e Julgamento de Autos de Infração Ambiental em Unidades de Conservação',
+    unidadeId: 'uni-parna-bsb',
+    macroprocessoSupervisorId: 'uni-cgge',
+    diretoriaId: 'uni-diplan',
+    objetivoEstrategicoAssociado:
+      'Assegurar a integridade, rastreabilidade e efetividade punitiva contra ilícitos ambientais.',
+    insumosPrincipais:
+      'Relatórios de fiscalização em campo, autos de infração e defesas administrativas.',
+    entregasPrincipais:
+      'Decisões de instrução e julgamento tempestivas e livres de conflito de interesses.',
+    partesInteressadas:
+      'Unidades de Conservação, Procuradoria Federal Especializada, Corregedoria e sociedade.',
+    cicloAno: 2026,
+  },
+  {
+    id: 'obj-autorizacao-uc',
+    tipoObjeto: 'Processo',
+    nomeObjeto:
+      'Autorização Direta de Uso Público e Eventos em Unidades de Conservação',
+    unidadeId: 'uni-gr1',
+    macroprocessoSupervisorId: 'uni-cgge',
+    diretoriaId: 'uni-dibio',
+    objetivoEstrategicoAssociado:
+      'Conciliar visitação ordenada e conservação da biodiversidade sem impactos socioambientais adversos.',
+    insumosPrincipais:
+      'Requerimentos no SEI, Planos de Manejo e pareceres técnicos das UCs.',
+    entregasPrincipais:
+      'Autorizações emitidas com condicionantes socioambientais monitoradas.',
+    partesInteressadas:
+      'Chefias de UCs, comunidades tradicionais, pesquisadores e visitantes.',
+    cicloAno: 2026,
+  },
 ];
 
 /**
@@ -337,6 +373,249 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         despachoTexto:
           'Ficha elaborada conforme Caso de Controle do Anexo II da Metodologia RADAR.',
         criadoEm: '2026-11-09T10:00:00Z',
+      },
+    ],
+  },
+  {
+    id: 'risco-integra-02',
+    codigoRadar: 'RADAR-2026-002',
+    objetoId: 'obj-fiscalizacao-autos',
+    nomeObjetoCache:
+      'Lavratura e Julgamento de Autos de Infração Ambiental em Unidades de Conservação',
+    responsavelRiscoNome: 'Coordenação de Fiscalização Setorial (1ª Linha)',
+    causas:
+      'ausência de segregação formal de funções na revisão de processos sancionadores e falta de declaração automatizada de impedimento no SEI',
+    eventoRisco:
+      'atuação de servidor em instrução de auto de infração com potencial conflito de interesses ou pressão externa indevida',
+    consequencias:
+      'nulidade processual, prescrição da pretensão punitiva e dano severo à credibilidade institucional do ICMBio',
+    objetivoAfetado:
+      'integridade e efetividade da fiscalização ambiental (Programa Integra+ — Portaria ICMBio nº 253/2026)',
+    descricaoPadrao:
+      'Devido o(a) ausência de segregação formal de funções na revisão de processos sancionadores e falta de declaração automatizada de impedimento no SEI, poderá ocorrer o(a) atuação de servidor em instrução de auto de infração com potencial conflito de interesses ou pressão externa indevida, ocasionando o(a) nulidade processual, prescrição da pretensão punitiva e dano severo à credibilidade institucional do ICMBio e impactando o alcance do integridade e efetividade da fiscalização ambiental (Programa Integra+ — Portaria ICMBio nº 253/2026).',
+    categoriaId: 5,
+    categoriaNome: 'Integridade',
+    subcategoriaIntegridade: 'Conflito de Interesses e Nepotismo',
+    testeIntegridadeAplicavel: true,
+    probabilidade: 2,
+    justificativaProbabilidade:
+      'Probabilidade Baixa (2): há supervisão hierárquica, mas sem trava sistêmica de impedimento.',
+    impacto: 5,
+    justificativaImpacto:
+      'Impacto Muito Alto (5): compromete a integridade decisória e a imagem institucional.',
+    nivelInerente: 19,
+    classificacaoInerente: 'Extremo',
+    possuiEvidenciaControle: true,
+    nivelEficaciaControle: 'Fraco',
+    fatorControle: 0.9,
+    nivelResidual: 17.1,
+    classificacaoResidual: 'Extremo',
+    statusCritico: 'sim',
+    isCritico: true,
+    memoriaCalculo:
+      'P=2 e I=5 → Inerente = 19 (Extremo, Quadro 7) × Fator 0,9 (Fraco, com evidência comprovada, Quadro 6) = Residual 17,1 (Extremo, Quadro 8, sem arredondamento prévio) → Crítico frente à DAR (baixo): SIM',
+    origemPreliminarCgov: true,
+    statusFluxo: 'em_homologacao_dir',
+    estrategiaPrincipal: 'Mitigar',
+    controlesExistentes: [
+      {
+        id: 'ctrl-integra-01',
+        descricaoControle:
+          'Despacho de encaminhamento individual da chefia imediata no SEI.',
+        evidenciaFuncionamento:
+          'Amostragem de 10 processos sancionadores instruídos no 3º trimestre.',
+        possuiEvidenciaComprovada: true,
+        desenhoAdequado: false,
+        operacaoComprovada: true,
+      },
+    ],
+    respostasTratamento: [
+      {
+        id: 'trat-integra-1',
+        estrategia: 'Mitigar',
+        acaoOQue:
+          'Instituir revisão colegiada em dupla assinatura e termo obrigatório de ausência de conflito de interesses no SEI.',
+        justificativaPorQue:
+          'Atender ao Programa Integra+ (Portaria ICMBio nº 253/2026) e blindar o processo decisório.',
+        localOnde: 'Fluxo SEI de Instrução e Julgamento',
+        responsavelQuem: 'Coordenador-Geral de Fiscalização',
+        prazoQuando: '2026-12-20',
+        procedimentoComo:
+          'Inclusão de bloco de assinatura obrigatória com checklist de integridade.',
+        custoQuanto: 'Sem custo adicional',
+        statusExecucao: 'em_andamento',
+      },
+    ],
+    kris: [
+      {
+        id: 'kri-integra-1',
+        nomeIndicador:
+          'Percentual de processos sancionadores revisados em dupla assinatura com termo de integridade',
+        formulaCalculo:
+          '(Nº de processos com dupla revisão e termo assinado / Total de processos julgados) × 100',
+        fonteDados: 'Relatório de Conformidade SEI',
+        periodicidade: 'Trimestral',
+        metaAlvo: '100%',
+        limiteAlerta: 'Abaixo de 95%',
+        responsavelMedicao: 'Ponto Focal de Integridade',
+        medicoes: [
+          {
+            id: 'med-integra-1',
+            dataMedicao: '2026-10-30',
+            valorApurado: '96%',
+            emAlerta: false,
+            observacao: '48 de 50 processos com dupla assinatura verificada.',
+          },
+        ],
+      },
+    ],
+    historicoFluxo: [
+      {
+        id: 'hist-integra-1',
+        etapa: 'submissao_1a_linha',
+        acao: 'submetido',
+        usuarioNome: 'CGOV — Passo 0 (Skill cgov-gestao-riscos-v4)',
+        usuarioPapel: 'cgov',
+        despachoTexto:
+          'Risco preliminar identificado a partir da análise normativa e validado pela 1ª Linha.',
+        criadoEm: '2026-11-08T14:20:00Z',
+      },
+      {
+        id: 'hist-integra-2',
+        etapa: 'validacao_cg',
+        acao: 'aprovado_1_clique',
+        usuarioNome: 'Coordenador-Geral (2º Degrau — CG)',
+        usuarioPapel: 'lider_cg',
+        despachoTexto:
+          'Validado em 1 clique pela Coordenação-Geral e escalado à Diretoria por se tratar de Risco Crítico (Residual 17,1 Extremo > Apetite Baixo).',
+        criadoEm: '2026-11-09T09:15:00Z',
+      },
+    ],
+  },
+  {
+    id: 'risco-socio-03',
+    codigoRadar: 'RADAR-2026-003',
+    objetoId: 'obj-autorizacao-uc',
+    nomeObjetoCache:
+      'Autorização Direta de Uso Público e Eventos em Unidades de Conservação',
+    responsavelRiscoNome: 'Gestor da Unidade de Conservação (1ª Linha)',
+    causas:
+      'atraso na consolidação dos relatórios de monitoramento de impacto em trilhas de alta visitação',
+    eventoRisco:
+      'emissão de autorização de evento com capacidade de carga desatualizada em área sensível da UC',
+    consequencias:
+      'degradação pontual de habitat e necessidade de suspensão temporária de atrativos',
+    objetivoAfetado:
+      'conservação da biodiversidade e qualidade da experiência de visitação nas UCs',
+    descricaoPadrao:
+      'Devido o(a) atraso na consolidação dos relatórios de monitoramento de impacto em trilhas de alta visitação, poderá ocorrer o(a) emissão de autorização de evento com capacidade de carga desatualizada em área sensível da UC, ocasionando o(a) degradação pontual de habitat e necessidade de suspensão temporária de atrativos e impactando o alcance do conservação da biodiversidade e qualidade da experiência de visitação nas UCs.',
+    categoriaId: 7,
+    categoriaNome: 'Socioambiental',
+    testeIntegridadeAplicavel: true,
+    justificativaNaoIntegridade:
+      'A vulnerabilidade decorre de defasagem técnica nos parâmetros biofísicos de capacidade de carga, sem indício de favorecimento ilícito ou desvio ético.',
+    probabilidade: 2,
+    justificativaProbabilidade:
+      'Probabilidade Baixa (2): ocorre apenas em picos sazonais de alta temporada.',
+    impacto: 4,
+    justificativaImpacto:
+      'Impacto Alto (4): afeta área sensível de conservação (P=2, I=4 -> Inerente 17 no Quadro 7).',
+    nivelInerente: 17,
+    classificacaoInerente: 'Alto',
+    possuiEvidenciaControle: true,
+    nivelEficaciaControle: 'Satisfatório',
+    fatorControle: 0.6,
+    nivelResidual: 10.2,
+    classificacaoResidual: 'Alto',
+    statusCritico: 'sim',
+    isCritico: true,
+    memoriaCalculo:
+      'P=2 e I=4 → Inerente = 17 (Alto, Quadro 7) × Fator 0,6 (Satisfatório, com evidência comprovada, Quadro 6) = Residual 10,2 (Alto, Quadro 8, sem arredondamento prévio) → Crítico frente à DAR (baixo): SIM',
+    origemPreliminarCgov: false,
+    statusFluxo: 'aprovado',
+    estrategiaPrincipal: 'Mitigar',
+    controlesExistentes: [
+      {
+        id: 'ctrl-socio-01',
+        descricaoControle:
+          'Parecer técnico prévio fundamentado no Plano de Manejo da Unidade de Conservação.',
+        evidenciaFuncionamento:
+          'Despachos técnicos anexados aos processos SEI de autorização do último semestre.',
+        possuiEvidenciaComprovada: true,
+        desenhoAdequado: true,
+        operacaoComprovada: true,
+      },
+    ],
+    respostasTratamento: [
+      {
+        id: 'trat-socio-1',
+        estrategia: 'Mitigar',
+        acaoOQue:
+          'Integrar painel semestral de indicadores de impacto de visitação ao checklist de análise de autorizações.',
+        justificativaPorQue:
+          'Reduzir o nível residual de 10,2 (Alto) para a faixa Baixo (≤ 5).',
+        localOnde: 'Gerência Regional e Chefias de UC',
+        responsavelQuem: 'Coordenador de Uso Público',
+        prazoQuando: '2026-11-30',
+        procedimentoComo:
+          'Atualização semestral obrigatória da planilha de capacidade de carga no SEI.',
+        custoQuanto: 'Sem custo adicional',
+        statusExecucao: 'concluida',
+      },
+    ],
+    kris: [
+      {
+        id: 'kri-socio-1',
+        nomeIndicador:
+          'Percentual de autorizações emitidas com laudo de capacidade de carga atualizado nos últimos 6 meses',
+        formulaCalculo:
+          '(Nº de autorizações com laudo vigente / Total de autorizações emitidas) × 100',
+        fonteDados: 'Processos SEI de Autorização de Uso Público',
+        periodicidade: 'Trimestral',
+        metaAlvo: '100%',
+        limiteAlerta: 'Abaixo de 90%',
+        responsavelMedicao: 'Analista Ambiental — Uso Público',
+        medicoes: [
+          {
+            id: 'med-socio-1',
+            dataMedicao: '2026-11-01',
+            valorApurado: '100%',
+            emAlerta: false,
+            observacao: 'Todas as 18 autorizações do trimestre conferidas.',
+          },
+        ],
+      },
+    ],
+    historicoFluxo: [
+      {
+        id: 'hist-socio-1',
+        etapa: 'submissao_1a_linha',
+        acao: 'submetido',
+        usuarioNome: 'Gestor da UC (1ª Linha)',
+        usuarioPapel: 'gestor',
+        despachoTexto:
+          'Submetido com justificativa formal do Teste de Integridade e evidência de controle Satisfatório (0,6).',
+        criadoEm: '2026-11-05T11:00:00Z',
+      },
+      {
+        id: 'hist-socio-2',
+        etapa: 'validacao_cg',
+        acao: 'aprovado_1_clique',
+        usuarioNome: 'Coordenador-Geral (2º Degrau — CG)',
+        usuarioPapel: 'lider_cg',
+        despachoTexto:
+          'Aprovado em 1 clique pela CG e encaminhado à Diretoria (Residual 10,2 = Alto sem arredondamento prévio).',
+        criadoEm: '2026-11-06T15:30:00Z',
+      },
+      {
+        id: 'hist-socio-3',
+        etapa: 'homologacao_diretoria',
+        acao: 'aprovado_1_clique',
+        usuarioNome: 'Diretor Setorial (3º Degrau — Diretoria)',
+        usuarioPapel: 'diretor',
+        despachoTexto:
+          'Homologado em 1 clique para compor o Plano de Gestão de Riscos do ICMBio.',
+        criadoEm: '2026-11-07T16:45:00Z',
       },
     ],
   },

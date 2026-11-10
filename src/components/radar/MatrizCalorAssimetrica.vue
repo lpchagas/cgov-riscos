@@ -18,7 +18,18 @@ import {
 
 const props = defineProps<{
   riscos: FichaRisco[];
+  celulaAtiva?: { p: NivelProbabilidade; i: NivelImpacto } | null;
 }>();
+
+const emit = defineEmits<{
+  (e: 'selecionar-celula', payload: { p: NivelProbabilidade; i: NivelImpacto }): void;
+}>();
+
+function isCelulaSelecionada(p: NivelProbabilidade, i: NivelImpacto): boolean {
+  return Boolean(
+    props.celulaAtiva && props.celulaAtiva.p === p && props.celulaAtiva.i === i
+  );
+}
 
 const impactosDesc: NivelImpacto[] = [5, 4, 3, 2, 1];
 const probabilidadesAsc: NivelProbabilidade[] = [1, 2, 3, 4, 5];
@@ -82,9 +93,13 @@ function estiloCelula(p: NivelProbabilidade, i: NivelImpacto): Record<string, st
             class="p-2"
             :style="{
               ...estiloCelula(p, i),
-              border: '1px solid',
+              border: isCelulaSelecionada(p, i) ? '3px solid #1351b4' : '1px solid',
+              boxShadow: isCelulaSelecionada(p, i) ? '0 0 0 2px #071d41 inset' : 'none',
               minWidth: '95px',
+              cursor: 'pointer',
             }"
+            :title="`Filtrar riscos com Probabilidade ${p} e Impacto ${i} (Nota Inerente ${MATRIZ_QUADRO_7[i][p]})`"
+            @click="emit('selecionar-celula', { p, i })"
           >
             <div class="font-weight-bold" style="font-size: 1.05rem;">
               Nota {{ MATRIZ_QUADRO_7[i][p] }}
