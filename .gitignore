@@ -18,3 +18,6 @@ npm-debug.log*
 
 # Metadados do Windows gerados ao copiar arquivos para o WSL
 *:Zone.Identifier
+
+# Pacote local da skill de gestão de riscos (não versionar)
+cgov-gestao-riscos-v4.zip
