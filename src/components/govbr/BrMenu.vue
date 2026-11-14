@@ -1,301 +1,397 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * COMPONENTE DE MENU PRINCIPAL GOV.BR (`div.br-menu.push#main-navigation`)
+ * MENU LATERAL — "NAVIGATION RAIL" (`nav#main-navigation`)
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Implementa o menu lateral hierárquico do Template Base (`gov.br/ds/templates/base`),
- * organizado em 3 pastas (`div.menu-folder`) correspondentes às Linhas de Governança
- * da Política RADAR (SEI 024241420) e da Metodologia (SEI 024421455):
- * - Pasta 1: Governança & Estratégia (2ª Linha — CGOV / CTGRIC / CIG)
- * - Pasta 2: Ciclo Operacional (1ª Linha — Unidades, Processos, Bow Tie, KRIs e 5W2H)
- * - Pasta 3: Supervisão, 1 Clique & Auditoria (2º e 3º Degraus — CGs e Diretorias)
+ * Substitui o menu "push" antigo, que no celular abria por cima do conteúdo
+ * logo ao carregar a página (achado 2.1 do diagnóstico). Agora:
+ *
+ *   COMPUTADOR (≥ 992 px): barra fixa à esquerda. Pode ser RECOLHIDA para
+ *     mostrar só os ícones (72 px), liberando espaço para tabelas largas.
+ *   CELULAR/TABLET (< 992 px): "gaveta" que fica FECHADA por padrão e abre
+ *     por cima da página com fundo escurecido; fecha com Esc, com clique fora
+ *     ou ao escolher uma página.
+ *
+ * Os itens estão organizados nos mesmos 3 grupos das Linhas de governança,
+ * com nomes curtos (glossário do diagnóstico). Os contadores mostram o que
+ * precisa de atenção (ex.: quantos riscos aguardam a SUA aprovação).
  */
+import { computed, onBeforeUnmount, onMounted } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../../stores/riscosStore';
+import { useAuthStore } from '../../stores/authStore';
 
-defineProps<{
+const props = defineProps<{
+  /** Gaveta aberta (só tem efeito no celular/tablet). */
   aberto: boolean;
+  /** Barra recolhida, só com ícones (só tem efeito no computador). */
+  recolhido: boolean;
 }>();
 
-const emit = defineEmits<{
-  (e: 'fechar'): void;
-}>();
+const emit = defineEmits<{ (e: 'fechar'): void; (e: 'alternar-recolhido'): void }>();
 
 const route = useRoute();
 const riscosStore = useRiscosStore();
+const authStore = useAuthStore();
 
-function isRotaAtiva(caminho: string): boolean {
-  if (caminho === '/') return route.path === '/';
-  return route.path.startsWith(caminho);
+interface ItemMenu {
+  nomeRota: string;
+  rotulo: string;
+  icone: string;
+  /** Rotas "filhas" que também acendem este item (ex.: a ficha acende "Riscos"). */
+  rotasRelacionadas?: string[];
+  contador?: number;
+  tomContador?: 'neutro' | 'perigo' | 'aviso';
+  descricaoContador?: string;
 }
+
+/** Quantos riscos aguardam decisão do PERFIL ATUAL. */
+const pendentesDoPerfil = computed(
+  () =>
+    (authStore.podeAprovarCg ? riscosStore.filaValidacaoCg.length : 0) +
+    (authStore.podeHomologarDiretoria ? riscosStore.filaHomologacaoDiretoria.length : 0)
+);
+
+const grupos = computed<{ titulo: string; itens: ItemMenu[] }[]>(() => [
+  {
+    titulo: 'Visão geral',
+    itens: [
+      { nomeRota: 'painel-cgov', rotulo: 'Painel', icone: 'fa-solid fa-chart-pie' },
+      {
+        nomeRota: 'dar-apetite',
+        rotulo: 'Apetite a riscos (DAR)',
+        icone: 'fa-solid fa-sliders',
+        contador: riscosStore.riscosCriticosCarteira.length,
+        tomContador: 'perigo',
+        descricaoContador: 'riscos Críticos',
+      },
+    ],
+  },
+  {
+    titulo: 'Gestão de riscos',
+    itens: [
+      {
+        nomeRota: 'riscos-lista',
+        rotulo: 'Riscos',
+        icone: 'fa-solid fa-list-check',
+        rotasRelacionadas: ['ficha-bowtie-detalhe', 'novo-risco'],
+        contador: riscosStore.riscos.length,
+        descricaoContador: 'riscos no total',
+      },
+      { nomeRota: 'catalogo-objetos', rotulo: 'Objetos de gestão', icone: 'fa-solid fa-sitemap' },
+      { nomeRota: 'monitoramento-kris', rotulo: 'Monitoramento', icone: 'fa-solid fa-heart-pulse' },
+    ],
+  },
+  {
+    titulo: 'Deliberação',
+    itens: [
+      {
+        nomeRota: 'validacao-um-clique',
+        rotulo: 'Aprovações',
+        icone: 'fa-solid fa-check-double',
+        contador: pendentesDoPerfil.value,
+        tomContador: 'aviso',
+        descricaoContador: 'aguardando sua decisão',
+      },
+      { nomeRota: 'trilha-auditoria', rotulo: 'Auditoria', icone: 'fa-solid fa-clock-rotate-left' },
+    ],
+  },
+  {
+    titulo: 'Ferramentas',
+    itens: [{ nomeRota: 'importar-skill', rotulo: 'Importar riscos', icone: 'fa-solid fa-file-import' }],
+  },
+]);
+
+function estaAtivo(item: ItemMenu): boolean {
+  const nome = String(route.name ?? '');
+  return nome === item.nomeRota || Boolean(item.rotasRelacionadas?.includes(nome));
+}
+
+// Esc fecha a gaveta no celular.
+function aoTeclar(evento: KeyboardEvent): void {
+  if (evento.key === 'Escape' && props.aberto) emit('fechar');
+}
+onMounted(() => document.addEventListener('keydown', aoTeclar));
+onBeforeUnmount(() => document.removeEventListener('keydown', aoTeclar));
 </script>
 
 <template>
-  <aside
-    v-show="aberto"
+  <!-- Fundo escurecido da gaveta (só aparece no celular com a gaveta aberta) -->
+  <div v-if="aberto" class="menu-veu" aria-hidden="true" @click="emit('fechar')"></div>
+
+  <nav
     id="main-navigation"
-    class="br-menu push active col-12 col-md-4 col-lg-3 pl-0 pr-md-3 mb-4"
-    aria-label="Menu Principal do Sistema RADAR"
+    class="menu-trilho"
+    :class="{ 'menu-trilho--aberto': aberto, 'menu-trilho--recolhido': recolhido }"
+    aria-label="Menu principal"
   >
-    <div class="menu-container position-static">
-      <div
-        class="menu-panel h-auto position-static rounded shadow-sm"
-        style="background-color: #ffffff; border: 1px solid #dcdcdc; overflow: hidden;"
-      >
-        <!-- Cabeçalho do Menu (.menu-header) -->
-        <div
-          class="menu-header d-flex justify-content-between align-items-center px-3 py-2"
-          style="background-color: #071d41; color: #ffffff;"
-        >
-          <div class="menu-title d-flex align-items-center gap-2">
-            <i class="fas fa-compass" aria-hidden="true"></i>
-            <span class="font-weight-bold text-down-01">Navegação RADAR</span>
-          </div>
-          <div class="menu-close d-md-none">
-            <button
-              type="button"
-              class="br-button circle small"
-              aria-label="Fechar o menu"
-              style="color: #fff;"
-              @click="emit('fechar')"
+    <!-- Ação principal (padrão "FAB" do navigation rail do M3) -->
+    <RouterLink :to="{ name: 'novo-risco' }" class="menu-trilho__novo" :title="recolhido ? 'Novo risco' : undefined">
+      <i class="fa-solid fa-plus" aria-hidden="true"></i>
+      <span class="menu-trilho__texto">Novo risco</span>
+    </RouterLink>
+
+    <div v-for="grupo in grupos" :key="grupo.titulo">
+      <p class="menu-trilho__titulo-grupo">{{ grupo.titulo }}</p>
+      <ul role="list">
+        <li v-for="item in grupo.itens" :key="item.nomeRota">
+          <RouterLink
+            :to="{ name: item.nomeRota }"
+            class="menu-trilho__item"
+            :class="{ 'menu-trilho__item--ativo': estaAtivo(item) }"
+            :aria-current="estaAtivo(item) ? 'page' : undefined"
+            :title="recolhido ? item.rotulo : undefined"
+          >
+            <i :class="item.icone" class="menu-trilho__icone" aria-hidden="true"></i>
+            <span class="menu-trilho__texto">{{ item.rotulo }}</span>
+            <span
+              v-if="item.contador"
+              class="menu-trilho__contador"
+              :class="`menu-trilho__contador--${item.tomContador ?? 'neutro'}`"
             >
-              <i class="fas fa-times" aria-hidden="true"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Corpo Hierárquico do Menu (nav.menu-body) -->
-        <nav class="menu-body p-2">
-          <!-- PASTA 1: GOVERNANÇA & ESTRATÉGIA (2ª LINHA) -->
-          <div class="menu-folder active mb-2">
-            <div
-              class="px-2 py-1 rounded text-down-02 font-weight-bold text-uppercase"
-              style="background-color: #dbe8fb; color: #071d41;"
-            >
-              1. Governança &amp; Estratégia (2ª Linha)
-            </div>
-            <ul class="list-unstyled mt-1 mb-0">
-              <li>
-                <RouterLink
-                  to="/"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-chart-pie mr-2" aria-hidden="true"></i>
-                    Painel do Plano de Gestão de Riscos
-                  </span>
-                  <span
-                    class="badge"
-                    :style="{
-                      backgroundColor: isRotaAtiva('/') ? '#ffffff' : '#dbe8fb',
-                      color: '#071d41',
-                      fontSize: '0.72rem',
-                      padding: '0.15rem 0.45rem',
-                      borderRadius: '10px',
-                    }"
-                  >
-                    {{ riscosStore.riscos.length }}
-                  </span>
-                </RouterLink>
-              </li>
-
-              <li>
-                <RouterLink
-                  to="/dar-apetite"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/dar-apetite') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/dar-apetite') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-sliders-h mr-2" aria-hidden="true"></i>
-                    Declaração de Apetite (DAR)
-                  </span>
-                  <span
-                    class="badge"
-                    style="background-color: #fde0db; color: #c91c00; font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 10px;"
-                    title="Total de Riscos Críticos fora do apetite da DAR"
-                  >
-                    {{ riscosStore.riscosCriticosCarteira.length }} crít.
-                  </span>
-                </RouterLink>
-              </li>
-            </ul>
-          </div>
-
-          <!-- PASTA 2: CICLO OPERACIONAL (1ª LINHA) -->
-          <div class="menu-folder active mb-2">
-            <div
-              class="px-2 py-1 rounded text-down-02 font-weight-bold text-uppercase"
-              style="background-color: #dbe8fb; color: #071d41;"
-            >
-              2. Ciclo Operacional (1ª Linha)
-            </div>
-            <ul class="list-unstyled mt-1 mb-0">
-              <li>
-                <RouterLink
-                  to="/objetos"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/objetos') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/objetos') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-sitemap mr-2" aria-hidden="true"></i>
-                    Catálogo de Objetos &amp; Processos
-                  </span>
-                  <span
-                    class="badge"
-                    style="background-color: #e5e7eb; color: #333; font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 10px;"
-                  >
-                    {{ riscosStore.objetosContexto.length }}
-                  </span>
-                </RouterLink>
-              </li>
-
-              <li>
-                <RouterLink
-                  to="/novo-risco"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/novo-risco') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/novo-risco') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-plus-circle mr-2" aria-hidden="true"></i>
-                    Assistente Guiado Bow Tie
-                  </span>
-                </RouterLink>
-              </li>
-
-              <li>
-                <RouterLink
-                  :to="`/riscos/${riscosStore.riscos[0]?.id || 'risco-anexo-ii-01'}`"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/riscos/') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/riscos/') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-project-diagram mr-2" aria-hidden="true"></i>
-                    Ficha Visual Bow Tie &amp; Dossiê
-                  </span>
-                </RouterLink>
-              </li>
-
-              <li>
-                <RouterLink
-                  to="/monitoramento-kris"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/monitoramento-kris') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/monitoramento-kris') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-heartbeat mr-2" aria-hidden="true"></i>
-                    Sala de Situação KRIs &amp; 5W2H
-                  </span>
-                </RouterLink>
-              </li>
-            </ul>
-          </div>
-
-          <!-- PASTA 3: SUPERVISÃO, 1 CLIQUE & PASSO 0 -->
-          <div class="menu-folder active">
-            <div
-              class="px-2 py-1 rounded text-down-02 font-weight-bold text-uppercase"
-              style="background-color: #dbe8fb; color: #071d41;"
-            >
-              3. Deliberação (2º e 3º Degraus)
-            </div>
-            <ul class="list-unstyled mt-1 mb-0">
-              <li>
-                <RouterLink
-                  to="/validacao-um-clique"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/validacao-um-clique') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/validacao-um-clique') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-check-double mr-2" aria-hidden="true"></i>
-                    Caixa Validação em 1 Clique
-                  </span>
-                  <span
-                    class="badge"
-                    style="background-color: #fff5c2; color: #8a6d00; font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 10px; font-weight: 700;"
-                  >
-                    CG:{{ riscosStore.filaValidacaoCg.length }} | Dir:{{ riscosStore.filaHomologacaoDiretoria.length }}
-                  </span>
-                </RouterLink>
-              </li>
-
-              <li>
-                <RouterLink
-                  to="/auditoria"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/auditoria') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/auditoria') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-history mr-2" aria-hidden="true"></i>
-                    Trilha de Auditoria
-                  </span>
-                  <span
-                    class="badge"
-                    style="background-color: #e5e7eb; color: #333; font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 10px;"
-                  >
-                    {{ riscosStore.trilhaAuditoriaGlobal.length }}
-                  </span>
-                </RouterLink>
-              </li>
-
-              <li>
-                <RouterLink
-                  to="/importar-skill"
-                  class="menu-item d-flex justify-content-between align-items-center px-2 py-2 rounded text-decoration-none text-down-01 font-weight-semi-bold"
-                  :style="{
-                    backgroundColor: isRotaAtiva('/importar-skill') ? '#1351b4' : 'transparent',
-                    color: isRotaAtiva('/importar-skill') ? '#ffffff' : '#071d41',
-                  }"
-                >
-                  <span>
-                    <i class="fas fa-file-import mr-2" aria-hidden="true"></i>
-                    Passo 0: Importador Skill CGOV
-                  </span>
-                </RouterLink>
-              </li>
-            </ul>
-          </div>
-        </nav>
-
-        <!-- Rodapé do Menu (.menu-footer) -->
-        <div
-          class="menu-footer px-3 py-2 text-down-02"
-          style="background-color: #f8fafc; border-top: 1px solid #e5e7eb; color: #555;"
-        >
-          <div class="font-weight-bold" style="color: #071d41;">
-            Regras Invioláveis Ativas:
-          </div>
-          <div>• Quadro 7: Matriz Assimétrica 5×5</div>
-          <div>• Quadro 8: Sem arredondamento prévio</div>
-          <div>• Quadro 6: Trava de Evidência (0,9)</div>
-        </div>
-      </div>
+              {{ item.contador }}
+              <span class="radar-so-leitor">{{ item.descricaoContador }}</span>
+            </span>
+          </RouterLink>
+        </li>
+      </ul>
     </div>
-  </aside>
+
+    <!-- Recolher/expandir (só no computador) -->
+    <button
+      type="button"
+      class="menu-trilho__recolher"
+      :aria-label="recolhido ? 'Expandir menu' : 'Recolher menu'"
+      :aria-expanded="!recolhido"
+      @click="emit('alternar-recolhido')"
+    >
+      <i class="fa-solid" :class="recolhido ? 'fa-angles-right' : 'fa-angles-left'" aria-hidden="true"></i>
+      <span class="menu-trilho__texto">Recolher menu</span>
+    </button>
+  </nav>
 </template>
+
+<style scoped>
+.menu-trilho {
+  position: sticky;
+  top: var(--altura-cabecalho);
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  width: var(--largura-menu);
+  height: calc(100vh - var(--altura-cabecalho));
+  padding: var(--esp-4) var(--esp-3);
+  overflow-y: auto;
+  background: var(--superficie);
+  border-right: 1px solid var(--borda);
+  transition: width var(--duracao-media) var(--curva-padrao);
+}
+
+.menu-trilho ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Botão "Novo risco" */
+.menu-trilho__novo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: 3rem;
+  margin-bottom: var(--esp-2);
+  padding: 0 var(--esp-4);
+  border-radius: var(--raio-lg);
+  background: var(--cor-primaria);
+  color: var(--cor-sobre-primaria);
+  font-weight: var(--peso-semi);
+  text-decoration: none;
+  box-shadow: var(--elevacao-1);
+}
+
+.menu-trilho__novo:hover {
+  background: var(--cor-primaria-hover);
+  color: var(--cor-sobre-primaria);
+}
+
+.menu-trilho__titulo-grupo {
+  margin: var(--esp-3) 0 var(--esp-1);
+  padding: 0 var(--esp-3);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semi);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-secundario);
+}
+
+.menu-trilho__item {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: var(--alvo-minimo); /* corrige o achado A4: antes eram 16 px */
+  padding: 0 var(--esp-3);
+  border-radius: var(--raio-pilula);
+  color: var(--texto);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-medio);
+  text-decoration: none;
+}
+
+.menu-trilho__item:hover {
+  background: var(--superficie-alta);
+}
+
+/* Item ativo: "indicador" em pílula, como no M3. */
+.menu-trilho__item--ativo {
+  background: var(--cor-primaria-suave);
+  color: var(--cor-sobre-primaria-suave);
+  font-weight: var(--peso-semi);
+}
+
+:root[data-theme='contraste'] .menu-trilho__item--ativo {
+  outline: 2px solid var(--cor-primaria);
+}
+
+.menu-trilho__icone {
+  flex: none;
+  width: 1.25rem;
+  text-align: center;
+}
+
+.menu-trilho__texto {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-trilho__contador {
+  min-width: 1.5rem;
+  padding: 0 var(--esp-2);
+  border-radius: var(--raio-pilula);
+  background: var(--superficie-alta);
+  color: var(--texto);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-forte);
+  text-align: center;
+}
+
+.menu-trilho__contador--perigo {
+  background: var(--cor-perigo-suave);
+  color: var(--cor-perigo);
+}
+
+.menu-trilho__contador--aviso {
+  background: var(--cor-aviso-suave);
+  color: var(--cor-aviso);
+}
+
+.menu-trilho__recolher {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-height: var(--alvo-minimo);
+  margin-top: auto;
+  padding: 0 var(--esp-3);
+  border: 0;
+  border-radius: var(--raio-pilula);
+  background: transparent;
+  color: var(--texto-secundario);
+  font: inherit;
+  font-size: var(--texto-sm);
+  cursor: pointer;
+}
+
+.menu-trilho__recolher:hover {
+  background: var(--superficie-alta);
+}
+
+/* ---- Modo recolhido (só ícones) ---- */
+.menu-trilho--recolhido {
+  width: var(--largura-menu-recolhido);
+  padding-inline: var(--esp-2);
+}
+
+.menu-trilho--recolhido .menu-trilho__texto,
+.menu-trilho--recolhido .menu-trilho__titulo-grupo {
+  /* Some da tela, mas continua sendo lido pelo leitor de tela. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.menu-trilho--recolhido .menu-trilho__novo,
+.menu-trilho--recolhido .menu-trilho__item,
+.menu-trilho--recolhido .menu-trilho__recolher {
+  justify-content: center;
+  padding: 0;
+  position: relative;
+}
+
+.menu-trilho--recolhido .menu-trilho__contador {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  min-width: 1.1rem;
+  padding: 0 4px;
+  font-size: 0.65rem;
+}
+
+/* ---- Celular e tablet: gaveta fora da tela até ser aberta ---- */
+.menu-veu {
+  display: none;
+}
+
+@media (max-width: 991.98px) {
+  .menu-trilho,
+  .menu-trilho--recolhido {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    width: min(85vw, var(--largura-menu));
+    height: 100vh;
+    padding: var(--esp-4) var(--esp-3);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform var(--duracao-media) var(--curva-padrao),
+      visibility var(--duracao-media);
+    box-shadow: var(--elevacao-3);
+  }
+
+  .menu-trilho--aberto {
+    transform: none;
+    visibility: visible;
+  }
+
+  /* No celular o modo "recolhido" não se aplica: os textos sempre aparecem. */
+  .menu-trilho--recolhido .menu-trilho__texto,
+  .menu-trilho--recolhido .menu-trilho__titulo-grupo {
+    position: static;
+    width: auto;
+    height: auto;
+    clip: auto;
+  }
+  .menu-trilho--recolhido .menu-trilho__item,
+  .menu-trilho--recolhido .menu-trilho__novo {
+    justify-content: flex-start;
+    padding: 0 var(--esp-3);
+  }
+
+  .menu-trilho__recolher {
+    display: none;
+  }
+
+  .menu-veu {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: var(--veu-modal);
+  }
+}
+</style>

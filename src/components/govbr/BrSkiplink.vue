@@ -22,7 +22,7 @@
       Ir para o conteúdo <span aria-hidden="true">(1/4)</span>
       <span aria-hidden="true" class="br-tag text ml-1">1</span>
     </a>
-    <a class="br-item" href="#header-navigation" accesskey="2">
+    <a class="br-item" href="#main-navigation" accesskey="2">
       Ir para o menu <span aria-hidden="true">(2/4)</span>
       <span aria-hidden="true" class="br-tag text ml-1">2</span>
     </a>

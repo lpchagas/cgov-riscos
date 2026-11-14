@@ -1,0 +1,156 @@
+/**
+ * ============================================================================
+ * ESTILOS DE BASE DO RADAR (`src/styles/base.css`)
+ * ============================================================================
+ *
+ * EXPLICAÇÃO DIDÁTICA:
+ * Aqui ficam as regras que valem para a página inteira: fonte, cores do corpo,
+ * foco por teclado e alguns utilitários de LAYOUT reaproveitáveis.
+ *
+ * Usamos o seletor `:where(...)` em vários lugares. Ele tem "especificidade
+ * zero": aplica um estilo padrão, mas qualquer componente consegue sobrescrevê-lo
+ * sem precisar de `!important`.
+ */
+
+html {
+  font-size: 100%; /* respeita o tamanho de fonte escolhido pelo usuário no navegador */
+}
+
+body {
+  margin: 0;
+  font-family: var(--fonte-familia);
+  font-size: var(--texto-md);
+  line-height: var(--altura-linha);
+  color: var(--texto);
+  background-color: var(--superficie-fundo);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Títulos: o gov.br DS deixa h1–h6 em CAIXA ALTA; nós voltamos ao normal
+   porque texto todo em maiúsculas é mais difícil de ler. */
+:where(h1, h2, h3, h4, h5, h6) {
+  color: var(--texto);
+  text-transform: none;
+  line-height: var(--altura-linha-titulo);
+  margin: 0;
+}
+
+:where(a) {
+  color: var(--texto-link);
+}
+
+/* ---------------------------------------------------------------------------
+ * FOCO POR TECLADO (WCAG 2.4.7)
+ * `:focus-visible` só aparece quando o usuário navega pelo teclado, não no clique.
+ * ------------------------------------------------------------------------- */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid transparent; /* mantém um contorno no modo de cores forçadas do Windows */
+  box-shadow: var(--anel-foco);
+}
+
+/* ---------------------------------------------------------------------------
+ * CAMPOS DE FORMULÁRIO (padrão para qualquer input/select/textarea "solto")
+ * ------------------------------------------------------------------------- */
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']), select, textarea) {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: var(--alvo-minimo);
+  padding: var(--esp-2) var(--esp-3);
+  font: inherit;
+  font-size: var(--texto-md);
+  color: var(--texto);
+  background-color: var(--superficie);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-md);
+  transition: border-color var(--duracao-rapida) var(--curva-padrao);
+}
+
+/* Texto de exemplo (placeholder) legível em todos os temas, sem itálico. */
+::placeholder {
+  color: var(--texto-secundario);
+  font-style: normal;
+  opacity: 1;
+}
+
+:where(textarea) {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+:where(input, select, textarea):hover:not(:disabled) {
+  border-color: var(--cor-primaria);
+}
+
+:where(input, select, textarea):disabled {
+  color: var(--texto-desabilitado);
+  background-color: var(--superficie-container);
+  cursor: not-allowed;
+}
+
+:where(input[type='checkbox'], input[type='radio']) {
+  width: 1.125rem;
+  height: 1.125rem;
+  accent-color: var(--cor-primaria);
+}
+
+/* ---------------------------------------------------------------------------
+ * UTILITÁRIOS DE LAYOUT DO RADAR (prefixo `radar-`)
+ * ------------------------------------------------------------------------- */
+
+/* Pilha vertical com espaço uniforme entre os filhos. */
+.radar-pilha {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+/* "Cacho": itens lado a lado que quebram linha quando falta espaço. */
+.radar-cacho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+/* Grades responsivas. `min(100%, X)` evita a rolagem horizontal em telas
+   estreitas (correção do achado A5 do diagnóstico — WCAG 1.4.10). */
+.radar-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: var(--esp-4);
+}
+
+.radar-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--esp-4);
+}
+
+/* Itens de grade têm `min-width: auto` por padrão: uma tabela larga dentro
+   deles ESTICA a coluna inteira e empurra a página para os lados. Com
+   `min-width: 0`, a tabela passa a rolar dentro da própria caixa. */
+.radar-grid-2 > *,
+.radar-grid-4 > * {
+  min-width: 0;
+}
+
+/* Texto visível apenas para leitores de tela. */
+.radar-so-leitor {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.radar-texto-secundario {
+  color: var(--texto-secundario);
+}
+
+.radar-numero {
+  font-variant-numeric: tabular-nums; /* números alinhados em colunas */
+}

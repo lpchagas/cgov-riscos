@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
-> **Última atualização:** 2026-11-09  
-> **Fase atual:** Template Base Oficial `@govbr-ds/core` + 8 Páginas Especializadas Concluídos e Testados
+> **Última atualização:** 2026-11-14  
+> **Fase atual:** Reformulação da UI — Fases 0 (diagnóstico) e 1 (fundação) concluídas; próxima: Fase 2 (piloto do Painel). Branch `feat/reformulacao-ui`.
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -25,3 +25,19 @@
     3. `FichaDetalheBowTieView.vue` (`/riscos/:id`) — Diagrama Visual Bow Tie (5 colunas) e dossiê executivo.
     4. `MonitoramentoKriPlanoAcaoView.vue` (`/monitoramento-kris`) — Sala de Situação de KRIs e Planos 5W2H.
     5. `TrilhaAuditoriaGovernancaView.vue` (`/auditoria`) — Trilha cronológica de auditoria das 3 Linhas.
+
+## Reformulação da Interface (iniciada em 2026-11-14)
+Plano: [[2026-11-14-reformulacao-ui-radar-plan]] · Diagnóstico: [[diagnostico-ui-2026-11]] · Referência: [[design-system]]
+
+- [x] **Fase 0 — Diagnóstico:** crítica heurística, auditoria WCAG 2.2 AA (axe-core: 171 ocorrências) e glossário de microcopy. Causa nº 1: 26 classes do Bootstrap inexistentes no gov.br DS.
+- [x] **Fase 1 — Fundação:**
+  - Tokens em 3 camadas (`src/styles/tokens.css`): claro, alto contraste e escuro (escuro ainda bloqueado).
+  - App shell novo: cabeçalho de 64 px, navigation rail recolhível/gaveta no celular, trilha só com páginas reais, `<h1>` automático por rota.
+  - 12 componentes em `src/components/ui/` (PageHeader, StatCard, DataTable, SideSheet, Dialog, Toast, FormField, SegmentedControl, Chip, RiskBadge, EmptyState, Skeleton).
+  - Nova página **Riscos** (`/riscos`) com filtros na URL e painel lateral; rotas curtas com redirecionamento das antigas.
+  - Camada temporária `compat-legado.css` (apagar no fim da Fase 3) + testes de higiene de CSS.
+  - Resultado: violações axe 171 → 87; rolagem lateral 9 → 0 páginas; `<h1>` 0 → 10 páginas.
+- [ ] **Fase 2 — Piloto do Painel** (mockup para aprovação antes do código).
+- [ ] **Fase 3 — Migração das demais páginas** (uma por commit; liberar tema escuro e apagar `compat-legado.css` ao final).
+- [ ] **Fase 4 — Polimento** (meta: 0 violações axe; Painel no celular < 3.500 px).
+

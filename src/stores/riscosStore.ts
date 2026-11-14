@@ -45,6 +45,7 @@ import {
   gerarSintaxePadraoRisco,
 } from '../utils/calculadoraRiscoRadar';
 import { importarTabelaMarkdownSkill } from '../utils/importadorSkillMarkdown';
+import { riscoCorrespondeAoTermo } from '../utils/filtrosRiscos';
 import { useAuthStore } from './authStore';
 
 export const useRiscosStore = defineStore('riscos', () => {
@@ -87,15 +88,8 @@ export const useRiscosStore = defineStore('riscos', () => {
       ) {
         return false;
       }
-      if (!termo) return true;
-      return (
-        r.codigoRadar.toLowerCase().includes(termo) ||
-        (r.nomeObjetoCache || '').toLowerCase().includes(termo) ||
-        r.categoriaNome.toLowerCase().includes(termo) ||
-        r.descricaoPadrao.toLowerCase().includes(termo) ||
-        r.responsavelRiscoNome.toLowerCase().includes(termo) ||
-        r.kris.some((k) => k.nomeIndicador.toLowerCase().includes(termo))
-      );
+      // A regra de busca fica em `utils/filtrosRiscos.ts`, compartilhada com a página /riscos.
+      return riscoCorrespondeAoTermo(r, termo);
     });
   });
 

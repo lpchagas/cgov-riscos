@@ -1,0 +1,124 @@
+/**
+ * ============================================================================
+ * CAMADA DE COMPATIBILIDADE TEMPORÁRIA (`src/styles/compat-legado.css`)
+ * ============================================================================
+ *
+ * EXPLICAÇÃO DIDÁTICA — POR QUE ESTE ARQUIVO EXISTE?
+ * O diagnóstico da Fase 0 (`docs/04-ux/diagnostico-ui-2026-11.md`) mostrou que
+ * as views usavam 26 classes do BOOTSTRAP (ex.: `font-weight-bold`, `w-100`,
+ * `gap-2`) que NÃO existem no gov.br DS. O navegador ignorava essas classes, e
+ * por isso os campos ficavam estreitos, sem borda, e as tabelas estouravam a tela.
+ *
+ * Em vez de editar as 9 views agora (elas serão reescritas na Fase 3), damos a
+ * essas classes um significado REAL, usando os nossos tokens. Resultado: todas
+ * as páginas melhoram imediatamente, sem risco de quebrar regras de negócio.
+ *
+ * ⚠️ DÍVIDA TÉCNICA CONTROLADA: este arquivo deve ser APAGADO ao final da
+ * Fase 3. O teste `tests/unit/classesCss.spec.ts` garante que nenhuma classe
+ * "fantasma" nova apareça enquanto isso.
+ */
+
+/* ---- Tipografia ---- */
+.font-weight-bold { font-weight: var(--peso-forte); }
+.font-weight-semi-bold { font-weight: var(--peso-semi); }
+.text-muted { color: var(--texto-secundario) !important; }
+.text-white { color: var(--texto-inverso) !important; }
+.text-decoration-none { text-decoration: none !important; }
+
+/* ---- Espaçamento entre itens flexíveis ---- */
+.gap-1 { gap: var(--esp-1); }
+.gap-2 { gap: var(--esp-2); }
+.gap-3 { gap: var(--esp-4); }
+.space-y-3 > * + * { margin-top: var(--esp-4); }
+
+/* ---- Caixas e bordas ---- */
+.w-100 { width: 100% !important; }
+.h-auto { height: auto !important; }
+.bg-white { background-color: var(--superficie) !important; }
+.border { border: 1px solid var(--borda-forte) !important; }
+.rounded { border-radius: var(--raio-md) !important; }
+.rounded-circle { border-radius: 50% !important; }
+.rounded-pill { border-radius: var(--raio-pilula) !important; }
+.position-static { position: static !important; }
+.align-top { vertical-align: top !important; }
+.list-unstyled { list-style: none; padding-left: 0; }
+
+.badge {
+  display: inline-block;
+  padding: 0.15em 0.5em;
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semi);
+  line-height: 1.4;
+  border-radius: var(--raio-sm);
+  white-space: nowrap;
+}
+
+/* Texto só para leitor de tela (mesmo comportamento do Bootstrap). */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ---- Tabelas: rolagem PRÓPRIA em vez de empurrar a página para os lados ---- */
+.table-responsive {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--texto-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--esp-2) var(--esp-3);
+  border-bottom: 1px solid var(--borda);
+  text-align: left;
+}
+
+.table-sm th,
+.table-sm td {
+  padding: var(--esp-1) var(--esp-2);
+}
+
+.table-bordered th,
+.table-bordered td {
+  border: 1px solid var(--borda);
+}
+
+/* ---- Celular: linhas de botões/etiquetas das views antigas quebram linha ----
+ * (sem isto, uma fileira de botões empurrava a página para os lados) */
+@media (max-width: 767.98px) {
+  #main-content .d-flex {
+    flex-wrap: wrap;
+  }
+  #main-content .d-flex > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* ---- Alto contraste para o conteúdo legado ----
+ * As views antigas têm cores fixas no atributo `style`. Enquanto não forem
+ * migradas, forçamos o padrão gov.br de alto contraste dentro do conteúdo.
+ * (Só aqui o `!important` é necessário: é a única forma de vencer `style=`.) */
+:root[data-theme='contraste'] #main-content * {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: #ffffff !important;
+}
+
+:root[data-theme='contraste'] #main-content :is(a, a *, h1, h2, h3, h4, strong) {
+  color: #ffff00 !important;
+}

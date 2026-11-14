@@ -207,7 +207,7 @@ function salvarObjeto() {
           </div>
 
           <RouterLink
-            to="/novo-risco"
+            :to="{ name: 'novo-risco' }"
             class="px-3 py-1 rounded-pill text-decoration-none font-weight-bold text-down-01"
             style="background-color: #dbe8fb; color: #1351b4;"
           >

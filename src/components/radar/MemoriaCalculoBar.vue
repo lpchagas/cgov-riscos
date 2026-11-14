@@ -77,18 +77,19 @@ defineProps<{
       <span
         class="px-2 py-1 rounded font-weight-bold"
         :style="{
+          // Tokens de `tokens.css` (contraste ≥ 6,5:1). Antes: #e52207 sobre #fde0db = 3,69:1.
           backgroundColor:
             statusCritico === 'sim'
-              ? '#fde0db'
+              ? 'var(--cor-perigo-suave)'
               : statusCritico === 'pendente_dar'
-              ? '#fff5c2'
-              : '#e3f5e1',
+              ? 'var(--cor-aviso-suave)'
+              : 'var(--cor-sucesso-suave)',
           color:
             statusCritico === 'sim'
-              ? '#e52207'
+              ? 'var(--cor-perigo)'
               : statusCritico === 'pendente_dar'
-              ? '#8a6d00'
-              : '#168821',
+              ? 'var(--cor-aviso)'
+              : 'var(--cor-sucesso)',
         }"
       >
         <template v-if="statusCritico === 'sim'">

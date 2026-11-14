@@ -1,109 +1,169 @@
 /**
  * ============================================================================
- * ROTEADOR VUE ROUTER (`src/router/index.ts`) — TEMPLATE BASE GOV.BR DS
+ * ROTEADOR VUE ROUTER (`src/router/index.ts`) — NOVA ARQUITETURA DE INFORMAÇÃO
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Define todas as rotas do Sistema RADAR com metadados (`meta.titulo` e
- * `meta.categoriaBreadcrumb`) consumidos automaticamente pelo componente
- * `BrBreadcrumb.vue` no topo de `#main-content`.
+ * Cada rota liga um ENDEREÇO (ex.: `/riscos`) a uma TELA (componente `.vue`).
+ * Os metadados (`meta`) alimentam automaticamente:
+ *   - o cabeçalho da página (`PageHeader`: título h1, descrição e fundamento);
+ *   - a trilha de navegação (`BrBreadcrumb`);
+ *   - o título da aba do navegador.
+ *
+ * MUDANÇAS DA FASE 1 DA REFORMULAÇÃO:
+ *   - Endereços curtos e legíveis (`/aprovacoes` em vez de `/validacao-um-clique`).
+ *   - Nova página `/riscos` (lista), que antes não existia.
+ *   - Os NOMES das rotas (`name`) foram mantidos, para não quebrar links internos.
+ *   - Os endereços antigos REDIRECIONAM para os novos (favoritos continuam valendo).
+ *
+ * As telas são carregadas "sob demanda" (`() => import(...)`): o navegador só
+ * baixa o código de uma página quando o usuário a visita pela primeira vez.
  */
 import { createRouter, createWebHistory } from 'vue-router';
-import PainelConsolidadoCgovView from '../views/PainelConsolidadoCgovView.vue';
-import DeclaracaoApetiteDarView from '../views/DeclaracaoApetiteDarView.vue';
-import CatalogoObjetosView from '../views/CatalogoObjetosView.vue';
-import FormularioRiscoView from '../views/FormularioRiscoView.vue';
-import FichaDetalheBowTieView from '../views/FichaDetalheBowTieView.vue';
-import MonitoramentoKriPlanoAcaoView from '../views/MonitoramentoKriPlanoAcaoView.vue';
-import CaixaValidacaoUmCliqueView from '../views/CaixaValidacaoUmCliqueView.vue';
-import TrilhaAuditoriaGovernancaView from '../views/TrilhaAuditoriaGovernancaView.vue';
-import ImportadorSkillView from '../views/ImportadorSkillView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
+  // Ao trocar de página, volta ao topo (ou à posição salva, no "voltar").
+  scrollBehavior: (_para, _de, posicaoSalva) => posicaoSalva ?? { top: 0 },
   routes: [
+    // ----------------------------------------------------------------------
+    // VISÃO GERAL
+    // ----------------------------------------------------------------------
     {
       path: '/',
       name: 'painel-cgov',
-      component: PainelConsolidadoCgovView,
+      component: () => import('../views/PainelConsolidadoCgovView.vue'),
       meta: {
-        categoriaBreadcrumb: '1. Governança & Estratégia (2ª Linha)',
-        titulo: 'Painel Consolidado do Plano de Gestão de Riscos',
+        titulo: 'Painel',
+        descricao: 'Situação geral do Plano de Gestão de Riscos do ICMBio.',
+        fundamento: 'Política de Gestão de Riscos — RADAR (Minuta SEI 024241420).',
       },
     },
     {
-      path: '/dar-apetite',
+      path: '/dar',
       name: 'dar-apetite',
-      component: DeclaracaoApetiteDarView,
+      component: () => import('../views/DeclaracaoApetiteDarView.vue'),
       meta: {
-        categoriaBreadcrumb: '1. Governança & Estratégia (2ª Linha)',
-        titulo: 'Declaração de Apetite a Riscos (DAR — Anexo III)',
+        titulo: 'Apetite a riscos (DAR)',
+        descricao: 'Quanto risco o ICMBio aceita em cada categoria.',
+        fundamento: 'Declaração de Apetite a Riscos — Anexo III da Metodologia (Minuta SEI 024421455).',
+      },
+    },
+
+    // ----------------------------------------------------------------------
+    // GESTÃO DE RISCOS (1ª Linha)
+    // ATENÇÃO À ORDEM: `/riscos/novo` precisa vir ANTES de `/riscos/:id`,
+    // senão o roteador entenderia "novo" como o id de um risco.
+    // ----------------------------------------------------------------------
+    {
+      path: '/riscos',
+      name: 'riscos-lista',
+      component: () => import('../views/RiscosListaView.vue'),
+      meta: {
+        titulo: 'Riscos',
+        descricao: 'Todos os riscos mapeados, com nível residual e situação no fluxo.',
+        fundamento: 'Seções 4.2 a 4.4 da Metodologia (Minuta SEI 024421455).',
+        cabecalhoProprio: true, // a view desenha o próprio PageHeader (com ações)
       },
     },
     {
-      path: '/objetos',
-      name: 'catalogo-objetos',
-      component: CatalogoObjetosView,
-      meta: {
-        categoriaBreadcrumb: '2. Ciclo Operacional (1ª Linha)',
-        titulo: 'Catálogo de Objetos de Gestão e Macroprocessos',
-      },
-    },
-    {
-      path: '/novo-risco',
+      path: '/riscos/novo',
       name: 'novo-risco',
-      component: FormularioRiscoView,
+      component: () => import('../views/FormularioRiscoView.vue'),
       meta: {
-        categoriaBreadcrumb: '2. Ciclo Operacional (1ª Linha)',
-        titulo: 'Assistente Guiado de Cadastro de Risco (Bow Tie)',
+        titulo: 'Novo risco',
+        descricao: 'Cadastre um risco em 4 etapas: contexto, categoria, análise e tratamento.',
+        fundamento: 'Seções 4.1 a 4.5 da Metodologia; Quadros 2 a 8 (Minuta SEI 024421455).',
+        migalhaPai: { rotulo: 'Riscos', nome: 'riscos-lista' },
       },
     },
     {
       path: '/riscos/:id',
       name: 'ficha-bowtie-detalhe',
-      component: FichaDetalheBowTieView,
+      component: () => import('../views/FichaDetalheBowTieView.vue'),
       meta: {
-        categoriaBreadcrumb: '2. Ciclo Operacional (1ª Linha)',
-        titulo: 'Ficha Executiva & Diagrama Visual Bow Tie',
+        titulo: 'Ficha do risco',
+        descricao: 'Bow Tie, memória de cálculo e histórico de tramitação.',
+        fundamento: 'Sintaxe padronizada da Seção 4.2.1 e Quadros 6, 7 e 8 da Metodologia.',
+        migalhaPai: { rotulo: 'Riscos', nome: 'riscos-lista' },
       },
     },
     {
-      path: '/monitoramento-kris',
+      path: '/objetos',
+      name: 'catalogo-objetos',
+      component: () => import('../views/CatalogoObjetosView.vue'),
+      meta: {
+        titulo: 'Objetos de gestão',
+        descricao: 'Processos, projetos e unidades cujos riscos são gerenciados.',
+        fundamento: 'Seção 4.1 e Quadro 1 da Metodologia (Estabelecimento do Contexto).',
+      },
+    },
+    {
+      path: '/monitoramento',
       name: 'monitoramento-kris',
-      component: MonitoramentoKriPlanoAcaoView,
+      component: () => import('../views/MonitoramentoKriPlanoAcaoView.vue'),
       meta: {
-        categoriaBreadcrumb: '2. Ciclo Operacional (1ª Linha)',
-        titulo: 'Sala de Situação de KRIs e Planos 5W2H',
+        titulo: 'Monitoramento',
+        descricao: 'Indicadores-chave de risco (KRIs) e andamento dos planos de ação.',
+        fundamento: 'Seções 4.5 e 4.6 da Metodologia (Minuta SEI 024421455).',
       },
     },
+
+    // ----------------------------------------------------------------------
+    // DELIBERAÇÃO (2º e 3º degraus)
+    // ----------------------------------------------------------------------
     {
-      path: '/validacao-um-clique',
+      path: '/aprovacoes',
       name: 'validacao-um-clique',
-      component: CaixaValidacaoUmCliqueView,
+      component: () => import('../views/CaixaValidacaoUmCliqueView.vue'),
       meta: {
-        categoriaBreadcrumb: '3. Deliberação (2º e 3º Degraus)',
-        titulo: 'Caixa de Validação e Homologação em 1 Clique',
+        titulo: 'Aprovações',
+        descricao: 'Riscos aguardando validação da Coordenação-Geral ou homologação da Diretoria.',
+        fundamento: 'Fluxo de governança em 3 degraus da Política RADAR (Minuta SEI 024241420).',
       },
     },
     {
       path: '/auditoria',
       name: 'trilha-auditoria',
-      component: TrilhaAuditoriaGovernancaView,
+      component: () => import('../views/TrilhaAuditoriaGovernancaView.vue'),
       meta: {
-        categoriaBreadcrumb: '3. Deliberação (2º e 3º Degraus)',
-        titulo: 'Trilha de Auditoria e Rastreabilidade SEI',
+        titulo: 'Auditoria',
+        descricao: 'Histórico de envios, validações, devoluções e mudanças de nota.',
       },
     },
+
+    // ----------------------------------------------------------------------
+    // FERRAMENTAS
+    // ----------------------------------------------------------------------
     {
-      path: '/importar-skill',
+      path: '/importar',
       name: 'importar-skill',
-      component: ImportadorSkillView,
+      component: () => import('../views/ImportadorSkillView.vue'),
       meta: {
-        categoriaBreadcrumb: '3. Deliberação (2º e 3º Degraus)',
-        titulo: 'Passo 0: Importador de Tabelas da Skill CGOV',
+        titulo: 'Importar riscos',
+        descricao: 'Traga a tabela de riscos gerada pela skill da CGOV.',
+        fundamento: 'Skill cgov-gestao-riscos-v4 (análise preliminar pela CGOV).',
       },
     },
+
+    // ----------------------------------------------------------------------
+    // ENDEREÇOS ANTIGOS → NOVOS (favoritos e links salvos continuam funcionando)
+    // ----------------------------------------------------------------------
+    { path: '/dar-apetite', redirect: { name: 'dar-apetite' } },
+    { path: '/novo-risco', redirect: { name: 'novo-risco' } },
+    { path: '/monitoramento-kris', redirect: { name: 'monitoramento-kris' } },
+    { path: '/validacao-um-clique', redirect: { name: 'validacao-um-clique' } },
+    { path: '/importar-skill', redirect: { name: 'importar-skill' } },
+
+    // Qualquer endereço desconhecido volta ao Painel.
+    { path: '/:caminho(.*)*', redirect: { name: 'painel-cgov' } },
   ],
+});
+
+// Atualiza o título da aba do navegador: "Riscos · RADAR | ICMBio".
+router.afterEach((para) => {
+  const titulo = para.meta.titulo;
+  document.title = titulo ? `${titulo} · RADAR | ICMBio` : 'RADAR | ICMBio';
 });
 
 export default router;
