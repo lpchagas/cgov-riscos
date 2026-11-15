@@ -84,7 +84,7 @@ describe('Higiene do CSS — proteção contra os achados do diagnóstico', () =
     // criticidade da MemoriaCalculoBar. Fase 2: 234 → 175 com o novo Painel e
     // a nova Matriz 5×5. Fase 3: 175 → 133 com a página DAR, BrButton e
     // MemoriaCalculoBar. Ao migrar uma view, DIMINUA este número.
-    const LIMITE_ATUAL = 133;
+    const LIMITE_ATUAL = 130; // Aprovações migrada
     let total = 0;
     for (const arquivo of arquivosVue) {
       const texto = readFileSync(arquivo, 'utf-8');
