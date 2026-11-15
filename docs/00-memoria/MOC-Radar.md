@@ -8,6 +8,7 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 
 ## 📜 2. Base Normativa e Regras de Cálculo (Regime B)
 - [[matriz-regras-regime-b]] — Tabelas oficiais dos Quadros 1 a 8 da Metodologia (SEI `024421455`), Política RADAR (SEI `024241420`) e Tabela de Apoio 25×5 da skill `cgov-gestao-riscos-v4`.
+- [[20171122_Decreto 9203_Política de Governança APF]] — Decreto nº 9.203/2017, norma que ancora o projeto (comitê interno de governança, alta administração e gestão de riscos, arts. 15-A a 19).
 - [[matriz-acesso-responsabilidades]] — Quem vê e quem faz o quê: árvore de unidades do Regimento Interno, matriz RACI, tabela de acesso por tela e decisões pendentes da CGOV (base do login e da RLS).
 - [[2026-11-09-cgov-riscos-radar-design]] — Documento completo de Design e Arquitetura (Versão 2.0).
 - [[2026-11-09-cgov-riscos-radar-plan]] — Plano de Implementação em 8 tarefas.

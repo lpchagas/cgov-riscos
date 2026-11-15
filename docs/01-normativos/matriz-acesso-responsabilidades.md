@@ -1,12 +1,13 @@
 ---
 tipo: referencia
 data: 2026-11-15
-status: "Proposta — aguarda validação da CGOV nos pontos da seção 9"
+status: "Vigente — decisões P1 a P8 tomadas em 2026-11-15 (seção 9)"
 fontes:
+  - "Decreto nº 9.203/2017 — Política de Governança da APF (arts. 15-A a 19)"
   - "Portaria ICMBio nº 5.592/2025 — Regimento Interno (DOU 31/12/2025)"
   - "Minuta da Política de Gestão de Riscos — RADAR (SEI 024241420)"
   - "Minuta da Metodologia de Gestão de Riscos (SEI 024421455)"
-  - "Orientações da CGOV sobre visibilidade por cargo (2026-11-15)"
+  - "Orientações e decisões da CGOV (2026-11-15)"
 relacionados: "[[matriz-regras-regime-b]] · [[modelo-dados-mer]] · [[ESTADO-ATUAL]]"
 tags: [acesso, perfis, rls, raci, regimento-interno, governanca]
 ---
@@ -24,9 +25,9 @@ tags: [acesso, perfis, rls, raci, regimento-interno, governanca]
 > sistêmica** destas regras de decisão e o projeto passará para uma nova versão.
 
 **Como ler:** as seções 1 a 4 explicam a lógica. As seções 5 a 7 são as tabelas de consulta.
-A seção 8 diz como isso vira regra técnica. A seção 9 lista o que a CGOV ainda precisa decidir.
-Onde está escrito **(proposta)**, a regra não vem de norma nem das orientações da CGOV. É uma
-sugestão deste documento e deve ser confirmada.
+A seção 8 diz como isso vira regra técnica. A seção 9 registra as decisões da CGOV que
+fundamentam as regras. Onde está escrito **(fluxo RADAR)**, a regra é uma escolha de desenho do
+sistema, aprovada pela CGOV, e não um texto de norma.
 
 ---
 
@@ -34,10 +35,11 @@ sugestão deste documento e deve ser confirmada.
 
 | Fonte | O que ela decide aqui |
 |---|---|
+| **Decreto nº 9.203/2017** ([[20171122_Decreto 9203_Política de Governança APF]]), arts. 15-A a 19 | A **alta administração** mantém o sistema de gestão de riscos da organização inteira (art. 17). Os comitês internos de governança auxiliam a alta administração (art. 15-A). A auditoria interna avalia com independência (art. 18). |
 | **Regimento Interno** (Portaria nº 5.592/2025) | Quem está abaixo de quem: a árvore de unidades (seção 3). |
 | **Política RADAR** (minuta SEI 024241420), arts. 12 a 19 | Papéis na gestão de riscos: 1ª, 2ª e 3ª linha, CGOV, CGGE, CTGRIC, Comitê Interno de Governança, AUDIT. |
 | **Metodologia** (minuta SEI 024421455), item 4.6 | Como o Plano de Gestão de Riscos é consolidado (CGOV) e aprovado (Comitê Interno de Governança). |
-| **Orientações da CGOV** (2026-11-15) | Quem enxerga o quê (seção 4). |
+| **Decisões da CGOV** (2026-11-15) | Quem enxerga o quê e quem valida e homologa (seções 4 e 9). |
 
 ---
 
@@ -45,7 +47,7 @@ sugestão deste documento e deve ser confirmada.
 
 | Conceito | Pergunta | Exemplo |
 |---|---|---|
-| **Alcance** (visibilidade) | *De quais unidades eu vejo os riscos?* | A Gerente Regional vê os riscos da GR, das CTs e das UCs vinculadas. |
+| **Alcance** (visibilidade) | *De quais unidades eu vejo os riscos?* | A Gerente Regional vê os riscos da GR, das CTs, dos NGIs e das UCs vinculadas. |
 | **Permissão de fluxo** | *O que eu posso fazer com um risco?* | Só a chefia imediata valida a ficha. Só a CGOV consolida o Plano de Gestão de Riscos. |
 
 Ver os riscos de uma unidade **não** dá o direito de editá-los. A Metodologia (item 4.6) diz que a
@@ -81,23 +83,25 @@ Presidente
 
 Abaixo de cada Coordenação-Geral ficam Coordenações, Divisões, Serviços e Setores (arts. 4º a 7º).
 
-### Achados do Regimento que afetam as regras de acesso
+### Achados do Regimento e como foram resolvidos
 
 **A1. As GRs respondem ao Presidente, não às Diretorias.**
 O art. 10, § 2º, subordina as Gerências Regionais ao Presidente. Seguindo só a hierarquia, nenhum
-Diretor ou Coordenador-Geral teria GRs, CTs ou UCs "abaixo" dele. Mas as Diretorias têm a
-incumbência de "orientar e supervisionar a execução das atividades finalísticas pelas unidades
-descentralizadas" (art. 183, II), e as CGs supervisionam macroprocessos (art. 4º). Isso conflita
-com a orientação da CGOV, que inclui CTs e GRs na visão de CGs e Diretores. É a **decisão pendente
-P1** (seção 9).
+Diretor ou Coordenador-Geral teria GRs, CTs ou UCs "abaixo" dele.
+*Resolvido (P1 e P1b):* os **Diretores**, com o Presidente, ocupam as cadeiras do Comitê Interno de
+Governança. Como alta administração (Decreto nº 9.203/2017, art. 17), eles **leem os riscos de todas
+as unidades**. Os **Coordenadores-Gerais** leem a própria árvore e, pela **visão por processo**, os
+riscos de qualquer unidade cujo processo pertença a um macroprocesso que supervisionam (Regimento,
+art. 4º; Cadeia de Valor, Anexo II).
 
 **A2. A única Diretoria com unidades descentralizadas subordinadas é a DIBIO.**
-Os 14 Centros Nacionais de Pesquisa e Conservação são supervisionados pela DIBIO
-(art. 143, XII). Pela hierarquia, o Diretor da DIBIO vê os Centros e as Bases Avançadas deles.
+Os 14 Centros Nacionais de Pesquisa e Conservação são supervisionados pela DIBIO (art. 143, XII).
+Com a decisão P1, isso não muda o alcance dos Diretores, que já leem tudo. A informação continua
+valendo para a árvore: a **unidade superior de um Centro é a DIBIO**.
 
 **A3. As CTs coordenam UCs *e* NGIs.**
-O art. 16 fala em "Núcleos de Gestão Integrada e Unidades de Conservação". A orientação da CGOV
-citou só UCs. **(proposta)** Incluir os NGIs no alcance da CT (decisão **P2**).
+O art. 16 fala em "Núcleos de Gestão Integrada e Unidades de Conservação".
+*Resolvido (P2):* a CT vê os riscos dos **NGIs e das UCs** vinculados a ela.
 
 **A4. Nem toda UC ou NGI fica abaixo de uma CT.**
 A CT atua "nos limites da sua atuação e circunscrição" (art. 16), e o art. 16, VII, prevê a CT
@@ -112,49 +116,54 @@ de NGI e de UC e os responsáveis por processos. Por isso **todo perfil tem, no 
 gestor da própria unidade**.
 
 **A6. Comitê Interno de Governança ou Comitê Gestor?**
-A Política e a Metodologia usam "Comitê Interno de Governança". O Regimento fala em "Comitê Gestor"
-(arts. 22 e 177), e o modelo de portaria da DAR (Anexo da Metodologia) diz "Comitê Gestor". O
-sistema deve usar um nome só nas telas (decisão **P7**).
+A Política, a Metodologia e o Decreto nº 9.203/2017 (art. 15-A) usam "comitê interno de
+governança". O Regimento fala em "Comitê Gestor" (arts. 22 e 177).
+*Resolvido (P7):* nas telas do RADAR o nome é **Comitê Interno de Governança**.
 
 ---
 
-## 4. Orientações da CGOV traduzidas em regra
+## 4. Regras de alcance (leitura)
 
-| Cargo | Orientação da CGOV (2026-11-15) | Regra de alcance (leitura) |
+"Subordinada" significa **descendente na árvore da seção 3**, em qualquer profundidade. Exemplo: a
+GR enxerga a UC mesmo quando existe uma CT entre as duas. A "própria unidade" inclui as
+subunidades internas dela, como Bases Avançadas, Serviços e Setores (P8).
+
+| Cargo | Regra de alcance (leitura) | Fundamento |
 |---|---|---|
-| **Gestor** (chefe de UC, NGI, Coordenação, Divisão, responsável por processo) | só vê riscos da própria unidade | `própria unidade` |
-| **Coordenador Territorial** | própria unidade + UCs subordinadas | `própria CT` + UCs (e NGIs, **P2**) cuja unidade superior é a CT |
-| **Gerente Regional** | própria unidade + CTs + UCs subordinadas | `própria GR` + todas as unidades descendentes (subunidades da GR, CTs, NGIs, UCs) |
-| **Coordenador-Geral** | própria unidade + unidades subordinadas | `própria CG` + descendentes (Coordenações, Divisões…) + **P1** |
-| **Diretor** | própria unidade + unidades subordinadas, envolvendo Centros, CTs e GRs | `própria Diretoria` + descendentes (CGs, Centros no caso da DIBIO) + **P1** |
-| **CGOV, CGGE, GABIN** | veem tudo | `todas as unidades` |
-
-**Regra geral para implementar:** "subordinada" significa **descendente na árvore da seção 3**,
-em qualquer profundidade. Exemplo: a GR enxerga a UC mesmo quando existe uma CT entre as duas.
+| **Gestor** (chefe de UC, NGI, Coordenação, Divisão, Centro; responsável por processo) | própria unidade + subunidades internas | Orientação da CGOV; P8 |
+| **Coordenador Territorial** | própria CT + NGIs e UCs vinculados à CT | Orientação da CGOV; Regimento art. 16; P2 |
+| **Gerente Regional** | própria GR + todas as descendentes (DAS-GR, SAT-GR, COAGR, CTs, NGIs, UCs) | Orientação da CGOV |
+| **Coordenador-Geral** | própria CG + descendentes **+ riscos de qualquer unidade cujo processo pertence a macroprocesso supervisionado pela CG** (visão por processo) | Regimento art. 4º; P1b |
+| **Diretor** | **todas as unidades** | Decreto nº 9.203/2017, art. 17 (alta administração); Diretores integram o Comitê Interno de Governança; P1 |
+| **Presidência** | todas as unidades | Decreto nº 9.203/2017, art. 17; P3 |
+| **AUDIT** | todas as unidades, **somente leitura** | Decreto nº 9.203/2017, art. 18; Política art. 16; P3 |
+| **CGOV, CGGE, GABIN** | todas as unidades | Orientação da CGOV |
 
 ---
 
 ## 5. Perfis do RADAR (substituem os 4 perfis simulados)
 
-Hoje o simulador tem `gestor`, `lider_cg`, `diretor` e `cgov`. O Regimento pede mais níveis.
-**(proposta)**
+Hoje o simulador tem `gestor`, `lider_cg`, `diretor` e `cgov`. A partir da etapa B, são estes:
 
 | Perfil | Quem recebe (cargo no Regimento) | Linha (Política) | Alcance de leitura | Escreve fichas de | Fluxo extra |
 |---|---|---|---|---|---|
-| `gestor` | Chefes de UC e NGI, Coordenadores, Chefes de Divisão/Serviço/Setor, Coordenadores de Centro, Chefe da ACADEBio, responsáveis por processo; Procurador-Chefe, Corregedor, Ouvidor, CGCS | 1ª | própria unidade | própria unidade | — |
-| `coordenador_territorial` | Coordenador Territorial (art. 193) | 1ª | CT + UCs/NGIs vinculados | própria CT | valida 2º degrau das UCs/NGIs da CT (**P4**) |
-| `gerente_regional` | Gerente Regional (art. 191) | 1ª | GR + todas as descendentes | própria GR | valida 2º degrau das unidades sem CT; homologa riscos críticos da GR (**P4**) |
-| `coordenador_geral` | Coordenadores-Gerais (art. 185) | 1ª | CG + descendentes + **P1** | própria CG | valida 2º degrau das Coordenações da CG |
-| `diretor` | Diretores (arts. 182–183) | 1ª | Diretoria + descendentes + **P1** | própria Diretoria | homologa riscos críticos (3º degrau) |
-| `cgov` | Servidores da CGOV (art. 37) | 2ª | tudo | própria CGOV | consolida o Plano de Gestão de Riscos, simula a DAR, importa tabelas, mantém o catálogo de objetos e administra usuários (**P6**) |
-| `cgge` | Servidores da CGGE (art. 36) | supervisão | tudo | própria CGGE | — (só leitura fora da própria unidade) |
-| `gabin` | Chefe de Gabinete e equipe (arts. 22 e 177) | apoio à alta administração | tudo | próprio GABIN | — |
-| `presidencia` **(proposta)** | Presidente e Assessoria | alta administração | tudo | Presidência | — (**P3**) |
-| `auditoria` **(proposta)** | Auditor-Chefe e AUDIT (art. 31; Política art. 16) | 3ª | tudo, **somente leitura** | própria AUDIT | — (avaliação independente, **P3**) |
+| `gestor` | Chefes de UC e NGI, Coordenadores, Chefes de Divisão/Serviço/Setor, Coordenadores de Centro, Chefe da ACADEBio, responsáveis por processo; Procurador-Chefe, Corregedor, Ouvidor, CGCS | 1ª | própria unidade + subunidades | própria unidade | — |
+| `coordenador_territorial` | Coordenador Territorial (art. 193) | 1ª | CT + NGIs e UCs vinculados | própria CT | **valida** (2º degrau) as fichas dos NGIs e UCs da CT |
+| `gerente_regional` | Gerente Regional (art. 191) | 1ª | GR + todas as descendentes | própria GR | **valida** (2º degrau) as fichas das unidades da GR sem CT; **homologa** (3º degrau) os riscos críticos de toda a GR |
+| `coordenador_geral` | Coordenadores-Gerais (art. 185) | 1ª | CG + descendentes + visão por processo | própria CG | **valida** (2º degrau) as fichas das Coordenações da CG |
+| `diretor` | Diretores (arts. 182–183) | 1ª e alta administração | todas as unidades | própria Diretoria | **homologa** (3º degrau) os riscos críticos das unidades da Sede na sua árvore |
+| `presidencia` | Presidente e Assessoria (arts. 21 e 175) | alta administração | todas as unidades | Presidência | — |
+| `auditoria` | Auditor-Chefe e AUDIT (art. 31) | 3ª | todas as unidades, somente leitura | própria AUDIT | — (avaliação independente) |
+| `cgov` | Servidores da CGOV (art. 37) | 2ª | todas as unidades | própria CGOV | consolida o Plano de Gestão de Riscos, simula a DAR, importa tabelas, mantém o catálogo de objetos, cadastra usuários e atribui perfis |
+| `cgge` | Servidores da CGGE (art. 36) | supervisão | todas as unidades | própria CGGE | — |
+| `gabin` | Chefe de Gabinete e equipe (arts. 22 e 177) | apoio à alta administração | todas as unidades | próprio GABIN | — |
 
 **Uma pessoa, uma unidade, um perfil.** Quem acumula funções (por exemplo, substituto) recebe o
 perfil do cargo de maior alcance enquanto durar a substituição. O registro da troca fica na
 trilha de auditoria.
+
+**Contas de acesso (P6):** a CGOV cadastra a pessoa no RADAR e define perfil e unidade. A CGTI
+cuida da conta institucional (login gov.br ou ICMBio) na homologação (etapa D).
 
 ---
 
@@ -162,15 +171,16 @@ trilha de auditoria.
 
 **Legenda:** **R** = executa · **A** = responde pelo resultado (aprova) · **C** = é consultado ·
 **I** = é informado. "Chefia superior" é a unidade imediatamente acima na árvore (CT, GR, CG ou
-Diretor, conforme o caso).
+Diretor, conforme o caso). "Homologador" é o **Gerente Regional** para as unidades descentralizadas
+e o **Diretor** para as unidades da Sede (P4).
 
-| # | Atividade | Fundamento | Gestor de riscos | Chefia superior | Diretor | CGOV | CGGE | CTGRIC | Comitê Int. Governança | AUDIT |
+| # | Atividade | Fundamento | Gestor de riscos | Chefia superior | Homologador (GR ou Diretor) | CGOV | CGGE | CTGRIC | Comitê Int. Governança | AUDIT |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | Identificar, analisar e avaliar riscos dos seus processos | Política art. 17, I | **R/A** | I | — | C | — | — | — | — |
 | 2 | Avaliar controles (com trava de evidência) | Metodologia, Quadro 6 | **R/A** | I | — | C | — | — | — | — |
 | 3 | Definir tratamento e ao menos 1 KRI para risco crítico | Política art. 8º, § 2º | **R/A** | I | — | C | — | — | — | — |
-| 4 | Validar a ficha de risco (2º degrau) **(proposta: fluxo RADAR)** | — | I | **R/A** | I | I | — | — | — | — |
-| 5 | Homologar risco crítico (3º degrau) **(proposta: fluxo RADAR)** | — | I | C | **R/A** (ou GR, **P4**) | I | — | — | — | — |
+| 4 | Validar a ficha de risco (2º degrau) **(fluxo RADAR)** | P4 | I | **R/A** | I | I | — | — | — | — |
+| 5 | Homologar risco crítico (3º degrau) **(fluxo RADAR)** | P4 | I | C | **R/A** | I | — | — | — | — |
 | 6 | Comunicar riscos críticos à CGOV | Política art. 17, II | **R/A** | I | I | I | — | — | — | — |
 | 7 | Registrar medições de KRI e manter a ficha atualizada | Política art. 17, V | **R/A** | I | — | I | — | — | — | — |
 | 8 | Comunicar riscos emergentes e falhas de controle | Política art. 17, IV | **R/A** | I | I | I | — | — | — | — |
@@ -184,12 +194,13 @@ Diretor, conforme o caso).
 | 16 | Avaliar a maturidade da gestão de riscos | Política art. 15, II e X | C | — | — | **R/A** | I | I (art. 13, VI) | I | C |
 | 17 | Manter o histórico dos riscos por ciclo | Política art. 15, VI | C | — | — | **R/A** | — | — | — | — |
 | 18 | Supervisionar a implementação da Política | Política art. 14, I | — | — | — | C | **R/A** | **R** | I | — |
-| 19 | Avaliação independente (consultoria e auditoria) | Política art. 16 | C | C | C | C | I | I | I | **R/A** |
+| 19 | Avaliação independente (consultoria e auditoria) | Política art. 16; Decreto art. 18 | C | C | C | C | I | I | I | **R/A** |
 | 20 | Dirimir conflitos de atuação | Política art. 19 | C | C | C | C | C | C | **R/A** | — |
 
-> **Na linha 10**, o **A** da CGGE é uma **(proposta)**. A CGGE "supervisiona e orienta" a Política
-> (art. 14, I) e é a unidade superior da CGOV no Regimento (art. 37). A norma não diz
-> expressamente quem responde pelo Plano antes do Comitê.
+> **Na linha 10**, o **A** da CGGE segue o Regimento: a CGGE é a unidade superior da CGOV (art. 37)
+> e supervisiona e orienta a Política (Política, art. 14, I). A norma não diz expressamente quem
+> responde pelo Plano antes do Comitê. Confirmar na revisão sistêmica, quando as minutas forem
+> publicadas.
 
 ---
 
@@ -203,38 +214,43 @@ Diretor, conforme o caso).
 - **A** = age no fluxo (valida, homologa ou consolida)
 - **—** = a tela não aparece no menu e a rota é bloqueada
 
-| Tela (rota) | gestor | CT | GR | CG | Diretor | CGOV | CGGE | GABIN | Presid.\* | AUDIT\* |
+Diretor, Presidência, AUDIT, CGOV, CGGE e GABIN têm alcance total (seção 4). Por isso **E+** neles
+significa "vê tudo e edita só a própria unidade".
+
+| Tela (rota) | gestor | CT | GR | CG | Diretor | Presid. | AUDIT | CGOV | CGGE | GABIN |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Entrar (login) | público | público | público | público | público | público | público | público | público | público |
-| Painel (`/`) | V | V | V | V | V | V\* | V\* | V\* | V\* | V\* |
-| Riscos — lista (`/riscos`) | E | E+ | E+ | E+ | E+ | E+ (V\*) | E+ (V\*) | E+ (V\*) | V\* | V\* |
-| Ficha do risco (`/riscos/:id`) | E | E+ | E+ | E+ | E+ | E+ (V\*) | E+ (V\*) | E+ (V\*) | V\* | V\* |
+| Painel (`/`) | V | V | V | V | V\* | V\* | V\* | V\* | V\* | V\* |
+| Riscos — lista (`/riscos`) | E | E+ | E+ | E+ | E+ | E+ | V\* | E+ | E+ | E+ |
+| Ficha do risco (`/riscos/:id`) | E | E+ | E+ | E+ | E+ | E+ | V\* | E+ | E+ | E+ |
 | Novo risco (`/riscos/novo`) | E | E | E | E | E | E | E | E | E | E |
-| Objetos de gestão (`/objetos`) | V | V | V | V | V | **E** (catálogo) | V\* | V\* | V\* | V\* |
-| Monitoramento — KRIs e Plano de ação (`/monitoramento`) | E | E+ | E+ | E+ | E+ | V\* | V\* | V\* | V\* | V\* |
-| Aprovações (`/aprovacoes`) | V (as próprias) | **A** | **A** | **A** | **A** | V\* | V\* | V\* | V\* | V\* |
-| Apetite a riscos — DAR (`/dar`) | V (vigente) | V | V | V | V | **E** (simular e propor) | V | V | V | V |
-| Auditoria — trilha (`/auditoria`) | V | V | V | V | V | V\* | V\* | V\* | V\* | V\* |
-| Importar riscos (`/importar`) | — | — | — | — | — | **E** | — | — | — | — |
-| Usuários e perfis (tela nova da etapa B) | — | — | — | — | — | **E** (**P6**) | — | — | — | — |
+| Objetos de gestão (`/objetos`) | V | V | V | V | V\* | V\* | V\* | **E** (catálogo) | V\* | V\* |
+| Monitoramento — KRIs e Plano de ação (`/monitoramento`) | E | E+ | E+ | E+ | E+ | E+ | V\* | E+ | E+ | E+ |
+| Aprovações (`/aprovacoes`) | V (as próprias) | **A** (valida) | **A** (valida e homologa) | **A** (valida) | **A** (homologa) | V\* | V\* | V\* | V\* | V\* |
+| Apetite a riscos — DAR (`/dar`) | V (vigente) | V | V | V | V | V | V | **E** (simular e propor) | V | V |
+| Auditoria — trilha (`/auditoria`) | V | V | V | V | V\* | V\* | V\* | V\* | V\* | V\* |
+| Importar riscos (`/importar`) | — | — | — | — | — | — | — | **E** | — | — |
+| Usuários e perfis (tela nova da etapa B) | — | — | — | — | — | — | — | **E** | — | — |
 | Sobre o RADAR (`/sobre`) | V | V | V | V | V | V | V | V | V | V |
 
-\* Perfis **(proposta)**, decisão **P3**.
-
-**Por que "Novo risco" é E para todos:** pela Política (art. 17, § 1º), todas essas chefias são
-gestoras de riscos dos próprios processos, inclusive a CGOV, a CGGE, o GABIN e a AUDIT.
-**Por que o Importar é só da CGOV:** é a ferramenta da 2ª linha para trazer as tabelas da skill
-`cgov-gestao-riscos-v4` (decisão **P5**, caso os gestores devam importar as próprias tabelas).
+- **"Novo risco" é E para todos** porque, pela Política (art. 17, § 1º), todas essas chefias são
+  gestoras de riscos dos próprios processos, inclusive a AUDIT para os processos dela.
+- **O Importar é só da CGOV** (P5): é a ferramenta da 2ª linha para trazer as tabelas da skill
+  `cgov-gestao-riscos-v4`. Pode ser liberado para os gestores numa versão futura.
+- **AUDIT nunca edita riscos de outras unidades**, nem age em aprovações, para preservar a
+  independência da 3ª linha (Decreto art. 18, I).
 
 ### Exemplos práticos
 
-| Pessoa | O que vê | O que edita |
+| Pessoa | O que vê | O que edita ou decide |
 |---|---|---|
-| Chefe de um PARNA vinculado à CT Y (GR 4) | só os riscos do PARNA | os riscos do PARNA |
-| Coordenador da CT Y | CT Y + o PARNA + os demais NGIs e UCs da CT Y | só os riscos da CT Y; **valida** as fichas do PARNA |
-| Gerente da GR 4 | GR 4, COAGR, CTs, NGIs e UCs da GR 4 | só os riscos da GR 4 |
-| Diretor da DIBIO | DIBIO, COTAB, CGCON, CGIMP, CGPEQ e coordenações, 14 Centros e Bases Avançadas (+ **P1**) | só os riscos da DIBIO; **homologa** riscos críticos |
-| Analista da CGOV | todas as unidades | riscos da CGOV; **consolida** o Plano de Gestão de Riscos |
+| Chefe de um PARNA vinculado à CT Y (GR 4) | o PARNA e as Bases Avançadas dele | os riscos do PARNA |
+| Coordenador da CT Y | CT Y + todos os NGIs e UCs da CT Y | os riscos da CT Y; **valida** as fichas do PARNA |
+| Gerente da GR 4 | GR 4, COAGR, CTs, NGIs e UCs da GR 4 | os riscos da GR 4; **valida** as fichas de UCs sem CT; **homologa** os riscos críticos de toda a GR 4 |
+| Coordenador-Geral da CGPRO | CGPRO, COPRO, COFIS, CIAM, CEMIF e divisões **+** riscos de qualquer UC ou GR ligados aos processos de Proteção (2.02.x da Cadeia de Valor) | os riscos da CGPRO; **valida** as fichas das Coordenações da CGPRO |
+| Diretor da DIBIO | todas as unidades | os riscos da DIBIO; **homologa** os riscos críticos das unidades da Sede na árvore da DIBIO, inclusive os 14 Centros |
+| Auditor da AUDIT | todas as unidades | só os riscos da própria AUDIT |
+| Analista da CGOV | todas as unidades | os riscos da CGOV; **consolida** o Plano de Gestão de Riscos |
 
 ---
 
@@ -246,39 +262,45 @@ projeto: consultar [[matriz-regras-regime-b]] e avisar antes.
 1. **Árvore de unidades:** a tabela `unidades` já tem `unidade_pai_id`. Falta ampliar o campo
    `tipo` com `coordenacao-territorial`, `divisao`, `servico`, `setor`, `base-avancada`,
    `orgao-assistencia` (PFE, CORR, AUDIT, OUV…) e `coordenacao-assessoramento`. A carga inicial
-   segue a seção 3.
+   segue a seção 3, só com dados de demonstração até a confirmação da CGTI.
 2. **Perfil do usuário:** a tabela `perfis_usuarios` já liga cada pessoa a uma `unidade_id`. O campo
-   `papel_governanca` passa dos 4 valores atuais para os perfis da seção 5.
-3. **Uma função de alcance, usada em todo lugar:** `unidades_visiveis(usuario)` devolve a própria
-   unidade mais as descendentes (consulta recursiva na árvore), ou todas, para `cgov`, `cgge`,
-   `gabin`, `presidencia` e `auditoria`.
-4. **RLS (a tranca de verdade):**
-   - `SELECT` em riscos, controles, KRIs e respostas: permitido se a unidade do risco está em
-     `unidades_visiveis(auth.uid())`.
-   - `INSERT` e `UPDATE`: só se a unidade do risco é a unidade do próprio usuário.
-   - Validação e homologação: só pela chefia superior e pelo perfil indicado na seção 6.
-5. **Visão por processo (se a CGOV escolher a opção B em P1):** a tabela `objetos_contexto` já tem
-   `macroprocesso_supervisor_id` (CG) e `diretoria_id`. A função de alcance passaria a incluir os
-   riscos de qualquer unidade cujo objeto aponte para a CG ou a Diretoria do usuário.
+   `papel_governanca` passa dos 4 valores atuais para os 10 perfis da seção 5.
+3. **Uma função de alcance, usada em todo lugar:** `unidades_visiveis(usuario)` devolve:
+   - **todas as unidades** para `diretor`, `presidencia`, `auditoria`, `cgov`, `cgge` e `gabin`;
+   - a própria unidade mais as descendentes (consulta recursiva na árvore) para os demais.
+4. **Visão por processo (P1b):** para `coordenador_geral`, a leitura inclui também os riscos cujo
+   objeto (`objetos_contexto`) tem `macroprocesso_supervisor_id` igual à CG do usuário.
+5. **RLS (a tranca de verdade):**
+   - `SELECT` em riscos, controles, KRIs e respostas: permitido se a unidade do risco está no
+     alcance (itens 3 e 4).
+   - `INSERT` e `UPDATE`: só se a unidade do risco é a unidade do próprio usuário. `auditoria`
+     nunca grava fora da própria unidade.
+   - Validação (2º degrau): só a chefia imediata na árvore (CT; GR quando não houver CT; CG para
+     as Coordenações).
+   - Homologação (3º degrau): Gerente Regional para unidades descendentes de uma GR; Diretor para
+     as unidades da Sede na árvore dele.
 6. **Menu e rotas:** cada rota ganha a lista de perfis permitidos (coluna "—" da seção 7). O menu
-   esconde o que a pessoa não pode abrir. Isso é conforto; a segurança está no item 4.
+   esconde o que a pessoa não pode abrir. Isso é conforto; a segurança está no item 5.
 7. **Testes obrigatórios:** um teste por linha dos "Exemplos práticos" provando que cada pessoa
    **não** consegue ler nem gravar fora do seu alcance.
 
 ---
 
-## 9. Decisões pendentes da CGOV
+## 9. Registro de decisões da CGOV
 
-| # | Pergunta | Opções | Recomendação deste documento |
+Decisões tomadas em **2026-11-15** pelo responsável pelo projeto na CGOV.
+
+| # | Pergunta | Decisão | Fundamento |
 |---|---|---|---|
-| **P1** | Diretores e CGs veem riscos das GRs, CTs e UCs? O Regimento subordina as GRs ao Presidente (art. 10, § 2º). | **A)** Só a hierarquia: a DIBIO vê os Centros; nenhuma Diretoria vê GRs. **B)** Hierarquia + visão por processo: veem os riscos de qualquer unidade quando o processo pertence ao seu macroprocesso (Cadeia de Valor, Anexo II). **C)** Diretores veem todas as GRs. | **B**, porque segue a supervisão finalística prevista no art. 183, II, e o dado já existe em `objetos_contexto`. |
-| **P2** | O Coordenador Territorial vê os NGIs, além das UCs? | Sim / Não | **Sim** (art. 16 cita os dois). |
-| **P3** | Presidência e AUDIT têm perfil próprio? | Sim, leitura total / Não, só a própria unidade | **Sim.** A AUDIT é a 3ª linha (Política art. 16) e precisa ler tudo para avaliar. Somente leitura preserva a independência. |
-| **P4** | Quem valida (2º degrau) e quem homologa riscos críticos (3º degrau) nas unidades descentralizadas? | Validação: CT, ou GR quando não houver CT. Homologação: GR ou Diretoria finalística. | Validação pela **chefia imediata** na árvore; homologação pelo **Gerente Regional**, porque as GRs respondem ao Presidente. |
-| **P5** | Gestores podem importar as próprias tabelas da skill? | Só CGOV / todos, para a própria unidade | Só CGOV no início; liberar depois. |
-| **P6** | Quem cadastra usuários e atribui perfis? | CGOV / CGTI / ambos | **CGOV** atribui perfil e unidade. A CGTI cuida da conta institucional na homologação (etapa D). |
-| **P7** | Nome do colegiado nas telas | "Comitê Interno de Governança" / "Comitê Gestor" | Seguir a Política: **Comitê Interno de Governança**. |
-| **P8** | Uma "unidade" inclui as Divisões, Serviços, Setores e Bases Avançadas dela? Exemplo: o chefe de uma UC vê os riscos da Base Avançada da UC? | Sim / Não | **Sim**: a chefia vê as subunidades internas. Quem chefia só a Divisão vê só a Divisão. |
+| **P1** | Diretores veem os riscos das GRs, CTs e UCs? | **Sim, veem todas as unidades.** | Presidente e Diretores ocupam as cadeiras do Comitê Interno de Governança; a alta administração mantém o sistema de gestão de riscos da organização inteira (Decreto nº 9.203/2017, arts. 15-A e 17). |
+| **P1b** | E os Coordenadores-Gerais? | **Própria árvore + visão por processo.** | Regimento, art. 4º (supervisão de macroprocessos) e Cadeia de Valor (Anexo II). |
+| **P2** | A CT vê os NGIs, além das UCs? | **Sim, NGIs e UCs.** | Regimento, art. 16. |
+| **P3** | Presidência e AUDIT têm perfil próprio? | **Sim, ambos leem tudo.** A AUDIT só lê. | Decreto nº 9.203/2017, arts. 17 e 18; Política, art. 16. |
+| **P4** | Quem valida e quem homologa nas unidades descentralizadas? | **Valida a chefia imediata** (CT, ou GR quando não houver CT). **Homologa o Gerente Regional.** | As GRs respondem ao Presidente (Regimento, art. 10, § 2º). |
+| **P5** | Quem usa o Importar riscos? | **Só a CGOV, por ora.** | 2ª linha confere a consistência metodológica (Metodologia 4.6). |
+| **P6** | Quem cadastra usuários e perfis? | **A CGOV atribui perfil e unidade; a CGTI cuida da conta institucional.** | Regimento, arts. 37 (CGOV) e 67 (CGTI). |
+| **P7** | Nome do colegiado nas telas | **Comitê Interno de Governança.** | Política, Metodologia e Decreto nº 9.203/2017, art. 15-A. |
+| **P8** | A unidade inclui as subunidades internas? | **Sim, a chefia vê as subunidades.** Quem chefia só a Divisão vê só a Divisão. | Regimento, arts. 9º e 20. |
 
-Quando a CGOV decidir, atualize esta tabela com a data e a resposta, retire as marcas
-**(proposta)** correspondentes e registre a decisão no [[ESTADO-ATUAL]].
+**Revisão prevista:** quando as minutas da Política e da Metodologia forem publicadas, revisar
+esta matriz inteira (seções 4 a 9) contra o texto oficial e registrar as mudanças aqui.
