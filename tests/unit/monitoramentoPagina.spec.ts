@@ -56,6 +56,20 @@ describe('Página Monitoramento', () => {
     w.unmount();
   });
 
+  it('progresso do plano: o leitor de tela ouve o mesmo texto que aparece na tela', async () => {
+    // Defeito achado pela varredura axe (aria-prohibited-attr): o texto ficava num `aria-label`
+    // de um <p>, que leitores de tela ignoram, e o texto visível estava escondido com aria-hidden.
+    const { w } = await montar('/monitoramento?aba=plano');
+    const progresso = w.find('.progresso');
+    expect(progresso.attributes('aria-label')).toBeUndefined();
+    const texto = progresso.findAll(':scope > span').at(-1)!; // o texto vem depois da barra
+    expect(texto.attributes('aria-hidden')).toBeUndefined();
+    expect(texto.text()).toMatch(/^\d+ de \d+ ações concluídas$/);
+    // A barra colorida é só decoração: continua escondida do leitor de tela.
+    expect(progresso.find('.progresso__trilho').attributes('aria-hidden')).toBe('true');
+    w.unmount();
+  });
+
   it('registrar leitura exige valor e não reabre a validação do risco aprovado', async () => {
     const store = useRiscosStore();
     const aprovado = store.riscos.find((r) => r.statusFluxo === 'aprovado' && r.kris.length)!;

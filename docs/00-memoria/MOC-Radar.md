@@ -25,3 +25,4 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[design-system]] — Tokens, componentes e resultados medidos das Fases 1 a 4.
 - [[diagnostico-ui-2026-11]] — Diagnóstico inicial (heurísticas, WCAG e microcopy).
 - [[manual-fluxo-figma-vscode]] — Como editar no Figma e levar a mudança para o código.
+- [[varredura-acessibilidade]] — `npm run test:a11y`: como rodar, ler o relatório e incluir telas na varredura axe-core.

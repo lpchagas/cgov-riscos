@@ -252,3 +252,9 @@ descer mais seria preciso **tirar cartões do Painel no celular**, por exemplo o
 **Estados de carregamento e erro:** hoje a store lê os dados de demonstração em memória, de forma
 síncrona, e nada "carrega". Os componentes `Skeleton` e `EmptyState` já existem. O `Skeleton`
 entra quando a store passar a buscar no Supabase. Os estados vazios já estão em 8 telas.
+
+**Como repetir a medição:** `npm run test:a11y` (desde 2026-11-15, dentro do repositório). Ele roda
+as mesmas 156 combinações, reprova se houver violação do axe ou rolagem lateral e mostra a altura do
+Painel em 360 px (**4.271 px**; os 4.109 px acima foram medidos em 390 px). Na primeira execução,
+o axe-core 4.10.3 encontrou uma violação que a versão anterior não acusava, no progresso do Plano
+de ação (`aria-label` em `<p>`). Ela já foi corrigida. Guia: [[varredura-acessibilidade]].

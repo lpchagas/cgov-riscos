@@ -21,3 +21,7 @@ npm-debug.log*
 
 # Pacote local da skill de gestão de riscos (não versionar)
 cgov-gestao-riscos-v4.zip
+
+# Saídas da varredura de acessibilidade (Playwright)
+playwright-report/
+test-results/

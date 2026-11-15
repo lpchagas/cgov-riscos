@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-15  
-> **Fase atual:** Reformulação da UI — Fases 0 a 4 concluídas. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px). Branch `feat/reformulacao-ui`.
+> **Fase atual:** Reformulação da UI (Fases 0 a 4) mesclada na `main`. Varredura de acessibilidade no repositório (`npm run test:a11y`) na branch `feat/varredura-a11y`. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -60,4 +60,16 @@ Plano: [[2026-11-14-reformulacao-ui-radar-plan]] · Diagnóstico: [[diagnostico-
   - Figma: BrFooter da biblioteca no formato enxuto e trocado por instâncias nas 18 Originais; Original do Painel, DAR e Objetos no celular com o modo cartão; novo par Original × Trabalho "Sobre o RADAR". As cópias de Trabalho anteriores ainda têm o rodapé antigo.
   - Aula 4 do caderno: [[04-design-tokens-e-componentes]]. 105 testes.
   - Carregamento/erro: o `Skeleton` entra quando a store passar a usar o Supabase (hoje os dados são síncronos).
+- [x] **PR #1 mesclado na `main`** (2026-11-15).
+
+## Varredura de acessibilidade no repositório (2026-11-15, branch `feat/varredura-a11y`)
+Design: [[2026-11-15-varredura-a11y-design]] · Plano: [[2026-11-15-varredura-a11y-plan]] · Guia: [[varredura-acessibilidade]]
+
+- [x] `npm run test:a11y` (Playwright Test 1.64.1 + `@axe-core/playwright` 4.10.2): sobe o servidor sozinho na porta 5199 e roda 13 telas × 4 larguras × 3 temas = 156 combinações + 4 autoverificações. **160 passaram, 0 violações**, em cerca de 3 minutos. Reprova por violação WCAG 2.2 A/AA ou rolagem lateral. Cada tela confere o título exato, o endereço final, a aba e o tema antes do axe (achado da revisão final: "qualquer `<h1>`" deixava passar redirecionamento e "Risco não encontrado").
+- [x] Playwright atualizado de 1.48.2 para **1.64.1**: a 1.48.2 tinha alerta de severidade alta (GHSA-7mvr-c777-76hp: download do navegador sem verificar o certificado). `npm audit` igual ao da `main` (13 alertas já existentes, nenhum novo). `playwright-core` fixado na mesma versão para o `@axe-core/playwright` não puxar uma segunda cópia, que quebrava o `npm run build`.
+- [x] Altura do Painel em 360 px: **4.271 px** (só informação; meta de 3.500 px aguarda a CGOV).
+- [x] Defeito encontrado e corrigido: progresso do **Plano de ação** usava `aria-label` em `<p>` (ignorado por leitores de tela). O axe-core 4.10.3 acusa o caso; o script antigo (4.10.2) não acusava.
+- [x] Vitest restrito a `tests/unit/`. **107 testes**.
+- Só local, sem GitHub Actions. Quem vai manter: equipe técnica da CGOV.
+- **Próximas opções:** B (Supabase de verdade), C (Painel no celular, decisão da CGOV), D (homologação na CGTI).
 
