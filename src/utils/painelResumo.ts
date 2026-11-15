@@ -127,15 +127,15 @@ export const DIAS_AVISO_PRAZO = 45;
 
 const UM_DIA_MS = 24 * 60 * 60 * 1000;
 
-/** Diferença em dias inteiros entre duas datas (só a parte AAAA-MM-DD conta). */
-function diasAte(dataIso: string, hoje: Date): number {
+/** Diferença em dias inteiros entre duas datas (só a parte AAAA-MM-DD conta). Ex.: hoje 14/11, prazo 15/12 → 31. */
+export function diasAte(dataIso: string, hoje: Date): number {
   const alvo = Date.UTC(+dataIso.slice(0, 4), +dataIso.slice(5, 7) - 1, +dataIso.slice(8, 10));
   const base = Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
   return Math.round((alvo - base) / UM_DIA_MS);
 }
 
 /** "2026-12-15" → "15/12/2026" (sem passar por fuso horário). */
-function dataCurta(dataIso: string): string {
+export function dataCurta(dataIso: string): string {
   const [a, m, d] = dataIso.slice(0, 10).split('-');
   return `${d}/${m}/${a}`;
 }
@@ -249,7 +249,7 @@ export function itensDeAtencao(riscos: FichaRisco[], papel: PapelGovernanca, hoj
           acao.statusExecucao === 'nao_iniciada' ? ' · não iniciada' : ''
         }`,
         acao: papel === 'gestor' ? 'Atualizar andamento' : 'Ver plano de ação',
-        destino: { name: 'monitoramento-kris' },
+        destino: { name: 'monitoramento-kris', query: { aba: 'plano' } },
         dias,
       });
     }
