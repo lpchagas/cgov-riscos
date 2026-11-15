@@ -25,7 +25,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
-import { usePreferenciasInterface } from '../../composables/usePreferenciasInterface';
+import { usePreferenciasInterface, TEMAS_DISPONIVEIS, ROTULOS_TEMA } from '../../composables/usePreferenciasInterface';
 import { isSupabaseConfigurado } from '../../services/supabase';
 import type { PapelGovernanca } from '../../types/radar.types';
 
@@ -35,7 +35,7 @@ const emit = defineEmits<{ (e: 'alternar-menu'): void }>();
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
-const { tema, alternarAltoContraste } = usePreferenciasInterface();
+const { tema, alternarAltoContraste, escolherTema } = usePreferenciasInterface();
 
 // ---------------------------------------------------------------------------
 // LINKS DA FAIXA GOV.BR (padrão de todos os sites do Governo Federal)
@@ -237,6 +237,15 @@ onBeforeUnmount(() => {
               </label>
             </fieldset>
 
+            <!-- Aparência: claro, escuro (liberado na Fase 3) ou alto contraste -->
+            <fieldset class="barra__perfis">
+              <legend>Aparência</legend>
+              <label v-for="t in TEMAS_DISPONIVEIS" :key="t" class="barra__perfil">
+                <input type="radio" name="tema-interface" :value="t" :checked="tema === t" @change="escolherTema(t)" />
+                <span><span class="barra__perfil-rotulo">{{ ROTULOS_TEMA[t] }}</span></span>
+              </label>
+            </fieldset>
+
             <p class="barra__fonte-dados">
               <i class="fa-solid fa-database" aria-hidden="true"></i>
               {{ isSupabaseConfigurado ? 'Dados: Supabase (PostgreSQL)' : 'Dados de demonstração (Anexo II)' }}
@@ -383,7 +392,7 @@ onBeforeUnmount(() => {
 
 .barra__nome strong {
   font-size: 1.0625rem;
-  color: var(--cor-marca-escura);
+  color: var(--texto-marca);
 }
 
 :root[data-theme='contraste'] .barra__nome strong {
@@ -528,6 +537,10 @@ onBeforeUnmount(() => {
   padding: var(--esp-3) 0 0;
   border: 0;
   border-top: 1px solid var(--borda);
+}
+
+.barra__perfis + .barra__perfis {
+  margin-top: var(--esp-3);
 }
 
 .barra__perfis legend {

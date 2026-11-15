@@ -20,9 +20,8 @@ tags: [design-system, tokens, componentes, acessibilidade, govbr-ds]
 |---|---|
 | `src/styles/tokens.css` | Todas as decisões visuais: cores, tipografia, espaços, raios, sombras e temas |
 | `src/styles/base.css` | Estilos da página inteira, anel de foco, campos e utilitários `radar-*` |
-| `src/styles/compat-legado.css` | ⚠️ Ponte **temporária** para as views antigas (apagar no fim da Fase 3) |
 | `src/components/ui/` | Componentes genéricos (sem regra de negócio) |
-| `src/components/radar/` | Componentes do domínio (Matriz 5×5, Memória de cálculo) |
+| `src/components/radar/` | Componentes do domínio (Matriz 5×5, Memória de cálculo, Bow Tie) |
 | `src/components/govbr/` | Esqueleto gov.br: cabeçalho, menu, trilha, rodapé, skip-link |
 | `src/utils/rotulosInterface.ts` | Dicionário código → texto (status, criticidade, ícones dos níveis) |
 | `src/composables/` | Tema, foco em modais e avisos (toasts) |
@@ -78,8 +77,8 @@ tags: [design-system, tokens, componentes, acessibilidade, govbr-ds]
 | Tema | Status | Como ativar |
 |---|---|---|
 | Claro | ✅ padrão | — |
-| Alto contraste (gov.br) | ✅ botão ◐ no cabeçalho | `<html data-theme="contraste">` |
-| Escuro | 🔒 definido, **ainda não oferecido** | será liberado no fim da Fase 3 (`TEMAS_DISPONIVEIS`) |
+| Alto contraste (gov.br) | ✅ botão ◐ no cabeçalho (volta ao tema anterior) | `<html data-theme="contraste">` |
+| Escuro | ✅ liberado no fim da Fase 3 | menu do usuário → Aparência (`<html data-theme="escuro">`) |
 
 ## 3. Componentes
 
@@ -141,7 +140,7 @@ tags: [design-system, tokens, componentes, acessibilidade, govbr-ds]
 |---|---|
 | `higieneCss.spec.ts` › classes fantasma | voltar a usar classe CSS que não existe (causa nº 1 do diagnóstico) |
 | `higieneCss.spec.ts` › `components/ui` sem cor fixa | componente novo com `#hex` em vez de token |
-| `higieneCss.spec.ts` › catraca de cores fixas | aumentar as cores fixas nas views antigas (hoje: **234**; meta: 0) |
+| `higieneCss.spec.ts` › cores fixas | **qualquer** cor fixa (`#hex`) no HTML/JS — a catraca chegou a **0** na Fase 3 |
 | `componentesUi.spec.ts` | regressão de acessibilidade em `FormField`, `DataTable`, `SegmentedControl`, `Chip`, `RiskBadge` |
 | `filtrosERotulos.spec.ts` | código interno na tela; "Crítico" confundido com "Extremo"; sigla PGR |
 
@@ -182,3 +181,35 @@ e `--altura-faixa-gov` (44 px). A barra gov.br some ao rolar porque o `<header>`
 (grade de 12 colunas) espremia o menu até ~18 px.
 
 Capturas: [`capturas/fase2/`](capturas/fase2/).
+
+
+## 8. Resultado da Fase 3 — todas as páginas migradas
+
+Uma página por commit: Apetite (DAR) → Aprovações → Monitoramento → Ficha do risco → Novo risco →
+Objetos → Auditoria → Importar. Depois: tema escuro liberado e camada `compat-legado.css` apagada.
+
+| Métrica | Fase 2 | Fase 3 |
+|---|---|---|
+| Violações axe-core (12 telas × computador e celular) | 0 no Painel | **0 em todas, nos 3 temas** (claro, escuro, alto contraste) |
+| Cores fixas no HTML/JS | 175 | **0** (regra absoluta no teste) |
+| Páginas com rolagem lateral | 0 | 0 |
+| Testes automatizados | 59 | **98** |
+| Camada `compat-legado.css` | existia | **apagada** (nenhuma classe órfã) |
+
+**Componentes novos ou reescritos na Fase 3:**
+
+| Componente | O que faz |
+|---|---|
+| `BrTabs` | abas WAI-ARIA (tablist, setas ← →, Home/End); aba na URL |
+| `BrStep` | indicador de etapas com `aria-current="step"`; "Etapa 2 de 4" no celular |
+| `BrMessage` | mensagem de página só com tokens; `alert` para perigo/aviso, `status` para info/sucesso |
+| `BowTieDiagram` | Bow Tie como lista ordenada de 5 passos; colunas no computador, empilhado no celular |
+| `MemoriaCalculoBar`, `BrButton` | migrados para tokens (vírgula pt-BR, trava explicada, perigo/sucesso com contraste ≥ 6,5:1) |
+| `BrCard`, `BrBadge` | **removidos** (sem uso) |
+
+**Ponte com o gov.br DS (`base.css`):** o core pinta títulos e parágrafos com `--color` (#333 fixo) e
+links com `#1351b4`. Agora `--color` e `a` apontam para os tokens `--texto` e `--texto-link`, e o novo
+token `--texto-marca` substitui `--cor-marca-escura` quando a cor da marca é usada em **texto**.
+`scroll-padding-top` reserva a altura do cabeçalho fixo em toda rolagem automática (WCAG 2.4.11).
+
+Capturas: [`capturas/fase3/`](capturas/fase3/).

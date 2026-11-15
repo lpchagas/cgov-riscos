@@ -6,7 +6,7 @@
  * EXPLICAÇÃO DIDÁTICA:
  * Um "composable" é uma função do Vue 3 que guarda estado reativo e pode ser
  * usada por vários componentes. Aqui guardamos escolhas de APARÊNCIA do usuário:
- *   - tema (claro / alto contraste; escuro virá na Fase 3);
+ *   - tema (claro / escuro / alto contraste);
  *   - menu lateral recolhido ou expandido (no computador).
  *
  * Essas escolhas ficam salvas no `localStorage` do navegador. Como o
@@ -19,11 +19,17 @@ import { ref, watch } from 'vue';
 export type TemaInterface = 'claro' | 'escuro' | 'contraste';
 
 /**
- * Temas oferecidos ao usuário HOJE.
- * O tema 'escuro' já está definido em `tokens.css`, mas só será liberado
- * quando todas as views usarem tokens (fim da Fase 3 do plano de reformulação).
+ * Temas oferecidos ao usuário. O 'escuro' foi liberado no fim da Fase 3,
+ * quando todas as páginas passaram a usar só tokens (nenhuma cor fixa).
  */
-export const TEMAS_DISPONIVEIS: TemaInterface[] = ['claro', 'contraste'];
+export const TEMAS_DISPONIVEIS: TemaInterface[] = ['claro', 'escuro', 'contraste'];
+
+/** Rótulos para o seletor de aparência (menu do usuário). */
+export const ROTULOS_TEMA: Record<TemaInterface, string> = {
+  claro: 'Claro',
+  escuro: 'Escuro',
+  contraste: 'Alto contraste',
+};
 
 const CHAVE_ARMAZENAMENTO = 'radar.preferencias-interface.v1';
 
@@ -71,14 +77,30 @@ watch([tema, menuRecolhido], () => {
   }
 });
 
+/** Último tema "comum" (claro ou escuro), para o botão ◐ saber para onde voltar. */
+let temaAntesDoContraste: TemaInterface = tema.value === 'contraste' ? 'claro' : tema.value;
+
 export function usePreferenciasInterface() {
+  /** Botão ◐ do cabeçalho: liga o alto contraste e, ao desligar, volta ao tema anterior. */
   function alternarAltoContraste(): void {
-    tema.value = tema.value === 'contraste' ? 'claro' : 'contraste';
+    if (tema.value === 'contraste') {
+      tema.value = temaAntesDoContraste;
+    } else {
+      temaAntesDoContraste = tema.value;
+      tema.value = 'contraste';
+    }
+  }
+
+  /** Escolha direta no menu do usuário (Aparência). */
+  function escolherTema(novo: TemaInterface): void {
+    if (!TEMAS_DISPONIVEIS.includes(novo)) return;
+    if (novo !== 'contraste') temaAntesDoContraste = novo;
+    tema.value = novo;
   }
 
   function alternarMenuRecolhido(): void {
     menuRecolhido.value = !menuRecolhido.value;
   }
 
-  return { tema, menuRecolhido, alternarAltoContraste, alternarMenuRecolhido };
+  return { tema, menuRecolhido, alternarAltoContraste, alternarMenuRecolhido, escolherTema };
 }

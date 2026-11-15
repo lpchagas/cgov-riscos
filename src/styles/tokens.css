@@ -132,6 +132,9 @@
   --cor-primaria-suave: var(--ref-azul-10);       /* "container" no M3 */
   --cor-sobre-primaria-suave: var(--ref-azul-90);
   --cor-marca-escura: var(--ref-azul-90);
+  /* Texto na cor da marca (azul-marinho no claro; claro nos temas escuros).
+     Use este token para TEXTO; --cor-marca-escura é para FUNDO. */
+  --texto-marca: var(--ref-azul-90);
   /* Verde da marca ICMBio (palavra "ICMBio" no cabeçalho): 6,47:1 sobre branco */
   --cor-marca-icmbio: #1f6b45;
 
@@ -210,6 +213,7 @@
   --cor-primaria-suave: #1d3358;
   --cor-sobre-primaria-suave: #dbe8fb;
   --cor-marca-escura: #0b1526;
+  --texto-marca: #dbe8fb;
   --cor-marca-icmbio: #7fd1a3;
   --faixa-fundo: #0b1526;
   --faixa-texto: #e6eaf0;
@@ -268,6 +272,7 @@
   --cor-primaria-suave: #000000;
   --cor-sobre-primaria-suave: #ffff00;
   --cor-marca-escura: #000000;
+  --texto-marca: #ffffff;
   --cor-marca-icmbio: #ffffff;
   --faixa-fundo: #000000;
   --faixa-texto: #ffffff;

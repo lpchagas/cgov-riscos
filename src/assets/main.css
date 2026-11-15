@@ -11,7 +11,6 @@
  *   2. Font Awesome               → ícones
  *   3. tokens.css                 → as decisões visuais do RADAR (cores, espaços…)
  *   4. base.css                   → estilos da página inteira + utilitários
- *   5. compat-legado.css          → ponte TEMPORÁRIA para as views antigas
  *
  * Os estilos de cada componente ficam dentro do próprio `.vue` (bloco <style>).
  */
@@ -19,35 +18,9 @@
 @import '@fortawesome/fontawesome-free/css/all.min.css';
 @import '../styles/tokens.css';
 @import '../styles/base.css';
-@import '../styles/compat-legado.css';
 
 /* Wrapper raiz do Template Base gov.br (mantido por compatibilidade com o DS). */
 .template-base {
   min-height: 100vh;
 }
 
-/* Etiquetas de nível de risco usadas pelo `BrBadge` legado (Quadro 8).
-   Os componentes novos usam o `RiskBadge`, que adiciona ícone além da cor. */
-.badge-risco-baixo {
-  background-color: var(--risco-baixo-fundo);
-  color: var(--risco-baixo-texto);
-  border: 1px solid var(--risco-baixo-borda);
-}
-
-.badge-risco-medio {
-  background-color: var(--risco-medio-fundo);
-  color: var(--risco-medio-texto);
-  border: 1px solid var(--risco-medio-borda);
-}
-
-.badge-risco-alto {
-  background-color: var(--risco-alto-fundo);
-  color: var(--risco-alto-texto);
-  border: 1px solid var(--risco-alto-borda);
-}
-
-.badge-risco-extremo {
-  background-color: var(--risco-extremo-fundo);
-  color: var(--risco-extremo-texto);
-  border: 1px solid var(--risco-extremo-borda);
-}

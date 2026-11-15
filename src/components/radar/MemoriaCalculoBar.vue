@@ -128,7 +128,7 @@ const fim = computed(() => CRITICIDADE[props.statusCritico]);
   gap: var(--esp-2);
   margin: 0;
   font-weight: var(--peso-forte);
-  color: var(--cor-marca-escura);
+  color: var(--texto-marca);
 }
 
 :root[data-theme='contraste'] .memoria__titulo {

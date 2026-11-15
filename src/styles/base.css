@@ -12,6 +12,11 @@
  * sem precisar de `!important`.
  */
 
+/* Links: cor do token (o gov.br fixa #1351b4, ilegível no tema escuro). */
+a {
+  color: var(--texto-link);
+}
+
 html {
   font-size: 100%; /* respeita o tamanho de fonte escolhido pelo usuário no navegador */
   /* O cabeçalho fica preso no topo. Quando o navegador rola sozinho (foco por
@@ -28,6 +33,13 @@ body {
   color: var(--texto);
   background-color: var(--superficie-fundo);
   -webkit-font-smoothing: antialiased;
+
+  /* PONTE COM O GOV.BR DS: o core pinta títulos e parágrafos com a variável
+     dele (--color = cinza #333, fixo). Apontamos essa variável para o NOSSO
+     token de texto — assim os temas escuro e alto contraste valem também para
+     o que vem do gov.br. */
+  --color: var(--texto);
+  --text-color: var(--texto);
 }
 
 /* Títulos: o gov.br DS deixa h1–h6 em CAIXA ALTA; nós voltamos ao normal
@@ -67,6 +79,15 @@ body {
   border: 1px solid var(--borda-forte);
   border-radius: var(--raio-md);
   transition: border-color var(--duracao-rapida) var(--curva-padrao);
+}
+
+/* Cor do texto digitado: seletor de elemento (mesma força das regras do
+   gov.br, que vêm antes) para vencer o cinza fixo #333 do core, sem passar
+   por cima dos estilos de componentes, que usam classes. */
+input,
+select,
+textarea {
+  color: var(--texto);
 }
 
 /* Texto de exemplo (placeholder) legível em todos os temas, sem itálico. */

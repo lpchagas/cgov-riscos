@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-14  
-> **Fase atual:** Reformulação da UI — Fases 0, 1 e 2 (piloto do Painel) concluídas; aguardando aprovação do piloto para iniciar a Fase 3. Branch `feat/reformulacao-ui`.
+> **Fase atual:** Reformulação da UI — Fases 0 a 3 concluídas (todas as páginas migradas, tema escuro liberado). Próxima: Fase 4 (polimento). Branch `feat/reformulacao-ui`.
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -47,6 +47,10 @@ Plano: [[2026-11-14-reformulacao-ui-radar-plan]] · Diagnóstico: [[diagnostico-
   - Resultado: axe-core **0 violações** no Painel (computador, celular e alto contraste) e em `/riscos` com painel lateral; altura do Painel no celular 8.729 → 4.666 px (862 px são do rodapé); cores fixas 234 → 175; 59 testes.
   - **Fluxo híbrido Figma ↔ código:** arquivo Figma "RADAR — Painel" (equipe cgov) com biblioteca publicada de 20 componentes ligados aos `.vue` pelo Code Connect (Vue), variáveis espelhando `tokens.css` e telas em pares Original (travada) × Trabalho. Manual: [[manual-fluxo-figma-vscode]].
   - **Pendências da CGOV:** e-mail de contato; endereços dos "Painéis Integrados" e das redes sociais; arquivos oficiais das marcas gov.br/ICMBio.
-- [ ] **Fase 3 — Migração das demais páginas** (uma por commit; liberar tema escuro e apagar `compat-legado.css` ao final).
+- [x] **Fase 3 — Migração das demais páginas** (uma por commit):
+  - DAR (prévia do impacto + Desfazer), Aprovações (caixa de entrada), Monitoramento (abas, semáforo pela leitura mais recente), Ficha do risco (abas + `BowTieDiagram`), Novo risco (assistente em 4 etapas com prévia ao vivo), Objetos (tabela + cadastro lateral), Auditoria (linha do tempo + CSV), Importar (colar/enviar → prévia → confirmar).
+  - Tema escuro liberado (menu do usuário → Aparência); `compat-legado.css`, `BrCard` e `BrBadge` apagados; ponte das variáveis do gov.br para os tokens.
+  - Resultado: axe-core 0 violações em 12 telas × 2 tamanhos × 3 temas; cores fixas 175 → **0**; 98 testes.
+  - Figma: os componentes novos da Fase 3 (BrTabs, BrStep, BrMessage, BowTieDiagram) ainda **não** estão na biblioteca RADAR — próximo passo do fluxo híbrido.
 - [ ] **Fase 4 — Polimento** (meta: 0 violações axe; Painel no celular < 3.500 px).
 

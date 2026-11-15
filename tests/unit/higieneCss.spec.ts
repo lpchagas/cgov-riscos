@@ -79,12 +79,11 @@ describe('Higiene do CSS — proteção contra os achados do diagnóstico', () =
     expect(comCor).toEqual([]);
   });
 
-  it('a quantidade de cores fixas nas views e componentes antigos só diminui (catraca)', () => {
-    // Medição da Fase 1 (2026-11-14): 238 → 234 após migrar o selo de
-    // criticidade da MemoriaCalculoBar. Fase 2: 234 → 175 com o novo Painel e
-    // a nova Matriz 5×5. Fase 3: 175 → 133 com a página DAR, BrButton e
-    // MemoriaCalculoBar. Ao migrar uma view, DIMINUA este número.
-    const LIMITE_ATUAL = 17; // Importar migrada
+  it('nenhuma cor fixa no HTML/JS das telas e componentes (catraca chegou a zero)', () => {
+    // Histórico da catraca: 238 (Fase 0) → 234 (Fase 1) → 175 (Fase 2) → 0 (fim da
+    // Fase 3, 2026-11-14). Agora a regra é absoluta: cor só por token de tokens.css.
+    // Isso é o que permite os temas escuro e alto contraste funcionarem em tudo.
+    const LIMITE_ATUAL = 0;
     let total = 0;
     for (const arquivo of arquivosVue) {
       const texto = readFileSync(arquivo, 'utf-8');
