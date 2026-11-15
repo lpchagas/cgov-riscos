@@ -14,6 +14,10 @@
 
 html {
   font-size: 100%; /* respeita o tamanho de fonte escolhido pelo usuário no navegador */
+  /* O cabeçalho fica preso no topo. Quando o navegador rola sozinho (foco por
+     teclado, atalho "Ir para…", link #âncora), reservamos a altura dele para que
+     o elemento não fique escondido atrás do cabeçalho (WCAG 2.4.11). */
+  scroll-padding-top: calc(var(--altura-cabecalho) + var(--esp-4));
 }
 
 body {
