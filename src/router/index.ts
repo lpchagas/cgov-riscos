@@ -89,6 +89,8 @@ const router = createRouter({
         descricao: 'Bow Tie, memória de cálculo e histórico de tramitação.',
         fundamento: 'Sintaxe padronizada da Seção 4.2.1 e Quadros 6, 7 e 8 da Metodologia.',
         migalhaPai: { rotulo: 'Riscos', nome: 'riscos-lista' },
+        // A ficha desenha o próprio <h1> (código + nome do risco) e a ação do momento.
+        cabecalhoProprio: true,
       },
     },
     {
