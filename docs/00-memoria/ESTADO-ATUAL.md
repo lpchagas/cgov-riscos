@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-14  
-> **Fase atual:** Reformulação da UI — Fases 0 (diagnóstico) e 1 (fundação) concluídas; próxima: Fase 2 (piloto do Painel). Branch `feat/reformulacao-ui`.
+> **Fase atual:** Reformulação da UI — Fases 0, 1 e 2 (piloto do Painel) concluídas; aguardando aprovação do piloto para iniciar a Fase 3. Branch `feat/reformulacao-ui`.
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -37,7 +37,16 @@ Plano: [[2026-11-14-reformulacao-ui-radar-plan]] · Diagnóstico: [[diagnostico-
   - Nova página **Riscos** (`/riscos`) com filtros na URL e painel lateral; rotas curtas com redirecionamento das antigas.
   - Camada temporária `compat-legado.css` (apagar no fim da Fase 3) + testes de higiene de CSS.
   - Resultado: violações axe 171 → 87; rolagem lateral 9 → 0 páginas; `<h1>` 0 → 10 páginas.
-- [ ] **Fase 2 — Piloto do Painel** (mockup para aprovação antes do código).
+- [x] **Fase 2 — Piloto do Painel** (código pronto; aguardando aprovação da CGOV antes da Fase 3):
+  - Protótipo aprovado em canvas (6 versões) → implementado em Vue.
+  - Cabeçalho em duas faixas (barra gov.br que some ao rolar + barra do sistema ICMBio | RADAR, busca centralizada, conta com largura fixa de 240 px) e rodapé institucional azul-escuro (CGGE, CGOV, CTGRIC, Painéis Integrados, DIGITECA), no padrão do Painel BI da CGOV.
+  - Painel novo: 4 indicadores com links para a lista filtrada; Matriz 5×5 com células-botão (lidas do Quadro 7); "Precisa da sua atenção" por perfil; maiores residuais; distribuição por nível; resumo da DAR; atividade recente. Regras em `src/utils/painelResumo.ts` (funções puras, testadas).
+  - Saíram do Painel: carteira completa (→ `/riscos`), simulador da DAR (→ `/dar`), "Enviar para validação" e "Reavaliar controle" (→ painel lateral de `/riscos`).
+  - Correções: atalho "Ir para o menu" e "Ir para a busca" no celular; menu lateral não encolhe mais com conteúdo largo.
+  - **RADAR-2026-003 corrigido** na semente (P2·I4 → Inerente 14, Residual 8,4 Médio, ainda Crítico pela DAR Baixo) e protegido por `dadosSementeConsistencia.spec.ts`.
+  - Resultado: axe-core **0 violações** no Painel (computador, celular e alto contraste) e em `/riscos` com painel lateral; altura do Painel no celular 8.729 → 4.666 px (862 px são do rodapé); cores fixas 234 → 175; 59 testes.
+  - **Fluxo híbrido Figma ↔ código:** arquivo Figma "RADAR — Painel" (equipe cgov) com biblioteca publicada de 20 componentes ligados aos `.vue` pelo Code Connect (Vue), variáveis espelhando `tokens.css` e telas em pares Original (travada) × Trabalho. Manual: [[manual-fluxo-figma-vscode]].
+  - **Pendências da CGOV:** e-mail de contato; endereços dos "Painéis Integrados" e das redes sociais; arquivos oficiais das marcas gov.br/ICMBio.
 - [ ] **Fase 3 — Migração das demais páginas** (uma por commit; liberar tema escuro e apagar `compat-legado.css` ao final).
 - [ ] **Fase 4 — Polimento** (meta: 0 violações axe; Painel no celular < 3.500 px).
 

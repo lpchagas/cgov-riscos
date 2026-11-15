@@ -81,8 +81,9 @@ describe('Higiene do CSS — proteção contra os achados do diagnóstico', () =
 
   it('a quantidade de cores fixas nas views e componentes antigos só diminui (catraca)', () => {
     // Medição da Fase 1 (2026-11-14): 238 → 234 após migrar o selo de
-    // criticidade da MemoriaCalculoBar. Ao migrar uma view, DIMINUA este número.
-    const LIMITE_ATUAL = 234;
+    // criticidade da MemoriaCalculoBar. Fase 2: 234 → 175 com o novo Painel e
+    // a nova Matriz 5×5. Ao migrar uma view, DIMINUA este número.
+    const LIMITE_ATUAL = 175;
     let total = 0;
     for (const arquivo of arquivosVue) {
       const texto = readFileSync(arquivo, 'utf-8');

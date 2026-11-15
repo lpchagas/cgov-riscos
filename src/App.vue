@@ -10,13 +10,14 @@
  * trilha, conteúdo e rodapé), reorganizada no padrão moderno dos sistemas
  * web (Material Design 3 / Ant Design Pro):
  *
- *   ┌───────────────────────── Cabeçalho (64 px, fixo no topo) ─────────────┐
+ *   ┌──────────── Faixa gov.br (44 px, some ao rolar a página) ──────────────┐
+ *   ├───────────────────────── Cabeçalho (64 px, fixo no topo) ─────────────┤
  *   ├──────────┬────────────────────────────────────────────────────────────┤
  *   │  Menu    │  Trilha › de › navegação                                    │
  *   │ lateral  │  <h1> Título da página        [ⓘ Fundamento]   [Ações]     │
  *   │ (rail)   │  ...conteúdo da página (RouterView)...                      │
- *   │          │  Rodapé                                                     │
  *   └──────────┴────────────────────────────────────────────────────────────┘
+ *   ┌──────────── Rodapé institucional (largura total, azul-escuro) ─────────┐
  *
  * O título <h1> de cada página vem AUTOMATICAMENTE dos metadados da rota
  * (`src/router/index.ts`) — assim, todas as 9 páginas ganharam um <h1> sem
@@ -59,6 +60,14 @@ function alternarMenu(): void {
   else gavetaAberta.value = !gavetaAberta.value;
 }
 
+/**
+ * Atalho de teclado "Ir para o menu": no celular, a gaveta precisa ABRIR antes
+ * de receber o foco. No computador o menu já está visível; nada a fazer.
+ */
+function abrirMenuPeloAtalho(): void {
+  if (!ehDesktop.value) gavetaAberta.value = true;
+}
+
 const menuVisivel = computed(() => (ehDesktop.value ? !menuRecolhido.value : gavetaAberta.value));
 
 // Ao trocar de página, fecha a gaveta e leva o foco ao conteúdo novo
@@ -76,7 +85,7 @@ router.afterEach(async (_para, de) => {
 <template>
   <div class="template-base">
     <!-- 1. Atalhos de teclado (Alt+1 conteúdo, Alt+2 menu, Alt+3 busca, Alt+4 rodapé) -->
-    <BrSkiplink />
+    <BrSkiplink @abrir-menu="abrirMenuPeloAtalho" />
 
     <!-- 2. Cabeçalho compacto -->
     <BrHeader :menu-aberto="menuVisivel" @alternar-menu="alternarMenu" />
@@ -106,12 +115,12 @@ router.afterEach(async (_para, de) => {
             />
             <RouterView />
           </div>
-
-          <!-- 5. Rodapé -->
-          <BrFooter />
         </div>
       </main>
     </div>
+
+    <!-- 5. Rodapé institucional: largura total, abaixo do menu e do conteúdo -->
+    <BrFooter />
 
     <!-- Avisos rápidos (toasts) de toda a aplicação -->
     <ToastRegion />

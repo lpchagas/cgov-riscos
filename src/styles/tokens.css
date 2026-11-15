@@ -99,6 +99,9 @@
 
   /* ---- Dimensões do "esqueleto" da aplicação (app shell) ---- */
   --altura-cabecalho: 64px;
+  /* Barra gov.br acima do cabeçalho. Ela some ao rolar a página; só os 64 px
+     do cabeçalho do sistema ficam presos no topo. */
+  --altura-faixa-gov: 44px;
   --largura-menu: 264px;
   --largura-menu-recolhido: 72px;
   --largura-conteudo-max: 1440px;
@@ -129,6 +132,15 @@
   --cor-primaria-suave: var(--ref-azul-10);       /* "container" no M3 */
   --cor-sobre-primaria-suave: var(--ref-azul-90);
   --cor-marca-escura: var(--ref-azul-90);
+  /* Verde da marca ICMBio (palavra "ICMBio" no cabeçalho): 6,47:1 sobre branco */
+  --cor-marca-icmbio: #1f6b45;
+
+  /* Faixa institucional: barra gov.br do topo e rodapé (padrão do Painel BI da CGOV) */
+  --faixa-fundo: var(--ref-azul-90);
+  --faixa-texto: var(--ref-branco);
+  --faixa-texto-suave: var(--ref-azul-10);         /* 13,4:1 sobre a faixa */
+  --faixa-divisor: rgba(255, 255, 255, 0.4);
+  --faixa-hover: rgba(255, 255, 255, 0.12);
 
   /* Superfícies (do fundo para a frente) */
   --superficie-fundo: var(--ref-cinza-5);          /* fundo da página */
@@ -198,6 +210,12 @@
   --cor-primaria-suave: #1d3358;
   --cor-sobre-primaria-suave: #dbe8fb;
   --cor-marca-escura: #0b1526;
+  --cor-marca-icmbio: #7fd1a3;
+  --faixa-fundo: #0b1526;
+  --faixa-texto: #e6eaf0;
+  --faixa-texto-suave: #a9b4c2;
+  --faixa-divisor: rgba(230, 234, 240, 0.3);
+  --faixa-hover: rgba(230, 234, 240, 0.1);
   --superficie-fundo: #0f141b;
   --superficie: #1a222c;
   --superficie-container: #161d26;
@@ -250,6 +268,12 @@
   --cor-primaria-suave: #000000;
   --cor-sobre-primaria-suave: #ffff00;
   --cor-marca-escura: #000000;
+  --cor-marca-icmbio: #ffffff;
+  --faixa-fundo: #000000;
+  --faixa-texto: #ffffff;
+  --faixa-texto-suave: #ffffff;
+  --faixa-divisor: #ffffff;
+  --faixa-hover: #1a1a1a;
   --superficie-fundo: #000000;
   --superficie: #000000;
   --superficie-container: #000000;

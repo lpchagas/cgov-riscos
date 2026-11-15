@@ -22,6 +22,7 @@
 import { computed, ref } from 'vue';
 import { RouterLink, useRoute, useRouter, type LocationQueryRaw } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
+import { useToast } from '../composables/useToast';
 import type { ClasseRisco, FichaRisco, StatusFluxoRisco } from '../types/radar.types';
 import { filtrarRiscos, lerFiltrosDaQuery } from '../utils/filtrosRiscos';
 import {
@@ -115,6 +116,37 @@ const colunas: ColunaTabela<FichaRisco>[] = [
 // PAINEL LATERAL DE RESUMO
 // ---------------------------------------------------------------------------
 const riscoEmResumo = ref<FichaRisco | null>(null);
+
+// ---------------------------------------------------------------------------
+// AÇÕES DO FLUXO (vieram do Painel antigo, que mostrava a carteira inteira)
+// ---------------------------------------------------------------------------
+// O `riscoEmResumo` aponta para o MESMO objeto da store; por isso, quando a
+// store muda o status, o painel lateral se atualiza sozinho.
+const { mostrar } = useToast();
+
+/** Situações em que a 1ª Linha ainda pode enviar o risco à Coordenação-Geral. */
+const STATUS_QUE_PODEM_SER_ENVIADOS: StatusFluxoRisco[] = ['rascunho', 'preliminar_cgov', 'devolvido'];
+
+function enviarParaValidacao(risco: FichaRisco): void {
+  riscosStore.submeterParaValidacaoCg(risco.id);
+  mostrar({ tom: 'sucesso', mensagem: `${risco.codigoRadar} enviado para validação da Coordenação-Geral.` });
+}
+
+/**
+ * DEMONSTRAÇÃO da regra de reabertura: mudar a avaliação de um risco já
+ * aprovado (aqui, o controle passa a "Satisfatório", fator 0,6) devolve o
+ * risco para nova validação da Coordenação-Geral. O cálculo é feito pela
+ * store, com a calculadora oficial — a tela não calcula nada.
+ */
+function reavaliarControleDemonstracao(risco: FichaRisco): void {
+  riscosStore.reavaliarPontuacaoRiscoAprovado(risco.id, {
+    probabilidade: risco.probabilidade,
+    impacto: risco.impacto,
+    nivelEficaciaControle: 'Satisfatório',
+    possuiEvidenciaControle: true,
+  });
+  mostrar({ tom: 'aviso', mensagem: `${risco.codigoRadar} foi reavaliado e voltou para validação da Coordenação-Geral.` });
+}
 </script>
 
 <template>
@@ -331,6 +363,20 @@ const riscoEmResumo = ref<FichaRisco | null>(null);
 
       <template #acoes>
         <BrButton variant="secondary" @click="riscoEmResumo = null">Fechar</BrButton>
+        <BrButton
+          v-if="riscoEmResumo && STATUS_QUE_PODEM_SER_ENVIADOS.includes(riscoEmResumo.statusFluxo)"
+          variant="secondary"
+          @click="enviarParaValidacao(riscoEmResumo)"
+        >
+          Enviar para validação
+        </BrButton>
+        <BrButton
+          v-if="riscoEmResumo && riscoEmResumo.statusFluxo === 'aprovado'"
+          variant="secondary"
+          @click="reavaliarControleDemonstracao(riscoEmResumo)"
+        >
+          Reavaliar controle (demonstração)
+        </BrButton>
         <RouterLink
           v-if="riscoEmResumo"
           :to="{ name: 'ficha-bowtie-detalhe', params: { id: riscoEmResumo.id } }"

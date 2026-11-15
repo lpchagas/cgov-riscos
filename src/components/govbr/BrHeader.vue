@@ -1,23 +1,28 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * CABEÇALHO COMPACTO GOV.BR (`header.br-header#header`) — 64 px
+ * CABEÇALHO GOV.BR EM DUAS FAIXAS (`header.br-header#header`)
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * O cabeçalho antigo ocupava ~185 px e mostrava números de processo SEI e o
- * seletor de perfil logo de cara (achado 2.1 do diagnóstico). O novo segue o
- * padrão "top app bar" do Material Design 3, com a identidade gov.br:
+ * O desenho segue o Painel BI da CGOV (aprovado no protótipo da Fase 2):
  *
- *   [☰] gov.br | RADAR · ICMBio        [ 🔍 Buscar riscos ]   [◐] [👤 Perfil ▾]
+ *   ┌ Faixa gov.br (44 px, azul-escuro) ────────────────────────────────────┐
+ *   │ gov.br | Ministério do Meio Ambiente...     ÓRGÃOS | PARTICIPE | ...  │
+ *   ├ Cabeçalho do sistema (64 px, branco) ─────────────────────────────────┤
+ *   │ [☰] ICMBio | RADAR        [ 🔍 Buscar riscos (centro) ]   [◐] [👤 ▾] │
+ *   └───────────────────────────────────────────────────────────────────────┘
  *
- *   - ☰  abre/fecha o menu lateral (no celular) ou recolhe/expande (no computador);
- *   - a BUSCA leva para a lista de Riscos já filtrada (`/riscos?q=termo`);
- *   - ◐  liga/desliga o alto contraste;
- *   - o MENU DO USUÁRIO guarda o simulador de perfil (demonstração) e a
- *     origem dos dados, que antes ocupavam espaço nobre no topo.
+ * - A faixa gov.br SOME ao rolar a página; só o cabeçalho do sistema fica
+ *   preso no topo. O truque: o <header> inteiro é `position: sticky` com
+ *   `top` NEGATIVO (−44 px). Assim ele "gruda" já com a faixa fora da tela.
+ * - ☰ abre/fecha o menu lateral (celular) ou recolhe/expande (computador).
+ * - A BUSCA leva para a lista de Riscos já filtrada (`/riscos?q=termo`).
+ *   Abaixo de 1024 px ela vira um botão de lupa que abre a lista.
+ * - A caixa da CONTA tem largura FIXA (240 px) para qualquer perfil; nomes
+ *   longos terminam em "…" e o nome completo fica na dica e no leitor de tela.
  */
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/authStore';
 import { usePreferenciasInterface } from '../../composables/usePreferenciasInterface';
@@ -31,6 +36,16 @@ const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 const { tema, alternarAltoContraste } = usePreferenciasInterface();
+
+// ---------------------------------------------------------------------------
+// LINKS DA FAIXA GOV.BR (padrão de todos os sites do Governo Federal)
+// ---------------------------------------------------------------------------
+const LINKS_GOVBR = [
+  { rotulo: 'Órgãos do Governo', href: 'https://www.gov.br/pt-br/orgaos-do-governo' },
+  { rotulo: 'Participe', href: 'https://www.gov.br/participamaisbrasil' },
+  { rotulo: 'Acesso à Informação', href: 'https://www.gov.br/icmbio/pt-br/acesso-a-informacao' },
+  { rotulo: 'Legislação', href: 'http://www4.planalto.gov.br/legislacao' },
+];
 
 // ---------------------------------------------------------------------------
 // BUSCA GLOBAL → lista de Riscos filtrada
@@ -58,12 +73,21 @@ const menuUsuarioAberto = ref(false);
 const areaMenuUsuario = ref<HTMLElement | null>(null);
 
 /** Rótulos curtos dos 4 perfis das 3 Linhas de governança. */
-const OPCOES_PERFIL: { papel: PapelGovernanca; rotulo: string; detalhe: string }[] = [
-  { papel: 'gestor', rotulo: 'Gestor da unidade', detalhe: '1ª Linha · cadastra riscos' },
-  { papel: 'lider_cg', rotulo: 'Coordenação-Geral', detalhe: '2º degrau · valida riscos' },
-  { papel: 'diretor', rotulo: 'Diretoria', detalhe: '3º degrau · homologa Críticos' },
-  { papel: 'cgov', rotulo: 'Analista de governança', detalhe: '2ª Linha (CGOV) · governa a DAR' },
+const OPCOES_PERFIL: { papel: PapelGovernanca; rotulo: string; linha: string; detalhe: string }[] = [
+  { papel: 'gestor', rotulo: 'Gestor da unidade', linha: '1ª Linha', detalhe: '1ª Linha · cadastra riscos' },
+  { papel: 'lider_cg', rotulo: 'Coordenação-Geral', linha: '2º degrau', detalhe: '2º degrau · valida riscos' },
+  { papel: 'diretor', rotulo: 'Diretoria', linha: '3º degrau', detalhe: '3º degrau · homologa Críticos' },
+  { papel: 'cgov', rotulo: 'Analista de governança', linha: '2ª Linha', detalhe: '2ª Linha (CGOV) · governa a DAR' },
 ];
+
+/** O que aparece na caixa da conta: papel em cima, unidade e linha embaixo. */
+const conta = computed(() => {
+  const u = authStore.usuarioAtual;
+  const opcao = OPCOES_PERFIL.find((o) => o.papel === u.papel);
+  const papel = opcao?.rotulo ?? u.cargo;
+  const unidade = `${u.unidadeSigla} · ${opcao?.linha ?? ''}`;
+  return { papel, unidade, completo: `${papel} — ${unidade}` };
+});
 
 function iniciais(nome: string): string {
   return nome
@@ -100,99 +124,124 @@ onBeforeUnmount(() => {
 
 <template>
   <header id="header" class="cabecalho">
-    <!-- Botão do menu lateral -->
-    <button
-      id="header-navigation"
-      type="button"
-      class="cabecalho__icone-botao"
-      :aria-expanded="menuAberto"
-      aria-controls="main-navigation"
-      aria-label="Menu principal"
-      @click="emit('alternar-menu')"
-    >
-      <i class="fa-solid fa-bars" aria-hidden="true"></i>
-    </button>
+    <!-- FAIXA 1: barra gov.br (some ao rolar) -->
+    <div class="faixa-gov">
+      <div class="faixa-gov__esquerda">
+        <a href="https://www.gov.br" class="faixa-gov__logo" aria-label="Portal gov.br">gov.br</a>
+        <span class="faixa-gov__divisor" aria-hidden="true"></span>
+        <span class="faixa-gov__ministerio">Ministério do Meio Ambiente e Mudança do Clima</span>
+      </div>
+      <nav class="faixa-gov__links" aria-label="Links do Governo Federal">
+        <a v-for="link in LINKS_GOVBR" :key="link.href" :href="link.href">{{ link.rotulo }}</a>
+      </nav>
+    </div>
 
-    <!-- Marca: gov.br + nome do sistema -->
-    <RouterLink to="/" class="cabecalho__marca" aria-label="RADAR — página inicial">
-      <span class="cabecalho__govbr" aria-hidden="true">gov.br</span>
-      <span class="cabecalho__divisor" aria-hidden="true"></span>
-      <span class="cabecalho__nome">
-        <strong>RADAR</strong>
-        <span class="cabecalho__orgao">ICMBio · Gestão de Riscos</span>
-      </span>
-    </RouterLink>
-
-    <!-- Busca global -->
-    <form id="main-searchbox" class="cabecalho__busca" role="search" @submit.prevent="buscar">
-      <label for="searchbox-radar" class="radar-so-leitor">Buscar riscos</label>
-      <i class="fa-solid fa-magnifying-glass cabecalho__busca-icone" aria-hidden="true"></i>
-      <input
-        id="searchbox-radar"
-        v-model="termoBusca"
-        type="search"
-        placeholder="Buscar riscos por código, objeto ou categoria"
-        autocomplete="off"
-      />
-    </form>
-
-    <div class="cabecalho__acoes">
-      <!-- Alto contraste -->
+    <!-- FAIXA 2: cabeçalho do sistema (fica preso no topo) -->
+    <div class="barra">
+      <!-- Botão do menu lateral -->
       <button
+        id="header-navigation"
         type="button"
-        class="cabecalho__icone-botao"
-        :aria-pressed="tema === 'contraste'"
-        aria-label="Alto contraste"
-        title="Alto contraste"
-        @click="alternarAltoContraste"
+        class="barra__icone-botao"
+        :aria-expanded="menuAberto"
+        aria-controls="main-navigation"
+        aria-label="Menu principal"
+        @click="emit('alternar-menu')"
       >
-        <i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i>
+        <i class="fa-solid fa-bars" aria-hidden="true"></i>
       </button>
 
-      <!-- Menu do usuário -->
-      <div ref="areaMenuUsuario" class="cabecalho__usuario">
+      <!-- Marca: ICMBio + nome do sistema -->
+      <RouterLink to="/" class="barra__marca" aria-label="RADAR — página inicial">
+        <span class="barra__icmbio" aria-hidden="true">ICMBio</span>
+        <span class="barra__divisor" aria-hidden="true"></span>
+        <span class="barra__nome">
+          <strong>RADAR</strong>
+          <span class="barra__orgao">CGGE · CGOV · Gestão de Riscos</span>
+        </span>
+      </RouterLink>
+
+      <!-- Busca global (centralizada, até 560 px) -->
+      <form id="main-searchbox" class="barra__busca" role="search" @submit.prevent="buscar">
+        <label for="searchbox-radar" class="radar-so-leitor">Buscar riscos</label>
+        <i class="fa-solid fa-magnifying-glass barra__busca-icone" aria-hidden="true"></i>
+        <input
+          id="searchbox-radar"
+          v-model="termoBusca"
+          type="search"
+          placeholder="Buscar riscos por código, objeto ou categoria"
+          autocomplete="off"
+        />
+      </form>
+
+      <div class="barra__ferramentas">
+        <!-- Abaixo de 1024 px a caixa de busca vira este botão -->
+        <RouterLink
+          :to="{ name: 'riscos-lista' }"
+          class="barra__icone-botao barra__busca-botao"
+          aria-label="Buscar riscos"
+          title="Buscar riscos"
+        >
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </RouterLink>
+
+        <!-- Alto contraste -->
         <button
           type="button"
-          class="cabecalho__usuario-botao"
-          :aria-expanded="menuUsuarioAberto"
-          aria-controls="menu-usuario"
-          @click="menuUsuarioAberto = !menuUsuarioAberto"
+          class="barra__icone-botao"
+          :aria-pressed="tema === 'contraste'"
+          aria-label="Alto contraste"
+          title="Alto contraste"
+          @click="alternarAltoContraste"
         >
-          <span class="cabecalho__avatar" aria-hidden="true">{{ iniciais(authStore.usuarioAtual.nome) }}</span>
-          <span class="cabecalho__usuario-texto">
-            <span class="cabecalho__usuario-nome">{{ authStore.usuarioAtual.unidadeSigla }}</span>
-            <span class="cabecalho__usuario-papel">
-              {{ OPCOES_PERFIL.find((o) => o.papel === authStore.usuarioAtual.papel)?.rotulo }}
-            </span>
-          </span>
-          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          <i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i>
         </button>
 
-        <div v-show="menuUsuarioAberto" id="menu-usuario" class="cabecalho__menu">
-          <p class="cabecalho__menu-titulo">{{ authStore.usuarioAtual.nome }}</p>
-          <p class="cabecalho__menu-sub">{{ authStore.usuarioAtual.cargo }}</p>
+        <!-- Menu do usuário (largura fixa) -->
+        <div ref="areaMenuUsuario" class="barra__usuario">
+          <button
+            type="button"
+            class="barra__usuario-botao"
+            :aria-expanded="menuUsuarioAberto"
+            aria-controls="menu-usuario"
+            :aria-label="`Menu do usuário: ${conta.completo}`"
+            :title="conta.completo"
+            @click="menuUsuarioAberto = !menuUsuarioAberto"
+          >
+            <span class="barra__avatar" aria-hidden="true">{{ iniciais(authStore.usuarioAtual.nome) }}</span>
+            <span class="barra__usuario-texto" aria-hidden="true">
+              <span class="barra__usuario-papel">{{ conta.papel }}</span>
+              <span class="barra__usuario-unidade">{{ conta.unidade }}</span>
+            </span>
+            <i class="fa-solid fa-chevron-down barra__usuario-seta" aria-hidden="true"></i>
+          </button>
 
-          <fieldset class="cabecalho__perfis">
-            <legend>Simular perfil (demonstração)</legend>
-            <label v-for="op in OPCOES_PERFIL" :key="op.papel" class="cabecalho__perfil">
-              <input
-                type="radio"
-                name="perfil-demo"
-                :value="op.papel"
-                :checked="authStore.usuarioAtual.papel === op.papel"
-                @change="escolherPerfil(op.papel)"
-              />
-              <span>
-                <span class="cabecalho__perfil-rotulo">{{ op.rotulo }}</span>
-                <span class="cabecalho__perfil-detalhe">{{ op.detalhe }}</span>
-              </span>
-            </label>
-          </fieldset>
+          <div v-show="menuUsuarioAberto" id="menu-usuario" class="barra__menu">
+            <p class="barra__menu-titulo">{{ authStore.usuarioAtual.nome }}</p>
+            <p class="barra__menu-sub">{{ authStore.usuarioAtual.cargo }}</p>
 
-          <p class="cabecalho__fonte-dados">
-            <i class="fa-solid fa-database" aria-hidden="true"></i>
-            {{ isSupabaseConfigurado ? 'Dados: Supabase (PostgreSQL)' : 'Dados de demonstração (Anexo II)' }}
-          </p>
+            <fieldset class="barra__perfis">
+              <legend>Simular perfil (demonstração)</legend>
+              <label v-for="op in OPCOES_PERFIL" :key="op.papel" class="barra__perfil">
+                <input
+                  type="radio"
+                  name="perfil-demo"
+                  :value="op.papel"
+                  :checked="authStore.usuarioAtual.papel === op.papel"
+                  @change="escolherPerfil(op.papel)"
+                />
+                <span>
+                  <span class="barra__perfil-rotulo">{{ op.rotulo }}</span>
+                  <span class="barra__perfil-detalhe">{{ op.detalhe }}</span>
+                </span>
+              </label>
+            </fieldset>
+
+            <p class="barra__fonte-dados">
+              <i class="fa-solid fa-database" aria-hidden="true"></i>
+              {{ isSupabaseConfigurado ? 'Dados: Supabase (PostgreSQL)' : 'Dados de demonstração (Anexo II)' }}
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -200,20 +249,88 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* O cabeçalho inteiro gruda no topo com a faixa gov.br JÁ escondida (top negativo). */
 .cabecalho {
   position: sticky;
-  top: 0;
+  top: calc(-1 * var(--altura-faixa-gov));
   z-index: 900;
+}
+
+/* --- Faixa 1: gov.br --------------------------------------------------- */
+.faixa-gov {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-4);
+  height: var(--altura-faixa-gov);
+  padding: 0 var(--esp-6);
+  background: var(--faixa-fundo);
+  color: var(--faixa-texto);
+}
+
+.faixa-gov__esquerda {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-width: 0;
+}
+
+.faixa-gov__logo {
+  font-size: 1.375rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--faixa-texto);
+  text-decoration: none;
+}
+
+.faixa-gov__divisor {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  background: var(--faixa-divisor);
+}
+
+.faixa-gov__ministerio {
+  overflow: hidden;
+  font-size: var(--texto-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.faixa-gov__links {
+  display: flex;
+  align-items: center;
+}
+
+.faixa-gov__links a {
+  padding: var(--esp-1) var(--esp-5);
+  border-left: 1px solid var(--faixa-divisor);
+  color: var(--faixa-texto);
+  font-size: 0.6875rem;
+  font-weight: var(--peso-forte);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.faixa-gov__links a:hover {
+  text-decoration: underline;
+}
+
+/* --- Faixa 2: cabeçalho do sistema ------------------------------------- */
+.barra {
   display: flex;
   align-items: center;
   gap: var(--esp-3);
   height: var(--altura-cabecalho);
-  padding: 0 var(--esp-4);
+  padding: 0 var(--esp-6) 0 var(--esp-4);
   background: var(--superficie);
   border-bottom: 1px solid var(--borda);
 }
 
-.cabecalho__icone-botao {
+.barra__icone-botao {
   flex: none;
   display: grid;
   place-items: center;
@@ -224,71 +341,78 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--texto);
   font-size: 1.1rem;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.cabecalho__icone-botao:hover,
-.cabecalho__icone-botao[aria-pressed='true'] {
+.barra__icone-botao:hover,
+.barra__icone-botao[aria-pressed='true'] {
   background: var(--superficie-alta);
 }
 
-.cabecalho__marca {
+.barra__marca {
   display: flex;
   align-items: center;
   gap: var(--esp-3);
+  min-width: 0;
   color: var(--texto);
   text-decoration: none;
   white-space: nowrap;
 }
 
-.cabecalho__govbr {
+.barra__icmbio {
+  font-size: 1.25rem;
   font-weight: 800;
-  font-size: 1.1rem;
-  letter-spacing: -0.02em;
-  color: var(--cor-primaria);
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--cor-marca-icmbio);
 }
 
-.cabecalho__divisor {
+.barra__divisor {
+  flex: none;
   width: 1px;
-  height: 28px;
-  background: var(--borda);
+  height: 32px;
+  background: var(--borda-forte);
 }
 
-.cabecalho__nome {
+.barra__nome {
   display: flex;
   flex-direction: column;
   line-height: 1.15;
 }
 
-.cabecalho__nome strong {
-  font-size: var(--texto-lg);
+.barra__nome strong {
+  font-size: 1.0625rem;
   color: var(--cor-marca-escura);
 }
 
-:root[data-theme='contraste'] .cabecalho__nome strong {
+:root[data-theme='contraste'] .barra__nome strong {
   color: var(--texto);
 }
 
-.cabecalho__orgao {
+.barra__orgao {
   font-size: var(--texto-xs);
   color: var(--texto-secundario);
 }
 
-.cabecalho__busca {
+/* Busca CENTRALIZADA: cresce até 560 px e nunca fica menor que 260 px. */
+.barra__busca {
   position: relative;
-  flex: 1 1 auto;
-  max-width: 36rem;
-  margin-left: auto;
+  flex: 0 1 560px;
+  min-width: 260px;
+  margin: 0 auto;
 }
 
-.cabecalho__busca input {
+.barra__busca input {
   width: 100%;
-  padding-left: 2.5rem;
+  height: var(--alvo-minimo);
+  padding-left: 2.6rem;
   border-radius: var(--raio-pilula);
   background: var(--superficie-container);
+  color: var(--texto); /* o gov.br DS fixa cinza-escuro, ilegível no alto contraste */
 }
 
-.cabecalho__busca-icone {
+.barra__busca-icone {
   position: absolute;
   top: 50%;
   left: var(--esp-4);
@@ -297,35 +421,49 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-.cabecalho__acoes {
-  display: flex;
-  align-items: center;
-  gap: var(--esp-1);
+.barra__busca-botao {
+  display: none;
 }
 
-.cabecalho__usuario {
-  position: relative;
-}
-
-.cabecalho__usuario-botao {
+.barra__ferramentas {
+  flex: none;
   display: flex;
   align-items: center;
   gap: var(--esp-2);
-  min-height: var(--alvo-minimo);
-  padding: var(--esp-1) var(--esp-2) var(--esp-1) var(--esp-1);
+  margin-left: auto;
+}
+
+.barra__usuario {
+  position: relative;
+}
+
+/* Largura FIXA: o mesmo tamanho para "CGOV" ou "PARNA Brasília / Unidade Técnica". */
+.barra__usuario-botao {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  width: 240px;
+  height: 44px;
+  padding: 0 var(--esp-2) 0 var(--esp-1);
   border: 1px solid var(--borda);
   border-radius: var(--raio-pilula);
   background: var(--superficie);
   color: var(--texto);
   font: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
-.cabecalho__avatar {
+.barra__usuario-botao:hover {
+  border-color: var(--cor-primaria);
+}
+
+.barra__avatar {
+  flex: none;
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: var(--cor-primaria);
   color: var(--cor-sobre-primaria);
@@ -333,24 +471,36 @@ onBeforeUnmount(() => {
   font-weight: var(--peso-forte);
 }
 
-.cabecalho__usuario-texto {
+.barra__usuario-texto {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.15;
+  min-width: 0;
+  line-height: 1.2;
 }
 
-.cabecalho__usuario-nome {
+.barra__usuario-texto > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.barra__usuario-papel {
   font-size: var(--texto-sm);
   font-weight: var(--peso-semi);
 }
 
-.cabecalho__usuario-papel {
+.barra__usuario-unidade {
   font-size: var(--texto-xs);
   color: var(--texto-secundario);
 }
 
-.cabecalho__menu {
+.barra__usuario-seta {
+  flex: none;
+  font-size: var(--texto-xs);
+}
+
+.barra__menu {
   position: absolute;
   top: calc(100% + var(--esp-2));
   right: 0;
@@ -362,25 +512,25 @@ onBeforeUnmount(() => {
   box-shadow: var(--elevacao-3);
 }
 
-.cabecalho__menu-titulo {
+.barra__menu-titulo {
   margin: 0;
   font-weight: var(--peso-semi);
 }
 
-.cabecalho__menu-sub {
+.barra__menu-sub {
   margin: 0 0 var(--esp-3);
   font-size: var(--texto-sm);
   color: var(--texto-secundario);
 }
 
-.cabecalho__perfis {
+.barra__perfis {
   margin: 0;
   padding: var(--esp-3) 0 0;
   border: 0;
   border-top: 1px solid var(--borda);
 }
 
-.cabecalho__perfis legend {
+.barra__perfis legend {
   padding: 0;
   margin-bottom: var(--esp-2);
   font-size: var(--texto-xs);
@@ -390,7 +540,7 @@ onBeforeUnmount(() => {
   letter-spacing: 0.04em;
 }
 
-.cabecalho__perfil {
+.barra__perfil {
   display: flex;
   align-items: center;
   gap: var(--esp-3);
@@ -400,27 +550,27 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
-.cabecalho__perfil:hover {
+.barra__perfil:hover {
   background: var(--superficie-alta);
 }
 
-.cabecalho__perfil > span {
+.barra__perfil > span {
   display: flex;
   flex-direction: column;
   line-height: 1.25;
 }
 
-.cabecalho__perfil-rotulo {
+.barra__perfil-rotulo {
   font-size: var(--texto-sm);
   font-weight: var(--peso-medio);
 }
 
-.cabecalho__perfil-detalhe {
+.barra__perfil-detalhe {
   font-size: var(--texto-xs);
   color: var(--texto-secundario);
 }
 
-.cabecalho__fonte-dados {
+.barra__fonte-dados {
   display: flex;
   align-items: center;
   gap: var(--esp-2);
@@ -431,32 +581,49 @@ onBeforeUnmount(() => {
   color: var(--texto-secundario);
 }
 
-/* ---- Telas médias e pequenas: esconde textos secundários ---- */
-@media (max-width: 991.98px) {
-  .cabecalho__usuario-texto,
-  .cabecalho__usuario-botao > .fa-chevron-down {
+/* ---- Telas menores ---------------------------------------------------- */
+@media (max-width: 1180px) {
+  .faixa-gov__links {
     display: none;
   }
-  .cabecalho__usuario-botao {
-    padding: var(--esp-1);
+}
+
+/* < 1024 px: busca e conta viram botões redondos (sem tamanhos intermediários). */
+@media (max-width: 1023.98px) {
+  .barra__busca {
+    display: none;
+  }
+  .barra__busca-botao {
+    display: grid;
+  }
+  .barra__usuario-botao {
+    justify-content: center;
+    width: 44px;
+    padding: 0;
+  }
+  .barra__usuario-texto,
+  .barra__usuario-seta {
+    display: none;
   }
 }
 
 @media (max-width: 639.98px) {
-  .cabecalho {
-    gap: var(--esp-2);
+  .faixa-gov {
+    padding: 0 var(--esp-4);
+  }
+  .faixa-gov__ministerio {
+    font-size: 0.6875rem;
+  }
+  .barra {
+    gap: var(--esp-1);
     padding: 0 var(--esp-2);
   }
-  .cabecalho__orgao,
-  .cabecalho__divisor,
-  .cabecalho__govbr {
+  .barra__orgao,
+  .barra__divisor {
     display: none;
   }
-  .cabecalho__busca input {
-    padding-right: var(--esp-2);
-  }
-  .cabecalho__busca input::placeholder {
-    color: transparent; /* no celular, o ícone de lupa já comunica a função */
+  .barra__ferramentas {
+    gap: 2px;
   }
 }
 </style>

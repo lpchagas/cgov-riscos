@@ -35,8 +35,11 @@ const router = createRouter({
       component: () => import('../views/PainelConsolidadoCgovView.vue'),
       meta: {
         titulo: 'Painel',
-        descricao: 'Situação geral do Plano de Gestão de Riscos do ICMBio.',
-        fundamento: 'Política de Gestão de Riscos — RADAR (Minuta SEI 024241420).',
+        descricao: 'Situação geral do Plano de Gestão de Riscos do ICMBio · ciclo 2026',
+        fundamento:
+          'Política de Gestão de Riscos — RADAR (Minuta SEI 024241420) e Metodologia (Minuta SEI 024421455): Quadros 7 e 8 e Anexo III (DAR).',
+        // O Painel desenha o próprio cabeçalho para pôr o simulador de perfil ao lado do título.
+        cabecalhoProprio: true,
       },
     },
     {

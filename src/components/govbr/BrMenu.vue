@@ -175,6 +175,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', aoTeclar));
 
 <style scoped>
 .menu-trilho {
+  /* `flex: none`: o menu NUNCA encolhe, mesmo quando o conteúdo é largo
+     (sem isso, a grade do Painel espremia o menu até ~18 px). */
+  flex: none;
   position: sticky;
   top: var(--altura-cabecalho);
   display: flex;
@@ -363,9 +366,13 @@ onBeforeUnmount(() => document.removeEventListener('keydown', aoTeclar));
     box-shadow: var(--elevacao-3);
   }
 
+  /* Ao ABRIR, a visibilidade muda na hora (transição de 0 s); só o deslize é
+     animado. Sem isso, o atalho "Ir para o menu" tentava focar um item ainda
+     invisível e o foco se perdia. Ao FECHAR, vale a transição da regra acima. */
   .menu-trilho--aberto {
     transform: none;
     visibility: visible;
+    transition: transform var(--duracao-media) var(--curva-padrao), visibility 0s;
   }
 
   /* No celular o modo "recolhido" não se aplica: os textos sempre aparecem. */

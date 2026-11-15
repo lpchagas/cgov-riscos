@@ -164,3 +164,21 @@ tags: [design-system, tokens, componentes, acessibilidade, govbr-ds]
 `FormField` e tokens. A Fase 2 começa pelo Painel.
 
 Capturas: [`capturas/fase1/`](capturas/fase1/).
+
+## 7. Resultado da Fase 2 — Piloto do Painel
+
+| Métrica | Fase 1 | Fase 2 | Meta (Fase 4) |
+|---|---|---|---|
+| Violações axe-core no Painel (computador / celular / alto contraste) | 87 no sistema | **0 / 0 / 0** | 0 |
+| Altura do Painel no celular | 8.729 px | **4.666 px** (862 px de rodapé) | < 3.500 px |
+| Cores fixas no HTML/JS (catraca) | 234 | **175** | 0 |
+| Testes automatizados | 41 | **59** | — |
+
+**Novos tokens:** `--faixa-*` (barra gov.br e rodapé), `--cor-marca-icmbio` (verde, 6,47:1 sobre branco)
+e `--altura-faixa-gov` (44 px). A barra gov.br some ao rolar porque o `<header>` é `sticky` com
+`top: -44px`.
+
+**Nova regra de layout:** o menu lateral tem `flex: none`. Sem isso, um conteúdo largo
+(grade de 12 colunas) espremia o menu até ~18 px.
+
+Capturas: [`capturas/fase2/`](capturas/fase2/).
