@@ -16,5 +16,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // Só os testes de unidade. A varredura de acessibilidade (tests/a11y/) roda no Playwright.
+    include: ['tests/unit/**/*.spec.ts'],
   },
 });

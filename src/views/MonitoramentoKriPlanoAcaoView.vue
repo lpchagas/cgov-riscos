@@ -237,11 +237,14 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
 
           <!-- ABA PLANO DE AÇÃO -->
           <template v-else>
-            <p class="progresso" :aria-label="`${concluidas} de ${acoes.length} ações concluídas`">
+            <!-- Progresso do plano. A barra é só decoração (aria-hidden); quem informa é o TEXTO,
+                 lido igual por quem enxerga e por quem usa leitor de tela. Não use `aria-label`
+                 em <p>: leitores de tela o ignoram (regra axe "aria-prohibited-attr"). -->
+            <p class="progresso">
               <span class="progresso__trilho" aria-hidden="true">
                 <span class="progresso__barra" :style="{ width: acoes.length ? `${(concluidas / acoes.length) * 100}%` : '0%' }"></span>
               </span>
-              <span aria-hidden="true">{{ concluidas }} de {{ acoes.length }} concluídas</span>
+              <span>{{ concluidas }} de {{ acoes.length }} ações concluídas</span>
             </p>
             <DataTable
               :colunas="colunasAcoes"

@@ -1,0 +1,68 @@
+/**
+ * O QUE a varredura de acessibilidade verifica.
+ *
+ * Este arquivo só tem dados (nada de lógica), para ficar fácil de manter:
+ *   - Página nova no RADAR? Acrescente UMA linha em `TELAS`.
+ *   - Nova largura de tela ou novo tema? Acrescente em `LARGURAS` ou `TEMAS`.
+ *
+ * O total de testes é a multiplicação das três listas:
+ *   13 telas × 4 larguras × 3 temas = 156 combinações.
+ */
+
+/** Os 3 temas do menu "Aparência". Precisam ser iguais a `TemaInterface` (usePreferenciasInterface.ts). */
+export type Tema = 'claro' | 'escuro' | 'contraste';
+
+/**
+ * Uma tela da varredura.
+ *   - `nome`: aparece no relatório ("claro › 360 px › painel").
+ *   - `rota`: endereço dentro do sistema. A varredura confere que o navegador CONTINUOU nele
+ *     (uma rota errada é redirecionada para o Painel e testaria a tela errada).
+ *   - `titulo`: texto exato do `<h1>`. Prova que a tela certa carregou (e não, por exemplo,
+ *     "Risco não encontrado").
+ *   - `aba` (opcional): rótulo da aba que precisa estar selecionada, para telas abertas
+ *     direto numa aba pelo endereço (`?aba=...`).
+ */
+export interface Tela {
+  nome: string;
+  rota: string;
+  titulo: string;
+  aba?: string;
+}
+
+/** Nome do risco de demonstração usado na Ficha (Caso de Controle do Anexo II, `dadosSementeAnexoII.ts`). */
+const RISCO_DEMONSTRACAO = 'Gestão e Execução de Processos Críticos da Unidade (Caso de Controle Anexo II)';
+
+export const TELAS: Tela[] = [
+  { nome: 'painel', rota: '/', titulo: 'Painel' },
+  { nome: 'dar', rota: '/dar', titulo: 'Apetite a riscos (DAR)' },
+  { nome: 'riscos', rota: '/riscos', titulo: 'Riscos' },
+  // Ficha de um risco da semente (Caso de Controle do Anexo II), na aba inicial e na aba Bow Tie.
+  { nome: 'ficha', rota: '/riscos/risco-anexo-ii-01', titulo: RISCO_DEMONSTRACAO },
+  { nome: 'ficha-bowtie', rota: '/riscos/risco-anexo-ii-01?aba=bowtie', titulo: RISCO_DEMONSTRACAO, aba: 'Bow Tie' },
+  { nome: 'novo', rota: '/riscos/novo', titulo: 'Novo risco' },
+  { nome: 'objetos', rota: '/objetos', titulo: 'Objetos de gestão' },
+  // Monitoramento tem duas abas com conteúdos bem diferentes (KRIs e Plano de ação).
+  { nome: 'monitoramento', rota: '/monitoramento', titulo: 'Monitoramento' },
+  { nome: 'plano', rota: '/monitoramento?aba=plano', titulo: 'Monitoramento', aba: 'Plano de ação' },
+  { nome: 'aprovacoes', rota: '/aprovacoes', titulo: 'Aprovações' },
+  { nome: 'auditoria', rota: '/auditoria', titulo: 'Auditoria' },
+  { nome: 'importar', rota: '/importar', titulo: 'Importar riscos' },
+  { nome: 'sobre', rota: '/sobre', titulo: 'Sobre o RADAR' },
+];
+
+/** Larguras em pixels: celular pequeno, tablet, notebook e monitor grande. */
+export const LARGURAS: number[] = [360, 768, 1280, 1920];
+
+export const TEMAS: Tema[] = ['claro', 'escuro', 'contraste'];
+
+/**
+ * Chave onde o RADAR guarda o tema no navegador (ver `usePreferenciasInterface.ts`).
+ * A varredura grava o tema aqui ANTES de abrir a página, como se o usuário já o tivesse escolhido.
+ */
+export const CHAVE_PREFERENCIAS = 'radar.preferencias-interface.v1';
+
+/**
+ * Conjuntos de regras do axe-core: WCAG 2.0, 2.1 e 2.2, níveis A e AA.
+ * É o nível exigido pelo eMAG/gov.br para sistemas do governo federal.
+ */
+export const TAGS_WCAG: string[] = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'];
