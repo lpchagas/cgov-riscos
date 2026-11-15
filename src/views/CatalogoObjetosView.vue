@@ -1,220 +1,240 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * CATÁLOGO DE OBJETOS DE GESTÃO DE RISCOS E CONTEXTO (`CatalogoObjetosView.vue`)
+ * OBJETOS DE GESTÃO (`CatalogoObjetosView.vue`) — Fase 3
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Operacionaliza a Seção 4.1 (Estabelecimento do Contexto) e o Quadro 1 da
- * Metodologia RADAR (SEI 024421455), vinculando os Objetos de Gestão de Riscos
- * (Macroprocessos, Processos, Projetos, Planos, Ações e Unidades) às Unidades
- * Organizacionais do ICMBio (Presidência, Diretorias, Coordenações-Gerais,
- * Gerências Regionais e Unidades de Conservação).
+ * "Objeto de gestão" é ONDE o risco mora: um macroprocesso, processo, projeto,
+ * plano, ação ou unidade (Seção 4.1 e Quadro 1 da Metodologia). Cada objeto tem
+ * a sua linha de supervisão: unidade (1ª Linha) → Coordenação-Geral → Diretoria.
+ *
+ * O que mudou na reformulação:
+ *   - lista em TABELA com busca, em vez de um cartão grande por objeto;
+ *   - o cadastro abre num PAINEL LATERAL (antes era um formulário fixo no topo);
+ *   - todos os campos têm rótulo ligado (FormField) e o nome é obrigatório;
+ *   - "Ver riscos" abre a lista de Riscos já filtrada por aquele objeto.
  */
-import { ref } from 'vue';
-import { RouterLink } from 'vue-router';
+import { computed, ref } from 'vue';
+import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
-import type { ObjetoContexto } from '../types/radar.types';
-import BrCard from '../components/govbr/BrCard.vue';
+import { useToast } from '../composables/useToast';
+import type { ObjetoContexto, UnidadeOrganizacional } from '../types/radar.types';
+import PageHeader from '../components/ui/PageHeader.vue';
+import DataTable from '../components/ui/DataTable.vue';
+import type { ColunaTabela } from '../components/ui/tipos';
+import FormField from '../components/ui/FormField.vue';
+import SideSheet from '../components/ui/SideSheet.vue';
+import EmptyState from '../components/ui/EmptyState.vue';
+import Chip from '../components/ui/Chip.vue';
 import BrButton from '../components/govbr/BrButton.vue';
-import BrBadge from '../components/govbr/BrBadge.vue';
 
+const route = useRoute();
 const riscosStore = useRiscosStore();
+const { mostrar } = useToast();
 
-const exibirFormularioNovo = ref(false);
-const tipoObjeto = ref<ObjetoContexto['tipoObjeto']>('Processo');
-const nomeObjeto = ref('');
-const unidadeId = ref('uni-cgov');
-const macroprocessoSupervisorId = ref('uni-cgge');
-const diretoriaId = ref('uni-diplan');
-const objetivoEstrategicoAssociado = ref('');
-const insumosPrincipais = ref('');
-const entregasPrincipais = ref('');
-const partesInteressadas = ref('');
+// ---------------------------------------------------------------------------
+// LISTA + BUSCA
+// ---------------------------------------------------------------------------
+const busca = ref('');
+const sigla = (id: string) => riscosStore.unidades.find((u) => u.id === id)?.sigla ?? '—';
+const quantidadeRiscos = (id: string) => riscosStore.riscos.filter((r) => r.objetoId === id).length;
 
-function obterSiglaUnidade(id: string): string {
-  return riscosStore.unidades.find((u) => u.id === id)?.sigla || id;
+const objetos = computed(() => {
+  const termo = busca.value.trim().toLowerCase();
+  if (!termo) return riscosStore.objetosContexto;
+  return riscosStore.objetosContexto.filter((o) =>
+    [o.nomeObjeto, o.tipoObjeto, sigla(o.unidadeId), o.objetivoEstrategicoAssociado].some((t) => t.toLowerCase().includes(termo))
+  );
+});
+
+const colunas: ColunaTabela<ObjetoContexto>[] = [
+  { chave: 'nomeObjeto', rotulo: 'Objeto de gestão', ordenavel: true },
+  { chave: 'unidadeId', rotulo: 'Unidade (1ª Linha)', ordenavel: true, valorOrdenacao: (o) => sigla(o.unidadeId) },
+  { chave: 'macroprocessoSupervisorId', rotulo: 'Supervisão', ocultarNoCelular: true },
+  { chave: 'id', rotulo: 'Riscos', alinhamento: 'direita', ordenavel: true, valorOrdenacao: (o) => quantidadeRiscos(o.id) },
+];
+
+// ---------------------------------------------------------------------------
+// CADASTRO (painel lateral)
+// ---------------------------------------------------------------------------
+const TIPOS: ObjetoContexto['tipoObjeto'][] = ['Macroprocesso', 'Processo', 'Projeto', 'Plano', 'Ação', 'Unidade'];
+const porTipo = (...tipos: UnidadeOrganizacional['tipo'][]) => riscosStore.unidades.filter((u) => tipos.includes(u.tipo));
+
+const cadastroAberto = ref(false);
+const erroNome = ref<string | undefined>();
+const novo = ref(formularioVazio());
+
+function formularioVazio() {
+  return {
+    tipoObjeto: 'Processo' as ObjetoContexto['tipoObjeto'],
+    nomeObjeto: '',
+    unidadeId: riscosStore.unidades[0]?.id ?? '',
+    macroprocessoSupervisorId: porTipo('coordenacao-geral', 'gerencia-regional')[0]?.id ?? '',
+    diretoriaId: porTipo('diretoria')[0]?.id ?? '',
+    objetivoEstrategicoAssociado: '',
+    entregasPrincipais: '',
+    partesInteressadas: '',
+  };
 }
 
-function riscosDoObjeto(objetoId: string) {
-  return riscosStore.riscos.filter((r) => r.objetoId === objetoId);
+function abrirCadastro(): void {
+  novo.value = formularioVazio();
+  erroNome.value = undefined;
+  cadastroAberto.value = true;
 }
 
-function salvarObjeto() {
-  if (!nomeObjeto.value.trim()) return;
-  riscosStore.salvarNovoObjetoContexto({
-    tipoObjeto: tipoObjeto.value,
-    nomeObjeto: nomeObjeto.value.trim(),
-    unidadeId: unidadeId.value,
-    macroprocessoSupervisorId: macroprocessoSupervisorId.value,
-    diretoriaId: diretoriaId.value,
-    objetivoEstrategicoAssociado:
-      objetivoEstrategicoAssociado.value.trim() ||
-      'Garantir conformidade, tempestividade e alcance de resultados institucionais.',
-    insumosPrincipais: insumosPrincipais.value.trim() || 'Processos SEI e normativos vigentes.',
-    entregasPrincipais: entregasPrincipais.value.trim() || 'Atos decisórios e relatórios técnicos.',
-    partesInteressadas: partesInteressadas.value.trim() || 'Unidades do ICMBio e sociedade.',
+function salvar(): void {
+  if (novo.value.nomeObjeto.trim().length < 3) {
+    erroNome.value = 'Informe o nome do objeto (pelo menos 3 caracteres).';
+    return;
+  }
+  const obj = riscosStore.salvarNovoObjetoContexto({
+    ...novo.value,
+    nomeObjeto: novo.value.nomeObjeto.trim(),
+    objetivoEstrategicoAssociado: novo.value.objetivoEstrategicoAssociado.trim() || undefined,
+    entregasPrincipais: novo.value.entregasPrincipais.trim() || undefined,
+    partesInteressadas: novo.value.partesInteressadas.trim() || undefined,
     cicloAno: 2026,
   });
-
-  nomeObjeto.value = '';
-  objetivoEstrategicoAssociado.value = '';
-  insumosPrincipais.value = '';
-  entregasPrincipais.value = '';
-  partesInteressadas.value = '';
-  exibirFormularioNovo.value = false;
+  cadastroAberto.value = false;
+  mostrar({ tom: 'sucesso', mensagem: `Objeto "${obj.nomeObjeto}" cadastrado.` });
 }
 </script>
 
 <template>
-  <div>
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-      <div>
-        <h2 class="h4 font-weight-bold mb-0" style="color: #071d41;">
-          Catálogo de Objetos de Gestão de Riscos &amp; Cadeia de Valor (Seção 4.1 e Quadro 1)
-        </h2>
-        <p class="text-down-01 text-muted mb-0">
-          Mapeamento de Macroprocessos, Processos, Unidades e sua linha de supervisão (1ª Linha → CG → Diretoria)
-        </p>
-      </div>
-      <BrButton
-        variant="primary"
-        icon="fas fa-plus-circle"
-        @click="exibirFormularioNovo = !exibirFormularioNovo"
-      >
-        {{ exibirFormularioNovo ? 'Fechar Formulário' : 'Cadastrar Novo Objeto de Gestão' }}
-      </BrButton>
-    </div>
+  <div class="objetos">
+    <PageHeader :titulo="route.meta.titulo ?? 'Objetos de gestão'" :descricao="route.meta.descricao" :fundamento="route.meta.fundamento">
+      <template #acoes>
+        <BrButton variant="primary" icon="fa-solid fa-plus" @click="abrirCadastro">Novo objeto</BrButton>
+      </template>
+    </PageHeader>
 
-    <!-- Formulário de Novo Objeto de Contexto (Quadro 1) -->
-    <BrCard
-      v-if="exibirFormularioNovo"
-      titulo="Novo Objeto de Gestão de Riscos (Quadro 1 — Estabelecimento do Contexto)"
-      subtitulo="Defina a unidade responsável (1ª Linha), a Coordenação-Geral supervisora (2º Degrau) e a Diretoria (3º Degrau)"
-      destaque-cor="#168821"
-    >
-      <div class="radar-grid-2 mb-3">
-        <div>
-          <label class="font-weight-bold d-block mb-1">Tipo de Objeto (Quadro 1):</label>
-          <select v-model="tipoObjeto" class="w-100 p-2 rounded border">
-            <option value="Macroprocesso">Macroprocesso</option>
-            <option value="Processo">Processo</option>
-            <option value="Projeto">Projeto</option>
-            <option value="Plano">Plano</option>
-            <option value="Ação">Ação</option>
-            <option value="Unidade">Unidade</option>
+    <FormField rotulo="Buscar objeto" class="objetos__busca" v-slot="{ attrs }">
+      <input v-bind="attrs" v-model="busca" type="search" placeholder="Nome, tipo, unidade ou objetivo" />
+    </FormField>
+
+    <DataTable :colunas="colunas" :linhas="objetos" chave-linha="id" legenda="Objetos de gestão de riscos">
+      <template #celula-nomeObjeto="{ linha }">
+        <span class="objeto">
+          <span class="objeto__nome">{{ linha.nomeObjeto }}</span>
+          <span class="objeto__detalhe"><Chip tom="neutro">{{ linha.tipoObjeto }}</Chip> {{ linha.objetivoEstrategicoAssociado }}</span>
+        </span>
+      </template>
+      <template #celula-unidadeId="{ linha }">{{ sigla(linha.unidadeId) }}</template>
+      <template #celula-macroprocessoSupervisorId="{ linha }">
+        <span class="texto-apoio">{{ sigla(linha.macroprocessoSupervisorId) }} → {{ sigla(linha.diretoriaId) }}</span>
+      </template>
+      <template #celula-id="{ linha }">
+        <RouterLink
+          v-if="quantidadeRiscos(linha.id)"
+          :to="{ name: 'riscos-lista', query: { q: linha.nomeObjeto } }"
+          class="link-acao"
+          :aria-label="`Ver ${quantidadeRiscos(linha.id)} riscos de ${linha.nomeObjeto}`"
+        >
+          {{ quantidadeRiscos(linha.id) }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </RouterLink>
+        <span v-else class="texto-apoio">0</span>
+      </template>
+      <template #vazio>
+        <EmptyState
+          :titulo="busca ? 'Nenhum objeto encontrado' : 'Nenhum objeto cadastrado'"
+          :descricao="busca ? 'Tente outra palavra na busca.' : 'Cadastre o primeiro processo, projeto ou unidade.'"
+        />
+      </template>
+    </DataTable>
+
+    <!-- CADASTRO -->
+    <SideSheet :aberto="cadastroAberto" titulo="Novo objeto de gestão" subtitulo="Quadro 1 — Estabelecimento do contexto" @fechar="cadastroAberto = false">
+      <form id="form-objeto" class="formulario" novalidate @submit.prevent="salvar">
+        <FormField rotulo="Tipo" v-slot="{ attrs }">
+          <select v-bind="attrs" v-model="novo.tipoObjeto">
+            <option v-for="t in TIPOS" :key="t" :value="t">{{ t }}</option>
           </select>
-        </div>
-
-        <div>
-          <label class="font-weight-bold d-block mb-1">Nome do Objeto / Processo:</label>
-          <input
-            v-model="nomeObjeto"
-            type="text"
-            placeholder="Ex.: Gestão de Contratos Continuados de Apoio às UCs"
-            class="w-100 p-2 rounded border"
-          />
-        </div>
-
-        <div>
-          <label class="font-weight-bold d-block mb-1">Unidade Responsável (1ª Linha):</label>
-          <select v-model="unidadeId" class="w-100 p-2 rounded border">
-            <option v-for="u in riscosStore.unidades" :key="u.id" :value="u.id">
-              {{ u.sigla }} — {{ u.nome }} ({{ u.tipo }})
-            </option>
+        </FormField>
+        <FormField rotulo="Nome" ajuda="Ex.: Gestão de contratos continuados de apoio às UCs." :erro="erroNome" obrigatorio v-slot="{ attrs }">
+          <input v-bind="attrs" v-model="novo.nomeObjeto" type="text" />
+        </FormField>
+        <FormField rotulo="Unidade responsável (1ª Linha)" v-slot="{ attrs }">
+          <select v-bind="attrs" v-model="novo.unidadeId">
+            <option v-for="u in riscosStore.unidades" :key="u.id" :value="u.id">{{ u.sigla }} — {{ u.nome }}</option>
           </select>
-        </div>
-
-        <div>
-          <label class="font-weight-bold d-block mb-1">Coordenação-Geral Supervisora (2º Degrau):</label>
-          <select v-model="macroprocessoSupervisorId" class="w-100 p-2 rounded border">
-            <option
-              v-for="u in riscosStore.unidades.filter((x) => x.tipo === 'coordenacao-geral' || x.tipo === 'gerencia-regional')"
-              :key="u.id"
-              :value="u.id"
-            >
-              {{ u.sigla }} — {{ u.nome }}
-            </option>
+        </FormField>
+        <FormField rotulo="Coordenação-Geral supervisora (2º degrau)" v-slot="{ attrs }">
+          <select v-bind="attrs" v-model="novo.macroprocessoSupervisorId">
+            <option v-for="u in porTipo('coordenacao-geral', 'gerencia-regional')" :key="u.id" :value="u.id">{{ u.sigla }} — {{ u.nome }}</option>
           </select>
-        </div>
-
-        <div>
-          <label class="font-weight-bold d-block mb-1">Objetivo Estratégico Associado:</label>
-          <input
-            v-model="objetivoEstrategicoAssociado"
-            type="text"
-            placeholder="Qual objetivo institucional este objeto sustenta?"
-            class="w-100 p-2 rounded border"
-          />
-        </div>
-
-        <div>
-          <label class="font-weight-bold d-block mb-1">Principais Entregas e Partes Interessadas:</label>
-          <input
-            v-model="entregasPrincipais"
-            type="text"
-            placeholder="Ex.: Termos de referência, atestes mensais e relatórios..."
-            class="w-100 p-2 rounded border"
-          />
-        </div>
-      </div>
-
-      <div class="d-flex justify-content-end gap-2">
-        <BrButton variant="secondary" @click="exibirFormularioNovo = false">
-          Cancelar
-        </BrButton>
-        <BrButton variant="primary" icon="fas fa-save" @click="salvarObjeto">
-          Salvar Objeto no Catálogo
-        </BrButton>
-      </div>
-    </BrCard>
-
-    <!-- Cards de Objetos Mapeados -->
-    <div class="space-y-3">
-      <BrCard
-        v-for="obj in riscosStore.objetosContexto"
-        :key="obj.id"
-        :titulo="`[${obj.tipoObjeto}] ${obj.nomeObjeto}`"
-        :subtitulo="`Ciclo ${obj.cicloAno} | 1ª Linha: ${obterSiglaUnidade(obj.unidadeId)} → 2º Degrau (CG): ${obterSiglaUnidade(obj.macroprocessoSupervisorId)} → 3º Degrau (Diretoria): ${obterSiglaUnidade(obj.diretoriaId)}`"
-        destaque-cor="#1351b4"
-      >
-        <div class="radar-grid-2 mb-3 text-down-01">
-          <div class="p-2 rounded" style="background-color: #f8fafc; border: 1px solid #e5e7eb;">
-            <strong>Objetivo Estratégico Associado:</strong>
-            <div>{{ obj.objetivoEstrategicoAssociado }}</div>
-          </div>
-          <div class="p-2 rounded" style="background-color: #f8fafc; border: 1px solid #e5e7eb;">
-            <strong>Insumos &amp; Entregas Principais:</strong>
-            <div>Insumos: {{ obj.insumosPrincipais }} | Entregas: {{ obj.entregasPrincipais }}</div>
-          </div>
-        </div>
-
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-2" style="border-top: 1px solid #eee;">
-          <div class="d-flex flex-wrap gap-2 align-items-center">
-            <span class="font-weight-bold text-down-01" style="color: #071d41;">
-              Fichas de Risco Vinculadas ({{ riscosDoObjeto(obj.id).length }}):
-            </span>
-            <RouterLink
-              v-for="r in riscosDoObjeto(obj.id)"
-              :key="r.id"
-              :to="`/riscos/${r.id}`"
-              class="text-decoration-none d-inline-flex align-items-center gap-1 px-2 py-1 rounded border"
-              style="background-color: #ffffff;"
-            >
-              <strong style="color: #1351b4;">{{ r.codigoRadar }}</strong>
-              <BrBadge :classe-risco="r.classificacaoResidual" :texto="`${r.nivelResidual} (${r.classificacaoResidual})`" />
-            </RouterLink>
-          </div>
-
-          <RouterLink
-            :to="{ name: 'novo-risco' }"
-            class="px-3 py-1 rounded-pill text-decoration-none font-weight-bold text-down-01"
-            style="background-color: #dbe8fb; color: #1351b4;"
-          >
-            + Mapear Risco neste Objeto
-          </RouterLink>
-        </div>
-      </BrCard>
-    </div>
+        </FormField>
+        <FormField rotulo="Diretoria (3º degrau)" v-slot="{ attrs }">
+          <select v-bind="attrs" v-model="novo.diretoriaId">
+            <option v-for="u in porTipo('diretoria')" :key="u.id" :value="u.id">{{ u.sigla }} — {{ u.nome }}</option>
+          </select>
+        </FormField>
+        <FormField rotulo="Objetivo estratégico" ajuda="Qual objetivo do ICMBio este objeto sustenta?" v-slot="{ attrs }">
+          <input v-bind="attrs" v-model="novo.objetivoEstrategicoAssociado" type="text" />
+        </FormField>
+        <FormField rotulo="Principais entregas" v-slot="{ attrs }">
+          <input v-bind="attrs" v-model="novo.entregasPrincipais" type="text" />
+        </FormField>
+        <FormField rotulo="Partes interessadas" v-slot="{ attrs }">
+          <input v-bind="attrs" v-model="novo.partesInteressadas" type="text" />
+        </FormField>
+      </form>
+      <template #acoes>
+        <BrButton variant="secondary" @click="cadastroAberto = false">Cancelar</BrButton>
+        <BrButton variant="primary" type="submit" form="form-objeto">Salvar objeto</BrButton>
+      </template>
+    </SideSheet>
   </div>
 </template>
+
+<style scoped>
+.objetos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+.objetos__busca {
+  max-width: 28rem;
+}
+
+.objeto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+  min-width: 14rem;
+}
+
+.objeto__nome {
+  font-weight: var(--peso-semi);
+}
+
+.objeto__detalhe {
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+.texto-apoio {
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+.link-acao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--esp-1);
+  min-width: var(--alvo-minimo);
+  min-height: var(--alvo-minimo);
+  font-weight: var(--peso-semi);
+  color: var(--texto-link);
+  text-decoration: none;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+</style>

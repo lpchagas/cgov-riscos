@@ -101,6 +101,8 @@ const router = createRouter({
         titulo: 'Objetos de gestão',
         descricao: 'Processos, projetos e unidades cujos riscos são gerenciados.',
         fundamento: 'Seção 4.1 e Quadro 1 da Metodologia (Estabelecimento do Contexto).',
+        // A página desenha o próprio cabeçalho para pôr o botão "Novo objeto" ao lado do título.
+        cabecalhoProprio: true,
       },
     },
     {
