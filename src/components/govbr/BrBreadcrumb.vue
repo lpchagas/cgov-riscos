@@ -1,48 +1,97 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * COMPONENTE DE TRILHA DE NAVEGAÇÃO (`nav.br-breadcrumb`)
+ * TRILHA DE NAVEGAÇÃO — "BREADCRUMB" (`nav.br-breadcrumb`)
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Segue a estrutura HTML oficial `nav.br-breadcrumb > ol.crumb-list > li.crumb`
- * do Template Base do `@govbr-ds/core`. Lê automaticamente os metadados da rota
- * ativa (`route.meta.categoriaBreadcrumb` e `route.meta.titulo`) para situar o
- * servidor dentro das 3 Linhas de Governança do ICMBio.
+ * Mostra ONDE o usuário está e permite voltar um nível com um clique:
+ *
+ *     Início › Riscos › RADAR-2026-001
+ *
+ * Só aparecem páginas REAIS. (A versão antiga mostrava "1. Governança &
+ * Estratégia (2ª Linha)", que não era uma página — achado 2.1.)
+ * No Painel (página inicial) a trilha não aparece, pois não há para onde voltar.
  */
 import { computed } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
+import { useRiscosStore } from '../../stores/riscosStore';
 
 const route = useRoute();
+const riscosStore = useRiscosStore();
 
-const categoriaAtual = computed(
-  () => (route.meta.categoriaBreadcrumb as string) || 'Governança RADAR'
-);
+const ehPaginaInicial = computed(() => route.name === 'painel-cgov');
 
-const tituloPaginaAtual = computed(
-  () =>
-    (route.meta.titulo as string) ||
-    'Painel do Plano de Gestão de Riscos do ICMBio'
-);
+/** Último elo: na ficha, usa o código do risco; nas demais, o título da página. */
+const tituloAtual = computed(() => {
+  if (route.name === 'ficha-bowtie-detalhe') {
+    const risco = riscosStore.riscos.find((r) => r.id === route.params.id);
+    if (risco) return risco.codigoRadar;
+  }
+  return route.meta.titulo ?? '';
+});
 </script>
 
 <template>
-  <nav class="br-breadcrumb" aria-label="Breadcrumbs">
-    <ol class="crumb-list" role="list">
-      <li class="crumb home">
-        <RouterLink to="/" class="br-button circle" title="Página inicial">
-          <span class="sr-only">Página inicial</span>
-          <i class="fas fa-home" aria-hidden="true"></i>
+  <nav v-if="!ehPaginaInicial" class="trilha" aria-label="Você está em">
+    <ol role="list">
+      <li>
+        <RouterLink :to="{ name: 'painel-cgov' }">
+          <i class="fa-solid fa-house" aria-hidden="true"></i>
+          Início
         </RouterLink>
       </li>
-      <li class="crumb">
-        <i class="icon fas fa-chevron-right" aria-hidden="true"></i>
-        <RouterLink to="/">{{ categoriaAtual }}</RouterLink>
+      <li v-if="route.meta.migalhaPai">
+        <RouterLink :to="{ name: route.meta.migalhaPai.nome }">{{ route.meta.migalhaPai.rotulo }}</RouterLink>
       </li>
-      <li class="crumb" data-active="active">
-        <i class="icon fas fa-chevron-right" aria-hidden="true"></i>
-        <span tabindex="0" aria-current="page">{{ tituloPaginaAtual }}</span>
+      <li>
+        <span aria-current="page">{{ tituloAtual }}</span>
       </li>
     </ol>
   </nav>
 </template>
+
+<style scoped>
+.trilha {
+  margin-bottom: var(--esp-3);
+  font-size: var(--texto-sm);
+}
+
+.trilha ol {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trilha li {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Separador "›" desenhado pelo CSS (o leitor de tela não o lê). */
+.trilha li + li::before {
+  content: '›';
+  margin: 0 var(--esp-2);
+  color: var(--texto-secundario);
+}
+
+.trilha a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  min-height: 1.5rem; /* alvo mínimo WCAG 2.5.8 */
+  color: var(--texto-link);
+  text-decoration: none;
+}
+
+.trilha a:hover {
+  text-decoration: underline;
+}
+
+.trilha [aria-current='page'] {
+  color: var(--texto-secundario);
+}
+</style>

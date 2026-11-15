@@ -1,82 +1,160 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * COMPONENTE RAIZ DA APLICAÇÃO (`src/App.vue`) — TEMPLATE BASE GOV.BR DS
+ * COMPONENTE RAIZ — "APP SHELL" DO RADAR (`src/App.vue`)
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Implementa a espinha dorsal exata do Template Base do Padrão Digital de
- * Governo (`https://www.gov.br/ds/templates/base?tab=visao-geral` / `base.pug`):
- * 1. Wrapper raiz `<div class="template-base">`
- * 2. Atalhos de acessibilidade `<BrSkiplink />` (`nav.br-skiplink`)
- * 3. Cabeçalho institucional `<BrHeader />` (`header.br-header[data-sticky]`)
- * 4. Corpo principal `<main id="main" class="d-flex flex-fill mb-5">` com:
- *    - Menu lateral `<BrMenu />` (`div.br-menu.push#main-navigation`)
- *    - Coluna de conteúdo (`.col.mb-5`) com `<BrBreadcrumb />` (`nav.br-breadcrumb`)
- *      e `<div id="main-content" class="main-content pl-sm-3 mt-3">`
- * 5. Rodapé institucional `<BrFooter />` (`footer.br-footer#footer`)
+ * O "app shell" é o esqueleto que fica parado enquanto as páginas trocam.
+ * Mantemos a anatomia do Template Base gov.br (skip-link, cabeçalho, menu,
+ * trilha, conteúdo e rodapé), reorganizada no padrão moderno dos sistemas
+ * web (Material Design 3 / Ant Design Pro):
+ *
+ *   ┌──────────── Faixa gov.br (44 px, some ao rolar a página) ──────────────┐
+ *   ├───────────────────────── Cabeçalho (64 px, fixo no topo) ─────────────┤
+ *   ├──────────┬────────────────────────────────────────────────────────────┤
+ *   │  Menu    │  Trilha › de › navegação                                    │
+ *   │ lateral  │  <h1> Título da página        [ⓘ Fundamento]   [Ações]     │
+ *   │ (rail)   │  ...conteúdo da página (RouterView)...                      │
+ *   └──────────┴────────────────────────────────────────────────────────────┘
+ *   ┌──────────── Rodapé institucional (largura total, azul-escuro) ─────────┐
+ *
+ * O título <h1> de cada página vem AUTOMATICAMENTE dos metadados da rota
+ * (`src/router/index.ts`) — assim, todas as 9 páginas ganharam um <h1> sem
+ * precisar mexer nelas (achado A6 do diagnóstico). Uma view pode desenhar o
+ * próprio cabeçalho marcando `meta.cabecalhoProprio: true`.
  */
-import { computed, ref } from 'vue';
-import { RouterView } from 'vue-router';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { RouterView, START_LOCATION, useRoute, useRouter } from 'vue-router';
 import BrSkiplink from './components/govbr/BrSkiplink.vue';
 import BrHeader from './components/govbr/BrHeader.vue';
 import BrMenu from './components/govbr/BrMenu.vue';
 import BrBreadcrumb from './components/govbr/BrBreadcrumb.vue';
 import BrFooter from './components/govbr/BrFooter.vue';
+import PageHeader from './components/ui/PageHeader.vue';
+import ToastRegion from './components/ui/ToastRegion.vue';
+import { usePreferenciasInterface } from './composables/usePreferenciasInterface';
 
-const menuAberto = ref<boolean>(true);
-const altoContraste = ref<boolean>(false);
-const layoutFluido = ref<boolean>(true);
+const route = useRoute();
+const router = useRouter();
+const { menuRecolhido, alternarMenuRecolhido } = usePreferenciasInterface();
 
-const classeContainer = computed(() =>
-  layoutFluido.value ? 'container-fluid px-3 px-md-4' : 'container-lg'
-);
+// ---------------------------------------------------------------------------
+// COMPUTADOR × CELULAR
+// `matchMedia` avisa quando a largura da janela cruza 992 px.
+// ---------------------------------------------------------------------------
+const consultaDesktop = window.matchMedia('(min-width: 992px)');
+const ehDesktop = ref<boolean>(consultaDesktop.matches);
+const atualizarTela = (e: MediaQueryListEvent) => {
+  ehDesktop.value = e.matches;
+};
+onMounted(() => consultaDesktop.addEventListener('change', atualizarTela));
+onBeforeUnmount(() => consultaDesktop.removeEventListener('change', atualizarTela));
+
+/** Gaveta do menu no celular: FECHADA por padrão (antes abria sozinha). */
+const gavetaAberta = ref<boolean>(false);
+
+/** O botão ☰ recolhe o menu no computador e abre a gaveta no celular. */
+function alternarMenu(): void {
+  if (ehDesktop.value) alternarMenuRecolhido();
+  else gavetaAberta.value = !gavetaAberta.value;
+}
+
+/**
+ * Atalho de teclado "Ir para o menu": no celular, a gaveta precisa ABRIR antes
+ * de receber o foco. No computador o menu já está visível; nada a fazer.
+ */
+function abrirMenuPeloAtalho(): void {
+  if (!ehDesktop.value) gavetaAberta.value = true;
+}
+
+const menuVisivel = computed(() => (ehDesktop.value ? !menuRecolhido.value : gavetaAberta.value));
+
+// Ao trocar de página, fecha a gaveta e leva o foco ao conteúdo novo
+// (quem usa leitor de tela "ouve" que a página mudou).
+// `START_LOCATION` é a "rota vazia" antes da primeira navegação: nesse caso
+// (abertura do sistema) não movemos o foco.
+router.afterEach(async (_para, de) => {
+  gavetaAberta.value = false;
+  if (de === START_LOCATION) return;
+  await nextTick();
+  document.getElementById('main-content')?.focus({ preventScroll: true });
+});
 </script>
 
 <template>
-  <div
-    class="template-base"
-    :class="{ 'govbr-contrast': altoContraste }"
-  >
-    <!-- 1. Atalhos de Teclado (nav.br-skiplink) -->
-    <BrSkiplink />
+  <div class="template-base">
+    <!-- 1. Atalhos de teclado (Alt+1 conteúdo, Alt+2 menu, Alt+3 busca, Alt+4 rodapé) -->
+    <BrSkiplink @abrir-menu="abrirMenuPeloAtalho" />
 
-    <!-- 2. Cabeçalho Institucional (header.br-header#header) -->
-    <BrHeader
-      :menu-aberto="menuAberto"
-      :alto-contraste="altoContraste"
-      :layout-fluido="layoutFluido"
-      :container-class="classeContainer"
-      @alternar-menu="menuAberto = !menuAberto"
-      @alternar-contraste="altoContraste = !altoContraste"
-      @alternar-layout-fluido="layoutFluido = !layoutFluido"
-    />
+    <!-- 2. Cabeçalho compacto -->
+    <BrHeader :menu-aberto="menuVisivel" @alternar-menu="alternarMenu" />
 
-    <!-- 3. Corpo Principal (main#main.d-flex.flex-fill) -->
-    <main id="main" class="d-flex flex-fill mb-4">
-      <div :class="[classeContainer, 'd-flex w-100']">
-        <div class="row w-100 mx-0">
-          <!-- Menu Lateral Push / Off-Canvas (div.br-menu#main-navigation) -->
-          <BrMenu
-            :aberto="menuAberto"
-            @fechar="menuAberto = false"
-          />
+    <div class="casca">
+      <!-- 3. Menu lateral (navigation rail) -->
+      <BrMenu
+        :aberto="gavetaAberta"
+        :recolhido="menuRecolhido"
+        @fechar="gavetaAberta = false"
+        @alternar-recolhido="alternarMenuRecolhido"
+      />
 
-          <!-- Coluna Principal de Conteúdo (.col) -->
-          <div class="col px-0 pl-md-2" style="min-width: 0;">
-            <!-- Trilha de Navegação (nav.br-breadcrumb) -->
-            <BrBreadcrumb />
+      <!-- 4. Área principal -->
+      <main id="main" class="casca__principal">
+        <div class="casca__conteudo">
+          <BrBreadcrumb />
 
-            <!-- Área de Conteúdo Principal (#main-content) -->
-            <div id="main-content" class="main-content mt-3" tabindex="-1">
-              <RouterView />
-            </div>
+          <!-- O skip-link "Ir para o conteúdo" e a troca de página trazem o foco
+               para cá, onde o primeiro elemento lido é o <h1> da página. -->
+          <div id="main-content" class="main-content" tabindex="-1">
+            <PageHeader
+              v-if="!route.meta.cabecalhoProprio && route.meta.titulo"
+              :titulo="route.meta.titulo"
+              :descricao="route.meta.descricao"
+              :fundamento="route.meta.fundamento"
+            />
+            <RouterView />
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
 
-    <!-- 4. Rodapé Institucional (footer.br-footer#footer) -->
-    <BrFooter :container-class="classeContainer" />
+    <!-- 5. Rodapé institucional: largura total, abaixo do menu e do conteúdo -->
+    <BrFooter />
+
+    <!-- Avisos rápidos (toasts) de toda a aplicação -->
+    <ToastRegion />
   </div>
 </template>
+
+<style scoped>
+.casca {
+  display: flex;
+  align-items: flex-start;
+}
+
+.casca__principal {
+  flex: 1;
+  min-width: 0; /* permite que tabelas largas rolem dentro da área, sem estourar a página */
+}
+
+.casca__conteudo {
+  max-width: var(--largura-conteudo-max);
+  margin: 0 auto;
+  padding: var(--esp-5) var(--esp-6) var(--esp-4);
+}
+
+/* O foco programático na troca de página serve ao leitor de tela; não
+   desenhamos o anel de foco em volta da área inteira. */
+.main-content:focus,
+.main-content:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+@media (max-width: 767.98px) {
+  .casca__conteudo {
+    padding: var(--esp-4);
+  }
+}
+</style>

@@ -1,0 +1,327 @@
+/**
+ * ============================================================================
+ * TOKENS DE DESIGN DO SISTEMA RADAR (`src/styles/tokens.css`)
+ * ============================================================================
+ *
+ * EXPLICAÇÃO DIDÁTICA (O QUE É UM "TOKEN"?):
+ * Um token é um NOME para uma decisão visual. Em vez de escrever a cor
+ * `#1351b4` em 40 lugares, escrevemos `var(--cor-primaria)`. Se um dia a cor
+ * mudar (ou o usuário ativar o Alto Contraste), basta trocar o valor AQUI.
+ *
+ * Organizamos os tokens em 3 CAMADAS (inspiradas no Material Design 3):
+ *
+ *   1. REFERÊNCIA  (--ref-*)   → a paleta "crua" do Padrão Digital de Governo
+ *                                (gov.br DS). Ex.: --ref-azul-70: #1351b4.
+ *                                NUNCA use estes tokens direto nos componentes.
+ *
+ *   2. SEMÂNTICOS  (--cor-*, --superficie-*, --texto-*, --borda-*)
+ *                              → o PAPEL da cor na tela. Ex.: --cor-primaria.
+ *                                São estes que os componentes usam. Cada tema
+ *                                (claro, escuro, alto contraste) só redefine
+ *                                esta camada.
+ *
+ *   3. DOMÍNIO RADAR (--risco-*) → cores dos 4 níveis do Quadro 8
+ *                                (Baixo, Médio, Alto, Extremo).
+ *
+ * CONTRASTE (WCAG 2.2 AA): todos os pares texto/fundo abaixo foram medidos.
+ *   Ex.: --texto-secundario sobre --superficie = 6,91:1 (mínimo exigido 4,5:1);
+ *        --risco-medio-texto sobre --risco-medio-fundo = 6,74:1.
+ *   Se alterar uma cor, meça de novo antes de publicar.
+ */
+
+/* ---------------------------------------------------------------------------
+ * CAMADA 1 — REFERÊNCIA (paleta gov.br DS) + escalas que não mudam por tema
+ * ------------------------------------------------------------------------- */
+:root {
+  /* Azuis institucionais (blue-warm-vivid do gov.br) */
+  --ref-azul-90: #071d41;
+  --ref-azul-80: #0c326f;
+  --ref-azul-70: #1351b4;
+  --ref-azul-10: #dbe8fb;
+  --ref-azul-5: #edf5ff;
+
+  /* Neutros */
+  --ref-cinza-95: #1b2430;
+  --ref-cinza-70: #4f5b6b;
+  --ref-cinza-50: #7d8796;
+  --ref-cinza-20: #d5dbe3;
+  --ref-cinza-10: #e8ecf1;
+  --ref-cinza-5: #f3f5f8;
+  --ref-branco: #ffffff;
+
+  /* Estados */
+  --ref-verde-60: #11661a;
+  --ref-verde-10: #e3f5e1;
+  --ref-amarelo-70: #6b5200;
+  --ref-amarelo-10: #fff5c2;
+  --ref-vermelho-60: #b81a00;
+  --ref-vermelho-10: #fde0db;
+
+  /* ---- Tipografia (escala inspirada no M3, em rem para respeitar o zoom) ---- */
+  --fonte-familia: 'Rawline', 'Raleway', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fonte-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --texto-xs: 0.75rem;   /* 12 px — legendas (nunca menor que isto) */
+  --texto-sm: 0.875rem;  /* 14 px — tabelas, rótulos */
+  --texto-md: 1rem;      /* 16 px — corpo */
+  --texto-lg: 1.125rem;  /* 18 px */
+  --titulo-sm: 1.25rem;  /* 20 px — título de seção (h2) */
+  --titulo-md: 1.5rem;   /* 24 px */
+  --titulo-lg: 1.75rem;  /* 28 px — título da página (h1) */
+  --display: 2.25rem;    /* 36 px — números de KPI */
+  --peso-regular: 400;
+  --peso-medio: 500;
+  --peso-semi: 600;
+  --peso-forte: 700;
+  --altura-linha: 1.5;
+  --altura-linha-titulo: 1.25;
+
+  /* ---- Espaçamento (múltiplos de 4 px) ---- */
+  --esp-1: 0.25rem; /* 4  */
+  --esp-2: 0.5rem;  /* 8  */
+  --esp-3: 0.75rem; /* 12 */
+  --esp-4: 1rem;    /* 16 */
+  --esp-5: 1.5rem;  /* 24 */
+  --esp-6: 2rem;    /* 32 */
+  --esp-7: 3rem;    /* 48 */
+  --esp-8: 4rem;    /* 64 */
+
+  /* ---- Raios de borda ---- */
+  --raio-sm: 4px;
+  --raio-md: 8px;
+  --raio-lg: 12px;
+  --raio-xl: 16px;
+  --raio-pilula: 999px;
+
+  /* ---- Movimento (curva "standard" do M3) ---- */
+  --duracao-rapida: 120ms;
+  --duracao-media: 200ms;
+  --curva-padrao: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- Dimensões do "esqueleto" da aplicação (app shell) ---- */
+  --altura-cabecalho: 64px;
+  /* Barra gov.br acima do cabeçalho. Ela some ao rolar a página; só os 64 px
+     do cabeçalho do sistema ficam presos no topo. */
+  --altura-faixa-gov: 44px;
+  --largura-menu: 264px;
+  --largura-menu-recolhido: 72px;
+  --largura-conteudo-max: 1440px;
+  --alvo-minimo: 40px; /* área mínima de clique (WCAG 2.5.8 pede 24 px; usamos folga) */
+
+  /* ---- Densidade (padrão Ant Design): muda a altura das linhas de tabela ---- */
+  --densidade-linha: 52px;
+  --densidade-celula-y: var(--esp-3);
+}
+
+/* Densidade compacta: ative com <html data-density="compact"> ou num contêiner. */
+[data-density='compact'] {
+  --densidade-linha: 40px;
+  --densidade-celula-y: var(--esp-2);
+}
+
+/* ---------------------------------------------------------------------------
+ * CAMADA 2 + 3 — TEMA CLARO (padrão)
+ * ------------------------------------------------------------------------- */
+:root,
+:root[data-theme='claro'] {
+  color-scheme: light;
+
+  /* Marca */
+  --cor-primaria: var(--ref-azul-70);
+  --cor-primaria-hover: var(--ref-azul-80);
+  --cor-sobre-primaria: var(--ref-branco);
+  --cor-primaria-suave: var(--ref-azul-10);       /* "container" no M3 */
+  --cor-sobre-primaria-suave: var(--ref-azul-90);
+  --cor-marca-escura: var(--ref-azul-90);
+  /* Texto na cor da marca (azul-marinho no claro; claro nos temas escuros).
+     Use este token para TEXTO; --cor-marca-escura é para FUNDO. */
+  --texto-marca: var(--ref-azul-90);
+  /* Verde da marca ICMBio (palavra "ICMBio" no cabeçalho): 6,47:1 sobre branco */
+  --cor-marca-icmbio: #1f6b45;
+
+  /* Faixa institucional: barra gov.br do topo e rodapé (padrão do Painel BI da CGOV) */
+  --faixa-fundo: var(--ref-azul-90);
+  --faixa-texto: var(--ref-branco);
+  --faixa-texto-suave: var(--ref-azul-10);         /* 13,4:1 sobre a faixa */
+  --faixa-divisor: rgba(255, 255, 255, 0.4);
+  --faixa-hover: rgba(255, 255, 255, 0.12);
+
+  /* Superfícies (do fundo para a frente) */
+  --superficie-fundo: var(--ref-cinza-5);          /* fundo da página */
+  --superficie: var(--ref-branco);                 /* cards, tabelas */
+  --superficie-container: #f8f9fb;                 /* áreas internas */
+  --superficie-alta: var(--ref-cinza-10);          /* hover, cabeçalho de tabela */
+  --superficie-inversa: var(--ref-azul-90);
+
+  /* Texto */
+  --texto: var(--ref-cinza-95);
+  --texto-secundario: var(--ref-cinza-70);
+  --texto-desabilitado: #8a94a3;
+  --texto-inverso: var(--ref-branco);
+  --texto-link: var(--ref-azul-70);
+
+  /* Bordas */
+  --borda: var(--ref-cinza-20);                    /* divisórias (decorativas) */
+  --borda-forte: var(--ref-cinza-50);              /* contorno de campos (≥ 3:1) */
+
+  /* Estados de feedback */
+  --cor-sucesso: var(--ref-verde-60);
+  --cor-sucesso-suave: var(--ref-verde-10);
+  --cor-aviso: var(--ref-amarelo-70);
+  --cor-aviso-suave: var(--ref-amarelo-10);
+  --cor-perigo: var(--ref-vermelho-60);
+  --cor-perigo-suave: var(--ref-vermelho-10);
+  --cor-info: var(--ref-azul-70);
+  --cor-info-suave: var(--ref-azul-5);
+
+  /* Foco por teclado (WCAG 2.4.7) — anel duplo visível em qualquer fundo */
+  --anel-foco: 0 0 0 2px var(--superficie), 0 0 0 4px #c2850c;
+
+  /* Elevação (sombras) */
+  --elevacao-0: none;
+  --elevacao-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+  --elevacao-2: 0 4px 8px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --elevacao-3: 0 12px 24px -4px rgba(16, 24, 40, 0.14), 0 4px 8px -4px rgba(16, 24, 40, 0.08);
+  --veu-modal: rgba(7, 29, 65, 0.45);
+
+  /* DOMÍNIO RADAR — Quadro 8 (fundo suave + texto/ícone escuro) */
+  --risco-baixo-fundo: #e3f5e1;
+  --risco-baixo-texto: #11661a;
+  --risco-baixo-borda: #7cc483;
+  --risco-medio-fundo: #fff5c2;
+  --risco-medio-texto: #6b5200;
+  --risco-medio-borda: #e0b800;
+  --risco-alto-fundo: #ffe2cc;
+  --risco-alto-texto: #8f3a06;
+  --risco-alto-borda: #f09a5c;
+  --risco-extremo-fundo: #fde0db;
+  --risco-extremo-texto: #a51b00;
+  --risco-extremo-borda: #f0806e;
+}
+
+/* ---------------------------------------------------------------------------
+ * TEMA ESCURO
+ * ATENÇÃO: definido, mas ainda NÃO oferecido ao usuário (ver
+ * `TEMAS_DISPONIVEIS` em `src/composables/usePreferenciasInterface.ts`).
+ * Motivo: as views antigas ainda têm cores claras fixas no HTML. Ele será
+ * liberado ao fim da Fase 3, quando todas as páginas usarem só tokens.
+ * ------------------------------------------------------------------------- */
+:root[data-theme='escuro'] {
+  color-scheme: dark;
+  --cor-primaria: #8fb8ff;
+  --cor-primaria-hover: #b3cfff;
+  --cor-sobre-primaria: #071d41;
+  --cor-primaria-suave: #1d3358;
+  --cor-sobre-primaria-suave: #dbe8fb;
+  --cor-marca-escura: #0b1526;
+  --texto-marca: #dbe8fb;
+  --cor-marca-icmbio: #7fd1a3;
+  --faixa-fundo: #0b1526;
+  --faixa-texto: #e6eaf0;
+  --faixa-texto-suave: #a9b4c2;
+  --faixa-divisor: rgba(230, 234, 240, 0.3);
+  --faixa-hover: rgba(230, 234, 240, 0.1);
+  --superficie-fundo: #0f141b;
+  --superficie: #1a222c;
+  --superficie-container: #161d26;
+  --superficie-alta: #242e3a;
+  --superficie-inversa: #e6eaf0;
+  --texto: #e6eaf0;
+  --texto-secundario: #a9b4c2;
+  --texto-desabilitado: #6f7c8d;
+  --texto-inverso: #121820;
+  --texto-link: #8fb8ff;
+  --borda: #2c3846;
+  --borda-forte: #6f7c8d;
+  --cor-sucesso: #a6e3ab;
+  --cor-sucesso-suave: #17361b;
+  --cor-aviso: #ffe27a;
+  --cor-aviso-suave: #3a3000;
+  --cor-perigo: #ffb4a6;
+  --cor-perigo-suave: #4a1710;
+  --cor-info: #8fb8ff;
+  --cor-info-suave: #1d3358;
+  --anel-foco: 0 0 0 2px var(--superficie), 0 0 0 4px #ffcd07;
+  --elevacao-1: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --elevacao-2: 0 4px 10px rgba(0, 0, 0, 0.5);
+  --elevacao-3: 0 12px 28px rgba(0, 0, 0, 0.6);
+  --veu-modal: rgba(0, 0, 0, 0.6);
+  --risco-baixo-fundo: #17361b;
+  --risco-baixo-texto: #a6e3ab;
+  --risco-baixo-borda: #3f7a45;
+  --risco-medio-fundo: #3a3000;
+  --risco-medio-texto: #ffe27a;
+  --risco-medio-borda: #8a7200;
+  --risco-alto-fundo: #45250c;
+  --risco-alto-texto: #ffc59a;
+  --risco-alto-borda: #9a5520;
+  --risco-extremo-fundo: #4a1710;
+  --risco-extremo-texto: #ffb4a6;
+  --risco-extremo-borda: #a0402f;
+}
+
+/* ---------------------------------------------------------------------------
+ * TEMA ALTO CONTRASTE (padrão gov.br: fundo preto, texto branco, destaque amarelo)
+ * Os níveis de risco continuam distinguíveis porque o RiskBadge sempre
+ * mostra ÍCONE + TEXTO, nunca só a cor (WCAG 1.4.1).
+ * ------------------------------------------------------------------------- */
+:root[data-theme='contraste'] {
+  color-scheme: dark;
+  --cor-primaria: #ffff00;
+  --cor-primaria-hover: #ffffff;
+  --cor-sobre-primaria: #000000;
+  --cor-primaria-suave: #000000;
+  --cor-sobre-primaria-suave: #ffff00;
+  --cor-marca-escura: #000000;
+  --texto-marca: #ffffff;
+  --cor-marca-icmbio: #ffffff;
+  --faixa-fundo: #000000;
+  --faixa-texto: #ffffff;
+  --faixa-texto-suave: #ffffff;
+  --faixa-divisor: #ffffff;
+  --faixa-hover: #1a1a1a;
+  --superficie-fundo: #000000;
+  --superficie: #000000;
+  --superficie-container: #000000;
+  --superficie-alta: #1a1a1a;
+  --superficie-inversa: #ffffff;
+  --texto: #ffffff;
+  --texto-secundario: #ffffff;
+  --texto-desabilitado: #bfbfbf;
+  --texto-inverso: #000000;
+  --texto-link: #ffff00;
+  --borda: #ffffff;
+  --borda-forte: #ffffff;
+  --cor-sucesso: #7dff8a;
+  --cor-sucesso-suave: #000000;
+  --cor-aviso: #ffff00;
+  --cor-aviso-suave: #000000;
+  --cor-perigo: #ff8a7a;
+  --cor-perigo-suave: #000000;
+  --cor-info: #ffff00;
+  --cor-info-suave: #000000;
+  --anel-foco: 0 0 0 2px #000000, 0 0 0 5px #ffff00;
+  --elevacao-1: none;
+  --elevacao-2: none;
+  --elevacao-3: none;
+  --veu-modal: rgba(0, 0, 0, 0.85);
+  --risco-baixo-fundo: #000000;
+  --risco-baixo-texto: #7dff8a;
+  --risco-baixo-borda: #7dff8a;
+  --risco-medio-fundo: #000000;
+  --risco-medio-texto: #ffff00;
+  --risco-medio-borda: #ffff00;
+  --risco-alto-fundo: #000000;
+  --risco-alto-texto: #ffb37a;
+  --risco-alto-borda: #ffb37a;
+  --risco-extremo-fundo: #000000;
+  --risco-extremo-texto: #ff8a7a;
+  --risco-extremo-borda: #ff8a7a;
+}
+
+/* Quem pede "menos movimento" no sistema operacional não recebe animações. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duracao-rapida: 0ms;
+    --duracao-media: 0ms;
+  }
+}

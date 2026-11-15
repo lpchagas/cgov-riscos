@@ -1,106 +1,26 @@
 /**
  * ============================================================================
- * FOLHA DE ESTILOS PRINCIPAL — PADRÃO DIGITAL DE GOVERNO (@govbr-ds/core)
+ * FOLHA DE ESTILOS PRINCIPAL DO RADAR (`src/assets/main.css`)
  * ============================================================================
  *
- * EXPLICAÇÃO DIDÁTICA (PARA INICIANTES EM PROGRAMAÇÃO):
- * Aqui importamos o CSS oficial do Governo Federal (@govbr-ds/core) e os ícones
- * FontAwesome, além de definir as cores semafóricas oficiais para os 4 níveis
- * do Quadro 8 da Metodologia RADAR (Baixo, Médio, Alto e Extremo) e as regras
- * do Template Base (`.template-base`) e Alto Contraste (`.govbr-contrast`).
+ * EXPLICAÇÃO DIDÁTICA — A ORDEM DOS IMPORTS IMPORTA:
+ * Em CSS, quando duas regras têm a mesma força, vence a que vem DEPOIS.
+ * Por isso carregamos do mais genérico para o mais específico:
+ *
+ *   1. gov.br DS (@govbr-ds/core) → identidade oficial do Governo Federal
+ *   2. Font Awesome               → ícones
+ *   3. tokens.css                 → as decisões visuais do RADAR (cores, espaços…)
+ *   4. base.css                   → estilos da página inteira + utilitários
+ *
+ * Os estilos de cada componente ficam dentro do próprio `.vue` (bloco <style>).
  */
 @import '@govbr-ds/core/dist/core.min.css';
 @import '@fortawesome/fontawesome-free/css/all.min.css';
+@import '../styles/tokens.css';
+@import '../styles/base.css';
 
-:root {
-  --govbr-azul-primario: #1351b4;
-  --govbr-azul-escuro: #071d41;
-  --govbr-azul-claro: #dbe8fb;
-  --radar-baixo-bg: #e3f5e1;
-  --radar-baixo-cor: #168821;
-  --radar-medio-bg: #fff5c2;
-  --radar-medio-cor: #8a6d00;
-  --radar-alto-bg: #ffe2cc;
-  --radar-alto-cor: #b54708;
-  --radar-extremo-bg: #fde0db;
-  --radar-extremo-cor: #e52207;
-}
-
-body {
-  margin: 0;
-  font-family: 'Rawline', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #f8f9fa;
-  color: #333333;
-}
-
+/* Wrapper raiz do Template Base gov.br (mantido por compatibilidade com o DS). */
 .template-base {
-  display: flex;
-  flex-direction: column;
   min-height: 100vh;
 }
 
-/* Modo de Alto Contraste Oficial Gov.br */
-.template-base.govbr-contrast {
-  background-color: #000000 !important;
-  color: #ffffff !important;
-}
-
-.template-base.govbr-contrast header,
-.template-base.govbr-contrast footer,
-.template-base.govbr-contrast .br-card,
-.template-base.govbr-contrast .menu-panel {
-  background-color: #121212 !important;
-  color: #ffffff !important;
-  border-color: #ffff00 !important;
-}
-
-.template-base.govbr-contrast a,
-.template-base.govbr-contrast h1,
-.template-base.govbr-contrast h2,
-.template-base.govbr-contrast h3,
-.template-base.govbr-contrast h4,
-.template-base.govbr-contrast strong {
-  color: #ffff00 !important;
-}
-
-.radar-container {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 1.5rem;
-}
-
-.radar-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 1.25rem;
-}
-
-.radar-grid-4 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-}
-
-.badge-risco-baixo {
-  background-color: var(--radar-baixo-bg);
-  color: var(--radar-baixo-cor);
-  border: 1px solid var(--radar-baixo-cor);
-}
-
-.badge-risco-medio {
-  background-color: var(--radar-medio-bg);
-  color: var(--radar-medio-cor);
-  border: 1px solid var(--radar-medio-cor);
-}
-
-.badge-risco-alto {
-  background-color: var(--radar-alto-bg);
-  color: var(--radar-alto-cor);
-  border: 1px solid var(--radar-alto-cor);
-}
-
-.badge-risco-extremo {
-  background-color: var(--radar-extremo-bg);
-  color: var(--radar-extremo-cor);
-  border: 1px solid var(--radar-extremo-cor);
-}

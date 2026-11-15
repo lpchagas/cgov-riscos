@@ -1,0 +1,73 @@
+/**
+ * ============================================================================
+ * TESTES DA FICHA DO RISCO — Fase 3 (`tests/unit/fichaPagina.spec.ts`)
+ * ============================================================================
+ *
+ * EXPLICAÇÃO DIDÁTICA:
+ *   - endereço inexistente mostra "Risco não encontrado" (antes caía no 1º risco);
+ *   - a ação do topo depende da situação no fluxo;
+ *   - o Bow Tie é uma lista ORDENADA de 5 passos e o evento mostra o nível;
+ *   - a aba aberta fica na URL.
+ */
+import { describe, it, expect, beforeEach } from 'vitest';
+import { mount, flushPromises } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
+import { createRouter, createMemoryHistory } from 'vue-router';
+import { useRiscosStore } from '../../src/stores/riscosStore';
+import FichaDetalheBowTieView from '../../src/views/FichaDetalheBowTieView.vue';
+
+async function montar(caminho: string) {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/riscos/:id', name: 'ficha-bowtie-detalhe', component: FichaDetalheBowTieView },
+      { path: '/riscos', name: 'riscos-lista', component: { template: '<div />' } },
+      { path: '/monitoramento', name: 'monitoramento-kris', component: { template: '<div />' } },
+    ],
+  });
+  router.push(caminho);
+  await router.isReady();
+  const w = mount(FichaDetalheBowTieView, { global: { plugins: [router] } });
+  await flushPromises();
+  return { w, router };
+}
+
+const idDe = (codigo: string) => useRiscosStore().riscos.find((r) => r.codigoRadar === codigo)!.id;
+
+describe('Ficha do risco', () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it('endereço inexistente avisa "Risco não encontrado"', async () => {
+    const { w } = await montar('/riscos/nao-existe');
+    expect(w.find('h1').text()).toBe('Risco não encontrado');
+  });
+
+  it('um único h1 com o nome do objeto; selos com nível escrito', async () => {
+    const { w } = await montar(`/riscos/${idDe('RADAR-2026-003')}`);
+    expect(w.findAll('h1')).toHaveLength(1);
+    expect(w.find('h1').text()).toContain('Autorização Direta');
+    expect(w.find('.ficha__selos').text()).toContain('Médio · 8,4');
+  });
+
+  it('a ação do topo segue a situação no fluxo', async () => {
+    const valida = await montar(`/riscos/${idDe('RADAR-2026-001')}`);
+    expect(valida.w.find('.ficha__acao').text()).toContain('Validar risco');
+    const homologa = await montar(`/riscos/${idDe('RADAR-2026-002')}`);
+    expect(homologa.w.find('.ficha__acao').text()).toContain('Homologar risco');
+    const aprovado = await montar(`/riscos/${idDe('RADAR-2026-003')}`);
+    expect(aprovado.w.find('.ficha__acao').exists()).toBe(false);
+  });
+
+  it('Bow Tie: lista ordenada de 5 blocos; aba guardada na URL', async () => {
+    const { w, router } = await montar(`/riscos/${idDe('RADAR-2026-001')}?aba=bowtie`);
+    const blocos = w.findAll('ol.bowtie > li');
+    expect(blocos).toHaveLength(5);
+    expect(blocos.map((b) => b.find('h3').text())).toEqual([
+      '1 Causas', '2 Controles', '3 Evento de risco', expect.stringMatching(/^4 Resposta/), '5 Consequências',
+    ]);
+    expect(blocos[2].text()).toContain('Extremo');
+    await w.findAll('[role="tab"]').find((t) => t.text().startsWith('Histórico'))!.trigger('click');
+    await flushPromises();
+    expect(router.currentRoute.value.query.aba).toBe('historico');
+  });
+});

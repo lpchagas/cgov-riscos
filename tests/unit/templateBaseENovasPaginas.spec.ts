@@ -66,6 +66,21 @@ describe('Template Base Gov.br DS e Novas Páginas do Sistema RADAR', () => {
     expect(nomesRotas).toContain('validacao-um-clique');
     expect(nomesRotas).toContain('trilha-auditoria');
     expect(nomesRotas).toContain('importar-skill');
+    // Fase 1 da reformulação: nova página de lista de riscos.
+    expect(nomesRotas).toContain('riscos-lista');
+  });
+
+  it('redireciona os endereços antigos para os novos (favoritos continuam funcionando)', () => {
+    const destinoDe = (caminho: string) => {
+      const rota = router.getRoutes().find((r) => r.path === caminho);
+      return (rota?.redirect as { name: string } | undefined)?.name;
+    };
+    expect(destinoDe('/validacao-um-clique')).toBe('validacao-um-clique');
+    expect(destinoDe('/novo-risco')).toBe('novo-risco');
+    expect(destinoDe('/dar-apetite')).toBe('dar-apetite');
+    // "/riscos/novo" precisa ser reconhecido como cadastro, e não como id de risco:
+    expect(router.resolve('/riscos/novo').name).toBe('novo-risco');
+    expect(router.resolve('/riscos/risco-anexo-ii-01').name).toBe('ficha-bowtie-detalhe');
   });
 
   it('possui a estrutura completa de componentes do Template Base Gov.br DS (@govbr-ds/core)', () => {

@@ -1,435 +1,531 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * ASSISTENTE GUIADO DE CADASTRO DE RISCO (`FormularioRiscoView.vue`)
+ * NOVO RISCO (`FormularioRiscoView.vue`) — assistente em 4 etapas · Fase 3
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Esta tela utiliza o componente oficial `BrStep` (`div.br-step`) do Padrão Digital
- * de Governo para guiar o servidor da 1ª Linha pelas 4 etapas da Metodologia RADAR:
- * 1. Identificação Bow Tie (Causas -> Evento -> Consequências -> Objetivo afetado)
- *    montando a frase obrigatória da Seção 4.2.1 em tempo real;
- * 2. Categorização (Quadro 2) + Teste de Integridade do Programa Integra+
- *    (Portaria ICMBio nº 253/2026 e Quadro 3);
- * 3. Análise Inerente (Quadro 7) e Residual (Quadro 6) com Trava de Evidência;
- * 4. Tratamento 5W2H e Indicador KRI.
+ * O cadastro segue o ciclo da Metodologia RADAR, uma etapa por vez:
+ *   1. Identificação (Bow Tie: causas → evento → consequências → objetivo)
+ *   2. Categoria (Quadro 2) e Teste de Integridade (Integra+, Quadro 3)
+ *   3. Análise: Probabilidade, Impacto e controle (Quadros 4 a 8)
+ *   4. Tratamento: estratégia, ação 5W2H e indicador (KRI)
+ *
+ * Ao lado (embaixo, no celular) fica a PRÉVIA AO VIVO: a frase padronizada da
+ * Seção 4.2.1 e a conta Inerente × Fator = Residual. A conta é feita pelo
+ * MOTOR OFICIAL (`calcularRiscoCompletoRadar`) — a tela não calcula nada sozinha.
+ * Se o controle não tiver evidência, a trava de Fraco (0,9) aparece explicada.
+ *
+ * "Continuar" valida a etapa (regras em `utils/formularioRisco.ts`); com erro,
+ * as mensagens aparecem ao lado de cada campo e o foco vai para o primeiro.
  */
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
-import type {
-  EstrategiaTratamento,
-  NivelEficaciaControle,
-  NivelImpacto,
-  NivelProbabilidade,
-} from '../types/radar.types';
+import { useToast } from '../composables/useToast';
+import type { EstrategiaTratamento, NivelEficaciaControle } from '../types/radar.types';
 import {
   SUBCATEGORIAS_INTEGRIDADE_QUADRO_3,
   calcularRiscoCompletoRadar,
   gerarSintaxePadraoRisco,
-  validarRegraIntegridade,
 } from '../utils/calculadoraRiscoRadar';
-import BrCard from '../components/govbr/BrCard.vue';
-import BrButton from '../components/govbr/BrButton.vue';
+import { ETAPAS_NOVO_RISCO, dadosExemplo, dadosVazios, validarEtapa, type ErrosEtapa } from '../utils/formularioRisco';
+import { ROTULOS_APETITE } from '../utils/darImpacto';
+import FormField from '../components/ui/FormField.vue';
 import BrStep from '../components/govbr/BrStep.vue';
-import BrMessage from '../components/govbr/BrMessage.vue';
+import BrButton from '../components/govbr/BrButton.vue';
 import MemoriaCalculoBar from '../components/radar/MemoriaCalculoBar.vue';
 
 const router = useRouter();
 const riscosStore = useRiscosStore();
+const { mostrar } = useToast();
 
-const passoAtivo = ref<number>(1);
-const exibirTodasEtapas = ref<boolean>(true);
+const etapa = ref(1);
+const d = ref(dadosVazios());
+const erros = ref<ErrosEtapa>({});
+const formulario = ref<HTMLElement | null>(null);
 
-const passosWizard = [
-  { numero: 1, titulo: '1. Contexto & Bow Tie', subtitulo: 'Sintaxe Seção 4.2.1' },
-  { numero: 2, titulo: '2. Categoria & Integra+', subtitulo: 'Quadros 2 e 3' },
-  { numero: 3, titulo: '3. Notas & Controles', subtitulo: 'Quadros 6, 7 e 8' },
-  { numero: 4, titulo: '4. Plano 5W2H & KRI', subtitulo: 'Tabela 8 e Seção 4.5.1' },
+// ---------------------------------------------------------------------------
+// OPÇÕES DOS CAMPOS (escalas da Metodologia)
+// ---------------------------------------------------------------------------
+const PROBABILIDADES = [
+  { valor: 1, rotulo: '1 — Muito baixa (menos de 10%)' },
+  { valor: 2, rotulo: '2 — Baixa (10% a 30%)' },
+  { valor: 3, rotulo: '3 — Média (31% a 60%)' },
+  { valor: 4, rotulo: '4 — Alta (61% a 90%)' },
+  { valor: 5, rotulo: '5 — Muito alta (mais de 90%)' },
+] as const;
+const IMPACTOS = [
+  { valor: 1, rotulo: '1 — Muito baixo' },
+  { valor: 2, rotulo: '2 — Baixo' },
+  { valor: 3, rotulo: '3 — Médio' },
+  { valor: 4, rotulo: '4 — Alto' },
+  { valor: 5, rotulo: '5 — Muito alto' },
+] as const;
+const EFICACIAS: { valor: NivelEficaciaControle; rotulo: string }[] = [
+  { valor: 'Inexistente', rotulo: 'Inexistente (fator 1,0)' },
+  { valor: 'Fraco', rotulo: 'Fraco (fator 0,9)' },
+  { valor: 'Mediano', rotulo: 'Mediano (fator 0,75)' },
+  { valor: 'Satisfatório', rotulo: 'Satisfatório (fator 0,6)' },
+  { valor: 'Forte', rotulo: 'Forte (fator 0,5)' },
+];
+const ESTRATEGIAS: { valor: EstrategiaTratamento; rotulo: string }[] = [
+  { valor: 'Mitigar', rotulo: 'Mitigar — reduzir a probabilidade ou o impacto' },
+  { valor: 'Compartilhar', rotulo: 'Compartilhar — dividir com terceiros' },
+  { valor: 'Evitar', rotulo: 'Evitar — deixar de fazer a atividade' },
+  { valor: 'Aceitar', rotulo: 'Aceitar — conviver com o risco (sem ação)' },
 ];
 
-const nomeObjeto = ref('Processo de Concessão e Autorização Ambiental');
-const responsavelNome = ref('Gestor Ponto Focal (1ª Linha)');
-const causas = ref('ausência de roteiro padronizado de conferência documental');
-const eventoRisco = ref('aprovação de processo com instrução incompleta');
-const consequencias = ref('questionamento pelos órgãos de controle e retrabalho');
-const objetivoAfetado = ref('segurança jurídica e tempestividade dos atos autorizativos');
+const categoria = computed(() => riscosStore.categorias.find((c) => c.id === d.value.categoriaId));
+const ehIntegridade = computed(() => categoria.value?.nome === 'Integridade');
 
-const categoriaId = ref<number>(2);
-const subcategoriaIntegridade = ref<string>('');
-const testeIntegridadeAplicavel = ref<boolean>(false);
-const justificativaNaoIntegridade = ref<string>('');
-
-const probabilidade = ref<NivelProbabilidade>(3);
-const impacto = ref<NivelImpacto>(4);
-const possuiEvidenciaControle = ref<boolean>(false);
-const nivelEficaciaControle = ref<NivelEficaciaControle>('Inexistente');
-const descricaoControleExistente = ref<string>('');
-const evidenciaControleTexto = ref<string>('');
-
-const estrategiaPrincipal = ref<EstrategiaTratamento>('Mitigar');
-const acao5w2hOQue = ref<string>('Instituir lista de verificação obrigatória no SEI.');
-const acao5w2hQuem = ref<string>('Coordenador do Processo');
-const acao5w2hQuando = ref<string>('2026-12-20');
-const nomeKri = ref<string>('% de processos instruídos com checklist assinado');
-
-const erroFormulario = ref<string>('');
-
-const categoriaAtual = computed(
-  () =>
-    riscosStore.categorias.find((c) => c.id === categoriaId.value) ??
-    riscosStore.categorias[1]
-);
-
-const frasePadraoEmTempoReal = computed(() =>
+// ---------------------------------------------------------------------------
+// PRÉVIA AO VIVO (motor oficial)
+// ---------------------------------------------------------------------------
+const frase = computed(() =>
   gerarSintaxePadraoRisco({
-    causas: causas.value || '[causas]',
-    eventoRisco: eventoRisco.value || '[evento de risco]',
-    consequencias: consequencias.value || '[consequências]',
-    objetivoAfetado: objetivoAfetado.value || '[objetivo afetado]',
+    causas: d.value.causas || '[causas]',
+    eventoRisco: d.value.evento || '[evento de risco]',
+    consequencias: d.value.consequencias || '[consequências]',
+    objetivoAfetado: d.value.objetivo || '[objetivo afetado]',
   })
 );
 
-const calculoTempoReal = computed(() =>
-  calcularRiscoCompletoRadar({
-    probabilidade: probabilidade.value,
-    impacto: impacto.value,
-    eficaciaControle: nivelEficaciaControle.value,
-    possuiEvidenciaComprovada: possuiEvidenciaControle.value,
-    apetiteCategoria: categoriaAtual.value.apetiteDeclarado,
-  })
-);
-
-function salvarRisco(submeterDiretoParaCg: boolean) {
-  erroFormulario.value = '';
-  const validacaoIntegridade = validarRegraIntegridade({
-    categoriaNome: categoriaAtual.value.nome,
-    subcategoriaIntegridade: subcategoriaIntegridade.value,
-    testeIntegridadeAplicavel: testeIntegridadeAplicavel.value,
-    justificativaNaoIntegridade: justificativaNaoIntegridade.value,
+const calculo = computed(() => {
+  if (!d.value.probabilidade || !d.value.impacto) return null;
+  return calcularRiscoCompletoRadar({
+    probabilidade: d.value.probabilidade,
+    impacto: d.value.impacto,
+    eficaciaControle: d.value.eficacia,
+    possuiEvidenciaComprovada: d.value.possuiEvidencia,
+    apetiteCategoria: categoria.value?.apetiteDeclarado ?? 'pendente_dar',
   });
+});
 
-  if (!validacaoIntegridade.valido) {
-    erroFormulario.value = validacaoIntegridade.erro || 'Erro de validação normativa.';
-    passoAtivo.value = 2;
-    return;
+// ---------------------------------------------------------------------------
+// NAVEGAÇÃO ENTRE ETAPAS
+// ---------------------------------------------------------------------------
+async function focarPrimeiroErro(): Promise<void> {
+  await nextTick();
+  formulario.value?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+}
+
+function validar(): boolean {
+  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias);
+  if (Object.keys(erros.value).length) {
+    focarPrimeiroErro();
+    return false;
+  }
+  return true;
+}
+
+async function continuar(): Promise<void> {
+  if (!validar()) return;
+  etapa.value++;
+  erros.value = {};
+  await nextTick();
+  formulario.value?.querySelector<HTMLElement>('h2')?.focus();
+}
+
+function voltar(): void {
+  erros.value = {};
+  etapa.value = Math.max(1, etapa.value - 1);
+}
+
+function preencherExemplo(): void {
+  d.value = dadosExemplo();
+  erros.value = {};
+  mostrar({ tom: 'info', mensagem: 'Formulário preenchido com um exemplo de demonstração.' });
+}
+
+// ---------------------------------------------------------------------------
+// SALVAR
+// ---------------------------------------------------------------------------
+function salvar(enviar: boolean): void {
+  // Ao enviar, TODAS as etapas precisam estar válidas; rascunho só precisa da 1ª.
+  const etapasParaValidar = enviar ? [1, 2, 3, 4] : [1];
+  for (const n of etapasParaValidar) {
+    const e = validarEtapa(n, d.value, riscosStore.categorias);
+    if (Object.keys(e).length) {
+      etapa.value = n;
+      erros.value = e;
+      focarPrimeiroErro();
+      mostrar({ tom: 'perigo', mensagem: `Corrija a etapa ${n} (${ETAPAS_NOVO_RISCO[n - 1].titulo}) antes de ${enviar ? 'enviar' : 'salvar'}.` });
+      return;
+    }
   }
 
+  const v = d.value;
+  const agora = Date.now();
   const ficha = riscosStore.salvarOuAtualizarRisco({
-    nomeObjetoCache: nomeObjeto.value,
-    responsavelRiscoNome: responsavelNome.value,
-    causas: causas.value,
-    eventoRisco: eventoRisco.value,
-    consequencias: consequencias.value,
-    objetivoAfetado: objetivoAfetado.value,
-    categoriaId: categoriaId.value,
-    subcategoriaIntegridade:
-      categoriaAtual.value.nome === 'Integridade'
-        ? subcategoriaIntegridade.value
-        : undefined,
-    testeIntegridadeAplicavel: testeIntegridadeAplicavel.value,
-    justificativaNaoIntegridade: justificativaNaoIntegridade.value,
-    probabilidade: probabilidade.value,
-    impacto: impacto.value,
-    possuiEvidenciaControle: possuiEvidenciaControle.value,
-    nivelEficaciaControle: nivelEficaciaControle.value,
-    estrategiaPrincipal: estrategiaPrincipal.value,
-    statusFluxo: submeterDiretoParaCg ? 'em_validacao_cg' : 'rascunho',
-    controlesExistentes: descricaoControleExistente.value
-      ? [
-          {
-            id: `ctrl-${Date.now()}`,
-            descricaoControle: descricaoControleExistente.value,
-            evidenciaFuncionamento: evidenciaControleTexto.value,
-            possuiEvidenciaComprovada: possuiEvidenciaControle.value,
-            desenhoAdequado: possuiEvidenciaControle.value,
-            operacaoComprovada: possuiEvidenciaControle.value,
-          },
-        ]
+    nomeObjetoCache: v.nomeObjeto,
+    responsavelRiscoNome: v.responsavel || 'Gestor de riscos da unidade (1ª Linha)',
+    causas: v.causas,
+    eventoRisco: v.evento,
+    consequencias: v.consequencias,
+    objetivoAfetado: v.objetivo,
+    categoriaId: v.categoriaId ?? undefined,
+    subcategoriaIntegridade: ehIntegridade.value ? v.subcategoriaIntegridade : undefined,
+    testeIntegridadeAplicavel: v.decideSobreTerceiros,
+    justificativaNaoIntegridade: v.justificativaNaoIntegridade || undefined,
+    probabilidade: v.probabilidade ?? undefined,
+    impacto: v.impacto ?? undefined,
+    possuiEvidenciaControle: v.possuiEvidencia,
+    nivelEficaciaControle: v.eficacia,
+    estrategiaPrincipal: v.estrategia,
+    statusFluxo: 'rascunho',
+    controlesExistentes: v.descricaoControle
+      ? [{ id: `ctrl-${agora}`, descricaoControle: v.descricaoControle, evidenciaFuncionamento: v.evidenciaControle, possuiEvidenciaComprovada: v.possuiEvidencia, desenhoAdequado: v.possuiEvidencia, operacaoComprovada: v.possuiEvidencia }]
       : [],
-    respostasTratamento: acao5w2hOQue.value
-      ? [
-          {
-            id: `trat-${Date.now()}`,
-            estrategia: estrategiaPrincipal.value,
-            acaoOQue: acao5w2hOQue.value,
-            responsavelQuem: acao5w2hQuem.value,
-            prazoQuando: acao5w2hQuando.value,
-            procedimentoComo: 'Execução acompanhada via SEI',
-            statusExecucao: 'nao_iniciada',
-          },
-        ]
+    respostasTratamento: v.acaoOQue
+      ? [{ id: `trat-${agora}`, estrategia: v.estrategia, acaoOQue: v.acaoOQue, responsavelQuem: v.acaoQuem, prazoQuando: v.acaoPrazo, procedimentoComo: 'Execução acompanhada via SEI', statusExecucao: 'nao_iniciada' }]
       : [],
-    kris: nomeKri.value
-      ? [
-          {
-            id: `kri-${Date.now()}`,
-            nomeIndicador: nomeKri.value,
-            formulaCalculo: '(Processos conformes / Total de processos) × 100',
-            fonteDados: 'Relatório Trimestral SEI',
-            periodicidade: 'Trimestral',
-            metaAlvo: '100%',
-            limiteAlerta: 'Abaixo de 85%',
-            responsavelMedicao: responsavelNome.value,
-            medicoes: [],
-          },
-        ]
+    kris: v.nomeKri
+      ? [{ id: `kri-${agora}`, nomeIndicador: v.nomeKri, formulaCalculo: 'A definir pela unidade', fonteDados: 'A definir', periodicidade: 'Trimestral', metaAlvo: 'A definir', limiteAlerta: 'A definir', responsavelMedicao: v.responsavel || 'Unidade', medicoes: [] }]
       : [],
   });
 
-  if (submeterDiretoParaCg) {
-    riscosStore.submeterParaValidacaoCg(ficha.id);
-  }
-  router.push(`/riscos/${ficha.id}`);
+  if (enviar) riscosStore.submeterParaValidacaoCg(ficha.id);
+  mostrar({
+    tom: 'sucesso',
+    mensagem: enviar ? `${ficha.codigoRadar} enviado para validação da Coordenação-Geral.` : `${ficha.codigoRadar} salvo como rascunho.`,
+  });
+  router.push({ name: 'ficha-bowtie-detalhe', params: { id: ficha.id } });
 }
 </script>
 
 <template>
-  <div>
-    <BrCard
-      titulo="Assistente Guiado de Identificação e Análise de Risco (1ª Linha)"
-      subtitulo="Ciclo RADAR: Contexto → Identificação (Bow Tie) → Análise (Quadros 6, 7 e 8) → Tratamento 5W2H e KRI"
-      destaque-cor="#1351b4"
-    >
-      <!-- Barra de Progresso br-step Oficial + Alternador de Modo -->
-      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-        <span class="text-down-01 font-weight-bold" style="color: #071d41;">
-          Navegação por Etapas (<code>.br-step</code>):
-        </span>
-        <label class="d-flex align-items-center gap-1 text-down-01 font-weight-semi-bold">
-          <input v-model="exibirTodasEtapas" type="checkbox" />
-          Exibir todas as 4 etapas simultaneamente na página
-        </label>
-      </div>
+  <div class="novo">
+    <div class="novo__topo">
+      <BrStep v-model:passo-ativo="etapa" :passos="ETAPAS_NOVO_RISCO" />
+      <button type="button" class="link-botao" @click="preencherExemplo">Preencher com exemplo (demonstração)</button>
+    </div>
 
-      <BrStep
-        :passos="passosWizard"
-        :passo-ativo="passoAtivo"
-        @selecionar-passo="
-          (n) => {
-            passoAtivo = n;
-          }
-        "
-      />
+    <div class="novo__grade">
+      <!-- FORMULÁRIO DA ETAPA -->
+      <form ref="formulario" class="cartao formulario" novalidate @submit.prevent="etapa < 4 ? continuar() : salvar(true)">
+        <!-- ETAPA 1 -->
+        <fieldset v-if="etapa === 1" class="etapa">
+          <h2 class="etapa__titulo" tabindex="-1">Identificação</h2>
+          <p class="etapa__ajuda">Descreva o risco como um "Bow Tie": o que causa, o que pode acontecer e o que isso provoca.</p>
+          <FormField rotulo="Objeto de gestão" ajuda="O processo, projeto ou unidade onde o risco está." :erro="erros.nomeObjeto" obrigatorio v-slot="{ attrs }">
+            <input v-bind="attrs" v-model="d.nomeObjeto" type="text" />
+          </FormField>
+          <FormField rotulo="Responsável pelo risco (1ª Linha)" ajuda="Opcional. Ex.: Chefe da unidade." v-slot="{ attrs }">
+            <input v-bind="attrs" v-model="d.responsavel" type="text" />
+          </FormField>
+          <FormField rotulo="Causas" ajuda="Devido a… (o que pode provocar o evento)" :erro="erros.causas" obrigatorio v-slot="{ attrs }">
+            <textarea v-bind="attrs" v-model="d.causas" rows="2"></textarea>
+          </FormField>
+          <FormField rotulo="Evento de risco" ajuda="…poderá ocorrer… (o que pode acontecer)" :erro="erros.evento" obrigatorio v-slot="{ attrs }">
+            <textarea v-bind="attrs" v-model="d.evento" rows="2"></textarea>
+          </FormField>
+          <FormField rotulo="Consequências" ajuda="…ocasionando… (o que isso provoca)" :erro="erros.consequencias" obrigatorio v-slot="{ attrs }">
+            <textarea v-bind="attrs" v-model="d.consequencias" rows="2"></textarea>
+          </FormField>
+          <FormField rotulo="Objetivo afetado" ajuda="…impactando o alcance de… (qual objetivo do ICMBio)" :erro="erros.objetivo" obrigatorio v-slot="{ attrs }">
+            <input v-bind="attrs" v-model="d.objetivo" type="text" />
+          </FormField>
+        </fieldset>
 
-      <BrMessage
-        v-if="erroFormulario"
-        state="danger"
-        titulo="Bloqueio Normativo RADAR:"
-      >
-        {{ erroFormulario }}
-      </BrMessage>
-
-      <!-- ETAPA 1: CONTEXTO E BOW TIE -->
-      <div v-show="exibirTodasEtapas || passoAtivo === 1" class="mb-3">
-        <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
-          1. Contexto e Identificação (Método Bow Tie + Sintaxe Seção 4.2.1)
-        </h4>
-        <div class="radar-grid-2 mb-3">
-          <div>
-            <label class="font-weight-bold d-block mb-1">Objeto de Gestão de Riscos (Processo/Macroprocesso):</label>
-            <input v-model="nomeObjeto" type="text" class="w-100 p-2 rounded border" />
-          </div>
-          <div>
-            <label class="font-weight-bold d-block mb-1">Servidor Responsável (1ª Linha):</label>
-            <input v-model="responsavelNome" type="text" class="w-100 p-2 rounded border" />
-          </div>
-          <div>
-            <label class="font-weight-bold d-block mb-1">Causas (Fontes antes do evento):</label>
-            <textarea v-model="causas" rows="2" class="w-100 p-2 rounded border"></textarea>
-          </div>
-          <div>
-            <label class="font-weight-bold d-block mb-1">Evento de Risco (O que pode acontecer):</label>
-            <textarea v-model="eventoRisco" rows="2" class="w-100 p-2 rounded border"></textarea>
-          </div>
-          <div>
-            <label class="font-weight-bold d-block mb-1">Consequências (Desdobramentos após o evento):</label>
-            <textarea v-model="consequencias" rows="2" class="w-100 p-2 rounded border"></textarea>
-          </div>
-          <div>
-            <label class="font-weight-bold d-block mb-1">Objetivo ou Resultado Afetado:</label>
-            <textarea v-model="objetivoAfetado" rows="2" class="w-100 p-2 rounded border"></textarea>
-          </div>
-        </div>
-
-        <div class="p-3 mb-3 rounded" style="background-color: #dbe8fb; border-left: 4px solid #1351b4;">
-          <div class="text-down-01 font-weight-bold" style="color: #071d41;">
-            Sintaxe Obrigatória Gerada Automaticamente (Seção 4.2.1 da Metodologia):
-          </div>
-          <div class="mt-1">{{ frasePadraoEmTempoReal }}</div>
-        </div>
-      </div>
-
-      <!-- ETAPA 2: CATEGORIA E TESTE DE INTEGRIDADE (INTEGRA+) -->
-      <div v-show="exibirTodasEtapas || passoAtivo === 2" class="mb-3">
-        <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
-          2. Categorização (Quadro 2) e Teste de Integridade (Portaria ICMBio nº 253/2026 — Integra+)
-        </h4>
-        <div class="radar-grid-2 mb-3">
-          <div>
-            <label class="font-weight-bold d-block mb-1">Categoria Principal do Risco (Quadro 2 — vedada categoria mista):</label>
-            <select v-model="categoriaId" class="w-100 p-2 rounded border">
-              <option v-for="cat in riscosStore.categorias" :key="cat.id" :value="cat.id">
-                {{ cat.nome }} (Apetite na DAR: {{ cat.apetiteDeclarado }})
-              </option>
+        <!-- ETAPA 2 -->
+        <fieldset v-else-if="etapa === 2" class="etapa">
+          <h2 class="etapa__titulo" tabindex="-1">Categoria</h2>
+          <p class="etapa__ajuda">Escolha uma das 8 categorias oficiais. Não existe categoria mista.</p>
+          <FormField rotulo="Categoria (Quadro 2)" :erro="erros.categoriaId" obrigatorio v-slot="{ attrs }">
+            <select v-bind="attrs" v-model.number="d.categoriaId">
+              <option :value="null" disabled>Escolha…</option>
+              <option v-for="c in riscosStore.categorias" :key="c.id" :value="c.id">{{ c.nome }}</option>
             </select>
-          </div>
+          </FormField>
+          <p v-if="categoria" class="etapa__ajuda">
+            {{ categoria.descricaoNormativa }} Apetite na DAR: <strong>{{ ROTULOS_APETITE[categoria.apetiteDeclarado].rotulo }}</strong>
+            ({{ ROTULOS_APETITE[categoria.apetiteDeclarado].limite }}).
+          </p>
 
-          <div v-if="categoriaAtual.nome === 'Integridade'">
-            <label class="font-weight-bold d-block mb-1" style="color: #c91c00;">
-              Subcategoria Obrigatória de Integridade (Quadro 3 — Programa Integra+):
+          <FormField v-if="ehIntegridade" rotulo="Subcategoria de Integridade (Quadro 3)" :erro="erros.subcategoriaIntegridade" obrigatorio v-slot="{ attrs }">
+            <select v-bind="attrs" v-model="d.subcategoriaIntegridade">
+              <option value="" disabled>Escolha…</option>
+              <option v-for="s in SUBCATEGORIAS_INTEGRIDADE_QUADRO_3" :key="s" :value="s">{{ s }}</option>
+            </select>
+          </FormField>
+
+          <template v-else-if="categoria">
+            <label class="marcar">
+              <input v-model="d.decideSobreTerceiros" type="checkbox" />
+              <span>O processo decide sobre <strong>beneficiário, licença/autorização, fiscalização/sanção ou contratação/atestação</strong>?</span>
             </label>
-            <select v-model="subcategoriaIntegridade" class="w-100 p-2 rounded border">
-              <option value="">-- Selecione uma das 6 subcategorias do Quadro 3 --</option>
-              <option v-for="sub in SUBCATEGORIAS_INTEGRIDADE_QUADRO_3" :key="sub" :value="sub">
-                {{ sub }}
-              </option>
-            </select>
-          </div>
+            <FormField
+              v-if="d.decideSobreTerceiros"
+              rotulo="Por que não é risco de Integridade?"
+              ajuda="Teste de Integridade (Integra+). Se houver chance de favorecimento ou desvio ético, volte e escolha a categoria Integridade."
+              :erro="erros.justificativaNaoIntegridade"
+              obrigatorio
+              v-slot="{ attrs }"
+            >
+              <textarea v-bind="attrs" v-model="d.justificativaNaoIntegridade" rows="3"></textarea>
+            </FormField>
+          </template>
+        </fieldset>
 
-          <div v-else>
-            <label class="d-flex align-items-center gap-2 font-weight-bold mb-1">
-              <input v-model="testeIntegridadeAplicavel" type="checkbox" />
-              Há vulnerabilidade de fraude, favorecimento, conflito de interesses ou pressão indevida?
+        <!-- ETAPA 3 -->
+        <fieldset v-else-if="etapa === 3" class="etapa">
+          <h2 class="etapa__titulo" tabindex="-1">Análise</h2>
+          <p class="etapa__ajuda">A nota inerente vem da tabela do Quadro 7 — o impacto pesa mais que a probabilidade.</p>
+          <div class="duas-colunas">
+            <FormField rotulo="Probabilidade" :erro="erros.probabilidade" obrigatorio v-slot="{ attrs }">
+              <select v-bind="attrs" v-model.number="d.probabilidade">
+                <option :value="null" disabled>Escolha…</option>
+                <option v-for="o in PROBABILIDADES" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
+              </select>
+            </FormField>
+            <FormField rotulo="Impacto" :erro="erros.impacto" obrigatorio v-slot="{ attrs }">
+              <select v-bind="attrs" v-model.number="d.impacto">
+                <option :value="null" disabled>Escolha…</option>
+                <option v-for="o in IMPACTOS" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
+              </select>
+            </FormField>
+          </div>
+          <FormField rotulo="Eficácia do controle existente (Quadro 6)" v-slot="{ attrs }">
+            <select v-bind="attrs" v-model="d.eficacia">
+              <option v-for="o in EFICACIAS" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
+            </select>
+          </FormField>
+          <template v-if="d.eficacia !== 'Inexistente'">
+            <FormField rotulo="Controle que existe hoje" :erro="erros.descricaoControle" obrigatorio v-slot="{ attrs }">
+              <textarea v-bind="attrs" v-model="d.descricaoControle" rows="2"></textarea>
+            </FormField>
+            <label class="marcar">
+              <input v-model="d.possuiEvidencia" type="checkbox" />
+              <span>Há <strong>evidência comprovada</strong> de que o controle funciona</span>
             </label>
-            <input
-              v-if="testeIntegridadeAplicavel"
-              v-model="justificativaNaoIntegridade"
-              type="text"
-              placeholder="Justifique formalmente por que NÃO foi classificado como Integridade..."
-              class="w-100 p-2 rounded border"
-            />
-          </div>
-        </div>
-      </div>
+            <FormField v-if="d.possuiEvidencia" rotulo="Onde está a evidência" ajuda="Ex.: processo SEI nº…, relatório trimestral." :erro="erros.evidenciaControle" obrigatorio v-slot="{ attrs }">
+              <input v-bind="attrs" v-model="d.evidenciaControle" type="text" />
+            </FormField>
+          </template>
+        </fieldset>
 
-      <!-- ETAPA 3: ANÁLISE INERENTE E RESIDUAL COM TRAVA DE EVIDÊNCIA -->
-      <div v-show="exibirTodasEtapas || passoAtivo === 3" class="mb-3">
-        <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
-          3. Análise de Riscos Inerente (Quadro 7) e Residual (Quadro 6 com Trava de Evidência)
-        </h4>
-        <div class="radar-grid-2 mb-3">
-          <div>
-            <label class="font-weight-bold d-block mb-1">Probabilidade (Quadro 4 — 1 a 5):</label>
-            <select v-model.number="probabilidade" class="w-100 p-2 rounded border">
-              <option :value="1">1 — Muito baixa (&lt; 10%)</option>
-              <option :value="2">2 — Baixa (10% a 30%)</option>
-              <option :value="3">3 — Média (31% a 60%)</option>
-              <option :value="4">4 — Alta (61% a 90%)</option>
-              <option :value="5">5 — Muito alta (&gt; 90%)</option>
+        <!-- ETAPA 4 -->
+        <fieldset v-else class="etapa">
+          <h2 class="etapa__titulo" tabindex="-1">Tratamento</h2>
+          <p class="etapa__ajuda">O plano de ação segue o 5W2H. Você pode completar os detalhes depois, na ficha.</p>
+          <FormField rotulo="Estratégia" v-slot="{ attrs }">
+            <select v-bind="attrs" v-model="d.estrategia">
+              <option v-for="o in ESTRATEGIAS" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
             </select>
-          </div>
-
-          <div>
-            <label class="font-weight-bold d-block mb-1">Impacto (Quadro 5 — 1 a 5):</label>
-            <select v-model.number="impacto" class="w-100 p-2 rounded border">
-              <option :value="1">1 — Muito baixo</option>
-              <option :value="2">2 — Baixo</option>
-              <option :value="3">3 — Médio</option>
-              <option :value="4">4 — Alto</option>
-              <option :value="5">5 — Muito alto</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="font-weight-bold d-block mb-1">Nível de Eficácia dos Controles Existentes (Quadro 6):</label>
-            <select v-model="nivelEficaciaControle" class="w-100 p-2 rounded border">
-              <option value="Inexistente">Inexistente (Fator 1,0)</option>
-              <option value="Fraco">Fraco (Fator 0,9)</option>
-              <option value="Mediano">Mediano (Fator 0,75 — exige evidência)</option>
-              <option value="Satisfatório">Satisfatório (Fator 0,6 — exige evidência)</option>
-              <option value="Forte">Forte (Fator 0,5 — exige evidência)</option>
-            </select>
-          </div>
-
-          <div class="d-flex flex-column justify-content-center">
-            <label class="d-flex align-items-center gap-2 font-weight-bold">
-              <input v-model="possuiEvidenciaControle" type="checkbox" />
-              Possui evidência documental comprovada de funcionamento do controle?
-            </label>
-            <small class="text-muted">
-              Sem evidência comprovada, o sistema trava automaticamente o fator no máximo em Fraco (0,9).
-            </small>
-          </div>
-        </div>
-      </div>
-
-      <!-- Barra "Mostre a Conta" sempre visível no Assistente -->
-      <MemoriaCalculoBar
-        :probabilidade="probabilidade"
-        :impacto="impacto"
-        :nivel-inerente="calculoTempoReal.nivelInerente"
-        :classificacao-inerente="calculoTempoReal.classificacaoInerente"
-        :eficacia-controle="calculoTempoReal.eficaciaFinal"
-        :fator-controle="calculoTempoReal.fatorFinal"
-        :possui-evidencia="possuiEvidenciaControle"
-        :nivel-residual="calculoTempoReal.nivelResidual"
-        :classificacao-residual="calculoTempoReal.classificacaoResidual"
-        :status-critico="calculoTempoReal.statusCritico"
-        :trava-acionada="calculoTempoReal.travaEvidenciaAcionada"
-      />
-
-      <!-- ETAPA 4: PLANO DE AÇÃO 5W2H E KRI -->
-      <div v-show="exibirTodasEtapas || passoAtivo === 4" class="mt-3 mb-3">
-        <h4 class="h6 font-weight-bold mb-2" style="color: #1351b4;">
-          4. Estratégia de Resposta (Tabela 8), Ação 5W2H e Indicador KRI
-        </h4>
-        <div class="radar-grid-2 mb-3">
-          <div>
-            <label class="font-weight-bold d-block mb-1">Estratégia Oficial (Tabela 8):</label>
-            <select v-model="estrategiaPrincipal" class="w-100 p-2 rounded border">
-              <option value="Mitigar">Mitigar</option>
-              <option value="Compartilhar">Compartilhar</option>
-              <option value="Evitar">Evitar</option>
-              <option value="Aceitar">Aceitar</option>
-            </select>
-          </div>
-          <div>
-            <label class="font-weight-bold d-block mb-1">Indicador-Chave de Risco (KRI):</label>
-            <input v-model="nomeKri" type="text" class="w-100 p-2 rounded border" />
-          </div>
-          <div>
-            <label class="font-weight-bold d-block mb-1">Ação de Tratamento (O que será feito — 5W2H):</label>
-            <input v-model="acao5w2hOQue" type="text" class="w-100 p-2 rounded border" />
-          </div>
-          <div>
-            <label class="font-weight-bold d-block mb-1">Responsável pela Ação e Prazo:</label>
-            <div class="d-flex gap-2">
-              <input v-model="acao5w2hQuem" type="text" class="w-100 p-2 rounded border" />
-              <input v-model="acao5w2hQuando" type="date" class="p-2 rounded border" />
+          </FormField>
+          <template v-if="d.estrategia !== 'Aceitar'">
+            <FormField rotulo="Ação — o quê" :erro="erros.acaoOQue" obrigatorio v-slot="{ attrs }">
+              <textarea v-bind="attrs" v-model="d.acaoOQue" rows="2"></textarea>
+            </FormField>
+            <div class="duas-colunas">
+              <FormField rotulo="Responsável — quem" :erro="erros.acaoQuem" obrigatorio v-slot="{ attrs }">
+                <input v-bind="attrs" v-model="d.acaoQuem" type="text" />
+              </FormField>
+              <FormField rotulo="Prazo — quando" :erro="erros.acaoPrazo" obrigatorio v-slot="{ attrs }">
+                <input v-bind="attrs" v-model="d.acaoPrazo" type="date" />
+              </FormField>
             </div>
-          </div>
-        </div>
-      </div>
+          </template>
+          <FormField rotulo="Indicador de acompanhamento (KRI)" ajuda="Opcional. Ex.: % de processos com checklist assinado." v-slot="{ attrs }">
+            <input v-bind="attrs" v-model="d.nomeKri" type="text" />
+          </FormField>
+        </fieldset>
 
-      <div class="d-flex gap-2 justify-content-between align-items-center flex-wrap pt-2" style="border-top: 1px solid #eee;">
-        <div v-if="!exibirTodasEtapas" class="d-flex gap-2">
-          <BrButton
-            variant="secondary"
-            :disabled="passoAtivo === 1"
-            @click="passoAtivo = Math.max(1, passoAtivo - 1)"
-          >
-            ← Etapa Anterior
-          </BrButton>
-          <BrButton
-            variant="secondary"
-            :disabled="passoAtivo === 4"
-            @click="passoAtivo = Math.min(4, passoAtivo + 1)"
-          >
-            Próxima Etapa →
-          </BrButton>
+        <!-- AÇÕES -->
+        <div class="formulario__acoes">
+          <BrButton v-if="etapa > 1" variant="secondary" icon="fa-solid fa-arrow-left" @click="voltar">Voltar</BrButton>
+          <span class="formulario__espaco"></span>
+          <BrButton variant="secondary" @click="salvar(false)">Salvar rascunho</BrButton>
+          <BrButton v-if="etapa < 4" variant="primary" type="submit">Continuar</BrButton>
+          <BrButton v-else variant="primary" icon="fa-solid fa-paper-plane" type="submit">Enviar para validação</BrButton>
         </div>
-        <div v-else></div>
+      </form>
 
-        <div class="d-flex gap-2 flex-wrap">
-          <BrButton variant="secondary" icon="fas fa-save" @click="salvarRisco(false)">
-            Salvar como Rascunho (1ª Linha)
-          </BrButton>
-          <BrButton variant="primary" icon="fas fa-paper-plane" @click="salvarRisco(true)">
-            Salvar e Submeter à Coordenação-Geral (1 Clique)
-          </BrButton>
-        </div>
-      </div>
-    </BrCard>
+      <!-- PRÉVIA AO VIVO -->
+      <aside class="cartao previa" aria-labelledby="titulo-previa">
+        <h2 id="titulo-previa" class="previa__titulo">Prévia</h2>
+        <h3 class="previa__subtitulo">Descrição padronizada (Seção 4.2.1)</h3>
+        <p class="previa__frase">{{ frase }}</p>
+        <h3 class="previa__subtitulo">A conta</h3>
+        <MemoriaCalculoBar
+          v-if="calculo && d.probabilidade && d.impacto"
+          :probabilidade="d.probabilidade"
+          :impacto="d.impacto"
+          :nivel-inerente="calculo.nivelInerente"
+          :classificacao-inerente="calculo.classificacaoInerente"
+          :eficacia-controle="calculo.eficaciaFinal"
+          :fator-controle="calculo.fatorFinal"
+          :possui-evidencia="d.possuiEvidencia"
+          :nivel-residual="calculo.nivelResidual"
+          :classificacao-residual="calculo.classificacaoResidual"
+          :status-critico="calculo.statusCritico"
+          :trava-acionada="calculo.travaEvidenciaAcionada"
+        />
+        <p v-else class="previa__vazia">Escolha probabilidade e impacto na etapa 3 para ver a conta.</p>
+      </aside>
+    </div>
   </div>
 </template>
+
+<style scoped>
+.novo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+.novo__topo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.link-botao {
+  align-self: flex-end;
+  min-height: var(--alvo-minimo);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--texto-link);
+  font: inherit;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semi);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Formulário (3/5) + prévia (2/5); a prévia acompanha a rolagem no computador. */
+.novo__grade {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--esp-4);
+  align-items: start;
+}
+
+.cartao {
+  padding: var(--esp-5);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--elevacao-1);
+}
+
+.formulario {
+  min-width: 0;
+}
+
+.etapa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.etapa__titulo {
+  margin: 0;
+  font-size: var(--titulo-sm);
+  font-weight: var(--peso-forte);
+}
+
+.etapa__titulo:focus {
+  outline: none;
+}
+
+.etapa__ajuda {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+.duas-colunas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: var(--esp-4);
+}
+
+.marcar {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--esp-2);
+  min-height: var(--alvo-minimo);
+  font-size: var(--texto-sm);
+}
+
+.marcar input {
+  margin-top: 3px;
+}
+
+.formulario__acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin-top: var(--esp-5);
+  padding-top: var(--esp-4);
+  border-top: 1px solid var(--borda);
+}
+
+.formulario__espaco {
+  flex: 1;
+}
+
+.previa {
+  position: sticky;
+  top: calc(var(--altura-cabecalho) + var(--esp-4));
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+}
+
+.previa__titulo {
+  margin: 0;
+  font-size: var(--titulo-sm);
+  font-weight: var(--peso-forte);
+}
+
+.previa__subtitulo {
+  margin: var(--esp-2) 0 0;
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-forte);
+  color: var(--texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.previa__frase {
+  margin: 0;
+  font-size: var(--texto-sm);
+  line-height: 1.55;
+}
+
+.previa__vazia {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+@media (max-width: 1180px) {
+  .novo__grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .previa {
+    position: static;
+  }
+}
+
+@media (max-width: 639.98px) {
+  .cartao {
+    padding: var(--esp-4);
+  }
+  .formulario__espaco {
+    display: none;
+  }
+  .formulario__acoes :deep(.br-button) {
+    flex: 1 1 100%;
+  }
+}
+</style>

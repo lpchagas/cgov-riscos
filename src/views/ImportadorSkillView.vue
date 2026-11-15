@@ -1,107 +1,356 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * IMPORTADOR DE TABELAS MARKDOWN DA SKILL `cgov-gestao-riscos-v4` (PASSO 0)
+ * IMPORTAR RISCOS (`ImportadorSkillView.vue`) — Fase 3
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Quando a equipe da CGOV executa a skill `cgov-gestao-riscos-v4` no Claude Code
- * sobre Portarias e Instruções Normativas do ICMBio, o resultado é uma tabela
- * Markdown de 16 colunas. Basta colar a tabela abaixo para importar todas as
- * fichas preliminares (`preliminar_cgov`) e recalculá-las automaticamente pelo
- * motor RADAR!
+ * A CGOV roda a skill `cgov-gestao-riscos-v4` sobre normas do ICMBio e obtém
+ * uma tabela Markdown de 16 colunas. Esta página traz essa tabela para o RADAR
+ * em 3 passos:
+ *
+ *   1. COLAR a tabela (ou enviar/arrastar o arquivo .md ou .txt);
+ *   2. ver a PRÉVIA: cada linha já recalculada pelo motor oficial (Quadros 6,
+ *      7 e 8), com os ERROS (ex.: categoria mista proibida) e AVISOS
+ *      (ex.: a skill escreveu 17 mas o Quadro 7 dá 14);
+ *   3. CONFIRMAR: as fichas entram como "Preliminar CGOV" (Passo 0) e vão
+ *      para a 1ª Linha completar e enviar.
+ *
+ * Nada é gravado antes do passo 3 — a prévia usa a função pura
+ * `importarTabelaMarkdownSkill`, a mesma que a store usa ao importar.
  */
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
-import BrCard from '../components/govbr/BrCard.vue';
+import { useToast } from '../composables/useToast';
+import { importarTabelaMarkdownSkill, type LinhaImportadaSkill } from '../utils/importadorSkillMarkdown';
+import { avaliarCriticidadeDAR } from '../utils/calculadoraRiscoRadar';
+import { ROTULOS_CRITICIDADE, formatarNivel } from '../utils/rotulosInterface';
+import FormField from '../components/ui/FormField.vue';
+import DataTable from '../components/ui/DataTable.vue';
+import type { ColunaTabela } from '../components/ui/tipos';
+import RiskBadge from '../components/ui/RiskBadge.vue';
+import Chip from '../components/ui/Chip.vue';
 import BrButton from '../components/govbr/BrButton.vue';
 
 const router = useRouter();
 const riscosStore = useRiscosStore();
+const { mostrar } = useToast();
 
-const exemploMarkdownSkill = `| ID | Objeto de GR | Descrição na sintaxe | Categoria | P | I | Inerente | Classe | Controles e evidências | Eficácia e fator | Residual | Classe residual | Apetite da categoria | Crítico? | Estratégia | KRI |
+const EXEMPLO = `| ID | Objeto de GR | Descrição na sintaxe | Categoria | P | I | Inerente | Classe | Controles e evidências | Eficácia e fator | Residual | Classe residual | Apetite da categoria | Crítico? | Estratégia | KRI |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | RSC-IN-01 | Autorização Direta em UC | Devido o(a) ausência de cruzamento automatizado de condicionantes, poderá ocorrer o(a) emissão de autorização sem validação prévia da chefia da UC, ocasionando o(a) sobreposição de usos incompatíveis e impactando o alcance do objetivo de conservação da biodiversidade. | Socioambiental | 3 | 4 | 18 | Extremo | Parecer técnico individual sem checklist padronizado | Fraco (0,9) | 16,2 | Alto | baixo | sim | Mitigar | % de autorizações com checklist validado no SEI |
 | RSC-IN-02 | Fiscalização e Lavratura de Autos | Devido o(a) ausência de segregação de funções na revisão de autos de infração, poderá ocorrer o(a) arquivamento indevido por conflito de interesses, ocasionando o(a) prescrição punitiva e dano à credibilidade institucional e impactando o alcance do objetivo de integridade e combate a ilícitos ambientais. | Integridade: Conflito de Interesses e Nepotismo | 2 | 5 | 19 | Extremo | Inexistente | Inexistente (1,0) | 19 | Extremo | baixo | sim | Mitigar | % de processos revisados por colegiado técnico |`;
 
-const markdownInput = ref(exemploMarkdownSkill);
-const mensagemSucesso = ref('');
-const listaErros = ref<string[]>([]);
-const listaAvisos = ref<string[]>([]);
+const texto = ref('');
+const arrastando = ref(false);
+const erroTexto = ref<string | undefined>();
 
-function carregarExemplo() {
-  markdownInput.value = exemploMarkdownSkill;
-  mensagemSucesso.value = '';
-  listaErros.value = [];
-}
-
-function processarImportacao() {
-  mensagemSucesso.value = '';
-  listaErros.value = [];
-  listaAvisos.value = [];
-
-  const res = riscosStore.importarMarkdownDaSkill(markdownInput.value);
-  listaAvisos.value = res.avisos;
-
-  if (res.erros.length > 0) {
-    listaErros.value = res.erros;
+// ---------------------------------------------------------------------------
+// PASSO 1: colar ou enviar
+// ---------------------------------------------------------------------------
+async function lerArquivo(arquivo?: File | null): Promise<void> {
+  if (!arquivo) return;
+  if (!/\.(md|txt|markdown)$/i.test(arquivo.name)) {
+    erroTexto.value = 'Envie um arquivo .md ou .txt com a tabela da skill.';
     return;
   }
+  texto.value = await arquivo.text();
+  erroTexto.value = undefined;
+  previa.value = null;
+  mostrar({ tom: 'info', mensagem: `Arquivo "${arquivo.name}" carregado.` });
+}
 
-  mensagemSucesso.value = `${res.importados} ficha(s) preliminar(es) importada(s) com sucesso (status: preliminar_cgov)! Redirecionando para o Painel...`;
-  setTimeout(() => {
-    router.push('/');
-  }, 1200);
+function aoSoltar(evento: DragEvent): void {
+  arrastando.value = false;
+  lerArquivo(evento.dataTransfer?.files?.[0]);
+}
+
+// ---------------------------------------------------------------------------
+// PASSO 2: prévia (nada é gravado)
+// ---------------------------------------------------------------------------
+const previa = ref<ReturnType<typeof importarTabelaMarkdownSkill> | null>(null);
+
+function verPrevia(): void {
+  if (!texto.value.trim()) {
+    erroTexto.value = 'Cole a tabela Markdown da skill (ou envie o arquivo).';
+    previa.value = null;
+    return;
+  }
+  erroTexto.value = undefined;
+  previa.value = importarTabelaMarkdownSkill(texto.value);
+  if (!previa.value.fichas.length && !previa.value.erros.length) {
+    previa.value.erros.push('Nenhuma linha de risco encontrada. Confira se a tabela tem o cabeçalho de 16 colunas da skill.');
+  }
+}
+
+/** Criticidade com o apetite ATUAL da categoria na DAR (o mesmo que valerá após importar). */
+function criticidade(f: LinhaImportadaSkill) {
+  const nomeCategoria = f.categoriaNome.split(':')[0].trim().toLowerCase();
+  const apetite = riscosStore.categorias.find((c) => c.nome.toLowerCase() === nomeCategoria)?.apetiteDeclarado ?? 'pendente_dar';
+  return ROTULOS_CRITICIDADE[avaliarCriticidadeDAR(f.classificacaoResidual, apetite).statusCritico];
+}
+
+const colunas: ColunaTabela<LinhaImportadaSkill>[] = [
+  { chave: 'codigoRadar', rotulo: 'Código' },
+  { chave: 'nomeObjeto', rotulo: 'Objeto e categoria' },
+  { chave: 'nivelInerente', rotulo: 'P × I → Inerente', ocultarNoCelular: true },
+  { chave: 'nivelResidual', rotulo: 'Residual' },
+  { chave: 'statusCritico', rotulo: 'DAR' },
+];
+
+const podeImportar = computed(() => !!previa.value && previa.value.fichas.length > 0 && previa.value.erros.length === 0);
+
+// ---------------------------------------------------------------------------
+// PASSO 3: confirmar
+// ---------------------------------------------------------------------------
+function importar(): void {
+  const res = riscosStore.importarMarkdownDaSkill(texto.value);
+  if (res.erros.length) {
+    mostrar({ tom: 'perigo', mensagem: 'A tabela tem erros. Corrija e veja a prévia de novo.' });
+    return;
+  }
+  mostrar({ tom: 'sucesso', mensagem: `${res.importados} ${res.importados === 1 ? 'risco importado' : 'riscos importados'} como Preliminar CGOV.` });
+  router.push({ name: 'riscos-lista', query: { status: 'preliminar_cgov' } });
 }
 </script>
 
 <template>
-  <div>
-    <BrCard
-      titulo="Passo 0 (CGOV): Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4"
-      subtitulo="Cole abaixo a tabela gerada pelo Claude Code a partir da análise de Portarias e Instruções Normativas do ICMBio"
-      destaque-cor="#1351b4"
-    >
-      <p class="text-down-01 mb-2">
-        O importador extrai automaticamente <strong>Causas, Evento, Consequências e Objetivo</strong> da sintaxe padrão, valida a proibição de categorias mistas (Programa Integra+) e recalcula todas as notas pelo <strong>Quadro 7 e Quadro 6</strong>.
+  <div class="importar">
+    <!-- PASSO 1 -->
+    <section class="cartao" aria-labelledby="passo-1">
+      <h2 id="passo-1" class="passo"><span class="passo__numero" aria-hidden="true">1</span> Cole a tabela da skill</h2>
+      <p class="texto-apoio">
+        A skill <code>cgov-gestao-riscos-v4</code> gera uma tabela Markdown de 16 colunas. Cole aqui ou arraste o arquivo
+        <strong>.md</strong> para dentro da caixa.
+      </p>
+      <div
+        class="zona"
+        :class="{ 'zona--ativa': arrastando }"
+        @dragover.prevent="arrastando = true"
+        @dragleave="arrastando = false"
+        @drop.prevent="aoSoltar"
+      >
+        <FormField rotulo="Tabela Markdown" :erro="erroTexto" obrigatorio v-slot="{ attrs }">
+          <textarea v-bind="attrs" v-model="texto" rows="8" class="zona__texto" spellcheck="false" @input="previa = null"></textarea>
+        </FormField>
+      </div>
+      <div class="acoes">
+        <label class="br-button secondary arquivo">
+          <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
+          Enviar arquivo
+          <input type="file" accept=".md,.txt,.markdown,text/markdown,text/plain" class="radar-so-leitor" @change="lerArquivo(($event.target as HTMLInputElement).files?.[0])" />
+        </label>
+        <BrButton variant="secondary" @click="texto = EXEMPLO; previa = null; erroTexto = undefined">Usar tabela de exemplo</BrButton>
+        <span class="acoes__espaco"></span>
+        <BrButton variant="primary" icon="fa-solid fa-eye" @click="verPrevia">Ver prévia</BrButton>
+      </div>
+    </section>
+
+    <!-- PASSO 2 -->
+    <section v-if="previa" class="cartao" aria-labelledby="passo-2">
+      <h2 id="passo-2" class="passo"><span class="passo__numero" aria-hidden="true">2</span> Confira a prévia</h2>
+      <p class="resumo" role="status">
+        <strong>{{ previa.fichas.length }}</strong> {{ previa.fichas.length === 1 ? 'risco lido' : 'riscos lidos' }} ·
+        <strong :class="{ 'resumo--erro': previa.erros.length }">{{ previa.erros.length }}</strong> {{ previa.erros.length === 1 ? 'erro' : 'erros' }} ·
+        <strong>{{ previa.avisos.length }}</strong> {{ previa.avisos.length === 1 ? 'aviso' : 'avisos' }}
       </p>
 
-      <div
-        v-if="mensagemSucesso"
-        class="p-3 mb-3 rounded font-weight-bold"
-        style="background: #e3f5e1; color: #168821; border: 1px solid #168821;"
-      >
-        <i class="fas fa-check-circle mr-1"></i>
-        {{ mensagemSucesso }}
+      <div v-if="previa.erros.length" class="mensagens mensagens--erro" role="alert">
+        <p class="mensagens__titulo"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> Corrija antes de importar</p>
+        <ul><li v-for="(e, i) in previa.erros" :key="i">{{ e }}</li></ul>
       </div>
+      <details v-if="previa.avisos.length" class="mensagens mensagens--aviso" open>
+        <summary class="mensagens__titulo"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Avisos (o RADAR recalculou)</summary>
+        <ul><li v-for="(a, i) in previa.avisos" :key="i">{{ a }}</li></ul>
+      </details>
 
-      <div
-        v-if="listaErros.length > 0"
-        class="p-3 mb-3 rounded"
-        style="background: #fde0db; color: #c91c00; border: 1px solid #e52207;"
-      >
-        <strong>Erros Normativos Encontrados na Tabela:</strong>
-        <ul class="mb-0 mt-1">
-          <li v-for="(err, idx) in listaErros" :key="idx">{{ err }}</li>
-        </ul>
-      </div>
+      <DataTable v-if="previa.fichas.length" :colunas="colunas" :linhas="previa.fichas" chave-linha="codigoRadar" legenda="Riscos lidos da tabela (prévia, ainda não gravados)">
+        <template #celula-codigoRadar="{ linha }"><span class="codigo">{{ linha.codigoRadar }}</span></template>
+        <template #celula-nomeObjeto="{ linha }">
+          <span class="objeto">
+            <span class="objeto__nome">{{ linha.nomeObjeto }}</span>
+            <span class="texto-apoio">
+              {{ linha.categoriaNome }}<template v-if="linha.subcategoriaIntegridade"> · {{ linha.subcategoriaIntegridade }}</template>
+            </span>
+          </span>
+        </template>
+        <template #celula-nivelInerente="{ linha }">
+          {{ linha.probabilidade }} × {{ linha.impacto }} → <strong>{{ formatarNivel(linha.nivelInerente) }}</strong>
+        </template>
+        <template #celula-nivelResidual="{ linha }">
+          <RiskBadge :classe="linha.classificacaoResidual" :valor="linha.nivelResidual" tamanho="sm" />
+        </template>
+        <template #celula-statusCritico="{ linha }">
+          <Chip :tom="criticidade(linha).tom" :icone="criticidade(linha).icone">{{ criticidade(linha).rotulo }}</Chip>
+        </template>
+      </DataTable>
+    </section>
 
-      <textarea
-        v-model="markdownInput"
-        rows="9"
-        class="w-100 p-2 rounded border mb-3"
-        style="font-family: monospace; font-size: 0.85rem;"
-      ></textarea>
-
-      <div class="d-flex justify-content-between flex-wrap gap-2">
-        <BrButton variant="secondary" icon="fas fa-magic" @click="carregarExemplo">
-          Restaurar Tabela Exemplo (Regime B — 16 Colunas)
-        </BrButton>
-        <BrButton variant="primary" icon="fas fa-file-import" @click="processarImportacao">
-          Importar e Recalcular Fichas Preliminares (Passo 0)
-        </BrButton>
-      </div>
-    </BrCard>
+    <!-- PASSO 3 -->
+    <section v-if="previa" class="cartao confirmar" aria-labelledby="passo-3">
+      <h2 id="passo-3" class="passo"><span class="passo__numero" aria-hidden="true">3</span> Importe</h2>
+      <p class="texto-apoio">As fichas entram como <strong>Preliminar CGOV</strong> e a 1ª Linha completa e envia para validação.</p>
+      <BrButton variant="primary" icon="fa-solid fa-file-import" :disabled="!podeImportar" @click="importar">
+        Importar {{ previa.fichas.length }} {{ previa.fichas.length === 1 ? 'risco' : 'riscos' }}
+      </BrButton>
+    </section>
   </div>
 </template>
+
+<style scoped>
+.importar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  padding: var(--esp-5);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--elevacao-1);
+}
+
+.passo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  margin: 0;
+  font-size: var(--titulo-sm);
+  font-weight: var(--peso-forte);
+}
+
+.passo__numero {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--cor-primaria);
+  color: var(--cor-sobre-primaria);
+  font-size: var(--texto-md);
+}
+
+.texto-apoio {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+.zona {
+  padding: var(--esp-3);
+  border: 2px dashed var(--borda-forte);
+  border-radius: var(--raio-md);
+  background: var(--superficie-container);
+}
+
+.zona--ativa {
+  border-color: var(--cor-primaria);
+  background: var(--cor-info-suave);
+}
+
+.zona__texto {
+  font-family: var(--fonte-mono);
+  font-size: var(--texto-sm);
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.acoes__espaco {
+  flex: 1;
+}
+
+/* O <label> estiliza o botão; o <input type=file> fica visível só para leitor de tela. */
+.arquivo {
+  position: relative;
+  gap: var(--esp-2);
+  cursor: pointer;
+}
+
+.arquivo:focus-within {
+  box-shadow: var(--anel-foco);
+}
+
+.resumo {
+  margin: 0;
+}
+
+.resumo--erro {
+  color: var(--cor-perigo);
+}
+
+.mensagens {
+  padding: var(--esp-3) var(--esp-4);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+}
+
+.mensagens ul {
+  margin: var(--esp-2) 0 0;
+  padding-left: var(--esp-5);
+}
+
+.mensagens--erro {
+  background: var(--cor-perigo-suave);
+  color: var(--cor-perigo);
+}
+
+.mensagens--aviso {
+  background: var(--cor-aviso-suave);
+  color: var(--cor-aviso);
+}
+
+.mensagens__titulo {
+  margin: 0;
+  font-weight: var(--peso-forte);
+  cursor: default;
+}
+
+summary.mensagens__titulo {
+  min-height: var(--alvo-minimo);
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  cursor: pointer;
+}
+
+.codigo {
+  font-family: var(--fonte-mono);
+  font-size: 0.8125rem;
+  font-weight: var(--peso-semi);
+  white-space: nowrap;
+}
+
+.objeto {
+  display: flex;
+  flex-direction: column;
+  min-width: 12rem;
+}
+
+.objeto__nome {
+  font-weight: var(--peso-semi);
+}
+
+.confirmar {
+  align-items: flex-start;
+}
+
+@media (max-width: 639.98px) {
+  .cartao {
+    padding: var(--esp-4);
+  }
+  .acoes__espaco {
+    display: none;
+  }
+}
+</style>

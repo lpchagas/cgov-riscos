@@ -1,274 +1,446 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * FICHA EXECUTIVA E DIAGRAMA VISUAL BOW TIE (`FichaDetalheBowTieView.vue`)
+ * FICHA DO RISCO (`FichaDetalheBowTieView.vue`) — Fase 3
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Esta página apresenta a anatomia gráfica completa de um Risco pelo Método
- * Bow Tie (Gravata-Borboleta — Seção 4.2.1 da Metodologia SEI 024421455):
- * [1. Causas] -> [2. Barreira Preventiva / Controles (Quadro 6)] -> [3. EVENTO DE RISCO]
- * -> [4. Plano de Resposta 5W2H (Tabela 8)] -> [5. Consequências & Objetivo Afetado].
- * Inclui também a Barra "Mostre a Conta" (§5), os botões de deliberação em 1 clique
- * e a Trilha de Auditoria específica da ficha.
+ * Tudo sobre UM risco, organizado em abas (antes era uma página única e longa):
+ *
+ *   Resumo · Bow Tie · Controles · Monitoramento · Histórico
+ *
+ * No topo: código, nome, selos (nível, criticidade, situação) e a AÇÃO
+ * principal do momento, que depende da situação no fluxo:
+ *   - rascunho / devolvido / preliminar → "Enviar para validação"
+ *   - aguardando validação              → "Validar risco"   (CG ou CGOV)
+ *   - aguardando homologação            → "Homologar risco" (Diretoria ou CGOV)
+ *
+ * Se o código na URL não existir, a página diz isso (antes mostrava o
+ * primeiro risco da lista sem avisar — dava para confundir uma ficha com outra).
+ *
+ * A aba aberta fica na URL (`/riscos/risco-x?aba=bowtie`).
  */
 import { computed } from 'vue';
-import { useRoute, useRouter, RouterLink } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useAuthStore } from '../stores/authStore';
-import BrCard from '../components/govbr/BrCard.vue';
-import BrBadge from '../components/govbr/BrBadge.vue';
+import { useToast } from '../composables/useToast';
+import type { FichaRisco } from '../types/radar.types';
+import { ROTULOS_CRITICIDADE, ROTULOS_STATUS_FLUXO, formatarDataHora } from '../utils/rotulosInterface';
+import { dataCurta, descreverEventoFluxo } from '../utils/painelResumo';
+import RiskBadge from '../components/ui/RiskBadge.vue';
+import Chip from '../components/ui/Chip.vue';
+import EmptyState from '../components/ui/EmptyState.vue';
+import BrTabs from '../components/govbr/BrTabs.vue';
 import BrButton from '../components/govbr/BrButton.vue';
 import MemoriaCalculoBar from '../components/radar/MemoriaCalculoBar.vue';
+import BowTieDiagram from '../components/radar/BowTieDiagram.vue';
 
 const route = useRoute();
 const router = useRouter();
 const riscosStore = useRiscosStore();
 const authStore = useAuthStore();
+const { mostrar } = useToast();
 
-const riscoAtivo = computed(() => {
-  const idParam = String(route.params.id || '');
-  return (
-    riscosStore.obterRiscoPorId(idParam) ||
-    riscosStore.riscos[0]
-  );
+const risco = computed<FichaRisco | undefined>(() => riscosStore.obterRiscoPorId(String(route.params.id ?? '')));
+
+// ---------------------------------------------------------------------------
+// ABAS (na URL)
+// ---------------------------------------------------------------------------
+const ABAS_VALIDAS = ['resumo', 'bowtie', 'controles', 'monitoramento', 'historico'];
+const aba = computed<string>({
+  get: () => (typeof route.query.aba === 'string' && ABAS_VALIDAS.includes(route.query.aba) ? route.query.aba : 'resumo'),
+  set: (a) => router.replace({ query: a === 'resumo' ? {} : { aba: a } }),
+});
+const abas = computed(() => [
+  { id: 'resumo', rotulo: 'Resumo' },
+  { id: 'bowtie', rotulo: 'Bow Tie' },
+  { id: 'controles', rotulo: 'Controles', contador: risco.value?.controlesExistentes.length },
+  { id: 'monitoramento', rotulo: 'Monitoramento', contador: (risco.value?.kris.length ?? 0) + (risco.value?.respostasTratamento.length ?? 0) },
+  { id: 'historico', rotulo: 'Histórico', contador: risco.value?.historicoFluxo.length },
+]);
+
+// ---------------------------------------------------------------------------
+// AÇÃO PRINCIPAL CONFORME A SITUAÇÃO
+// ---------------------------------------------------------------------------
+const acao = computed(() => {
+  const r = risco.value;
+  if (!r) return null;
+  if (['rascunho', 'devolvido', 'preliminar_cgov'].includes(r.statusFluxo)) {
+    return { rotulo: 'Enviar para validação', icone: 'fa-solid fa-paper-plane', pode: true, executar: () => riscosStore.submeterParaValidacaoCg(r.id), aviso: 'enviado para validação da Coordenação-Geral' };
+  }
+  if (r.statusFluxo === 'em_validacao_cg') {
+    return { rotulo: 'Validar risco', icone: 'fa-solid fa-check', pode: authStore.podeAprovarCg, executar: () => riscosStore.aprovarEmUmCliqueCg(r.id), aviso: 'validado' };
+  }
+  if (r.statusFluxo === 'em_homologacao_dir') {
+    return { rotulo: 'Homologar risco', icone: 'fa-solid fa-stamp', pode: authStore.podeHomologarDiretoria, executar: () => riscosStore.homologarEmUmCliqueDiretoria(r.id), aviso: 'homologado e incluído no Plano' };
+  }
+  return null; // aprovado: nada a fazer aqui
 });
 
-function selecionarOutroRisco(id: string) {
-  router.push(`/riscos/${id}`);
+function executarAcao(): void {
+  const r = risco.value;
+  const a = acao.value;
+  if (!r || !a) return;
+  a.executar();
+  mostrar({ tom: 'sucesso', mensagem: `${r.codigoRadar} ${a.aviso}. Situação: ${ROTULOS_STATUS_FLUXO[r.statusFluxo].rotulo}.` });
 }
+
+/** Leitura mais recente de um indicador. */
+const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
+  [...kri.medicoes].sort((a, b) => b.dataMedicao.localeCompare(a.dataMedicao))[0];
 </script>
 
 <template>
-  <div v-if="riscoAtivo">
-    <!-- Barra Superior de Seleção de Ficha e Navegação -->
-    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-      <div class="d-flex align-items-center flex-wrap gap-2">
-        <RouterLink
-          to="/"
-          class="px-3 py-1 rounded-pill text-decoration-none font-weight-bold text-down-01"
-          style="border: 1px solid #1351b4; color: #1351b4; background: #fff;"
-        >
-          ← Voltar ao Painel
-        </RouterLink>
-        <label for="seletor-ficha-bowtie" class="font-weight-bold text-down-01 mb-0" style="color: #071d41;">
-          Inspecionar Ficha:
-        </label>
-        <select
-          id="seletor-ficha-bowtie"
-          :value="riscoAtivo.id"
-          class="p-2 rounded font-weight-bold"
-          style="border: 1px solid #1351b4; color: #071d41; background: #fff;"
-          @change="selecionarOutroRisco(($event.target as HTMLSelectElement).value)"
-        >
-          <option v-for="r in riscosStore.riscos" :key="r.id" :value="r.id">
-            [{{ r.codigoRadar }}] {{ r.nomeObjetoCache }} — Residual {{ r.nivelResidual }} ({{ r.classificacaoResidual }})
-          </option>
-        </select>
-      </div>
-
-      <div class="d-flex align-items-center gap-2">
-        <span
-          class="px-3 py-1 rounded font-weight-bold text-down-01"
-          style="background-color: #071d41; color: #ffffff;"
-        >
-          Status: {{ riscoAtivo.statusFluxo }}
-        </span>
-        <BrBadge
-          :classe-risco="riscoAtivo.classificacaoResidual"
-          :texto="`Residual: ${riscoAtivo.nivelResidual} (${riscoAtivo.classificacaoResidual})`"
-        />
-      </div>
-    </div>
-
-    <!-- Memória de Cálculo RADAR (§5 — "Mostre a Conta") -->
-    <MemoriaCalculoBar
-      :probabilidade="riscoAtivo.probabilidade"
-      :impacto="riscoAtivo.impacto"
-      :nivel-inerente="riscoAtivo.nivelInerente"
-      :classificacao-inerente="riscoAtivo.classificacaoInerente"
-      :eficacia-controle="riscoAtivo.nivelEficaciaControle"
-      :fator-controle="riscoAtivo.fatorControle"
-      :possui-evidencia="riscoAtivo.possuiEvidenciaControle"
-      :nivel-residual="riscoAtivo.nivelResidual"
-      :classificacao-residual="riscoAtivo.classificacaoResidual"
-      :status-critico="riscoAtivo.statusCritico"
-    />
-
-    <!-- DIAGRAMA VISUAL BOW TIE (GRAVATA-BORBOLETA) -->
-    <BrCard
-      :titulo="`Diagrama Visual Bow Tie — [${riscoAtivo.codigoRadar}] ${riscoAtivo.nomeObjetoCache}`"
-      subtitulo="Encadeamento Lógico Causas → Controles Preventivos → Evento Central → Resposta 5W2H → Consequências e Objetivo (Seção 4.2.1)"
-      destaque-cor="#1351b4"
-    >
-      <div
-        class="p-3 mb-3 rounded"
-        style="background-color: #dbe8fb; border-left: 4px solid #1351b4; color: #071d41;"
-      >
-        <strong>Sintaxe Padronizada Oficial (Seção 4.2.1):</strong>
-        <div class="mt-1">{{ riscoAtivo.descricaoPadrao }}</div>
-      </div>
-
-      <div
-        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.85rem; align-items: stretch;"
-      >
-        <!-- Coluna 1: Causas -->
-        <div
-          class="p-3 rounded d-flex flex-column justify-content-between"
-          style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #1351b4;"
-        >
-          <div>
-            <div class="text-down-01 font-weight-bold text-uppercase mb-1" style="color: #1351b4;">
-              1. Causas (Fontes)
-            </div>
-            <p class="text-down-01 mb-2">{{ riscoAtivo.causas }}</p>
-          </div>
-          <span class="badge align-self-start" style="background: #dbe8fb; color: #071d41; padding: 0.2rem 0.5rem; border-radius: 4px;">
-            Probabilidade P = {{ riscoAtivo.probabilidade }}
-          </span>
+  <div v-if="risco" class="ficha">
+    <!-- CABEÇALHO DA FICHA -->
+    <header class="ficha__cabecalho">
+      <div class="ficha__identificacao">
+        <p class="codigo">{{ risco.codigoRadar }}</p>
+        <h1 class="ficha__titulo">{{ risco.nomeObjetoCache }}</h1>
+        <div class="ficha__selos">
+          <RiskBadge :classe="risco.classificacaoResidual" :valor="risco.nivelResidual" prefixo="Residual" />
+          <Chip :tom="ROTULOS_CRITICIDADE[risco.statusCritico].tom" :icone="ROTULOS_CRITICIDADE[risco.statusCritico].icone">
+            {{ ROTULOS_CRITICIDADE[risco.statusCritico].rotulo }}
+          </Chip>
+          <Chip :tom="ROTULOS_STATUS_FLUXO[risco.statusFluxo].tom" :icone="ROTULOS_STATUS_FLUXO[risco.statusFluxo].icone">
+            {{ ROTULOS_STATUS_FLUXO[risco.statusFluxo].rotulo }}
+          </Chip>
         </div>
+      </div>
+      <div v-if="acao" class="ficha__acao">
+        <BrButton variant="primary" :icon="acao.icone" :disabled="!acao.pode" @click="executarAcao">{{ acao.rotulo }}</BrButton>
+        <span v-if="!acao.pode" class="texto-apoio">Seu perfil não pode fazer esta etapa.</span>
+      </div>
+    </header>
 
-        <!-- Coluna 2: Barreira de Controles (Quadro 6) -->
-        <div
-          class="p-3 rounded d-flex flex-column justify-content-between"
-          style="background-color: #fffbeb; border: 1px solid #fde68a; border-left: 4px solid #8a6d00;"
-        >
-          <div>
-            <div class="text-down-01 font-weight-bold text-uppercase mb-1" style="color: #8a6d00;">
-              2. Controles (Quadro 6)
-            </div>
-            <div v-if="riscoAtivo.controlesExistentes.length > 0" class="text-down-01 mb-2">
-              <div v-for="ctrl in riscoAtivo.controlesExistentes" :key="ctrl.id" class="mb-1">
-                • {{ ctrl.descricaoControle }}
-                <small class="d-block text-muted">Evidência: {{ ctrl.evidenciaFuncionamento }}</small>
+    <section class="cartao">
+      <BrTabs v-model:aba-ativa="aba" :abas="abas" :rotulo="`Ficha do ${risco.codigoRadar}`">
+        <template #default="{ aba: abaAtual }">
+          <!-- RESUMO -->
+          <div v-if="abaAtual === 'resumo'" class="painel-aba">
+            <h2 class="titulo-secao">Descrição padronizada</h2>
+            <p class="texto-longo">{{ risco.descricaoPadrao }}</p>
+
+            <dl class="dados">
+              <div><dt>Categoria</dt><dd>{{ risco.categoriaNome }}<template v-if="risco.subcategoriaIntegridade"> · {{ risco.subcategoriaIntegridade }}</template></dd></div>
+              <div><dt>Responsável (1ª Linha)</dt><dd>{{ risco.responsavelRiscoNome }}</dd></div>
+              <div><dt>Objetivo afetado</dt><dd>{{ risco.objetivoAfetado }}</dd></div>
+              <div><dt>Estratégia</dt><dd>{{ risco.estrategiaPrincipal }}</dd></div>
+              <div>
+                <dt>Teste de Integridade</dt>
+                <dd>{{ risco.testeIntegridadeAplicavel ? 'Aplicável' : 'Não aplicável' }}<template v-if="risco.justificativaNaoIntegridade"> — {{ risco.justificativaNaoIntegridade }}</template></dd>
               </div>
-            </div>
-            <p v-else class="text-down-01 mb-2 text-muted">
-              Sem controle formal evidenciado (Fator 1,0 — Inexistente).
+            </dl>
+
+            <h2 class="titulo-secao">A conta</h2>
+            <MemoriaCalculoBar
+              :probabilidade="risco.probabilidade"
+              :impacto="risco.impacto"
+              :nivel-inerente="risco.nivelInerente"
+              :classificacao-inerente="risco.classificacaoInerente"
+              :eficacia-controle="risco.nivelEficaciaControle"
+              :fator-controle="risco.fatorControle"
+              :possui-evidencia="risco.possuiEvidenciaControle"
+              :nivel-residual="risco.nivelResidual"
+              :classificacao-residual="risco.classificacaoResidual"
+              :status-critico="risco.statusCritico"
+            />
+            <dl class="dados">
+              <div v-if="risco.justificativaProbabilidade"><dt>Por que esta probabilidade</dt><dd>{{ risco.justificativaProbabilidade }}</dd></div>
+              <div v-if="risco.justificativaImpacto"><dt>Por que este impacto</dt><dd>{{ risco.justificativaImpacto }}</dd></div>
+            </dl>
+          </div>
+
+          <!-- BOW TIE -->
+          <div v-else-if="abaAtual === 'bowtie'" class="painel-aba">
+            <BowTieDiagram :risco="risco" />
+          </div>
+
+          <!-- CONTROLES -->
+          <div v-else-if="abaAtual === 'controles'" class="painel-aba">
+            <p class="texto-apoio">
+              Eficácia avaliada: <strong>{{ risco.nivelEficaciaControle }}</strong>.
+              Sem evidência comprovada, o fator fica limitado a Fraco (0,9).
             </p>
+            <ul v-if="risco.controlesExistentes.length" class="lista-cartoes">
+              <li v-for="c in risco.controlesExistentes" :key="c.id" class="item-cartao">
+                <p class="item-cartao__titulo">{{ c.descricaoControle }}</p>
+                <p class="texto-apoio"><strong>Evidência:</strong> {{ c.evidenciaFuncionamento || '—' }}</p>
+                <div class="ficha__selos">
+                  <Chip :tom="c.possuiEvidenciaComprovada ? 'sucesso' : 'aviso'" :icone="c.possuiEvidenciaComprovada ? 'fa-solid fa-circle-check' : 'fa-solid fa-lock'">
+                    {{ c.possuiEvidenciaComprovada ? 'Evidência comprovada' : 'Sem evidência (trava em Fraco)' }}
+                  </Chip>
+                  <Chip :tom="c.desenhoAdequado ? 'sucesso' : 'neutro'">Desenho {{ c.desenhoAdequado ? 'adequado' : 'a melhorar' }}</Chip>
+                  <Chip :tom="c.operacaoComprovada ? 'sucesso' : 'neutro'">Operação {{ c.operacaoComprovada ? 'comprovada' : 'não comprovada' }}</Chip>
+                </div>
+              </li>
+            </ul>
+            <EmptyState v-else titulo="Nenhum controle cadastrado" descricao="Sem controle formal, o fator é 1,0 (Inexistente)." icone="fa-solid fa-shield-halved" />
           </div>
-          <span class="badge align-self-start" style="background: #fff5c2; color: #8a6d00; padding: 0.2rem 0.5rem; border-radius: 4px;">
-            {{ riscoAtivo.nivelEficaciaControle }} (× {{ String(riscoAtivo.fatorControle).replace('.', ',') }})
-          </span>
-        </div>
 
-        <!-- Coluna 3: EVENTO CENTRAL DE RISCO -->
-        <div
-          class="p-3 rounded d-flex flex-column justify-content-center text-center shadow-sm"
-          style="background-color: #fde0db; border: 2px solid #e52207; color: #071d41;"
-        >
-          <div class="text-down-01 font-weight-bold text-uppercase mb-1" style="color: #c91c00;">
-            🎯 3. Evento Central de Risco
+          <!-- MONITORAMENTO -->
+          <div v-else-if="abaAtual === 'monitoramento'" class="painel-aba">
+            <h2 class="titulo-secao">Indicadores (KRIs)</h2>
+            <ul v-if="risco.kris.length" class="lista-cartoes">
+              <li v-for="k in risco.kris" :key="k.id" class="item-cartao">
+                <p class="item-cartao__titulo">{{ k.nomeIndicador }}</p>
+                <p class="texto-apoio">Meta {{ k.metaAlvo }} · alerta {{ k.limiteAlerta }} · {{ k.periodicidade }}</p>
+                <p v-if="ultimaLeitura(k)" class="texto-apoio">
+                  Última leitura: <strong>{{ ultimaLeitura(k).valorApurado }}</strong> em {{ dataCurta(ultimaLeitura(k).dataMedicao) }}
+                  <Chip v-if="ultimaLeitura(k).emAlerta" tom="perigo" icone="fa-solid fa-triangle-exclamation">Em alerta</Chip>
+                </p>
+              </li>
+            </ul>
+            <p v-else class="texto-apoio">Nenhum indicador cadastrado.</p>
+
+            <h2 class="titulo-secao">Plano de ação (5W2H)</h2>
+            <ul v-if="risco.respostasTratamento.length" class="lista-cartoes">
+              <li v-for="t in risco.respostasTratamento" :key="t.id" class="item-cartao">
+                <p class="item-cartao__titulo">{{ t.acaoOQue }}</p>
+                <p class="texto-apoio">{{ t.responsavelQuem }} · até {{ dataCurta(t.prazoQuando) }} · {{ t.procedimentoComo }}</p>
+              </li>
+            </ul>
+            <p v-else class="texto-apoio">Plano de ação em elaboração.</p>
+            <RouterLink :to="{ name: 'monitoramento-kris' }" class="link-acao">
+              Registrar leituras e atualizar ações em Monitoramento <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </RouterLink>
           </div>
-          <p class="font-weight-bold text-down-01 my-2">
-            {{ riscoAtivo.eventoRisco }}
-          </p>
-          <div class="mt-1">
-            <span class="px-2 py-1 rounded text-down-02 font-weight-bold bg-white" style="color: #071d41;">
-              Categoria: {{ riscoAtivo.categoriaNome }}
-              <template v-if="riscoAtivo.subcategoriaIntegridade">
-                ({{ riscoAtivo.subcategoriaIntegridade }})
-              </template>
-            </span>
+
+          <!-- HISTÓRICO -->
+          <div v-else class="painel-aba">
+            <ol v-if="risco.historicoFluxo.length" class="linha-tempo">
+              <li v-for="h in [...risco.historicoFluxo].reverse()" :key="h.id">
+                <span class="linha-tempo__quando">{{ formatarDataHora(h.criadoEm) }} · {{ h.usuarioNome }}</span>
+                <span class="linha-tempo__oque">{{ descreverEventoFluxo(h) }}</span>
+                <span v-if="h.despachoTexto" class="linha-tempo__despacho">"{{ h.despachoTexto }}"</span>
+              </li>
+            </ol>
+            <p v-else class="texto-apoio">Ainda sem tramitação.</p>
           </div>
-        </div>
+        </template>
+      </BrTabs>
+    </section>
+  </div>
 
-        <!-- Coluna 4: Plano de Ação 5W2H -->
-        <div
-          class="p-3 rounded d-flex flex-column justify-content-between"
-          style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #168821;"
-        >
-          <div>
-            <div class="text-down-01 font-weight-bold text-uppercase mb-1" style="color: #168821;">
-              4. Resposta ({{ riscoAtivo.estrategiaPrincipal }})
-            </div>
-            <div v-if="riscoAtivo.respostasTratamento.length > 0" class="text-down-01 mb-2">
-              <div v-for="t in riscoAtivo.respostasTratamento" :key="t.id" class="mb-1">
-                • {{ t.acaoOQue }}
-                <small class="d-block text-muted">Prazo: {{ t.prazoQuando }} ({{ t.statusExecucao }})</small>
-              </div>
-            </div>
-            <p v-else class="text-down-01 mb-2 text-muted">
-              Ação de tratamento em elaboração pela 1ª Linha.
-            </p>
-          </div>
-          <span class="badge align-self-start" style="background: #e3f5e1; color: #168821; padding: 0.2rem 0.5rem; border-radius: 4px;">
-            {{ riscoAtivo.kris.length }} KRI(s) vinculado(s)
-          </span>
-        </div>
-
-        <!-- Coluna 5: Consequências & Objetivo Afetado -->
-        <div
-          class="p-3 rounded d-flex flex-column justify-content-between"
-          style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-left: 4px solid #071d41;"
-        >
-          <div>
-            <div class="text-down-01 font-weight-bold text-uppercase mb-1" style="color: #071d41;">
-              5. Consequências &amp; Objetivo
-            </div>
-            <p class="text-down-01 mb-1">
-              <strong>Consequência:</strong> {{ riscoAtivo.consequencias }}
-            </p>
-            <p class="text-down-01 mb-2">
-              <strong>Objetivo afetado:</strong> {{ riscoAtivo.objetivoAfetado }}
-            </p>
-          </div>
-          <span class="badge align-self-start" style="background: #071d41; color: #ffffff; padding: 0.2rem 0.5rem; border-radius: 4px;">
-            Impacto I = {{ riscoAtivo.impacto }} (Inerente {{ riscoAtivo.nivelInerente }})
-          </span>
-        </div>
-      </div>
-
-      <!-- Ações Executivas em 1 Clique no Rodapé do Dossiê -->
-      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3 pt-3" style="border-top: 1px solid #e5e7eb;">
-        <div class="text-down-01">
-          Responsável 1ª Linha: <strong>{{ riscoAtivo.responsavelRiscoNome }}</strong>
-        </div>
-        <div class="d-flex flex-wrap gap-2">
-          <BrButton
-            v-if="riscoAtivo.statusFluxo === 'em_validacao_cg'"
-            variant="success"
-            icon="fas fa-check"
-            :disabled="!authStore.podeAprovarCg"
-            @click="riscosStore.aprovarEmUmCliqueCg(riscoAtivo.id)"
-          >
-            Validar em 1 Clique (2º Degrau — CG)
-          </BrButton>
-
-          <BrButton
-            v-if="riscoAtivo.statusFluxo === 'em_homologacao_dir'"
-            variant="primary"
-            icon="fas fa-stamp"
-            :disabled="!authStore.podeHomologarDiretoria"
-            @click="riscosStore.homologarEmUmCliqueDiretoria(riscoAtivo.id)"
-          >
-            Homologar em 1 Clique (3º Degrau — Diretoria)
-          </BrButton>
-        </div>
-      </div>
-    </BrCard>
-
-    <!-- Trilha de Auditoria da Ficha -->
-    <BrCard
-      titulo="Trilha de Auditoria e Despachos desta Ficha de Risco"
-      subtitulo="Histórico cronológico de submissões, validações em 1 clique e revisões de nota"
-      destaque-cor="#071d41"
+  <!-- CÓDIGO INEXISTENTE -->
+  <div v-else class="ficha">
+    <h1 class="ficha__titulo">Risco não encontrado</h1>
+    <EmptyState
+      class="cartao"
+      titulo="Não existe risco com este endereço"
+      descricao="O risco pode ter sido removido, ou o link está incompleto."
+      icone="fa-solid fa-magnifying-glass"
     >
-      <div v-if="riscoAtivo.historicoFluxo.length === 0" class="text-muted text-down-01">
-        Nenhuma tramitação registrada ainda para esta ficha.
-      </div>
-      <div
-        v-for="item in riscoAtivo.historicoFluxo"
-        :key="item.id"
-        class="p-2 mb-2 rounded"
-        style="background-color: #f8fafc; border-left: 3px solid #1351b4;"
-      >
-        <div class="d-flex justify-content-between text-down-01 font-weight-bold" style="color: #071d41;">
-          <span>{{ item.usuarioNome }} ({{ item.etapa }})</span>
-          <span>{{ item.criadoEm.slice(0, 16).replace('T', ' ') }}</span>
-        </div>
-        <div class="text-down-01 mt-1">{{ item.despachoTexto }}</div>
-      </div>
-    </BrCard>
+      <template #acoes>
+        <RouterLink :to="{ name: 'riscos-lista' }" class="br-button primary">Ver todos os riscos</RouterLink>
+      </template>
+    </EmptyState>
   </div>
 </template>
+
+<style scoped>
+.ficha {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-4);
+}
+
+.ficha__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--esp-3) var(--esp-5);
+}
+
+.ficha__identificacao {
+  min-width: 0;
+}
+
+.codigo {
+  margin: 0;
+  font-family: var(--fonte-mono);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semi);
+  color: var(--texto-secundario);
+}
+
+.ficha__titulo {
+  margin: var(--esp-1) 0 var(--esp-2);
+  font-size: var(--titulo-lg);
+  font-weight: var(--peso-forte);
+  line-height: 1.25;
+}
+
+.ficha__selos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.ficha__acao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--esp-1);
+}
+
+.cartao {
+  padding: var(--esp-2) var(--esp-5) var(--esp-5);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--elevacao-1);
+}
+
+.painel-aba {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+}
+
+.titulo-secao {
+  margin: var(--esp-3) 0 0;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-forte);
+  color: var(--texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.titulo-secao:first-child {
+  margin-top: 0;
+}
+
+.texto-longo {
+  margin: 0;
+  max-width: 75ch;
+  line-height: 1.6;
+}
+
+.texto-apoio {
+  margin: 0;
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+.dados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--esp-3) var(--esp-5);
+  margin: 0;
+}
+
+.dados dt {
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semi);
+  color: var(--texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dados dd {
+  margin: 2px 0 0;
+  font-size: var(--texto-sm);
+}
+
+.lista-cartoes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  padding: var(--esp-3) var(--esp-4);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-md);
+}
+
+.item-cartao__titulo {
+  margin: 0;
+  font-weight: var(--peso-semi);
+}
+
+.link-acao {
+  display: inline-flex;
+  align-self: flex-start; /* não estica na coluna: alvo do tamanho do texto */
+  align-items: center;
+  min-height: var(--alvo-minimo);
+  gap: var(--esp-1);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semi);
+  color: var(--texto-link);
+  text-decoration: none;
+}
+
+.linha-tempo {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha-tempo li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 0 var(--esp-4) var(--esp-5);
+  font-size: var(--texto-sm);
+}
+
+.linha-tempo li::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cor-primaria);
+}
+
+.linha-tempo li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 20px;
+  bottom: 0;
+  left: 8px;
+  width: 2px;
+  background: var(--borda);
+}
+
+.linha-tempo__quando {
+  font-size: var(--texto-xs);
+  color: var(--texto-secundario);
+}
+
+.linha-tempo__oque {
+  font-weight: var(--peso-semi);
+}
+
+.linha-tempo__despacho {
+  font-style: italic;
+  color: var(--texto-secundario);
+}
+
+@media (max-width: 639.98px) {
+  .cartao {
+    padding: var(--esp-1) var(--esp-4) var(--esp-4);
+  }
+  .ficha__titulo {
+    font-size: var(--titulo-md);
+  }
+  .ficha__acao {
+    align-items: stretch;
+    width: 100%;
+  }
+}
+</style>

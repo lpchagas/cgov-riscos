@@ -1,15 +1,25 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * BARRA VISUAL "MOSTRE A CONTA" (`MemoriaCalculoBar.vue`) — §5 DA SKILL CGOV
+ * BARRA "MOSTRE A CONTA" (`MemoriaCalculoBar.vue`) — §5 DA SKILL CGOV
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Na Metodologia RADAR do ICMBio, nenhuma pontuação pode parecer uma "caixa-preta".
- * Este componente mostra passo a passo para o gestor, para o Coordenador-Geral
- * e para o Diretor como o sistema chegou ao Risco Residual e se ele é Crítico
- * frente à Declaração de Apetite a Riscos (DAR).
+ * Na Metodologia RADAR nenhuma pontuação pode parecer uma "caixa-preta".
+ * Esta barra mostra, passo a passo, como o sistema chegou ao Risco Residual:
+ *
+ *   P e I  →  Inerente (Quadro 7)  ×  Fator (Quadro 6)  =  Residual (Quadro 8)  →  DAR
+ *
+ * IMPORTANTE: este componente SÓ EXIBE. Todos os números chegam prontos da
+ * ficha, gravados pela calculadora oficial (`calculadoraRiscoRadar.ts`):
+ *   - o Inerente é LIDO da tabela do Quadro 7 (nunca P × I);
+ *   - sem evidência comprovada o fator fica limitado a Fraco (0,9) — a "trava";
+ *   - o Residual é classificado sem arredondar (10,2 é Alto; 8,4 é Médio).
+ *
+ * Desenho de referência: componente "MemoriaCalculoBar" da biblioteca Figma
+ * RADAR (variantes status=critico | dentro | pendente).
  */
+import { computed } from 'vue';
 import type {
   ApetiteDeclarado,
   ClasseRisco,
@@ -19,9 +29,10 @@ import type {
   NivelProbabilidade,
   StatusCriticidadeDAR,
 } from '../../types/radar.types';
-import BrBadge from '../govbr/BrBadge.vue';
+import { formatarNivel } from '../../utils/rotulosInterface';
+import RiskBadge from '../ui/RiskBadge.vue';
 
-defineProps<{
+const props = defineProps<{
   probabilidade: NivelProbabilidade;
   impacto: NivelImpacto;
   nivelInerente: number;
@@ -35,84 +46,150 @@ defineProps<{
   statusCritico: StatusCriticidadeDAR;
   travaAcionada?: boolean;
 }>();
+
+/** Texto, ícone e cor do último passo (a situação frente à DAR). */
+const CRITICIDADE: Record<StatusCriticidadeDAR, { texto: string; icone: string; classe: string }> = {
+  sim: { texto: 'Risco Crítico (fora do apetite da DAR)', icone: 'fa-solid fa-triangle-exclamation', classe: 'perigo' },
+  nao: { texto: 'Dentro do apetite da DAR', icone: 'fa-solid fa-circle-check', classe: 'sucesso' },
+  pendente_dar: { texto: 'Apetite não definido na DAR', icone: 'fa-solid fa-clock', classe: 'aviso' },
+};
+const fim = computed(() => CRITICIDADE[props.statusCritico]);
 </script>
 
 <template>
-  <div
-    class="p-3 rounded mb-2"
-    style="background-color: #f1f5f9; border-left: 4px solid #1351b4;"
-  >
-    <div class="text-down-01 font-weight-bold mb-2" style="color: #071d41;">
-      <i class="fas fa-calculator mr-1"></i>
-      Memória de Cálculo Auditável (Metodologia RADAR — Quadros 6, 7, 8 e DAR):
-    </div>
+  <section class="memoria" aria-label="Memória de cálculo do risco">
+    <p class="memoria__titulo">
+      <i class="fa-solid fa-calculator" aria-hidden="true"></i>
+      Memória de cálculo
+    </p>
 
-    <div class="d-flex align-items-center flex-wrap gap-2 text-down-01">
-      <span class="px-2 py-1 rounded bg-white border">
-        <strong>P = {{ probabilidade }}</strong> &amp; <strong>I = {{ impacto }}</strong>
+    <!-- Lista ordenada: o leitor de tela anuncia "1 de 5, 2 de 5…" — a ordem é a conta. -->
+    <ol class="memoria__conta">
+      <li class="memoria__passo">
+        <strong>P = {{ probabilidade }}</strong> · <strong>I = {{ impacto }}</strong>
+      </li>
+      <li class="memoria__passo">
+        <span class="memoria__op" aria-hidden="true">→</span>
+        <span class="memoria__caixa">
+          Inerente (Quadro 7): <strong class="radar-numero">{{ formatarNivel(nivelInerente) }}</strong>
+          <RiskBadge :classe="classificacaoInerente" tamanho="sm" />
+        </span>
+      </li>
+      <li class="memoria__passo">
+        <span class="memoria__op" aria-label="vezes">×</span>
+        <span class="memoria__caixa">
+          Fator (Quadro 6): <strong class="radar-numero">{{ formatarNivel(fatorControle) }}</strong>
+          — {{ eficaciaControle }}, {{ possuiEvidencia ? 'com evidência' : 'sem evidência' }}
+        </span>
+      </li>
+      <li class="memoria__passo">
+        <span class="memoria__op" aria-label="igual a">=</span>
+        <span class="memoria__caixa">
+          Residual (Quadro 8): <strong class="radar-numero">{{ formatarNivel(nivelResidual) }}</strong>
+          <RiskBadge :classe="classificacaoResidual" tamanho="sm" />
+        </span>
+      </li>
+      <li class="memoria__passo">
+        <span class="memoria__op" aria-hidden="true">→</span>
+        <span class="memoria__fim" :class="`memoria__fim--${fim.classe}`">
+          <i :class="fim.icone" aria-hidden="true"></i>
+          {{ fim.texto }}
+        </span>
+      </li>
+    </ol>
+
+    <!-- Trava de evidência (Quadro 6): explica por que o fator não passou de Fraco -->
+    <p v-if="travaAcionada" class="memoria__trava" role="note">
+      <i class="fa-solid fa-lock" aria-hidden="true"></i>
+      <span>
+        <strong>Trava de evidência:</strong> sem evidência comprovada de que o controle
+        funciona, o fator fica limitado a <strong>Fraco (0,9)</strong>.
       </span>
-      <span><i class="fas fa-arrow-right" style="color: #1351b4;"></i></span>
-
-      <span class="px-2 py-1 rounded bg-white border">
-        Inerente (Quadro 7): <strong>{{ nivelInerente }}</strong>
-        <BrBadge :classe-risco="classificacaoInerente" class="ml-1" />
-      </span>
-
-      <span><i class="fas fa-times" style="color: #1351b4;"></i></span>
-
-      <span class="px-2 py-1 rounded bg-white border">
-        Fator (Quadro 6): <strong>{{ fatorControle }}</strong> ({{ eficaciaControle }} —
-        {{ possuiEvidencia ? 'com evidência' : 'sem evidência' }})
-      </span>
-
-      <span><i class="fas fa-equals" style="color: #1351b4;"></i></span>
-
-      <span class="px-2 py-1 rounded bg-white border">
-        Residual (Quadro 8): <strong>{{ nivelResidual }}</strong>
-        <BrBadge :classe-risco="classificacaoResidual" class="ml-1" />
-      </span>
-
-      <span><i class="fas fa-arrow-right" style="color: #1351b4;"></i></span>
-
-      <span
-        class="px-2 py-1 rounded font-weight-bold"
-        :style="{
-          backgroundColor:
-            statusCritico === 'sim'
-              ? '#fde0db'
-              : statusCritico === 'pendente_dar'
-              ? '#fff5c2'
-              : '#e3f5e1',
-          color:
-            statusCritico === 'sim'
-              ? '#e52207'
-              : statusCritico === 'pendente_dar'
-              ? '#8a6d00'
-              : '#168821',
-        }"
-      >
-        <template v-if="statusCritico === 'sim'">
-          <i class="fas fa-exclamation-triangle mr-1"></i>
-          RISCO CRÍTICO (Fora do Apetite da DAR)
-        </template>
-        <template v-else-if="statusCritico === 'pendente_dar'">
-          <i class="fas fa-clock mr-1"></i>
-          PENDENTE DE DAR (Aguarda deliberação do CIG)
-        </template>
-        <template v-else>
-          <i class="fas fa-check-circle mr-1"></i>
-          DENTRO DO APETITE DA DAR
-        </template>
-      </span>
-    </div>
-
-    <div
-      v-if="travaAcionada"
-      class="mt-2 p-2 rounded text-down-01"
-      style="background-color: #fff5c2; color: #7a5c00; border: 1px solid #e6b800;"
-    >
-      <i class="fas fa-lock mr-1"></i>
-      <strong>Trava de Evidência Acionada (Quadro 6):</strong> Como não há evidência documental comprovada de operação do controle, o fator foi limitado automaticamente a <strong>Fraco (0,9)</strong>.
-    </div>
-  </div>
+    </p>
+  </section>
 </template>
+
+<style scoped>
+.memoria {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-3);
+  margin-bottom: var(--esp-2);
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--superficie-container);
+  border-left: 4px solid var(--cor-primaria);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+}
+
+.memoria__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: 0;
+  font-weight: var(--peso-forte);
+  color: var(--texto-marca);
+}
+
+:root[data-theme='contraste'] .memoria__titulo {
+  color: var(--texto);
+}
+
+.memoria__conta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memoria__passo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+}
+
+.memoria__passo:first-child,
+.memoria__caixa {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-1) var(--esp-2);
+  padding: var(--esp-1) var(--esp-3);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-sm);
+}
+
+.memoria__op {
+  font-weight: var(--peso-forte);
+  font-size: var(--texto-md);
+  color: var(--cor-primaria);
+}
+
+.memoria__fim {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  padding: var(--esp-1) var(--esp-3);
+  border-radius: var(--raio-sm);
+  font-weight: var(--peso-forte);
+}
+
+.memoria__fim--perigo { background: var(--cor-perigo-suave); color: var(--cor-perigo); }
+.memoria__fim--sucesso { background: var(--cor-sucesso-suave); color: var(--cor-sucesso); }
+.memoria__fim--aviso { background: var(--cor-aviso-suave); color: var(--cor-aviso); }
+
+.memoria__trava {
+  display: flex;
+  gap: var(--esp-2);
+  margin: 0;
+  padding: var(--esp-2) var(--esp-3);
+  background: var(--cor-aviso-suave);
+  color: var(--cor-aviso);
+  border: 1px solid var(--risco-medio-borda);
+  border-radius: var(--raio-sm);
+}
+</style>
