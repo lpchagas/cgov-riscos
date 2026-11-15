@@ -73,3 +73,9 @@ Design: [[2026-11-15-varredura-a11y-design]] · Plano: [[2026-11-15-varredura-a1
 - Só local, sem GitHub Actions. Quem vai manter: equipe técnica da CGOV.
 - **Próximas opções:** B (Supabase de verdade), C (Painel no celular, decisão da CGOV), D (homologação na CGTI).
 
+## Preparação da etapa B — acesso por perfil (2026-11-15)
+- [x] Conexão com o Supabase verificada: projeto `cgov-riscos-v2.1` ativo (São Paulo, plano gratuito). O banco remoto tem 14 tabelas **vazias** de uma versão antiga, incompatíveis com as migrações do repositório, que nunca foram aplicadas. Zerar e aplicar as migrações depende de autorização.
+- [x] Análise do Regimento Interno (Portaria nº 5.592/2025) com as orientações da CGOV sobre visibilidade: [[matriz-acesso-responsabilidades]] (árvore de unidades, perfis, RACI e tabela de acesso por tela).
+- [ ] Decisões pendentes da CGOV: P1 a P8 (seção 9 da matriz). A principal é a **P1**: Diretores e CGs veem GRs, CTs e UCs? O Regimento subordina as GRs ao Presidente.
+- **Base normativa dos fluxos:** as minutas da Política (SEI 024241420) e da Metodologia (SEI 024421455). Quando forem publicadas: revisão sistêmica das regras de decisão e nova versão do projeto.
+- Ordem proposta da etapa B: decisões da matriz → preparar o Supabase → login e perfis → RLS completa com testes → telas lendo do banco.
