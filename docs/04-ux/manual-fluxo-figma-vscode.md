@@ -70,7 +70,7 @@ encontra exatamente o que você mudou.
 3. O link tem este formato — o pedaço `node-id` é o "endereço" do quadro:
 
 ```
-https://www.figma.com/design/T1AuuL9jEfqkP7uoAPTUFF/RADAR-—-Painel?node-id=9-514
+https://www.figma.com/design/T1AuuL9jEfqkP7uoAPTUFF/RADAR-—-Painel?node-id=48-549
                                  └── arquivo ──┘                      └ quadro ┘
 ```
 
@@ -98,7 +98,7 @@ https://www.figma.com/design/T1AuuL9jEfqkP7uoAPTUFF/RADAR-—-Painel?node-id=9-5
 ```text
 Ajustei o Painel no Figma: troquei a ordem dos indicadores (Críticos agora é o primeiro)
 e aumentei o espaço entre os cartões para 24 px.
-Link: https://www.figma.com/design/T1AuuL9jEfqkP7uoAPTUFF/...?node-id=9-514
+Link: https://www.figma.com/design/T1AuuL9jEfqkP7uoAPTUFF/...?node-id=48-549
 Compare com a Original e aplique no código.
 ```
 
@@ -106,14 +106,14 @@ Compare com a Original e aplique no código.
 ```text
 No quadro de celular do Painel, coloquei "Precisa da sua atenção" ANTES da Matriz,
 porque no celular o gestor precisa ver as pendências primeiro. No computador fica como está.
-Link: https://www.figma.com/design/T1AuuL9jEfqkP7uoAPTUFF/...?node-id=9-852
+Link: https://www.figma.com/design/T1AuuL9jEfqkP7uoAPTUFF/...?node-id=48-847
 ```
 
 **Texto (microcopy)**
 ```text
 Mudei os textos do cartão "Aguardando homologação" no Figma. Aplique no código e
 confira se o mesmo texto aparece em outros lugares (menu, aprovações) para manter igual.
-Link: ...?node-id=9-514
+Link: ...?node-id=48-549
 ```
 
 **Só quero opinião antes de mexer no código**

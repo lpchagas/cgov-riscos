@@ -25,6 +25,7 @@
  * a ela. Os dados vêm de `src/utils/sobreRadar.ts` (mesma fonte do rodapé).
  */
 import {
+  EMAIL_CONTATO_RADAR,
   FONTES_DADOS_RADAR,
   NORMAS_RADAR,
   PAINEIS_INTEGRADOS,
@@ -173,8 +174,8 @@ const FICHA_TECNICA: [string, string][] = [
           <span class="relatorio__numero" aria-hidden="true">{{ numero('governanca') }}</span>
           <h2 id="titulo-governanca" class="relatorio__titulo">{{ titulo('governanca') }}</h2>
           <p>
-            <strong>Contato:</strong> Coordenação de Governança (CGOV/CGGE). O e-mail institucional será
-            publicado aqui assim que for definido.
+            <strong>Contato:</strong> Coordenação de Governança (CGOV/CGGE), pelo e-mail
+            <a :href="`mailto:${EMAIL_CONTATO_RADAR}`">{{ EMAIL_CONTATO_RADAR }}</a>.
           </p>
           <p>Dúvidas sobre uma ficha de risco devem ir primeiro ao ponto focal de riscos da sua unidade.</p>
         </div>

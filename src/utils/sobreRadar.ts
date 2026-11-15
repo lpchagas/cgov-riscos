@@ -11,8 +11,8 @@
  *
  * Para incluir uma norma ou trocar um link, edite a lista — o HTML não muda.
  *
- * PENDENTE (decisão da CGOV): e-mail de contato e endereços dos Painéis
- * Integrados e das redes sociais. Item sem `href` aparece como texto simples
+ * PENDENTE (decisão da CGOV): endereços dos Painéis Integrados e das redes
+ * sociais. Item sem `href` aparece como texto simples
  * (link "vazio" confundiria quem usa leitor de tela).
  */
 import { version } from '../../package.json';
@@ -24,6 +24,9 @@ export const VERSAO_RADAR = version;
 export const REPOSITORIO_RADAR = 'https://github.com/lpchagas/cgov-riscos';
 
 export const ANO_RODAPE = 2026;
+
+/** E-mail institucional de contato do RADAR (informado pela CGOV em 2026-11-15). */
+export const EMAIL_CONTATO_RADAR = 'planejamento@icmbio.gov.br';
 
 export interface Unidade {
   sigla: string;

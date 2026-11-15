@@ -40,6 +40,11 @@ describe('Página Sobre o RADAR', () => {
     expect(w.find('a[href="https://github.com/lpchagas/cgov-riscos"]').exists()).toBe(true);
   });
 
+  it('traz o e-mail de contato da CGOV como link mailto', async () => {
+    const w = await montar(SobreRadarView);
+    expect(w.find('a[href="mailto:planejamento@icmbio.gov.br"]').text()).toBe('planejamento@icmbio.gov.br');
+  });
+
   it('lista as normas-base do Regime B e nunca usa a sigla PGR', async () => {
     const w = await montar(SobreRadarView);
     const texto = w.text();
