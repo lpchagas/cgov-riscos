@@ -1,238 +1,556 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * GOVERNANÇA DA DECLARAÇÃO DE APETITE A RISCOS — DAR (`DeclaracaoApetiteDarView.vue`)
+ * APETITE A RISCOS — DAR (`DeclaracaoApetiteDarView.vue`) — Fase 3
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Esta página operacionaliza o Anexo III (Declaração de Apetite a Riscos — DAR) e os
- * Quadros 2 e 3 da Metodologia RADAR (SEI 024421455), incluindo o Teste de
- * Integridade do Programa Integra+ (Portaria ICMBio nº 253/2026).
- * Nela, a CGOV (2ª Linha) e o Comitê Interno de Governança (CIG) visualizam e
- * calibram o limite de apetite das 8 categorias e simulam o impacto em tempo real
- * sobre a Carteira de Riscos Críticos do Plano de Gestão de Riscos.
+ * Aqui a CGOV (2ª Linha) calibra quanto risco o ICMBio aceita em cada uma das
+ * 8 categorias do Quadro 2 (Declaração de Apetite a Riscos — Anexo III).
+ *
+ * O que mudou na reformulação:
+ *   - cada categoria tem um controle segmentado Baixo | Moderado | Pendente
+ *     (antes: um <select> sem rótulo);
+ *   - antes de aplicar, uma janela mostra a PRÉVIA do impacto
+ *     ("1 risco deixa de ser Crítico") — `utils/darImpacto.ts`;
+ *   - depois de aplicar, um aviso oferece "Desfazer";
+ *   - o simulador que ficava no Painel veio para cá.
+ *
+ * Regras mantidas: "Crítico" = residual fora do apetite da categoria (não é o
+ * nível Extremo). A criticidade é recalculada pela STORE, com a calculadora
+ * oficial — a tela só pede a mudança.
  */
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useAuthStore } from '../stores/authStore';
-import type { ApetiteDeclarado } from '../types/radar.types';
+import { useToast } from '../composables/useToast';
+import type { ApetiteDeclarado, CategoriaRisco, FichaRisco } from '../types/radar.types';
 import { SUBCATEGORIAS_INTEGRIDADE_QUADRO_3 } from '../utils/calculadoraRiscoRadar';
-import BrCard from '../components/govbr/BrCard.vue';
-import BrBadge from '../components/govbr/BrBadge.vue';
-import BrMessage from '../components/govbr/BrMessage.vue';
+import { ROTULOS_APETITE, resumirImpactoDar, simularImpactoDar, type ImpactoDar } from '../utils/darImpacto';
+import StatCard from '../components/ui/StatCard.vue';
+import SegmentedControl from '../components/ui/SegmentedControl.vue';
+import type { ColunaTabela, OpcaoSegmento } from '../components/ui/tipos';
+import FormField from '../components/ui/FormField.vue';
+import Dialog from '../components/ui/Dialog.vue';
+import DataTable from '../components/ui/DataTable.vue';
+import RiskBadge from '../components/ui/RiskBadge.vue';
+import EmptyState from '../components/ui/EmptyState.vue';
+import BrButton from '../components/govbr/BrButton.vue';
 
 const riscosStore = useRiscosStore();
 const authStore = useAuthStore();
+const { mostrar } = useToast();
 
-const totalApetiteBaixo = computed(
-  () => riscosStore.categorias.filter((c) => c.apetiteDeclarado === 'baixo').length
-);
+// ---------------------------------------------------------------------------
+// INDICADORES
+// ---------------------------------------------------------------------------
+const contarApetite = (a: ApetiteDeclarado) => riscosStore.categorias.filter((c) => c.apetiteDeclarado === a).length;
 
-const totalApetiteModerado = computed(
-  () => riscosStore.categorias.filter((c) => c.apetiteDeclarado === 'moderado').length
-);
+const contagemPorCategoria = computed(() => {
+  const mapa = new Map<number, { total: number; criticos: number }>();
+  for (const r of riscosStore.riscos) {
+    const atual = mapa.get(r.categoriaId) ?? { total: 0, criticos: 0 };
+    atual.total++;
+    if (r.statusCritico === 'sim') atual.criticos++;
+    mapa.set(r.categoriaId, atual);
+  }
+  return mapa;
+});
 
-function contarRiscosDaCategoria(categoriaId: number): number {
-  return riscosStore.riscos.filter((r) => r.categoriaId === categoriaId).length;
+// ---------------------------------------------------------------------------
+// MUDANÇA DE APETITE: pedir → ver prévia → confirmar → (desfazer)
+// ---------------------------------------------------------------------------
+const OPCOES_APETITE: OpcaoSegmento<ApetiteDeclarado>[] = [
+  { valor: 'baixo', rotulo: 'Baixo' },
+  { valor: 'moderado', rotulo: 'Moderado' },
+  { valor: 'pendente_dar', rotulo: 'Pendente' },
+];
+
+interface PedidoMudanca {
+  categoria: CategoriaRisco;
+  de: ApetiteDeclarado;
+  para: ApetiteDeclarado;
+  impacto: ImpactoDar;
+}
+const pedido = ref<PedidoMudanca | null>(null);
+
+function pedirMudanca(categoria: CategoriaRisco, para: ApetiteDeclarado): void {
+  if (para === categoria.apetiteDeclarado) return;
+  pedido.value = {
+    categoria,
+    de: categoria.apetiteDeclarado,
+    para,
+    impacto: simularImpactoDar(riscosStore.riscos, categoria.id, para),
+  };
 }
 
-function contarCriticosDaCategoria(categoriaId: number): number {
-  return riscosStore.riscos.filter(
-    (r) => r.categoriaId === categoriaId && r.statusCritico === 'sim'
-  ).length;
+function confirmarMudanca(): void {
+  if (!pedido.value) return;
+  const { categoria, de, para } = pedido.value;
+  riscosStore.alterarApetiteCategoriaDAR(categoria.id, para);
+  pedido.value = null;
+  mostrar({
+    tom: 'sucesso',
+    mensagem: `Apetite de ${categoria.nome}: ${ROTULOS_APETITE[para].rotulo}.`,
+    acao: { rotulo: 'Desfazer', executar: () => riscosStore.alterarApetiteCategoriaDAR(categoria.id, de) },
+  });
 }
+
+function salvarJustificativa(categoria: CategoriaRisco, texto: string): void {
+  if (texto.trim() === categoria.justificativaDar) return;
+  riscosStore.atualizarJustificativaCategoriaDAR(categoria.id, texto.trim());
+  mostrar({ tom: 'sucesso', mensagem: `Justificativa de ${categoria.nome} salva.` });
+}
+
+// ---------------------------------------------------------------------------
+// RISCOS CRÍTICOS
+// ---------------------------------------------------------------------------
+const colunasCriticos: ColunaTabela<FichaRisco>[] = [
+  { chave: 'codigoRadar', rotulo: 'Código', ordenavel: true },
+  { chave: 'nomeObjetoCache', rotulo: 'Objeto de gestão' },
+  { chave: 'categoriaNome', rotulo: 'Categoria', ordenavel: true, ocultarNoCelular: true },
+  { chave: 'nivelResidual', rotulo: 'Residual', ordenavel: true, alinhamento: 'direita' },
+];
+const apetiteDaCategoria = (id: number) =>
+  ROTULOS_APETITE[riscosStore.categorias.find((c) => c.id === id)?.apetiteDeclarado ?? 'pendente_dar'].rotulo;
 </script>
 
 <template>
-  <div>
-    <BrMessage
-      state="info"
-      titulo="Regra Normativa da DAR (Anexo III — SEI 024421455):"
-    >
-      <strong>Risco Crítico</strong> não é sinônimo de risco "Extremo (18–25)". No Sistema RADAR,
-      <strong>Risco Crítico</strong> é todo risco cujo <strong>Nível Residual</strong> ultrapassa o limite
-      declarado na <strong>DAR</strong> para a sua categoria (ex.: em categoria de apetite <strong>Baixo</strong>,
-      qualquer residual acima de 5,0 — Médio, Alto ou Extremo — torna-se imediatamente Crítico e exige
-      homologação do 3º Degrau / Diretoria).
-    </BrMessage>
-
-    <!-- KPIs da DAR -->
-    <div class="radar-grid-4 mb-3">
-      <BrCard titulo="Categorias do Quadro 2" destaque-cor="#1351b4">
-        <div class="h2 mb-0 font-weight-bold" style="color: #1351b4;">
-          {{ riscosStore.categorias.length }}
-        </div>
-        <small class="text-muted">Categorias oficiais (vedada categoria mista)</small>
-      </BrCard>
-
-      <BrCard titulo="Categorias com Apetite Baixo (≤ 5)" destaque-cor="#168821">
-        <div class="h2 mb-0 font-weight-bold" style="color: #168821;">
-          {{ totalApetiteBaixo }}
-        </div>
-        <small class="text-muted">Inclui Integridade, Socioambiental e Legal</small>
-      </BrCard>
-
-      <BrCard titulo="Categorias com Apetite Moderado (≤ 10)" destaque-cor="#ffcd07">
-        <div class="h2 mb-0 font-weight-bold" style="color: #8a6d00;">
-          {{ totalApetiteModerado }}
-        </div>
-        <small class="text-muted">Toleram residual Baixo e Médio sob KRI</small>
-      </BrCard>
-
-      <BrCard titulo="Carteira Atual de Riscos Críticos" destaque-cor="#e52207">
-        <div class="h2 mb-0 font-weight-bold" style="color: #e52207;">
-          {{ riscosStore.riscosCriticosCarteira.length }}
-        </div>
-        <small class="text-muted">Exigem tratamento prioritário e 3º Degrau</small>
-      </BrCard>
-    </div>
-
-    <!-- Destaque Programa Integra+ (Quadro 3) -->
-    <BrCard
-      titulo="Programa Integra+ (Portaria ICMBio nº 253/2026) — As 6 Subcategorias Obrigatórias do Quadro 3"
-      subtitulo="É expressamente vedado utilizar a categoria mista 'Operacional com interface de Integridade'"
-      destaque-cor="#071d41"
-    >
-      <p class="text-down-01 mb-2">
-        Sempre que o processo envolver decisão sobre beneficiário, licença/autorização, fiscalização/sanção
-        ou contratação/atestação, aplica-se o <strong>Teste de Integridade</strong> com uma das 6 subcategorias abaixo:
+  <div class="dar">
+    <!-- Lembrete da regra mais confundida -->
+    <aside class="lembrete" aria-label="Regra da DAR">
+      <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+      <p>
+        <strong>Crítico não é o mesmo que Extremo.</strong> Um risco é <strong>Crítico</strong> quando o
+        residual passa do apetite da sua categoria. Ex.: com apetite <strong>Baixo</strong>, um residual
+        Médio (8,4) já é Crítico e sobe para homologação da Diretoria.
       </p>
-      <div class="d-flex flex-wrap gap-2">
-        <span
-          v-for="(sub, idx) in SUBCATEGORIAS_INTEGRIDADE_QUADRO_3"
-          :key="sub"
-          class="px-3 py-1 rounded font-weight-semi-bold text-down-01"
-          style="background-color: #dbe8fb; color: #071d41; border: 1px solid #1351b4;"
-        >
-          {{ idx + 1 }}. {{ sub }}
-        </span>
-      </div>
-    </BrCard>
+    </aside>
 
-    <!-- Tabela e Simulador Interativo das 8 Categorias na DAR -->
-    <BrCard
-      titulo="Matriz de Calibragem da Declaração de Apetite a Riscos (DAR — Anexo III)"
-      subtitulo="No perfil CGOV (2ª Linha), altere o apetite abaixo para recalcular instantaneamente toda a Carteira de Riscos Críticos"
-      destaque-cor="#1351b4"
-    >
-      <div class="table-responsive">
-        <table class="table table-bordered" style="width: 100%; border-collapse: collapse;">
-          <thead>
-            <tr style="background-color: #071d41; color: #ffffff;">
-              <th class="p-2 text-left">Categoria (Quadro 2)</th>
-              <th class="p-2 text-left">Definição e Diretriz na DAR</th>
-              <th class="p-2 text-left" style="min-width: 230px;">Apetite Declarado (DAR)</th>
-              <th class="p-2 text-center">Riscos / Críticos</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="cat in riscosStore.categorias"
-              :key="cat.id"
-              style="border-bottom: 1px solid #e5e7eb;"
-            >
-              <td class="p-2 align-top">
-                <strong style="color: #071d41;">{{ cat.id }}. {{ cat.nome }}</strong>
-                <div v-if="cat.nome === 'Integridade'" class="mt-1">
-                  <span
-                    class="badge"
-                    style="background-color: #071d41; color: #fff; font-size: 0.7rem; padding: 0.2rem 0.45rem; border-radius: 4px;"
-                  >
-                    Integra+ (Port. 253/2026)
-                  </span>
-                </div>
-              </td>
+    <section class="dar__kpis" aria-label="Resumo da DAR">
+      <StatCard rotulo="Categorias" :valor="riscosStore.categorias.length" descricao="Quadro 2 (sem categoria mista)" />
+      <StatCard rotulo="Apetite Baixo" :valor="contarApetite('baixo')" tom="sucesso" descricao="Aceitam residual até 5" />
+      <StatCard rotulo="Apetite Moderado" :valor="contarApetite('moderado')" tom="aviso" descricao="Aceitam residual até 10" />
+      <StatCard
+        rotulo="Riscos Críticos"
+        :valor="riscosStore.riscosCriticosCarteira.length"
+        tom="perigo"
+        descricao="Fora do apetite da DAR"
+        :para="{ name: 'riscos-lista', query: { critico: 'sim' } }"
+      />
+    </section>
 
-              <td class="p-2 align-top text-down-01">
-                <div class="mb-1">{{ cat.descricaoNormativa }}</div>
-                <input
-                  :value="cat.justificativaDar"
-                  :disabled="!authStore.isCgov"
-                  type="text"
-                  class="w-100 p-1 rounded border text-down-01"
-                  style="background-color: #f8fafc;"
-                  @change="
-                    riscosStore.atualizarJustificativaCategoriaDAR(
-                      cat.id,
-                      ($event.target as HTMLInputElement).value
-                    )
-                  "
-                />
-              </td>
-
-              <td class="p-2 align-top">
-                <select
-                  :value="cat.apetiteDeclarado"
-                  :disabled="!authStore.isCgov"
-                  class="w-100 p-2 rounded font-weight-bold"
-                  style="border: 1px solid #1351b4; color: #071d41;"
-                  @change="
-                    riscosStore.alterarApetiteCategoriaDAR(
-                      cat.id,
-                      ($event.target as HTMLSelectElement).value as ApetiteDeclarado
-                    )
-                  "
-                >
-                  <option value="baixo">Baixo (Aceita até nota 5,0)</option>
-                  <option value="moderado">Moderado (Aceita até nota 10,0)</option>
-                  <option value="pendente_dar">Pendente de DAR (Aguarda CIG)</option>
-                </select>
-                <small v-if="!authStore.isCgov" class="d-block text-muted mt-1">
-                  Selecione o perfil "2ª Linha: CGOV" no topo para editar.
-                </small>
-              </td>
-
-              <td class="p-2 align-top text-center">
-                <span class="px-2 py-1 rounded font-weight-bold mr-1" style="background: #e5e7eb;">
-                  {{ contarRiscosDaCategoria(cat.id) }} total
-                </span>
-                <span
-                  class="px-2 py-1 rounded font-weight-bold"
-                  :style="{
-                    backgroundColor: contarCriticosDaCategoria(cat.id) > 0 ? '#fde0db' : '#e3f5e1',
-                    color: contarCriticosDaCategoria(cat.id) > 0 ? '#c91c00' : '#168821',
-                  }"
-                >
-                  {{ contarCriticosDaCategoria(cat.id) }} crítico(s)
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </BrCard>
-
-    <!-- Lista de Riscos Críticos Impactados pela DAR -->
-    <BrCard
-      titulo="Riscos Atualmente Enquadrados como Críticos frente à DAR"
-      subtitulo="Fichas cujo Nível Residual supera o apetite institucional definido acima"
-      destaque-cor="#e52207"
-    >
-      <div
-        v-for="risco in riscosStore.riscosCriticosCarteira"
-        :key="risco.id"
-        class="p-3 mb-2 rounded d-flex justify-content-between align-items-center flex-wrap gap-2"
-        style="border: 1px solid #f8a99f; background-color: #fffafa;"
-      >
+    <!-- CALIBRAGEM -->
+    <section class="cartao" aria-labelledby="titulo-calibragem">
+      <div class="cartao__cabecalho">
         <div>
-          <strong style="color: #1351b4;">[{{ risco.codigoRadar }}]</strong>
-          <strong class="ml-1">{{ risco.nomeObjetoCache }}</strong>
-          <span class="ml-2 text-down-01 text-muted">
-            ({{ risco.categoriaNome }} — Residual: <strong>{{ risco.nivelResidual }}</strong>)
-          </span>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-          <BrBadge :classe-risco="risco.classificacaoResidual" />
-          <RouterLink
-            :to="`/riscos/${risco.id}`"
-            class="px-3 py-1 rounded-pill text-decoration-none font-weight-bold text-down-01"
-            style="background-color: #1351b4; color: #ffffff;"
-          >
-            Abrir Dossiê Bow Tie
-          </RouterLink>
+          <h2 id="titulo-calibragem" class="cartao__titulo">Apetite por categoria</h2>
+          <p class="cartao__subtitulo">Antes de aplicar, você vê quantos riscos mudam de situação.</p>
         </div>
       </div>
-    </BrCard>
+
+      <p v-if="!authStore.isCgov" class="aviso-perfil" role="note">
+        <i class="fa-solid fa-lock" aria-hidden="true"></i>
+        Só a CGOV (2ª Linha) altera o apetite. Para testar, troque o perfil no menu do usuário (canto superior direito).
+      </p>
+
+      <ul class="categorias">
+        <li v-for="cat in riscosStore.categorias" :key="cat.id" class="categoria">
+          <div class="categoria__identificacao">
+            <h3 class="categoria__nome">
+              {{ cat.nome }}
+              <span v-if="cat.nome === 'Integridade'" class="categoria__selo">Integra+</span>
+            </h3>
+            <p class="categoria__descricao">{{ cat.descricaoNormativa }}</p>
+            <p class="categoria__contagem">
+              {{ contagemPorCategoria.get(cat.id)?.total ?? 0 }}
+              {{ (contagemPorCategoria.get(cat.id)?.total ?? 0) === 1 ? 'risco' : 'riscos' }} ·
+              <strong :class="{ 'categoria__criticos': (contagemPorCategoria.get(cat.id)?.criticos ?? 0) > 0 }">
+                {{ contagemPorCategoria.get(cat.id)?.criticos ?? 0 }}
+                {{ (contagemPorCategoria.get(cat.id)?.criticos ?? 0) === 1 ? 'Crítico' : 'Críticos' }}
+              </strong>
+            </p>
+          </div>
+
+          <div class="categoria__apetite">
+            <!-- Rótulo visual; o leitor de tela ouve o nome completo do grupo (prop "rotulo"). -->
+            <span class="categoria__rotulo" aria-hidden="true">Apetite</span>
+            <SegmentedControl
+              :model-value="cat.apetiteDeclarado"
+              :opcoes="OPCOES_APETITE"
+              :rotulo="`Apetite da categoria ${cat.nome}`"
+              :desabilitado="!authStore.isCgov"
+              @update:model-value="pedirMudanca(cat, $event)"
+            />
+            <span class="categoria__limite">{{ ROTULOS_APETITE[cat.apetiteDeclarado].limite }}</span>
+          </div>
+
+          <FormField rotulo="Justificativa na DAR" class="categoria__justificativa" v-slot="{ attrs }">
+            <input
+              v-bind="attrs"
+              type="text"
+              :value="cat.justificativaDar"
+              :disabled="!authStore.isCgov"
+              @change="salvarJustificativa(cat, ($event.target as HTMLInputElement).value)"
+            />
+          </FormField>
+        </li>
+      </ul>
+    </section>
+
+    <!-- INTEGRA+ (recolhível) -->
+    <details class="cartao integra">
+      <summary class="integra__resumo">
+        <span>
+          <strong>Programa Integra+</strong> — as 6 subcategorias de Integridade (Quadro 3)
+        </span>
+        <i class="fa-solid fa-chevron-down integra__seta" aria-hidden="true"></i>
+      </summary>
+      <p class="integra__texto">
+        Se o processo decide sobre <strong>beneficiário, licença/autorização, fiscalização/sanção ou
+        contratação/atestação</strong>, aplica-se o Teste de Integridade com uma destas subcategorias.
+        A categoria mista "Operacional com interface de Integridade" é proibida.
+      </p>
+      <ol class="integra__lista">
+        <li v-for="sub in SUBCATEGORIAS_INTEGRIDADE_QUADRO_3" :key="sub">{{ sub }}</li>
+      </ol>
+      <p class="integra__fonte">Portaria ICMBio nº 253/2026.</p>
+    </details>
+
+    <!-- RISCOS CRÍTICOS -->
+    <section class="cartao" aria-labelledby="titulo-criticos">
+      <div class="cartao__cabecalho">
+        <div>
+          <h2 id="titulo-criticos" class="cartao__titulo">Riscos Críticos agora</h2>
+          <p class="cartao__subtitulo">Residual acima do apetite da categoria.</p>
+        </div>
+        <RouterLink :to="{ name: 'riscos-lista', query: { critico: 'sim' } }" class="link-acao">
+          Abrir na lista de Riscos <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </RouterLink>
+      </div>
+      <DataTable
+        :colunas="colunasCriticos"
+        :linhas="riscosStore.riscosCriticosCarteira"
+        chave-linha="id"
+        legenda="Riscos Críticos frente à DAR"
+        :ordenacao-inicial="{ chave: 'nivelResidual', direcao: 'desc' }"
+      >
+        <template #celula-codigoRadar="{ linha }">
+          <RouterLink :to="{ name: 'ficha-bowtie-detalhe', params: { id: linha.id } }" class="codigo">
+            {{ linha.codigoRadar }}
+          </RouterLink>
+        </template>
+        <template #celula-categoriaNome="{ linha }">
+          {{ linha.categoriaNome }} <span class="texto-apoio">· apetite {{ apetiteDaCategoria(linha.categoriaId) }}</span>
+        </template>
+        <template #celula-nivelResidual="{ linha }">
+          <RiskBadge :classe="linha.classificacaoResidual" :valor="linha.nivelResidual" tamanho="sm" />
+        </template>
+        <template #vazio>
+          <EmptyState
+            titulo="Nenhum risco Crítico"
+            descricao="Todos os riscos estão dentro do apetite declarado."
+            icone="fa-regular fa-circle-check"
+          />
+        </template>
+      </DataTable>
+    </section>
+
+    <!-- PRÉVIA E CONFIRMAÇÃO -->
+    <Dialog
+      :aberto="pedido !== null"
+      :titulo="pedido ? `Mudar o apetite de ${pedido.categoria.nome}?` : ''"
+      @fechar="pedido = null"
+    >
+      <template v-if="pedido">
+        <p class="previa__de-para">
+          <strong>{{ ROTULOS_APETITE[pedido.de].rotulo }}</strong>
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          <span class="radar-so-leitor">para</span>
+          <strong>{{ ROTULOS_APETITE[pedido.para].rotulo }}</strong>
+          <span class="texto-apoio">({{ ROTULOS_APETITE[pedido.para].limite }})</span>
+        </p>
+        <p class="previa__resumo">{{ resumirImpactoDar(pedido.impacto) }}</p>
+        <ul v-if="pedido.impacto.passamACriticos.length || pedido.impacto.deixamDeSerCriticos.length" class="previa__lista">
+          <li v-for="m in pedido.impacto.passamACriticos" :key="m.risco.id">
+            <i class="fa-solid fa-triangle-exclamation previa__sobe" aria-hidden="true"></i>
+            <span class="codigo">{{ m.risco.codigoRadar }}</span> passa a ser Crítico
+            <span class="texto-apoio">(residual {{ m.risco.classificacaoResidual }})</span>
+          </li>
+          <li v-for="m in pedido.impacto.deixamDeSerCriticos" :key="m.risco.id">
+            <i class="fa-solid fa-circle-check previa__desce" aria-hidden="true"></i>
+            <span class="codigo">{{ m.risco.codigoRadar }}</span> deixa de ser Crítico
+            <span class="texto-apoio">(residual {{ m.risco.classificacaoResidual }})</span>
+          </li>
+        </ul>
+      </template>
+      <template #acoes>
+        <BrButton variant="secondary" @click="pedido = null">Cancelar</BrButton>
+        <BrButton variant="primary" @click="confirmarMudanca">Mudar apetite</BrButton>
+      </template>
+    </Dialog>
   </div>
 </template>
+
+<style scoped>
+.dar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-5);
+}
+
+.lembrete {
+  display: flex;
+  gap: var(--esp-3);
+  padding: var(--esp-3) var(--esp-4);
+  background: var(--cor-info-suave);
+  border-left: 4px solid var(--cor-info);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+}
+
+.lembrete p {
+  margin: 0;
+}
+
+.lembrete > i {
+  margin-top: 3px;
+  color: var(--cor-info);
+}
+
+.dar__kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--esp-4);
+}
+
+/* --- Cartão genérico (mesmo padrão do Painel) --- */
+.cartao {
+  padding: var(--esp-5);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-lg);
+  box-shadow: var(--elevacao-1);
+}
+
+.cartao__cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--esp-2);
+  margin-bottom: var(--esp-4);
+}
+
+.cartao__titulo {
+  margin: 0;
+  font-size: var(--titulo-sm);
+  font-weight: var(--peso-forte);
+}
+
+.cartao__subtitulo {
+  margin: var(--esp-1) 0 0;
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+.link-acao {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-1);
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semi);
+  color: var(--texto-link);
+  text-decoration: none;
+}
+
+.link-acao:hover {
+  text-decoration: underline;
+}
+
+.codigo {
+  font-family: var(--fonte-mono);
+  font-size: 0.8125rem;
+  font-weight: var(--peso-semi);
+  white-space: nowrap;
+}
+
+.texto-apoio {
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+.aviso-perfil {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: 0 0 var(--esp-4);
+  padding: var(--esp-2) var(--esp-3);
+  background: var(--superficie-container);
+  border-radius: var(--raio-md);
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+/* --- Lista de categorias: 3 colunas no computador, empilhada no celular --- */
+.categorias {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.categoria {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) auto minmax(0, 1fr);
+  gap: var(--esp-3) var(--esp-5);
+  align-items: start;
+  padding: var(--esp-4) 0;
+  border-top: 1px solid var(--borda);
+}
+
+.categoria:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.categoria__identificacao {
+  min-width: 0;
+}
+
+.categoria__nome {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: 0;
+  font-size: var(--texto-md);
+  font-weight: var(--peso-forte);
+}
+
+.categoria__selo {
+  padding: 0 var(--esp-2);
+  border-radius: var(--raio-pilula);
+  background: var(--cor-primaria-suave);
+  color: var(--cor-sobre-primaria-suave);
+  font-size: var(--texto-xs);
+  font-weight: var(--peso-semi);
+}
+
+.categoria__descricao,
+.categoria__contagem {
+  margin: var(--esp-1) 0 0;
+  font-size: var(--texto-sm);
+  color: var(--texto-secundario);
+}
+
+.categoria__criticos {
+  color: var(--cor-perigo);
+}
+
+.categoria__apetite {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-1);
+}
+
+.categoria__rotulo {
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semi);
+}
+
+.categoria__limite {
+  font-size: var(--texto-xs);
+  color: var(--texto-secundario);
+}
+
+/* --- Integra+ recolhível --- */
+.integra {
+  padding: 0;
+}
+
+.integra__resumo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--esp-3);
+  min-height: var(--alvo-minimo);
+  padding: var(--esp-4) var(--esp-5);
+  cursor: pointer;
+  list-style: none;
+}
+
+.integra__resumo::-webkit-details-marker {
+  display: none;
+}
+
+.integra[open] .integra__seta {
+  transform: rotate(180deg);
+}
+
+.integra__texto,
+.integra__lista,
+.integra__fonte {
+  margin: 0 var(--esp-5) var(--esp-3);
+  font-size: var(--texto-sm);
+}
+
+.integra__lista {
+  padding-left: var(--esp-5);
+}
+
+.integra__fonte {
+  margin-bottom: var(--esp-5);
+  color: var(--texto-secundario);
+}
+
+/* --- Prévia no diálogo --- */
+.previa__de-para {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--esp-2);
+  margin: 0 0 var(--esp-3);
+}
+
+.previa__resumo {
+  margin: 0 0 var(--esp-2);
+  font-weight: var(--peso-semi);
+}
+
+.previa__lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--esp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--texto-sm);
+}
+
+.previa__sobe { color: var(--cor-perigo); }
+.previa__desce { color: var(--cor-sucesso); }
+
+@media (max-width: 1180px) {
+  .dar__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .categoria {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .categoria__justificativa {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 639.98px) {
+  .categoria {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cartao {
+    padding: var(--esp-4);
+  }
+  .dar__kpis {
+    gap: var(--esp-3);
+  }
+}
+</style>
