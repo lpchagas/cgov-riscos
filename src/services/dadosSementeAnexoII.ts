@@ -519,18 +519,22 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
       'Probabilidade Baixa (2): ocorre apenas em picos sazonais de alta temporada.',
     impacto: 4,
     justificativaImpacto:
-      'Impacto Alto (4): afeta área sensível de conservação (P=2, I=4 -> Inerente 17 no Quadro 7).',
-    nivelInerente: 17,
+      'Impacto Alto (4): afeta área sensível de conservação (P=2, I=4 -> Inerente 14 no Quadro 7).',
+    // Lido do Quadro 7 (linha I=4, coluna P=2). Conferido pelo teste
+    // tests/unit/dadosSementeConsistencia.spec.ts — não digite à mão.
+    nivelInerente: 14,
     classificacaoInerente: 'Alto',
     possuiEvidenciaControle: true,
     nivelEficaciaControle: 'Satisfatório',
     fatorControle: 0.6,
-    nivelResidual: 10.2,
-    classificacaoResidual: 'Alto',
+    // 14 × 0,6 = 8,4 → Médio (Quadro 8). Continua Crítico porque o apetite
+    // da categoria Socioambiental na DAR é Baixo e Médio o ultrapassa.
+    nivelResidual: 8.4,
+    classificacaoResidual: 'Médio',
     statusCritico: 'sim',
     isCritico: true,
     memoriaCalculo:
-      'P=2 e I=4 → Inerente = 17 (Alto, Quadro 7) × Fator 0,6 (Satisfatório, com evidência comprovada, Quadro 6) = Residual 10,2 (Alto, Quadro 8, sem arredondamento prévio) → Crítico frente à DAR (baixo): SIM',
+      'P=2 e I=4 → Inerente = 14 (Alto, Quadro 7) × Fator 0,6 (Satisfatório, com evidência comprovada, Quadro 6) = Residual 8,4 (Médio, Quadro 8) → Crítico frente à DAR (baixo): SIM',
     origemPreliminarCgov: false,
     statusFluxo: 'aprovado',
     estrategiaPrincipal: 'Mitigar',
@@ -553,7 +557,7 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         acaoOQue:
           'Integrar painel semestral de indicadores de impacto de visitação ao checklist de análise de autorizações.',
         justificativaPorQue:
-          'Reduzir o nível residual de 10,2 (Alto) para a faixa Baixo (≤ 5).',
+          'Reduzir o nível residual de 8,4 (Médio) para a faixa Baixo (≤ 5).',
         localOnde: 'Gerência Regional e Chefias de UC',
         responsavelQuem: 'Coordenador de Uso Público',
         prazoQuando: '2026-11-30',
@@ -604,7 +608,7 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         usuarioNome: 'Coordenador-Geral (2º Degrau — CG)',
         usuarioPapel: 'lider_cg',
         despachoTexto:
-          'Aprovado em 1 clique pela CG e encaminhado à Diretoria (Residual 10,2 = Alto sem arredondamento prévio).',
+          'Aprovado em 1 clique pela CG e encaminhado à Diretoria (Residual 8,4 = Médio, acima do apetite Baixo da DAR — Risco Crítico).',
         criadoEm: '2026-11-06T15:30:00Z',
       },
       {
