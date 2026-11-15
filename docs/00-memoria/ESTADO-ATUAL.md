@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-15  
-> **Fase atual:** Reformulação da UI (Fases 0 a 4) mesclada na `main`. Varredura de acessibilidade no repositório (`npm run test:a11y`) na branch `feat/varredura-a11y`. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
+> **Fase atual:** Etapa B1 (banco, alcance e RLS) concluída na branch `feat/b1-banco-rls`, aguardando commit; próxima: B2/B3. Reformulação da UI (Fases 0 a 4) e varredura de acessibilidade já mescladas na `main`. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -80,3 +80,31 @@ Design: [[2026-11-15-varredura-a11y-design]] · Plano: [[2026-11-15-varredura-a1
 - [x] Decreto nº 9.203/2017 copiado para `docs/01-normativos/` como norma que ancora o projeto.
 - **Base normativa dos fluxos:** as minutas da Política (SEI 024241420) e da Metodologia (SEI 024421455). Quando forem publicadas: revisão sistêmica das regras de decisão e nova versão do projeto.
 - Ordem proposta da etapa B: decisões da matriz → preparar o Supabase → login e perfis → RLS completa com testes → telas lendo do banco.
+
+## Etapa B1 — banco, alcance e RLS (planejada em 2026-11-15, branch `feat/b1-banco-rls`)
+Design: [[2026-11-15-etapa-b1-banco-rls-design]] (aprovado) · Plano: [[2026-11-15-etapa-b1-banco-rls-plan]] (aprovado, 9 tarefas)
+- Decisões: login por link de e-mail só para convidados (B2); ordem B1 → B2 → B3; Supabase **local com Docker**; estrutura e Cadeia de Valor vêm das listas do SharePoint por importador (`npm run sync:estrutura`), com retrato público versionado em `supabase/referencia/`; lista de atribuições (dados pessoais) só no B2 e nunca no repositório (`_temp/` no `.gitignore`).
+- Execução escolhida: **por subagentes** (superpowers:subagent-driven-development).
+- **Situação: etapa B1 concluída, aguardando commit** (a regra do usuário é um único commit no fim, só quando ele pedir). Tudo está na árvore de trabalho da branch `feat/b1-banco-rls`. Entregas:
+  - Supabase local com Docker (`npm run db:start`, `db:reset`, `test:db`) e importador `npm run sync:estrutura` (843 unidades e 90 processos do retrato em `supabase/referencia/`).
+  - Migrações `20261115001` a `20261115005`: unidades/perfis/processos e vínculo com a CT; funções de alcance; RLS por alcance; fluxo de 3 degraus com trava e reabertura; trilha de auditoria.
+  - Semente de demonstração com 19 usuários fictícios `@radar.test` e 10 riscos; testes pgTAP `000` a `060` (`npm run test:db`).
+  - Documentação: [[guia-supabase-local]], [[modelo-dados-mer]] (seção 3) e Aula 2 do caderno ([[02-entendendo-o-supabase-sql]], seção 4).
+  - Decisões técnicas da B1 (R1 a R23) e decisões da CGOV na revisão final (D1 a D3), com motivo e custo: [[decisoes-tecnicas-b1]].
+- **Revisão final da B1 (onda única de correção):**
+  - **D1 — segregação "sobe um nível":** quem envia (ou reabre ao editar) não valida nem homologa o próprio risco; se é o titular da chefia, o degrau sobe (ex.: `gr@` envia risco do SAT1-GR5 → valida e homologa a Presidência). O histórico do fluxo passou a guardar `usuario_id` e `sequencia`.
+  - **D2 — excluir risco:** só em rascunho, devolvido ou preliminar da CGOV; risco aprovado não se apaga (nem pela exclusão do objeto).
+  - **D3 — alcance do gestor:** mantida a spec (todas as descendentes).
+  - Risco aprovado também reabre quando muda a **categoria**, o **objeto** ou a criticidade calculada.
+  - Trilha de auditoria também em **perfis** (inclusive titularidade) e na **DAR** (`categorias_risco`).
+  - `anon` sem privilégio nas tabelas de negócio; sequência de `categorias_risco` acertada no `seed.sql`; importador recusa `--sim` em banco remoto (salvo `--permitir-remoto`).
+- **Lacuna de dados para a CGOV (SharePoint):** das 11 CTs, só a **CT Curitiba** tem unidades vinculadas (73 unidades: 45 UCs, 12 NGIs e 16 subunidades, pelo `microgrupo`, gravado em `coordenacao_territorial_id`, decisão R9); o `microgrupo` "CT Cuiabá" (42 unidades) não tem CT correspondente na lista; os avisos do importador (mãe inexistente, `id_mae` igual à própria unidade 22.0078, processos com várias unidades líderes) precisam de correção na lista.
+- **Pendências para decisão da CGOV (do B1):** lista completa em [[decisoes-tecnicas-b1]], seção 4. As principais:
+  1. Quem valida os riscos da **Presidência** (hoje `enviar_para_validacao` recusa).
+  2. A CGOV **não grava** controles, respostas e KRIs de risco `preliminar_cgov`, nem apaga preliminar criado por engano (spec 7.1).
+  3. `macroprocesso_supervisor_id` é livre para quem escreve no objeto; a spec pede preenchimento a partir do processo.
+  4. Alinhar a matriz de acesso com a D3 (alcance do gestor = todas as descendentes).
+  5. A DAR mudada não reavalia riscos aprovados (só na próxima edição ou validação).
+  6. **Mover um risco entre objetos**: a trilha grava só o `objeto_id` novo (o objeto antigo não vê a saída).
+- **Próxima etapa:** **B2** (login por link de e-mail só para convidados, carga da lista de atribuições fora do repositório e conexão do app ao Supabase) e **B3** (telas lendo e gravando no banco, `TipoUnidade` do front com os 16 valores, `Skeleton` de carregamento). Antes: pedir o commit da B1 e decidir as pendências acima. Depois: C (Painel no celular) e D (homologação na CGTI).
+- **Verificação final da B1 (após a onda de correção):** `npm test` **139 testes** (23 arquivos) passando; `npm run build` ok; `npm run test:a11y` **160 passaram, 0 violações**; `npm run db:reset && npm run test:db` **10 arquivos (`000` a `060`), 475 testes, `Result: PASS`** (2026-11-15).

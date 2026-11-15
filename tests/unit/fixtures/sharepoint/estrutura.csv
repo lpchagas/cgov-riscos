@@ -1,0 +1,6 @@
+﻿ListSchema={"schemaXmlList":["<Field ID=\"{0000}\" Name=\"exemplo\" />"]}
+"uorg_nome","sigla","status","uorg_nome-completo","macrogrupo","mesogrupo","microgrupo","tipo","icmbio_id","id_mae","hierarquia"
+"Instituto de Teste","ITESTE","Ativo","Instituto de Teste","Sede","Presidência","GABIN","Presidência","90.0000","","00"
+"Diretoria de Planejamento, Administração e Logística de Teste","DTESTE","Ativo","Diretoria de Planejamento, Administração e Logística de Teste","Sede","DTESTE","","Diretoria","90.1000","90.0000","01"
+"ICMBio Serra Imaginária","","Ativo","Núcleo de Gestão Integrada
+Serra Imaginária","UC","UC na GR9","","Núcleo de Gestão Integrada","92.0001","90.0000","02"
