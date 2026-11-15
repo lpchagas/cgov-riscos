@@ -125,14 +125,17 @@ function aoClicarLinha(evento: MouseEvent, linha: T): void {
 <template>
   <div class="tabela-dados" :data-density="densidade === 'compacta' ? 'compact' : undefined">
     <div class="tabela-dados__rolagem" tabindex="0" :aria-label="`${legenda} (role para os lados se necessário)`">
-      <table class="tabela-dados__tabela">
+      <!-- role= explícitos: no celular a tabela vira cartões (display: block) e o
+           navegador descartaria a semântica de tabela sem eles. -->
+      <table class="tabela-dados__tabela" role="table">
         <caption class="radar-so-leitor">{{ legenda }}</caption>
-        <thead>
-          <tr>
+        <thead role="rowgroup">
+          <tr role="row">
             <th
               v-for="col in colunas"
               :key="col.chave"
               scope="col"
+              role="columnheader"
               :aria-sort="col.ordenavel ? ariaSort(col.chave) : undefined"
               :style="{ width: col.largura }"
               :class="[`alinhar-${col.alinhamento ?? 'esquerda'}`, { 'ocultar-celular': col.ocultarNoCelular }]"
@@ -158,8 +161,9 @@ function aoClicarLinha(evento: MouseEvent, linha: T): void {
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody role="rowgroup">
           <tr
+            role="row"
             v-for="linha in linhasVisiveis"
             :key="String(linha[chaveLinha])"
             :class="{ 'linha-clicavel': linhaClicavel }"
@@ -168,6 +172,8 @@ function aoClicarLinha(evento: MouseEvent, linha: T): void {
             <td
               v-for="col in colunas"
               :key="col.chave"
+              role="cell"
+              :data-rotulo="col.rotulo"
               :class="[`alinhar-${col.alinhamento ?? 'esquerda'}`, { 'ocultar-celular': col.ocultarNoCelular }]"
             >
               <!-- Slot por coluna: #celula-<chave>. Sem slot, mostra o valor bruto. -->
@@ -317,6 +323,106 @@ tbody tr:hover {
 
 @media (max-width: 767.98px) {
   .ocultar-celular {
+    display: none;
+  }
+
+  /*
+   * MODO CARTÃO (Fase 4). Antes, no celular a tabela rolava para o lado DENTRO
+   * do cartão e colunas importantes (ex.: Residual) ficavam fora da tela sem
+   * ninguém perceber. Agora cada linha vira um bloco e cada célula mostra o
+   * nome da coluna à esquerda (vem de `data-rotulo`):
+   *
+   *   RADAR-2026-001
+   *   Objeto     Gestão e Execução de Processos…
+   *   Residual   ▲ Extremo · 22
+   *
+   * Os `role=` do template mantêm a tabela "tabela" para o leitor de tela.
+   */
+  .tabela-dados__rolagem {
+    overflow-x: visible;
+  }
+  .tabela-dados__tabela,
+  .tabela-dados__tabela tbody,
+  .tabela-dados__tabela tr,
+  .tabela-dados__tabela td {
+    display: block;
+    width: 100%;
+  }
+
+  /* Cabeçalho: só as colunas ordenáveis aparecem, como botões "Ordenar por". */
+  .tabela-dados__tabela thead {
+    display: block;
+    border-bottom: 1px solid var(--borda);
+    background: var(--superficie-container);
+  }
+  .tabela-dados__tabela thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--esp-1) var(--esp-3);
+    padding: var(--esp-2) var(--esp-3);
+  }
+  .tabela-dados__tabela thead tr::before {
+    content: 'Ordenar por:';
+    font-size: var(--texto-xs);
+    color: var(--texto-secundario);
+  }
+  .tabela-dados__tabela th {
+    display: none;
+  }
+  .tabela-dados__tabela th[aria-sort] {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  /* Coluna escondida no celular não oferece ordenação; sem coluna ordenável, some a barra. */
+  .tabela-dados__tabela th.ocultar-celular,
+  .tabela-dados__tabela thead:not(:has(th[aria-sort])) {
+    display: none;
+  }
+  .tabela-dados__ordenar {
+    min-height: var(--alvo-minimo);
+  }
+
+  .tabela-dados__tabela tbody tr {
+    height: auto;
+    padding: var(--esp-3);
+    border-bottom: 1px solid var(--borda);
+  }
+  .tabela-dados__tabela tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .tabela-dados__tabela td {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    gap: var(--esp-2);
+    align-items: baseline;
+    padding: var(--esp-1) 0;
+    border: 0;
+    text-align: left;
+  }
+  /* Selos e chips ficam do tamanho do texto (sem esticar até a borda). */
+  .tabela-dados__tabela td > * {
+    justify-self: start;
+  }
+  .tabela-dados__tabela td::before {
+    content: attr(data-rotulo);
+    font-size: var(--texto-xs);
+    font-weight: var(--peso-semi);
+    color: var(--texto-secundario);
+  }
+  /* 1ª coluna (código/nome) é o título do cartão: sem rótulo, linha inteira. */
+  .tabela-dados__tabela td:first-child {
+    display: block;
+    padding-top: 0;
+    font-weight: var(--peso-semi);
+  }
+  .tabela-dados__tabela td:first-child::before {
+    content: none;
+  }
+  .tabela-dados__tabela td.ocultar-celular {
     display: none;
   }
 }

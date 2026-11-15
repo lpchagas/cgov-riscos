@@ -104,6 +104,16 @@ const resumoCelula = computed(() => {
 // ---------------------------------------------------------------------------
 const LIMITE_ATENCAO = 6;
 const atencao = computed(() => itensDeAtencao(riscos.value, perfil.value, new Date()));
+const atencaoVisivel = computed(() => atencao.value.slice(0, LIMITE_ATENCAO));
+
+/**
+ * No CELULAR a lista começa com só 3 itens (os mais urgentes vêm primeiro) e
+ * o botão "Mostrar mais" abre o resto — a página fica bem mais curta sem
+ * esconder nada de vez. No computador o botão nem aparece (ver o CSS).
+ * Atenção: o número 3 também está no seletor `:nth-child(n + 4)` do CSS.
+ */
+const LIMITE_ATENCAO_CELULAR = 3;
+const verTodaAtencao = ref(false);
 
 const ICONE_ATENCAO: Record<TipoItemAtencao, string> = {
   kri: 'fa-solid fa-wave-square',
@@ -247,8 +257,8 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
           </Chip>
         </div>
 
-        <ul v-if="atencao.length" class="atencao">
-          <li v-for="item in atencao.slice(0, LIMITE_ATENCAO)" :key="item.id" class="atencao__item">
+        <ul v-if="atencao.length" id="lista-atencao" class="atencao" :class="{ 'atencao--aberta': verTodaAtencao }">
+          <li v-for="item in atencaoVisivel" :key="item.id" class="atencao__item">
             <span class="atencao__icone" :class="`atencao__icone--${item.tom}`" aria-hidden="true">
               <i :class="ICONE_ATENCAO[item.tipo]"></i>
             </span>
@@ -261,6 +271,18 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
             </div>
           </li>
         </ul>
+        <!-- Só aparece no celular (CSS): abre/fecha os itens além dos 3 primeiros -->
+        <button
+          v-if="atencaoVisivel.length > LIMITE_ATENCAO_CELULAR"
+          type="button"
+          class="atencao__mais"
+          aria-controls="lista-atencao"
+          :aria-expanded="verTodaAtencao"
+          @click="verTodaAtencao = !verTodaAtencao"
+        >
+          <i :class="verTodaAtencao ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" aria-hidden="true"></i>
+          {{ verTodaAtencao ? 'Mostrar menos' : `Mostrar mais ${atencaoVisivel.length - LIMITE_ATENCAO_CELULAR}` }}
+        </button>
         <p v-if="atencao.length > LIMITE_ATENCAO" class="painel__dica">
           E mais {{ atencao.length - LIMITE_ATENCAO }} em
           <RouterLink :to="{ name: 'monitoramento-kris' }">Monitoramento</RouterLink>.
@@ -591,6 +613,28 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
   color: var(--texto-secundario);
 }
 
+/* Botão "Mostrar mais": escondido no computador, aparece no celular (abaixo). */
+.atencao__mais {
+  display: none;
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: var(--alvo-minimo);
+  margin-top: var(--esp-2);
+  padding: 0 var(--esp-3);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-pilula);
+  background: transparent;
+  color: var(--texto-link);
+  font: inherit;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semi);
+  cursor: pointer;
+}
+
+.atencao__mais:hover {
+  background: var(--superficie-alta);
+}
+
 /* --- Tabela: nome do objeto + categoria -------------------------------- */
 .objeto {
   display: flex;
@@ -740,6 +784,26 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
   }
   .painel__kpis {
     gap: var(--esp-3);
+  }
+
+  /*
+   * PAINEL MAIS CURTO NO CELULAR (Fase 4 — meta: página < 3.500 px):
+   * - "Precisa da sua atenção": só os 3 primeiros itens até a pessoa tocar em
+   *   "Mostrar mais" (o 4 de `n + 4` = LIMITE_ATENCAO_CELULAR + 1);
+   * - "Atividade recente": só os 2 eventos mais novos — o histórico inteiro
+   *   está a um toque, no link "Auditoria" do cabeçalho do cartão.
+   */
+  .atencao:not(.atencao--aberta) .atencao__item:nth-child(n + 4) {
+    display: none;
+  }
+  .atencao__mais {
+    display: inline-flex;
+  }
+  .linha-tempo li:nth-child(n + 3) {
+    display: none;
+  }
+  .linha-tempo li:nth-child(2)::after {
+    display: none;
   }
 }
 </style>

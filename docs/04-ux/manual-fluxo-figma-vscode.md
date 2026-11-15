@@ -42,7 +42,7 @@ encontra exatamente o que você mudou.
 | Arquivo do Figma | equipe **cgov** → "RADAR — Painel" | Sempre trabalhe na equipe **cgov** (plano Education, 200 consultas/dia). A outra equipe só tem 20 consultas **por mês**. |
 | Página **Componentes RADAR** | dentro do arquivo | É a **biblioteca** publicada. Cada componente está ligado a um `.vue` pelo Code Connect. |
 | Variáveis **RADAR · tokens** | painel *Variables* | Espelham `src/styles/tokens.css`. No Dev Mode, cada cor mostra o nome do código, ex.: `var(--cor-primaria)`. |
-| Páginas **📌 Original — &lt;tela&gt;** | dentro do arquivo | **Travadas. Não edite.** Uma por tela: Painel, Apetite (DAR), Aprovações, Monitoramento, Ficha do risco, Novo risco, Objetos de gestão, Auditoria e Importar riscos. |
+| Páginas **📌 Original — &lt;tela&gt;** | dentro do arquivo | **Travadas. Não edite.** Uma por tela: Painel, Apetite (DAR), Aprovações, Monitoramento, Ficha do risco, Novo risco, Objetos de gestão, Auditoria, Importar riscos e Sobre o RADAR. |
 | Páginas **✏️ Trabalho — &lt;tela&gt;** | dentro do arquivo | Aqui você testa ideias. Cada uma tem o quadro de computador (1440) e o de celular (390). |
 | Projeto | VS Code → pasta `cgov-riscos` | O Claude Code fica no painel lateral (ícone do Claude). |
 | Regras de negócio | `AGENTS.md` | O Claude **não** muda cálculos por causa de um desenho (ver §8). |

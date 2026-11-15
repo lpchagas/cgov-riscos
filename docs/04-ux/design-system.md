@@ -213,3 +213,42 @@ token `--texto-marca` substitui `--cor-marca-escura` quando a cor da marca é us
 `scroll-padding-top` reserva a altura do cabeçalho fixo em toda rolagem automática (WCAG 2.4.11).
 
 Capturas: [`capturas/fase3/`](capturas/fase3/).
+
+## 9. Resultado da Fase 4 — polimento
+
+| Métrica | Fase 3 | Fase 4 |
+|---|---|---|
+| Combinações verificadas com axe-core | 12 telas × 2 larguras × 3 temas = 72 | **13 telas** (com `/sobre`) × **4 larguras (360, 768, 1280, 1920)** × 3 temas = **156** |
+| Violações axe-core (WCAG 2.2 A/AA) | 0 | **0** |
+| Páginas com rolagem lateral | 0 | 0 |
+| Tabelas com colunas escondidas por rolagem interna no celular | 5 páginas (não medido antes) | **0** |
+| Altura do Painel no celular (390 px) | 4.819 px | **4.109 px** (meta de 3.500 não atingida, ver abaixo) |
+| Altura do rodapé no celular | 862 px | **512 px** |
+| Testes automatizados | 98 | **105** |
+
+**`DataTable` em modo cartão (< 768 px).** A varredura achou um defeito que o teste de rolagem não
+pegava: no celular, a tabela rolava para o lado *dentro* do cartão e o **Residual** e o **Apetite**
+ficavam fora da tela em Painel, DAR, Riscos, Objetos e Plano de ação. Agora cada linha vira um bloco
+com "rótulo · valor" (`data-rotulo` + `td::before`). As colunas ordenáveis viram botões
+"Ordenar por:". A tabela declara `role="table|row|cell"` para não perder a semântica quando o CSS
+troca o `display`.
+
+**Painel mais curto no celular, sem apagar informação:** "Precisa da sua atenção" mostra 3 itens e
+o botão "Mostrar mais N" (`aria-expanded`). "Atividade recente" mostra os 2 eventos mais novos, e o
+histórico completo fica no link Auditoria.
+
+**Rodapé enxuto + página Sobre o RADAR (`/sobre`).** A pedido da CGOV, o rodapé ficou só com gov.br, unidades
+(CGGE, CGOV, CTGRIC), atalhos e base com versão e redes. Normas correlatas, fontes de dados, contato, painéis e
+DIGITECA foram para `/sobre`, no layout de relatório em duas colunas do *Template V3 — Relatórios* (Figma
+Community): texto à esquerda e painel cinza com tabelas à direita. O rodapé e a página leem as mesmas listas de
+`src/utils/sobreRadar.ts`, e a versão vem do `package.json`.
+
+**Por que não chegamos a 3.500 px:** o que sobra é conteúdo, sem espaço vazio. Os blocos são
+cabeçalho com simulador de perfil (229), indicadores (430), Matriz (589), atenção (512), maiores
+residuais (~700, agora com todas as colunas visíveis), três resumos (645) e rodapé (512). Para
+descer mais seria preciso **tirar cartões do Painel no celular**, por exemplo os resumos
+"Riscos por nível residual" e "DAR", que já têm página própria. Essa é uma decisão da CGOV.
+
+**Estados de carregamento e erro:** hoje a store lê os dados de demonstração em memória, de forma
+síncrona, e nada "carrega". Os componentes `Skeleton` e `EmptyState` já existem. O `Skeleton`
+entra quando a store passar a buscar no Supabase. Os estados vazios já estão em 8 telas.

@@ -24,7 +24,13 @@ import { createRouter, createWebHistory } from 'vue-router';
 const router = createRouter({
   history: createWebHistory(),
   // Ao trocar de página, volta ao topo (ou à posição salva, no "voltar").
-  scrollBehavior: (_para, _de, posicaoSalva) => posicaoSalva ?? { top: 0 },
+  // Com âncora (ex.: /sobre#normas, vinda do rodapé), rola até a seção,
+  // descontando a altura do cabeçalho fixo para o título não ficar escondido.
+  scrollBehavior: (para, _de, posicaoSalva) => {
+    if (posicaoSalva) return posicaoSalva;
+    if (para.hash) return { el: para.hash, top: 88 };
+    return { top: 0 };
+  },
   routes: [
     // ----------------------------------------------------------------------
     // VISÃO GERAL
@@ -150,6 +156,19 @@ const router = createRouter({
         titulo: 'Importar riscos',
         descricao: 'Traga a tabela de riscos gerada pela skill da CGOV.',
         fundamento: 'Skill cgov-gestao-riscos-v4 (análise preliminar pela CGOV).',
+      },
+    },
+
+    // ----------------------------------------------------------------------
+    // INSTITUCIONAL (aberta pelos atalhos do rodapé, com âncoras #normas etc.)
+    // ----------------------------------------------------------------------
+    {
+      path: '/sobre',
+      name: 'sobre-radar',
+      component: () => import('../views/SobreRadarView.vue'),
+      meta: {
+        titulo: 'Sobre o RADAR',
+        descricao: 'Versão, normas correlatas, fontes de dados e unidades responsáveis pelo sistema.',
       },
     },
 

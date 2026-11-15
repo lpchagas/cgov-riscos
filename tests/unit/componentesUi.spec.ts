@@ -69,6 +69,16 @@ describe('DataTable', () => {
     { id: 'c', codigo: 'RADAR-003', nivel: 4.5 },
   ];
 
+  it('no celular vira cartões: cada célula leva o nome da coluna e a semântica de tabela fica explícita', () => {
+    const w = mount(DataTable, { props: { colunas, linhas, chaveLinha: 'id', legenda: 'Riscos' } });
+    expect(w.find('table').attributes('role')).toBe('table');
+    expect(w.findAll('tbody tr').every((tr) => tr.attributes('role') === 'row')).toBe(true);
+    const celulas = w.findAll('tbody tr')[0].findAll('td');
+    expect(celulas.map((td) => td.attributes('data-rotulo'))).toEqual(['Código', 'Nível']);
+    expect(celulas.every((td) => td.attributes('role') === 'cell')).toBe(true);
+    expect(w.findAll('th').every((th) => th.attributes('role') === 'columnheader')).toBe(true);
+  });
+
   it('ordena ao clicar no cabeçalho e informa a direção com aria-sort', async () => {
     const w = mount(DataTable, { props: { colunas, linhas, chaveLinha: 'id', legenda: 'Riscos' } });
     const th = w.findAll('th')[1];

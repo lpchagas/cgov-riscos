@@ -192,6 +192,21 @@ describe('Painel (página)', () => {
     expect(resultado.find('a.link-acao').attributes('href')).toBe('/riscos-lista?p=2&i=4');
   });
 
+  it('no celular, "Mostrar mais" abre e fecha os itens além dos 3 primeiros (aria-expanded)', async () => {
+    const w = await montarPainel();
+    const itens = w.findAll('#lista-atencao .atencao__item');
+    expect(itens.length).toBeGreaterThan(3); // a demonstração tem pendências suficientes
+    const botao = w.find('button.atencao__mais');
+    expect(botao.attributes('aria-controls')).toBe('lista-atencao');
+    expect(botao.attributes('aria-expanded')).toBe('false');
+    expect(botao.text()).toContain(`Mostrar mais ${itens.length - 3}`);
+
+    await botao.trigger('click');
+    expect(botao.attributes('aria-expanded')).toBe('true');
+    expect(w.find('#lista-atencao').classes()).toContain('atencao--aberta');
+    expect(botao.text()).toContain('Mostrar menos');
+  });
+
   it('nunca usa a sigla PGR para o Plano de Gestão de Riscos', async () => {
     const w = await montarPainel();
     expect(w.text()).not.toMatch(/\bPGR\b/);

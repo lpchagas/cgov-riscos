@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
-> **Última atualização:** 2026-11-14  
-> **Fase atual:** Reformulação da UI — Fases 0 a 3 concluídas (todas as páginas migradas, tema escuro liberado). Próxima: Fase 4 (polimento). Branch `feat/reformulacao-ui`.
+> **Última atualização:** 2026-11-15  
+> **Fase atual:** Reformulação da UI — Fases 0 a 4 concluídas. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px) e o e-mail de contato da página Sobre. Branch `feat/reformulacao-ui`.
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -52,5 +52,12 @@ Plano: [[2026-11-14-reformulacao-ui-radar-plan]] · Diagnóstico: [[diagnostico-
   - Tema escuro liberado (menu do usuário → Aparência); `compat-legado.css`, `BrCard` e `BrBadge` apagados; ponte das variáveis do gov.br para os tokens.
   - Resultado: axe-core 0 violações em 12 telas × 2 tamanhos × 3 temas; cores fixas 175 → **0**; 98 testes.
   - Figma (2026-11-15): BrTabs, BrStep (passoAtivo 1–4), BrMessage (4 estados) e BowTieDiagram (nível Baixo/Médio/Alto/Extremo) criados na página "Componentes RADAR", com peças internas `_BrTabs · Aba` e `_BrStep · Etapa` (não publicadas). As 8 páginas migradas também estão no Figma em pares 📌 Original (travada) × ✏️ Trabalho, cada uma com quadro de computador (1440) e celular (390). Na biblioteca: BrMessage e PageHeader passaram a quebrar linha e o SegmentedControl ganhou a variante `selecionada=1…4`. Falta: republicar a biblioteca e ligar os 4 componentes novos no Code Connect.
-- [ ] **Fase 4 — Polimento** (meta: 0 violações axe; Painel no celular < 3.500 px).
+- [x] **Fase 4 — Polimento** ([[design-system]] §9):
+  - Varredura com axe-core: 13 telas × 4 larguras (360, 768, 1280, 1920) × 3 temas = 156 combinações, **0 violações** e nenhuma rolagem lateral.
+  - `DataTable` em **modo cartão** abaixo de 768 px. Corrige um defeito em 5 páginas: no celular o Residual e o Apetite ficavam escondidos por rolagem interna.
+  - Painel no celular: "Mostrar mais" na atenção e 2 eventos recentes. 4.819 → **4.109 px** em 390 px. A meta de 3.500 px exige tirar cartões, e essa decisão é da CGOV.
+  - **Rodapé enxuto** (862 → 512 px no celular) e nova página **Sobre o RADAR** (`/sobre`): versão, normas correlatas, fontes de dados, governança e painéis, no layout de relatório do Template V3. Dados em `src/utils/sobreRadar.ts`.
+  - Figma: BrFooter da biblioteca no formato enxuto e trocado por instâncias nas 18 Originais; Original do Painel, DAR e Objetos no celular com o modo cartão; novo par Original × Trabalho "Sobre o RADAR". As cópias de Trabalho anteriores ainda têm o rodapé antigo.
+  - Aula 4 do caderno: [[04-design-tokens-e-componentes]]. 105 testes.
+  - Carregamento/erro: o `Skeleton` entra quando a store passar a usar o Supabase (hoje os dados são síncronos).
 
