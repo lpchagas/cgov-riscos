@@ -20,3 +20,9 @@ Este repositório contém o código-fonte (Vue.js 3 + TypeScript + `@govbr-ds/co
    - É proibido usar a categoria mista `"Operacional com interface de Integridade"`. Se houver decisão sobre beneficiário, licença/autorização, fiscalização/sanção ou contratação/atestação, aplica-se o Teste de Integridade com as 6 subcategorias do Quadro 3.
 6. **Diretriz Didática:**
    - Mantenha todos os arquivos de código e documentação em linguagem acessível em **português do Brasil**, comentando blocos importantes com exemplos práticos.
+
+## Regras de Git (decisão do responsável pelo projeto, 2026-11-15)
+
+- **Commits automáticos:** faça um commit sempre que concluir uma alteração relevante (uma tarefa de plano revisada, uma correção, uma etapa de documentação), sem esperar pedido. Revoga a regra anterior de "um único commit no fim da etapa".
+- Mensagem em português, no padrão `tipo(escopo): resumo` (ex.: `feat(b2): ...`, `fix(importador): ...`, `docs(estado): ...`), terminando com a linha `Co-Authored-By` indicada pela ferramenta.
+- Nunca faça commit de `_temp/`, `.env` ou de qualquer dado pessoal. Push, merge e abertura de PR continuam dependendo de pedido explícito.

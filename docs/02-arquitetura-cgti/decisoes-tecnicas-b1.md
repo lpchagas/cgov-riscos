@@ -61,14 +61,18 @@ Itens conhecidos, **não implementados** na B1. Cada um precisa de decisão ante
 
 ### 4.1 Regras de negócio
 
-1. **Quem valida os riscos da Presidência** (R18): hoje o envio é recusado (`55000`).
-2. `pode_criar_objeto_em` deixa a CGOV criar objeto em **unidade inativa**.
-3. A **visão por processo** do Coordenador-Geral ignora `processos_cadeia_valor.ativo`.
-4. `chefia_imediata` não confere se a CT do vínculo é da **mesma GR** da unidade (0 casos hoje).
-5. A CGOV não grava controles, respostas e KRIs de risco `preliminar_cgov`, nem apaga preliminar criado por engano (spec 7.1).
-6. `macroprocesso_supervisor_id` é livre para quem escreve no objeto (desvio da spec 8.1, que pede preenchê-lo a partir do processo).
-7. **Alinhar a matriz de acesso com D3** (alcance do gestor = todas as descendentes).
-8. **DAR mudada não reavalia riscos aprovados**: a reavaliação só acontece na próxima edição da ficha (que agora reabre o risco se a criticidade mudou) ou na validação.
+**Todas as 8 foram decididas em 2026-11-15** (perguntas de múltipla escolha ao dono do produto, a CGOV).
+Itens 1 a 6 e 8: **implementação na etapa B1.1** (início da B3, com spec, plano e revisão próprios; exigem
+migrações). Item 7: **feito na B2 (documentação)**. Ver também [[decisoes-tecnicas-b2]] e a seção 9 de [[matriz-acesso-responsabilidades]].
+
+1. **Quem valida os riscos da Presidência** (R18): **decidido em 2026-11-15**: os riscos da Presidência (Presidente e Assessoria) são **validados pelo titular do GABIN** e **homologados pelo Presidente**. É uma exceção desenhada à árvore; o GABIN é subordinado ao Presidente e a decisão foi consciente. *Implementação: etapa B1.1 (início da B3).* (Hoje o envio é recusado, `55000`.)
+2. `pode_criar_objeto_em` deixava a CGOV criar objeto em **unidade inativa**: **decidido em 2026-11-15**: **ninguém** (nem a CGOV) cria objeto novo em unidade inativa; objetos e riscos antigos continuam visíveis e a CGOV pode reatribuí-los. *Implementação: etapa B1.1 (início da B3).*
+3. A **visão por processo** do Coordenador-Geral ignorava `processos_cadeia_valor.ativo`: **decidido em 2026-11-15**: o CG **continua vendo** riscos de processos inativos, com a marca "processo inativo"; novos objetos só se ligam a processos ativos. *Implementação: etapa B1.1 (início da B3).*
+4. `chefia_imediata` não conferia se a CT do vínculo é da **mesma GR** da unidade (0 casos hoje): **decidido em 2026-11-15**: o `sync:estrutura` **ignora o vínculo** com CT de outra GR e o lista no relatório; a validação sobe para a GR da própria unidade. *Implementação: etapa B1.1 (início da B3).*
+5. A CGOV não gravava controles, respostas e KRIs de risco `preliminar_cgov`, nem apagava preliminar criado por engano (spec 7.1): **decidido em 2026-11-15**: enquanto `preliminar_cgov`, a CGOV **grava controles, respostas e KRIs e pode apagar** o risco; ao ser assumido pela unidade, perde a edição (como hoje). *Implementação: etapa B1.1 (início da B3).*
+6. `macroprocesso_supervisor_id` era livre (desvio da spec 8.1): **decidido em 2026-11-15**: é **preenchido pelo banco** a partir da unidade supervisora do processo da Cadeia de Valor ligado ao objeto e **não é editável**; sem processo, fica vazio e só a CGOV preenche. *Implementação: etapa B1.1 (início da B3).*
+7. **Alinhar a matriz de acesso com D3** (alcance do gestor = todas as descendentes) e com a spec B1 7.1 (o Diretor valida Centros e Coordenações-Gerais; a Presidência valida e homologa as unidades ligadas a ela): **decidido em 2026-11-15** (atualizar a matriz para o que o sistema faz). **Feito na B2 (documentação)**: seções 4, 5, 7 e 9 de [[matriz-acesso-responsabilidades]]; a B2 já aplica a 7.1 no front.
+8. **DAR mudada não reavaliava riscos aprovados**: **decidido em 2026-11-15**: ao salvar nova DAR, o banco **recalcula a criticidade** dos riscos aprovados da categoria; os que passam a Crítico **voltam para homologação** (tratamento e KRI; Política, art. 8º, § 2º); os que deixam de ser Críticos só são atualizados. *Implementação: etapa B1.1 (início da B3).*
 
 ### 4.2 Técnicas (baixa prioridade)
 

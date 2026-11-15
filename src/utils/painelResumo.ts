@@ -25,6 +25,7 @@ import type {
   PapelGovernanca,
 } from '../types/radar.types';
 import type { TomVisual } from './rotulosInterface';
+import { capacidades } from './acessoPorPerfil';
 
 // ---------------------------------------------------------------------------
 // 1. MATRIZ: quantos riscos há em cada célula (P × I)
@@ -165,8 +166,10 @@ export function itensDeAtencao(riscos: FichaRisco[], papel: PapelGovernanca, hoj
 
   // (a) Filas do fluxo de aprovação
   const aguardandoCg = riscos.filter((r) => r.statusFluxo === 'em_validacao_cg');
-  if (aguardandoCg.length && (papel === 'lider_cg' || papel === 'cgov')) {
-    const daPessoa = papel === 'lider_cg';
+  // Quem valida vê a SUA fila; a CGOV vê a mesma fila só como informação.
+  const podeValidar = capacidades(papel).podeValidar;
+  if (aguardandoCg.length && (podeValidar || papel === 'cgov')) {
+    const daPessoa = podeValidar;
     itens.push({
       id: 'fila-cg',
       tipo: 'validacao',
@@ -181,8 +184,9 @@ export function itensDeAtencao(riscos: FichaRisco[], papel: PapelGovernanca, hoj
   }
 
   const aguardandoDiretoria = riscos.filter((r) => r.statusFluxo === 'em_homologacao_dir');
-  if (aguardandoDiretoria.length && (papel === 'diretor' || papel === 'cgov')) {
-    const daPessoa = papel === 'diretor';
+  const podeHomologar = capacidades(papel).podeHomologar;
+  if (aguardandoDiretoria.length && (podeHomologar || papel === 'cgov')) {
+    const daPessoa = podeHomologar;
     itens.push({
       id: 'fila-diretoria',
       tipo: 'homologacao',

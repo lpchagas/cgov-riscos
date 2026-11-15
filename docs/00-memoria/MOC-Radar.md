@@ -16,7 +16,9 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 ## 🏛️ 3. Arquitetura e Entrega para a CGTI/ICMBio
 - [[modelo-dados-mer]] — Planta baixa do Banco de Dados PostgreSQL/Supabase (11 tabelas de negócio, inclusive `processos_cadeia_valor`, + a trilha `auditoria_log`; seção 3: unidades reais, perfis, funções de alcance, fluxo de 3 degraus e trilha).
 - [[decisoes-tecnicas-b1]] — Decisões técnicas da etapa B1 (R1 a R23) e decisões da CGOV na revisão final (D1 segregação "sobe um nível", D2 exclusão de risco, D3 alcance do gestor), com motivo, custo e as pendências para a CGOV.
-- [[guia-supabase-local]] — Como rodar o banco local, testar com pgTAP, importar a estrutura do SharePoint e resolver os erros comuns (etapa B1).
+- [[decisoes-tecnicas-b2]] — Decisões técnicas da etapa B2 (B2-1 a B2-9 da CGOV e T1 a T11 da execução: link com `token_hash`, dois modos, Edge Function, importador de atribuições) e achados para a CGOV (CT Cuiabá, unidades sem titular).
+- [[guia-supabase-local]] — Como rodar o banco local, testar com pgTAP, importar a estrutura do SharePoint e resolver os erros comuns (etapa B1); seções novas da B2: entrar localmente pelo Mailpit, Edge Function `gerenciar-acesso` e `sync:atribuicoes`.
+- [[2026-11-15-etapa-b2-login-perfis-design]] — Design da etapa B2 (login por link de e-mail e perfis); plano: [[2026-11-15-etapa-b2-login-perfis-plan]].
 - [[2026-11-15-etapa-b1-banco-rls-design]] — Design da etapa B1 (banco, alcance e RLS); plano: [[2026-11-15-etapa-b1-banco-rls-plan]].
 - [[guia-docker-cgti]] — Dossiê executivo e instruções de implantação via Container Docker para a CGTI.
 
@@ -25,6 +27,7 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[02-entendendo-o-supabase-sql]] — Aula 2: Como funcionam Tabelas Relacionais, Chaves Estrangeiras (`FK`) e Segurança por Linha (`RLS`), com a seção nova sobre função de alcance e testes com pgTAP.
 - [[03-empacotando-com-docker]] — Aula 3: Como o `Dockerfile` empacota o Vue.js com o servidor Nginx para rodar em qualquer máquina.
 - [[04-design-tokens-e-componentes]] — Aula 4: Tokens de design, componentes, telas responsivas (modo cartão das tabelas) e acessibilidade.
+- [[05-login-sessao-e-guardas]] — Aula 5: link mágico, sessão e renovação, por que o menu não é segurança (a RLS é) e os dois modos (demonstração e real).
 
 ## 🎨 5. Interface (Reformulação 2026-11)
 - [[design-system]] — Tokens, componentes e resultados medidos das Fases 1 a 4.

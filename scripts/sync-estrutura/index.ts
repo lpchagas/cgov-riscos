@@ -23,9 +23,8 @@
  * A chave de serviço NUNCA é gravada em arquivo nem impressa na tela.
  * ============================================================================
  */
-import { execFileSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { criarClienteServico } from '../compartilhado/clienteServico';
 import { lerListaSharepoint, localizarListas } from './lerListaSharepoint';
 import { converterProcessos, montarArvore, resumirVinculosCt } from './converter';
 import { conferirDestinoDoSim } from './destino';
@@ -56,35 +55,6 @@ function lerOpcoes(argumentos: string[]): Opcoes {
   };
 }
 
-/**
- * Cria o cliente do Supabase com a chave de serviço (que ignora o RLS — por
- * isso este programa só roda na máquina da CGOV ou no ambiente da CGTI).
- */
-function criarCliente(opcoes: Opcoes): SupabaseClient {
-  let url = process.env.SUPABASE_URL;
-  let chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !chave) {
-    // Pergunta ao Supabase local. A saída tem linhas como: API_URL="http://127.0.0.1:54321"
-    const saida = execFileSync('npx', ['supabase', 'status', '-o', 'env'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    const variaveis = new Map<string, string>();
-    for (const linha of saida.split('\n')) {
-      const achado = /^([A-Z_]+)="?(.*?)"?$/.exec(linha.trim());
-      if (achado) variaveis.set(achado[1], achado[2]);
-    }
-    url = url || variaveis.get('API_URL');
-    chave = chave || variaveis.get('SERVICE_ROLE_KEY');
-  }
-  if (!url || !chave) {
-    throw new Error('RADAR: não achei o Supabase. Rode `npm run db:start` ou defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY.');
-  }
-  // Trava do --sim: gravar sem perguntar só no banco local (ver destino.ts).
-  conferirDestinoDoSim(url, opcoes);
-  return createClient(url, chave, { auth: { persistSession: false } });
-}
-
 /** Pergunta "Aplicar? (s/N)" no terminal. Só "s" ou "sim" confirmam. */
 async function confirmar(): Promise<boolean> {
   const terminal = createInterface({ input: process.stdin, output: process.stdout });
@@ -103,7 +73,9 @@ async function principal(): Promise<void> {
   const cadeia = converterProcessos(lerListaSharepoint(arquivos.cadeiaValor), arvore.unidades);
 
   // 3: comparar com o banco.
-  const cliente = criarCliente(opcoes);
+  // Trava do --sim: gravar sem perguntar só no banco local (ver destino.ts).
+  const { cliente, url } = criarClienteServico();
+  conferirDestinoDoSim(url, opcoes);
   const estado = await carregarEstadoBanco(cliente);
   const relatorio = compararComBanco(arvore.unidades, estado.unidades);
   relatorio.processos = compararProcessos(cadeia.processos, estado.processos);

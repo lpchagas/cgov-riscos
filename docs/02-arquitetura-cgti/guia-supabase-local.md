@@ -36,6 +36,9 @@ projeto, então não precisa instalar nada além do Docker.
 | `npm run db:reset` | Apaga o banco local e o recria do zero em 3 passos: (1) aplica as migrações de `supabase/migrations/` e a semente das categorias (`supabase/seed.sql`); (2) importa a estrutura e a Cadeia de Valor (`npm run sync:estrutura -- --sim`); (3) carrega a semente de demonstração (`supabase/seed-demonstracao.sql`: 19 usuários fictícios `@radar.test` e 10 riscos). |
 | `npm run sync:estrutura` | Importa a árvore de unidades e a Cadeia de Valor a partir dos CSVs do SharePoint (ver seção 7). |
 | `npm run test:db` | Roda os testes do banco (arquivos em `supabase/tests/`). |
+| `npm run db:funcoes` | Serve a **Edge Function** `gerenciar-acesso` (convites). Rode **em outro terminal** e deixe aberto (ver seção 8). |
+| `npm run test:integracao` | Testes de integração do login, da Edge Function e do importador de atribuições. Exige `db:start` **e** `db:funcoes` ligados (ver seção 8). |
+| `npm run sync:atribuicoes` | Importa titulares e substitutos (pessoas) a partir da lista de atribuições (ver seção 9). |
 | `npx supabase status` | Mostra os endereços e chaves locais (`API URL`, `DB URL`, `Studio URL`). |
 
 Dica: use `db:reset` sempre que mudar uma migração, para provar que o banco nasce correto do zero.
@@ -150,3 +153,91 @@ errado, nada é gravado (é uma única chamada à função `sincronizar_estrutur
 - Consequência: para as outras 10 CTs, o alcance da CT fica só com a própria árvore e a validação
   das UCs sobe direto à Gerência Regional. Os avisos do importador (mãe inexistente, `id_mae` igual
   à própria unidade, processos com várias unidades líderes) listam o que a CGOV precisa corrigir.
+
+
+## 8. Entrar no RADAR localmente (etapa B2)
+
+O aplicativo tem **dois modos** (decisão B2-1, ver [[decisoes-tecnicas-b2]]):
+
+- **Sem `.env`:** "Modo demonstração". Dados fictícios, sem login, com o simulador dos 10 perfis.
+- **Com `.env`:** login real pelo Supabase local. O simulador some.
+
+Para entrar de verdade com um usuário de demonstração (os 19 `@radar.test` criados pelo `db:reset`):
+
+1. Ligue o banco: `npm run db:start` (e, se for testar convites, `npm run db:funcoes` em outro terminal).
+2. Rode `npx supabase status` e copie dois valores: `API URL` (normalmente `http://127.0.0.1:54321`)
+   e a chave `anon` (também chamada "publishable").
+3. Copie `.env.example` para `.env` e preencha:
+
+   ```text
+   VITE_SUPABASE_URL=http://127.0.0.1:54321
+   VITE_SUPABASE_ANON_KEY=<a chave anon do passo 2>
+   ```
+
+   O próprio `.env.example` explica os dois modos. **Use só a chave `anon` (pública).** A
+   `service_role` **nunca** vai para este arquivo nem para nada que comece com `VITE_`.
+4. Rode `npm run dev` e abra o endereço mostrado. Você cai em `/entrar`.
+5. Digite o e-mail de um usuário de demonstração (por exemplo `cgov@radar.test`) e clique em
+   "Enviar link de acesso".
+6. Abra o **Mailpit** em <http://127.0.0.1:54324>. É uma "caixa de entrada de mentira" que recebe todos
+   os e-mails do Supabase local. Abra o e-mail "Seu link de acesso ao RADAR" e clique no botão. Você
+   entra no RADAR com o perfil daquele usuário.
+
+Se mudar o `.env`, pare e rode `npm run dev` de novo. O link vale 1 hora e só funciona uma vez.
+
+Se você digitar um e-mail que **não** tem conta, a tela responde a mesma frase e **nenhum e-mail
+chega** ao Mailpit (de propósito: ninguém descobre quem tem conta).
+
+### A Edge Function `gerenciar-acesso`
+
+É a "ponte" que deixa a CGOV criar contas e enviar convites **sem** colocar a chave `service_role` no
+navegador. A tela "Usuários e perfis" (`/usuarios`, só CGOV) chama a função; a função confere se quem
+chamou é CGOV e só então usa a chave secreta, que mora no servidor. Código em
+`supabase/functions/gerenciar-acesso/` (regras de validação em `supabase/functions/_shared/`).
+
+- Ações: `criar`, `enviar_link` e `listar_situacao`.
+- **Só responde com `npm run db:funcoes` rodando em outro terminal** (decisão T3). Só com `db:start`, a
+  tela de usuários recebe 404.
+- Quem não é CGOV recebe 403 com mensagem `RADAR: ...`.
+- Teste: `npm run test:integracao` (com `db:start` e `db:funcoes` ligados). Ele usa e-mails
+  `@integracao.radar.test`, confere o recebimento pela API do Mailpit e recusa quem não é CGOV.
+- Se você mudar `supabase/config.toml` ou o modelo de e-mail em `supabase/templates/`, faça
+  `npm run db:stop` e `npm run db:start` (decisão T5).
+
+## 9. Importar titulares e substitutos: `sync:atribuicoes`
+
+> **ATENÇÃO — dados pessoais. Leia antes de rodar.**
+>
+> - O arquivo **real** (com nomes e e-mails de servidores) fica **somente** em `_temp/`, que o Git
+>   ignora. **Nunca** o copie para outra pasta do repositório e **nunca** o commite.
+> - O **relatório nunca é salvo** em arquivo: ele só aparece na tela. Mostra só e-mails, sem nomes.
+> - A **matrícula nunca é guardada**: o importador ignora essas colunas.
+> - O importador **nunca envia e-mail.** Ele cria as contas e os perfis; os convites são enviados
+>   pela CGOV, na tela "Usuários e perfis" (decisão B2-3).
+> - **Nenhum e-mail pode ser enviado a servidores do ICMBio antes da aprovação da CGTI.** Hoje todos
+>   os e-mails vão só para o Mailpit local.
+
+Comandos (`--arquivo` é obrigatório; não existe caminho padrão):
+
+```bash
+npm run sync:atribuicoes -- --arquivo _temp/<arquivo>.csv --so-relatorio   # só mostra o relatório
+npm run sync:atribuicoes -- --arquivo _temp/<arquivo>.csv                  # mostra e pergunta "Aplicar? (s/N)"
+```
+
+Como no `sync:estrutura`, `--sim` grava sem perguntar e só vale para banco **local**; para um banco
+remoto é preciso acrescentar `--permitir-remoto` de propósito. Peça sempre o `--so-relatorio` primeiro.
+
+O que ele faz (resumo; a lista completa está em [[decisoes-tecnicas-b2]]):
+
+- Define o perfil pelo **tipo da unidade** (B2-2). O titular recebe a chave de titular; o substituto
+  entra como `gestor` (B2-5).
+- Pessoa em várias unidades fica na de maior alcance (B2-4).
+- Quem saiu da titularidade perde a chave e continua no sistema (B2-6); substituto em exercício é
+  preservado (B2-9).
+- Se o **e-mail do titular** da unidade estiver vazio ou inválido na planilha, **ninguém perde a chave
+  ali** e o relatório mostra "Titular sem e-mail válido (chave atual mantida)" (P-B2-1).
+- Perfil **suspenso** que tem a chave e não aparece na linha da unidade **também perde a chave**
+  (P-B2-2); suspenso que aparece na lista só gera aviso.
+- Rodar de novo é seguro: cada passo confere o estado antes de mudar.
+- No relatório, leia com atenção "Unidades sem titular" e os avisos de tipo suspeito (por exemplo, a
+  CT Cuiabá cadastrada como Coordenação-Geral).

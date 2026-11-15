@@ -12,8 +12,8 @@
  * No topo: código, nome, selos (nível, criticidade, situação) e a AÇÃO
  * principal do momento, que depende da situação no fluxo:
  *   - rascunho / devolvido / preliminar → "Enviar para validação"
- *   - aguardando validação              → "Validar risco"   (CG ou CGOV)
- *   - aguardando homologação            → "Homologar risco" (Diretoria ou CGOV)
+ *   - aguardando validação              → "Validar risco"   (chefias que validam, ver acessoPorPerfil.ts)
+ *   - aguardando homologação            → "Homologar risco" (chefias que homologam, ver acessoPorPerfil.ts)
  *
  * Se o código na URL não existir, a página diz isso (antes mostrava o
  * primeiro risco da lista sem avisar — dava para confundir uma ficha com outra).

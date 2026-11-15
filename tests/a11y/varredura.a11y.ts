@@ -16,7 +16,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import type { Result } from 'axe-core';
-import { CHAVE_PREFERENCIAS, LARGURAS, TAGS_WCAG, TELAS, TEMAS, type Tela, type Tema } from './telas';
+import { CHAVE_PERFIL_DEMO, CHAVE_PREFERENCIAS, LARGURAS, TAGS_WCAG, TELAS, TEMAS, type Tela, type Tema } from './telas';
 
 /**
  * Abre uma tela do RADAR já no tema pedido e só termina quando ela estiver pronta.
@@ -37,6 +37,13 @@ async function abrirTela(page: Page, tela: Tela, tema: Tema): Promise<void> {
     ([chave, valor]) => window.localStorage.setItem(chave, valor),
     [CHAVE_PREFERENCIAS, JSON.stringify({ tema, menuRecolhido: false })],
   );
+  // Perfil de demonstração (padrão do app: cgov). Só gravamos quando a tela pede um perfil.
+  if (tela.perfil) {
+    await page.addInitScript(
+      ([chave, valor]) => window.localStorage.setItem(chave, valor),
+      [CHAVE_PERFIL_DEMO, tela.perfil],
+    );
+  }
   await page.goto(tela.rota);
 
   // Espera o título certo aparecer (até 10 s), em vez de uma pausa fixa de tempo.
@@ -148,8 +155,25 @@ test('autoverificação: a checagem acusa rolagem lateral', async ({ page }) => 
   expect((await medirRolagemLateral(page)).rola).toBe(true);
 });
 
+// Menu por perfil: o gestor não vê as ferramentas da CGOV e é mandado de volta ao Painel.
+test('menu do gestor não mostra ferramentas da CGOV', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const painelGestor: Tela = { nome: 'painel', rota: '/', titulo: 'Painel', perfil: 'gestor' };
+  await abrirTela(page, painelGestor, 'claro');
+  const menu = page.getByRole('navigation', { name: 'Menu principal' });
+  // Prova que o menu carregou (senão "0 links proibidos" passaria num menu vazio).
+  await expect(menu.getByRole('link', { name: 'Painel', exact: true })).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Importar riscos' })).toHaveCount(0);
+  await expect(menu.getByRole('link', { name: 'Usuários e perfis' })).toHaveCount(0);
+
+  // Abrir /importar pela barra de endereço: a guarda devolve ao Painel com aviso.
+  await page.goto('/importar');
+  await expect(page, 'o gestor deveria voltar ao Painel').toHaveURL((url) => url.pathname === '/');
+  await expect(page.locator('h1').first()).toHaveText('Painel');
+});
+
 // ---------------------------------------------------------------------------------------------
-// As 156 combinações (13 telas × 4 larguras × 3 temas).
+// As 192 combinações (16 telas × 4 larguras × 3 temas).
 // ---------------------------------------------------------------------------------------------
 for (const tema of TEMAS) {
   test.describe(tema, () => {

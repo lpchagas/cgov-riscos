@@ -28,6 +28,7 @@ import { computed, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useAuthStore } from '../stores/authStore';
+import { PAPEIS, ROTULOS_PAPEL } from '../utils/acessoPorPerfil';
 import type { FichaRisco, NivelImpacto, NivelProbabilidade, PapelGovernanca } from '../types/radar.types';
 import { MATRIZ_QUADRO_7, classificarNivelRisco } from '../utils/calculadoraRiscoRadar';
 import {
@@ -47,8 +48,7 @@ import {
 } from '../utils/painelResumo';
 import PageHeader from '../components/ui/PageHeader.vue';
 import StatCard from '../components/ui/StatCard.vue';
-import SegmentedControl from '../components/ui/SegmentedControl.vue';
-import type { ColunaTabela, OpcaoSegmento } from '../components/ui/tipos';
+import type { ColunaTabela } from '../components/ui/tipos';
 import DataTable from '../components/ui/DataTable.vue';
 import RiskBadge from '../components/ui/RiskBadge.vue';
 import Chip from '../components/ui/Chip.vue';
@@ -62,12 +62,11 @@ const authStore = useAuthStore();
 // ---------------------------------------------------------------------------
 // PERFIL (demonstração): o mesmo simulador do menu do usuário, aqui à mão
 // ---------------------------------------------------------------------------
-const OPCOES_PERFIL: OpcaoSegmento<PapelGovernanca>[] = [
-  { valor: 'cgov', rotulo: 'CGOV' },
-  { valor: 'lider_cg', rotulo: 'Coordenação-Geral' },
-  { valor: 'diretor', rotulo: 'Diretoria' },
-  { valor: 'gestor', rotulo: 'Gestor' },
-];
+// Com 10 perfis, botões lado a lado estouravam a largura da tela (rolagem lateral em 768 e
+// 1280 px). Um <select> nativo cabe em qualquer largura, é acessível e funciona bem no celular.
+// Ele só existe no modo demonstração: no modo real o perfil vem do banco e não se troca.
+const ehDemonstracao = authStore.modo === 'demonstracao';
+const OPCOES_PERFIL = PAPEIS.map((papel) => ({ valor: papel, rotulo: ROTULOS_PAPEL[papel].rotulo }));
 
 const perfil = computed<PapelGovernanca>({
   get: () => authStore.usuarioAtual.papel,
@@ -151,9 +150,11 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
       :fundamento="route.meta.fundamento"
     >
       <template #acoes>
-        <div class="painel__perfil">
-          <span class="painel__perfil-rotulo" aria-hidden="true">Ver o painel como (demonstração)</span>
-          <SegmentedControl v-model="perfil" :opcoes="OPCOES_PERFIL" rotulo="Ver o painel como (demonstração)" />
+        <div v-if="ehDemonstracao" class="painel__perfil">
+          <label for="painel-ver-como" class="painel__perfil-rotulo">Ver como</label>
+          <select id="painel-ver-como" v-model="perfil" class="painel__perfil-select">
+            <option v-for="op in OPCOES_PERFIL" :key="op.valor" :value="op.valor">{{ op.rotulo }}</option>
+          </select>
         </div>
       </template>
     </PageHeader>
@@ -422,6 +423,12 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
   font-size: var(--texto-xs);
   font-weight: var(--peso-semi);
   color: var(--texto-secundario);
+}
+
+/* Os estilos de campo (borda, cor, altura mínima) vêm de base.css, com tokens. */
+.painel__perfil-select {
+  min-width: 14rem;
+  max-width: 100%;
 }
 
 /* --- Indicadores -------------------------------------------------------- */
@@ -758,26 +765,9 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
   .painel {
     gap: var(--esp-4);
   }
-  .painel__perfil {
+  .painel__perfil,
+  .painel__perfil-select {
     width: 100%;
-  }
-  /* Simulador de perfil em grade 2×2 no celular (achado do protótipo). */
-  .painel__perfil :deep(.segmentado) {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--esp-2);
-    width: 100%;
-    border: 0;
-    border-radius: 0;
-    overflow: visible;
-  }
-  .painel__perfil :deep(.segmentado__opcao) {
-    justify-content: center;
-    border: 1px solid var(--borda-forte);
-    border-radius: var(--raio-pilula);
-    white-space: normal;
-    text-align: center;
-    line-height: 1.2;
   }
   .cartao {
     padding: var(--esp-4);

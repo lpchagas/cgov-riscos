@@ -485,7 +485,7 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         etapa: 'validacao_cg',
         acao: 'aprovado_1_clique',
         usuarioNome: 'Coordenador-Geral (2º Degrau — CG)',
-        usuarioPapel: 'lider_cg',
+        usuarioPapel: 'coordenador_geral',
         despachoTexto:
           'Validado em 1 clique pela Coordenação-Geral e escalado à Diretoria por se tratar de Risco Crítico (Residual 17,1 Extremo > Apetite Baixo).',
         criadoEm: '2026-11-09T09:15:00Z',
@@ -606,7 +606,7 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         etapa: 'validacao_cg',
         acao: 'aprovado_1_clique',
         usuarioNome: 'Coordenador-Geral (2º Degrau — CG)',
-        usuarioPapel: 'lider_cg',
+        usuarioPapel: 'coordenador_geral',
         despachoTexto:
           'Aprovado em 1 clique pela CG e encaminhado à Diretoria (Residual 8,4 = Médio, acima do apetite Baixo da DAR — Risco Crítico).',
         criadoEm: '2026-11-06T15:30:00Z',
