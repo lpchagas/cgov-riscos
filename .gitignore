@@ -25,3 +25,6 @@ cgov-gestao-riscos-v4.zip
 # Saídas da varredura de acessibilidade (Playwright)
 playwright-report/
 test-results/
+
+# Exportações locais das listas do SharePoint (podem conter dados pessoais — nunca versionar)
+_temp/

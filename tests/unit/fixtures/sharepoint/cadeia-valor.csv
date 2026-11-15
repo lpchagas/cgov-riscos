@@ -1,0 +1,4 @@
+﻿ListSchema={"schemaXmlList":["<Field ID=\"{0000}\" Name=\"exemplo\" />"]}
+"proc","proc_id","proc_tipo","orientador","supervisor","icmbio_id","macroprocesso","macro_id","Situacao"
+"Gestão de testes, ensaios e simulações","9.01.1","Gerencial","DTESTE","DTESTE","90.1000","Governança de teste","9.01","válido"
+"Processo de exemplo","9.01.2","Finalístico","Presidente","XYZ","92.0001","Governança de teste","9.01",""

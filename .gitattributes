@@ -1,0 +1,11 @@
+# Regras de como o Git trata o fim de linha de alguns arquivos.
+#
+# Os arquivos abaixo imitam as listas exportadas do SharePoint e têm, de
+# propósito, quebras de linha no formato do Windows (CRLF = "\r\n"). Os testes
+# do importador (tests/unit/syncEstrutura.spec.ts) usam esse detalhe para
+# provar que a leitura funciona com CRLF (ponto de atenção 5 do plano da B1).
+#
+# "-text" diz ao Git: "não mexa no fim de linha deste arquivo". Sem isso, com
+# core.autocrlf=input, o Git trocaria CRLF por LF ao gravar o commit, e o
+# teste deixaria de testar o caso real num clone novo.
+tests/unit/fixtures/sharepoint/*.csv -text

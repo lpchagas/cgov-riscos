@@ -13,3 +13,12 @@ VALUES
   (6, 'Imagem/Reputação', 'Eventos que abalam a credibilidade e a confiança da sociedade no ICMBio.', 'baixo', 'Preservação da credibilidade técnico-científica e socioambiental da Autarquia.', '[]'::jsonb),
   (7, 'Socioambiental', 'Eventos que impactam ecossistemas, unidades de conservação ou populações tradicionais.', 'baixo', 'Missão finalística de conservação da biodiversidade.', '[]'::jsonb),
   (8, 'Tecnologia da Informação', 'Indisponibilidade de sistemas, incidentes cibernéticos ou perda de dados institucionais.', 'moderado', 'Sistemas suportam risco residual até Médio com plano de contingência ativo.', '[]'::jsonb);
+
+-- 2. Acerta a sequência dos ids das categorias.
+-- EXPLICAÇÃO DIDÁTICA: a coluna `id` de categorias_risco é SERIAL, ou seja,
+-- ganha o próximo número de um "contador" (a sequência categorias_risco_id_seq).
+-- Acima gravamos os ids 1 a 8 À MÃO, e isso NÃO avança o contador: ele
+-- continuaria em 1. O próximo cadastro da CGOV pegaria o id 1 e daria erro
+-- de chave duplicada (23505). O setval põe o contador no maior id existente
+-- (8); o próximo cadastro recebe 9.
+SELECT setval('categorias_risco_id_seq', (SELECT max(id) FROM categorias_risco));

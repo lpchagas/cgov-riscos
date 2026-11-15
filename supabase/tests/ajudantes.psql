@@ -1,0 +1,107 @@
+-- ============================================================================
+-- AJUDANTES DOS TESTES DE BANCO (pgTAP) — Etapa B1, Tarefa 5
+-- ============================================================================
+-- EXPLICAÇÃO DIDÁTICA:
+-- Este arquivo NÃO é um teste. Ele termina em `.psql` (e não em `.sql`) de
+-- propósito: o `supabase test db` roda como teste todo arquivo `.sql` da
+-- pasta `supabase/tests/`. Os testes que precisam dele o incluem assim:
+--
+--     \ir ajudantes.psql
+--
+-- (`\ir` = "include relative": o psql lê o arquivo da mesma pasta do teste.)
+--
+-- As funções ficam no esquema `pg_temp` (temporário da sessão): somem sozinhas
+-- quando a conexão do teste termina e nunca vão para o banco de verdade.
+-- Por isso são chamadas com o prefixo: `select pg_temp.entrar_como('...');`.
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- entrar_como(email): "faz de conta" que o usuário fictício está logado.
+-- ----------------------------------------------------------------------------
+-- O Supabase descobre quem está logado por duas coisas:
+--   1) o papel (role) do banco: `authenticated` para quem fez login;
+--   2) o "crachá" (JWT), cujo campo `sub` é o id do usuário. A função
+--      `auth.uid()` lê esse campo de `request.jwt.claims`.
+-- Aqui nós ajustamos as duas coisas à mão, só até o fim da transação
+-- (o `true` do set_config = "local", como `set local`).
+--
+-- Exemplo:
+--   select pg_temp.entrar_como('gestor.uc@radar.test');
+--   select auth.uid();   -- 00000000-0000-4000-a000-000000000001
+create or replace function pg_temp.entrar_como(p_email text)
+returns uuid
+language plpgsql
+as $$
+declare
+  v_id uuid;
+begin
+  -- Volta ao usuário da sessão (postgres) para poder ler auth.users,
+  -- caso o teste já esteja "logado" como outra pessoa.
+  perform set_config('role', 'none', true);
+
+  select u.id into v_id from auth.users u where u.email = p_email;
+  if v_id is null then
+    raise exception 'Ajudante de teste: usuário % não existe em auth.users (rodou npm run db:reset?)', p_email;
+  end if;
+
+  -- Crachá (JWT) de mentira, com o id do usuário no campo `sub`.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_id, 'role', 'authenticated', 'email', p_email)::text, true);
+  -- E o papel de quem fez login.
+  perform set_config('role', 'authenticated', true);
+  return v_id;
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- entrar_como_anonimo(): visitante sem login (papel `anon`, sem `sub`).
+-- ----------------------------------------------------------------------------
+create or replace function pg_temp.entrar_como_anonimo()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '{"role":"anon"}', true);
+  perform set_config('role', 'anon', true);
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- sair(): volta a ser o administrador do teste (postgres), sem crachá.
+-- ----------------------------------------------------------------------------
+-- Útil antes de alterar dados "à força" no meio do teste (ex.: criar um ciclo).
+create or replace function pg_temp.sair()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- linhas_afetadas(sql): roda um UPDATE/DELETE e devolve QUANTAS linhas mudou.
+-- ----------------------------------------------------------------------------
+-- Por que existe? Quando a RLS barra um UPDATE ou DELETE, o PostgreSQL NÃO dá
+-- erro: ele simplesmente "não encontra" a linha e muda 0 linhas. Para provar
+-- que a trava funcionou, o teste precisa contar as linhas. (Já o INSERT
+-- barrado dá erro 42501, testado com throws_ok.) Tarefa 6.
+--
+-- Exemplo:
+--   select pg_temp.entrar_como('gr@radar.test');
+--   select pg_temp.linhas_afetadas($$update public.riscos set causas = 'x'
+--                                     where codigo_radar = 'RADAR-DEMO-UC-CT'$$);  -- 0
+create or replace function pg_temp.linhas_afetadas(p_sql text)
+returns integer
+language plpgsql
+as $$
+declare
+  v_linhas integer;
+begin
+  execute p_sql;
+  get diagnostics v_linhas = row_count;
+  return v_linhas;
+end;
+$$;
