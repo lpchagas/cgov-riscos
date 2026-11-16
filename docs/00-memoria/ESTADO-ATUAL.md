@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-16  
-> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). Próximas: C (Painel no celular, decisão da CGOV) e D (homologação na CGTI).
+> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** está concluída na branch `feat/c-painel-celular` (ainda não mesclada). Próxima: D (homologação na CGTI).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -170,3 +170,18 @@ Design: [[2026-11-16-etapa-b3-telas-banco-design]] · Plano: [[2026-11-16-etapa-
   - `npm run db:reset && npm run test:db`: **17 arquivos (`000` a `082`), 840 testes, `Result: PASS`**.
   - `git status --porcelain | grep -i '_temp'`: vazio. `git diff --stat main -- supabase/migrations`: só `20261117001_leitura_acoes_e_gravacao_ficha.sql`. `grep -rn "service_role\|SERVICE_ROLE" src/`: só o comentário existente em `src/services/supabase.ts` linha 36.
 
+
+## Etapa C — Painel no celular (2026-11-16, branch `feat/c-painel-celular`)
+Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etapa-c-painel-celular-plan]] · Decisões: [[decisoes-tecnicas-c]] · Design system: [[design-system]] (seção 11)
+- **Situação: etapa C concluída na branch, ainda não mesclada na `main`.** Sem migração, sem mudança de cálculo, alcance ou RLS.
+- **Decisões da CGOV:** D-C1 recolher sem remover; D-C2 "Precisa da sua atenção" antes da Matriz no celular; D-C3 indicadores compactos 2×2 sem descrição.
+- **Entregas:** `useCelular` (breakpoint 639,98 px); `BlocoRecolhivel` (três resumos fechados no celular, abertos no computador); `StatCard` com `compacto`; Painel reordenado só por CSS; "Maiores riscos" com até 3 cartões e "Mostrar mais N"; alvos de toque de 44 px (inclusive o "Fundamento" do `PageHeader` compartilhado); teste de navegador `painelCelular.a11y.ts`; 390 px na varredura; Figma atualizado (quadro Trabalho do celular e componente `BlocoRecolhivel`).
+- **Altura medida do Painel em 390 px (demonstração, blocos fechados):** CGOV **3.690 px** (antes 4.104) e Gestor **3.771 px** (antes 4.185). **A meta de 3.500 px NÃO foi atingida:** ficou 190 px e 271 px acima. Sem os alvos de 44 px seria 3.537 / 3.618 px (os alvos custaram cerca de 150 px). Alvos com lado menor que 44 px: 0 (antes 14 de 49). Sem rolagem lateral.
+- **Pendências:** meta de 3.500 px (decisão da CGOV: mais cortes de conteúdo ou alvos menores); descrição dos indicadores agora só para leitor de tela; no celular a ordem do teclado e do leitor de tela (Matriz antes da Atenção) difere da ordem visual; Figma: variante `compacto` do `StatCard`, quadros de computador do Trabalho, republicar a biblioteca e ligar o Code Connect à mão; menores adiados nas revisões (lista em [[decisoes-tecnicas-c]], seção 5).
+- **Verificação final da etapa C (2026-11-16, nesta ordem):**
+  - `npm test`: **48 arquivos, 540 testes passando**.
+  - `npm run build`: ok (`vue-tsc` + `vite build`).
+  - `npm run test:a11y`: **314 passaram, 0 violações** ((16 + 4) telas × 5 larguras × 3 temas = 300 + 4 autoverificações + 1 teste de menu + 9 testes do Painel no celular), em 5,8 min.
+  - `npm run test:integracao` (com `db:start` e `db:funcoes`): **5 arquivos, 29 testes passando**.
+  - `npm run db:reset && npm run test:db`: **17 arquivos (`000` a `082`), 840 testes, `Result: PASS`**.
+  - `git status --porcelain | grep -i '_temp'`: vazio. `git diff --stat main -- supabase/migrations`: vazio. `grep -rn "service_role\|SERVICE_ROLE" src/`: só o comentário em `src/services/supabase.ts` linha 36.

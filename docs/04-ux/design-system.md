@@ -222,7 +222,7 @@ Capturas: [`capturas/fase3/`](capturas/fase3/).
 | Violações axe-core (WCAG 2.2 A/AA) | 0 | **0** |
 | Páginas com rolagem lateral | 0 | 0 |
 | Tabelas com colunas escondidas por rolagem interna no celular | 5 páginas (não medido antes) | **0** |
-| Altura do Painel no celular (390 px) | 4.819 px | **4.109 px** (meta de 3.500 não atingida, ver abaixo) |
+| Altura do Painel no celular (390 px) | 4.819 px | **4.109 px** (meta de 3.500 não atingida, ver abaixo; a etapa C mediu 3.690 px, ver § 11) |
 | Altura do rodapé no celular | 862 px | **512 px** |
 | Testes automatizados | 98 | **105** |
 
@@ -276,3 +276,26 @@ Painel e Riscos também em `carregando` e em `erro`. O estado é simulado pela c
 `radar.demo-estado.v1` do navegador (`carregando` ou `erro`), gravada antes da página abrir
 (`tests/a11y/telas.ts`, campo `estadoDemo`). Decisões: [[decisoes-tecnicas-b3]].
 
+
+## 11. Painel no celular (etapa C)
+
+O Painel passou a ter um modo próprio abaixo de **640 px** (celular). No computador nada mudou.
+Decisões e custos em [[decisoes-tecnicas-c]]; desenho em [[2026-11-16-etapa-c-painel-celular-design]].
+
+| Métrica (390 px, demonstração, blocos fechados) | Fase 4 (§ 9) | Etapa C |
+|---|---|---|
+| Altura do Painel, perfil CGOV | 4.104 px | **3.690 px** |
+| Altura do Painel, perfil Gestor | 4.185 px | **3.771 px** |
+| Alvos de toque com lado menor que 44 px | 14 de 49 | **0** |
+
+**A meta de 3.500 px da Fase 4 continua NÃO atingida:** o Painel ficou 190 px (CGOV) e 271 px (Gestor) acima.
+Sem os alvos de 44 px seria 3.537 / 3.618 px; escolhemos gastar cerca de 150 px em alvos de toque.
+
+- **Componente novo `BlocoRecolhivel`** (`src/components/ui/`): os três resumos finais recolhem no celular
+  (botão com `aria-expanded` e `aria-controls`, estado não salvo) e ficam sempre abertos no computador.
+- **`StatCard` com `compacto`:** indicadores 2×2 só com número e rótulo; a descrição fica só para leitor de tela.
+- **Ordem no celular:** indicadores, Precisa da sua atenção, Matriz, Maiores riscos (até 3 + "Mostrar mais N"),
+  resumos recolhidos. A ordem é só visual (CSS): o teclado e o leitor de tela seguem Matriz antes da Atenção.
+- **Alvos de 44 px no celular**, inclusive o "Fundamento" do `PageHeader`, que é compartilhado: todas as telas ganham.
+- **Figma:** `BlocoRecolhivel` novo na biblioteca; falta republicar a biblioteca e ligar o Code Connect (tabela
+  em [[decisoes-tecnicas-c]] seção 4).
