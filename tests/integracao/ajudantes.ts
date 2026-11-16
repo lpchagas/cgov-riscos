@@ -146,3 +146,46 @@ export async function limparContasDeTeste(): Promise<void> {
     await c.from('perfis_usuarios').update({ titular_chefia: o.titular_chefia }).eq('id', o.id).neq('titular_chefia', o.titular_chefia);
   }
 }
+
+/** Nome do contêiner do banco local (o mesmo usado pelo script `db:reset`). */
+const CONTEINER_BANCO = 'supabase_db_cgov-riscos';
+
+/**
+ * Roda SQL como ADMINISTRADOR do banco local (psql dentro do contêiner).
+ *
+ * POR QUE EXISTE? Algumas faxinas não são possíveis nem com a chave de serviço:
+ * o gatilho D2 recusa apagar risco APROVADO (e risco em validação fica
+ * "travado"), mesmo para o administrador. Só uma TRANSAÇÃO que liga o sinal
+ * `radar.fluxo` consegue devolver o risco a rascunho e apagá-lo — e a API
+ * (supabase-js) não deixa ligar esse sinal, pois cada chamada é uma transação
+ * separada. Uso EXCLUSIVO dos testes de integração, no banco local.
+ *
+ * Ex.: sqlComoAdministrador("select count(*) from public.riscos") -> "10"
+ */
+export function sqlComoAdministrador(sql: string): string {
+  return execFileSync(
+    'docker',
+    ['exec', '-i', CONTEINER_BANCO, 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-At'],
+    { input: sql, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] },
+  ).trim();
+}
+
+/**
+ * Faxina dos riscos criados por um teste, em QUALQUER estado (inclusive
+ * aprovado). Numa transação só: liga o sinal `radar.fluxo`, devolve os riscos
+ * a rascunho e os apaga (controles, respostas, KRIs, medições e histórico do
+ * fluxo vão junto, em cascata). A trilha de auditoria guarda o registro dessas
+ * operações — é o "rastro" que fica, de propósito (a trilha não se apaga).
+ */
+export function apagarRiscosDeTeste(ids: string[]): void {
+  const validos = ids.filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (!validos.length) return;
+  const lista = validos.map((id) => `'${id}'`).join(', ');
+  sqlComoAdministrador(`
+    begin;
+    select set_config('radar.fluxo', 'on', true);
+    update public.riscos set status_fluxo = 'rascunho' where id in (${lista}) and status_fluxo <> 'rascunho';
+    delete from public.riscos where id in (${lista});
+    commit;
+  `);
+}

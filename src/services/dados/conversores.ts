@@ -504,6 +504,10 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
 export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
   // Opcional ausente no front (undefined) vira null: "sem valor" no banco.
   const ouNulo = (v: string | undefined) => v ?? null;
+  // Nos FILHOS (ação 5W2H), texto opcional ausente OU em branco também vira
+  // null: assim o banco APAGA o valor antigo (chave omitida = "manter").
+  // Ex.: '   ' -> null; 'Reduzir fraudes' -> 'Reduzir fraudes'.
+  const vazioViraNulo = (v: string | undefined) => (v && v.trim() ? v : null);
   return {
     id: r.id,
     objetoId: r.objetoId,
@@ -524,7 +528,12 @@ export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
     nivelEficaciaControle: r.nivelEficaciaControle,
     estrategiaPrincipal: r.estrategiaPrincipal,
     controles: r.controlesExistentes.map((c) => ({ ...c })),
-    respostas: r.respostasTratamento.map((x) => ({ ...x })),
+    respostas: r.respostasTratamento.map((x) => ({
+      ...x,
+      justificativaPorQue: vazioViraNulo(x.justificativaPorQue),
+      localOnde: vazioViraNulo(x.localOnde),
+      custoQuanto: vazioViraNulo(x.custoQuanto),
+    })),
     // Tira as medições: elas não passam pela gravação da ficha.
     kris: r.kris.map(({ medicoes: _medicoes, ...k }) => ({ ...k })),
   };

@@ -238,7 +238,14 @@ export function criarFonteDemonstracao(
       r.controlesExistentes = f.controles.map((c) => ({ ...c, id: c.id ?? novoId('ctrl') }));
     }
     if (f.respostas !== undefined) {
-      r.respostasTratamento = f.respostas.map((x) => ({ ...x, id: x.id ?? novoId('trat') }));
+      // Nos textos opcionais, null ("apagar") vira campo ausente (undefined) na memória.
+      r.respostasTratamento = f.respostas.map((x) => ({
+        ...x,
+        id: x.id ?? novoId('trat'),
+        justificativaPorQue: x.justificativaPorQue ?? undefined,
+        localOnde: x.localOnde ?? undefined,
+        custoQuanto: x.custoQuanto ?? undefined,
+      }));
     }
     if (f.kris !== undefined) {
       // As medições não vêm na ficha: o KRI que já existia mantém as suas.

@@ -84,7 +84,19 @@ export interface FichaParaSalvar {
   estrategiaPrincipal?: FichaRisco['estrategiaPrincipal'];
 
   controles?: Array<Omit<ControleExistente, 'id'> & { id?: string }>;
-  respostas?: Array<Omit<RespostaTratamento5W2H, 'id'> & { id?: string }>;
+  /**
+   * Textos opcionais da ação 5W2H aceitam `null` = "apagar o valor no banco".
+   * Ex.: a pessoa limpa o "Por quê" → `justificativaPorQue: null`. (Se o campo
+   * apenas sumisse, o banco entenderia "manter o valor antigo".)
+   */
+  respostas?: Array<
+    Omit<RespostaTratamento5W2H, 'id' | 'justificativaPorQue' | 'localOnde' | 'custoQuanto'> & {
+      id?: string;
+      justificativaPorQue?: string | null;
+      localOnde?: string | null;
+      custoQuanto?: string | null;
+    }
+  >;
   /** As medições do KRI não passam por aqui (são do Monitoramento). */
   kris?: Array<Omit<IndicadorKri, 'id' | 'medicoes'> & { id?: string }>;
 }

@@ -16,8 +16,10 @@
  *      e juntamos aqui (agrupando por `risco_id`).
  *   3. ERROS: qualquer falha vira `ErroRadar` (mensagem segura para a tela).
  *
- * As gravações (salvar, enviar, validar...) chegam na Task 7: por ora rejeitam
- * com "não implementado (Task 7)".
+ * GRAVAÇÕES (Task 7): a ficha vai inteira para a função `salvar_ficha_risco`
+ * (um comando só: risco + controles + respostas + KRIs); as ações do fluxo são
+ * as funções do banco de mesmo nome (enviar_para_validacao, validar_risco...).
+ * O front NUNCA manda valores calculados nem muda o `status_fluxo` direto.
  *
  * Exemplo:
  *   const fonte = criarFonteSupabase(supabaseClient!);
@@ -31,13 +33,14 @@ import {
   categoriaDoBanco,
   eventoAuditoriaDoBanco,
   eventoFluxoDoBanco,
+  fichaParaJson,
   objetoDoBanco,
   processoDoBanco,
   riscoDoBanco,
   unidadeDoBanco,
   type LinhaBanco,
 } from './conversores';
-import { traduzirErroBanco } from './errosBanco';
+import { ErroRadar, traduzirErroBanco } from './errosBanco';
 import { emLotes, lerTodasAsPaginas } from './paginacao';
 import type { Carteira, FonteDados } from './tipos';
 
@@ -58,8 +61,58 @@ function agruparPor(linhas: LinhaBanco[], coluna: string): Map<string, LinhaBanc
   return mapa;
 }
 
-/** Gravação ainda não disponível (chega na Task 7). */
-const naoImplementado = (): Promise<never> => Promise.reject(new Error('não implementado (Task 7)'));
+/**
+ * Confere a resposta de uma chamada ao banco: se veio erro, lança o
+ * `ErroRadar` já traduzido; senão devolve os dados.
+ * Ex.: const linhas = conferir(await cliente.from('x').delete().eq('id', id).select('id'));
+ */
+function conferir<T>(resposta: { data: T; error: unknown }): T {
+  if (resposta.error) throw traduzirErroBanco(resposta.error);
+  return resposta.data;
+}
+
+/**
+ * Lança `ErroRadar` quando um UPDATE/DELETE não alcançou nenhuma linha.
+ *
+ * Por quê? A RLS NÃO dá erro quando barra um UPDATE ou DELETE: ela apenas
+ * "não acha" a linha, e o banco responde "deu certo, 0 linhas". Sem esta
+ * conferência a tela diria "salvo!" sem nada ter sido gravado.
+ */
+function exigirLinhas(linhas: unknown[] | null, mensagem: string, tipo: ErroRadar['tipo']): void {
+  if (!linhas || linhas.length === 0) throw new ErroRadar(mensagem, tipo);
+}
+
+/**
+ * `ObjetoContexto` (camelCase) -> colunas de `objetos_contexto`, só com os
+ * campos PRESENTES (undefined = não mexer).
+ *
+ * Regra do supervisor (`macroprocesso_supervisor_id`, migração 20261116002):
+ *   - COM processo vinculado: o banco preenche o supervisor a partir do
+ *     processo → NÃO mandamos (seria ignorado, e só confundiria).
+ *   - SEM processo: mandamos o valor da tela; o banco aceita só da CGOV (para
+ *     os demais, mudar o supervisor dá erro claro de permissão).
+ * Ex.: { nomeObjeto: 'X', unidadeId: 'u1', processoId: 'p1', macroprocessoSupervisorId: 'u9' }
+ *   -> { nome_objeto: 'X', unidade_id: 'u1', processo_id: 'p1' }   (sem supervisor)
+ */
+function objetoParaBanco(o: Partial<ObjetoContexto>): Record<string, unknown> {
+  const linha: Record<string, unknown> = {};
+  const copiar = (coluna: string, valor: unknown) => {
+    if (valor !== undefined) linha[coluna] = valor;
+  };
+  copiar('tipo_objeto', o.tipoObjeto);
+  copiar('nome_objeto', o.nomeObjeto);
+  copiar('unidade_id', o.unidadeId);
+  copiar('diretoria_id', o.diretoriaId);
+  copiar('processo_id', o.processoId);
+  if (!o.processoId) copiar('macroprocesso_supervisor_id', o.macroprocessoSupervisorId);
+  copiar('objetivo_estrategico_associado', o.objetivoEstrategicoAssociado);
+  copiar('insumos_principais', o.insumosPrincipais);
+  copiar('entregas_principais', o.entregasPrincipais);
+  copiar('partes_interessadas', o.partesInteressadas);
+  copiar('ciclo_ano', o.cicloAno);
+  // Nunca vão: id (vai no filtro), processoNome/processoAtivo/unidadeAtiva (só leitura).
+  return linha;
+}
 
 export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
   /** Lê uma tabela inteira, paginada, com a ordem pedida (sempre terminando em `id`). */
@@ -118,6 +171,30 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
     );
   }
 
+  /** Uma linha de `objetos_contexto` -> `ObjetoContexto`, lendo a unidade e o processo dela. */
+  async function completarObjeto(o: LinhaBanco): Promise<ObjetoContexto> {
+    const [uni, proc] = await Promise.all([
+      cliente.from('unidades').select('*').eq('id', o.unidade_id).maybeSingle(),
+      o.processo_id
+        ? cliente.from('processos_cadeia_valor').select('*').eq('id', o.processo_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (uni.error) throw traduzirErroBanco(uni.error);
+    if (proc.error) throw traduzirErroBanco(proc.error);
+    return objetoDoBanco(o, {
+      unidade: uni.data ? unidadeDoBanco(uni.data as LinhaBanco) : null,
+      processo: proc.data ? processoDoBanco(proc.data as LinhaBanco) : null,
+    });
+  }
+
+  /**
+   * Chama uma função do fluxo no banco e só confere o erro.
+   * Ex.: acaoDoFluxo('validar_risco', { risco: id, parecer: 'De acordo.' })
+   */
+  async function acaoDoFluxo(funcao: string, parametros: Record<string, unknown>): Promise<void> {
+    conferir(await cliente.rpc(funcao, parametros));
+  }
+
   return {
     async carregarCarteira(): Promise<Carteira> {
       const [catL, uniL, procL, objL, risL, conL, resL, kriL, medL, hisL] = await Promise.all([
@@ -167,22 +244,7 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
       if (obj.error) throw traduzirErroBanco(obj.error);
       const med = await lerFilhosPorIds('medicoes_kri', 'kri_id', kri.map((k) => String(k.id)));
       // Unidade e processo do objeto (para as marcas "inativo").
-      let objeto: ObjetoContexto | null = null;
-      if (obj.data) {
-        const o = obj.data as LinhaBanco;
-        const [uni, proc] = await Promise.all([
-          cliente.from('unidades').select('*').eq('id', o.unidade_id).maybeSingle(),
-          o.processo_id
-            ? cliente.from('processos_cadeia_valor').select('*').eq('id', o.processo_id).maybeSingle()
-            : Promise.resolve({ data: null, error: null }),
-        ]);
-        if (uni.error) throw traduzirErroBanco(uni.error);
-        if (proc.error) throw traduzirErroBanco(proc.error);
-        objeto = objetoDoBanco(o, {
-          unidade: uni.data ? unidadeDoBanco(uni.data as LinhaBanco) : null,
-          processo: proc.data ? processoDoBanco(proc.data as LinhaBanco) : null,
-        });
-      }
+      const objeto = obj.data ? await completarObjeto(obj.data as LinhaBanco) : null;
       return riscoDoBanco(risco, {
         objeto,
         categoria: cat.data ? categoriaDoBanco(cat.data as LinhaBanco) : null,
@@ -246,18 +308,114 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
       });
     },
 
-    salvarFicha: naoImplementado,
-    excluirRisco: naoImplementado,
-    enviar: naoImplementado,
-    assumir: naoImplementado,
-    validar: naoImplementado,
-    homologar: naoImplementado,
-    devolver: naoImplementado,
-    registrarMedicao: naoImplementado,
-    atualizarStatusTratamento: naoImplementado,
-    salvarObjeto: naoImplementado,
-    reatribuirObjeto: naoImplementado,
-    alterarApetite: naoImplementado,
-    alterarJustificativa: naoImplementado,
+    // -----------------------------------------------------------------------
+    // GRAVAÇÕES (Task 7)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Grava a ficha inteira num comando só (função `salvar_ficha_risco`).
+     * Sem `id` = cria (o banco gera o código RADAR-<ano>-<NNN>); com `id` =
+     * altera. Se a alteração mexer na avaliação de um risco aprovado, o
+     * próprio banco o reabre para validação.
+     * Ex.: await fonte.salvarFicha({ objetoId, causas, ..., probabilidade: 3 })
+     *   -> { id: '…', codigoRadar: 'RADAR-2026-012' }
+     */
+    async salvarFicha(f) {
+      const linhas = conferir(await cliente.rpc('salvar_ficha_risco', { ficha: fichaParaJson(f) })) as
+        | LinhaBanco[]
+        | null;
+      const linha = linhas?.[0];
+      if (!linha) throw new ErroRadar('Não foi possível confirmar a gravação da ficha. Atualize a página.', 'desconhecido');
+      return { id: String(linha.id), codigoRadar: String(linha.codigo_radar) };
+    },
+
+    /**
+     * Exclui o risco. A regra D2 fica no banco: aprovado ou em validação dá
+     * erro claro ("faz parte do Plano de Gestão de Riscos", "está travada").
+     * 0 linhas apagadas = não existe ou está fora do alcance → "não encontrado".
+     */
+    async excluirRisco(id) {
+      const apagadas = conferir(await cliente.from('riscos').delete().eq('id', id).select('id'));
+      exigirLinhas(apagadas, 'Risco não encontrado.', 'nao_encontrado');
+    },
+
+    // Fluxo de aprovação: cada botão chama a função de mesmo papel no banco,
+    // que confere QUEM pode e em que ESTADO (aqui não decidimos nada).
+    async enviar(id) {
+      await acaoDoFluxo('enviar_para_validacao', { risco: id });
+    },
+    async assumir(id) {
+      await acaoDoFluxo('assumir_risco_preliminar', { risco: id });
+    },
+    async validar(id, parecer) {
+      await acaoDoFluxo('validar_risco', { risco: id, parecer: parecer ?? null });
+    },
+    async homologar(id, parecer) {
+      await acaoDoFluxo('homologar_risco', { risco: id, parecer: parecer ?? null });
+    },
+    async devolver(id, motivo) {
+      // Motivo vazio: quem recusa é o banco ("informe o motivo da devolução").
+      await acaoDoFluxo('devolver_risco', { risco: id, motivo });
+    },
+
+    /** Monitoramento: nova medição do KRI (não reabre o risco aprovado). */
+    async registrarMedicao(kriId, m) {
+      conferir(
+        await cliente.from('medicoes_kri').insert({
+          kri_id: kriId,
+          data_medicao: m.dataMedicao,
+          valor_apurado: m.valorApurado,
+          em_alerta: m.emAlerta,
+          observacao: m.observacao ?? null,
+        }),
+      );
+    },
+
+    /** Monitoramento: andamento da ação 5W2H (mudar só o status não reabre o risco). */
+    async atualizarStatusTratamento(respostaId, status) {
+      const linhas = conferir(
+        await cliente.from('respostas_tratamento').update({ status_execucao: status }).eq('id', respostaId).select('id'),
+      );
+      exigirLinhas(linhas, 'Ação de tratamento não encontrada.', 'nao_encontrado');
+    },
+
+    /**
+     * Cria (sem `id`) ou altera (com `id`) um objeto de gestão de riscos e
+     * devolve o objeto como ficou NO BANCO (com o supervisor que o banco
+     * preencheu e as marcas de unidade/processo inativos).
+     */
+    async salvarObjeto(o) {
+      const linha = objetoParaBanco(o);
+      const resposta = o.id
+        ? await cliente.from('objetos_contexto').update(linha).eq('id', o.id).select('*')
+        : await cliente.from('objetos_contexto').insert(linha).select('*');
+      const linhas = conferir(resposta) as LinhaBanco[] | null;
+      exigirLinhas(linhas, 'Objeto não encontrado ou fora do seu alcance. Atualize a página.', 'nao_encontrado');
+      return completarObjeto(linhas![0]);
+    },
+
+    /** Só a CGOV, só objeto de unidade inativa (regras na função do banco). */
+    async reatribuirObjeto(objetoId, novaUnidadeId) {
+      conferir(await cliente.rpc('reatribuir_objeto', { objeto: objetoId, nova_unidade: novaUnidadeId }));
+    },
+
+    /**
+     * DAR: muda o apetite da categoria. O BANCO recalcula a criticidade dos
+     * riscos aprovados dela (e devolve à homologação os que viraram Crítico).
+     * Quem não é CGOV: a RLS barra em silêncio (0 linhas) → erro de permissão.
+     */
+    async alterarApetite(categoriaId, apetite) {
+      const linhas = conferir(
+        await cliente.from('categorias_risco').update({ apetite_declarado: apetite }).eq('id', categoriaId).select('id'),
+      );
+      exigirLinhas(linhas, 'Só a CGOV altera a Declaração de Apetite a Riscos (DAR).', 'permissao');
+    },
+
+    async alterarJustificativa(categoriaId, texto) {
+      const linhas = conferir(
+        await cliente.from('categorias_risco').update({ justificativa_dar: texto }).eq('id', categoriaId).select('id'),
+      );
+      exigirLinhas(linhas, 'Só a CGOV altera a Declaração de Apetite a Riscos (DAR).', 'permissao');
+    },
   };
 }

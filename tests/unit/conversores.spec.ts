@@ -153,6 +153,25 @@ describe('fichaParaJson', () => {
     }
   });
 
+  it('texto opcional vazio ou ausente da resposta 5W2H vai como null (o banco apaga o valor)', () => {
+    // Situação real: a pessoa apaga o "Por quê" de uma ação já gravada. Sem o
+    // null, a chave sumiria do JSON e o banco entenderia "manter o valor antigo".
+    const ficha = fichaDaFixture();
+    ficha.respostasTratamento[0] = {
+      ...ficha.respostasTratamento[0],
+      justificativaPorQue: undefined,
+      localOnde: '   ',
+      custoQuanto: '',
+    };
+    const json = fichaParaJson(fichaParaSalvarDeRisco(ficha));
+    const resposta = (json.respostas as Array<Record<string, unknown>>)[0];
+    expect(resposta).toHaveProperty('justificativa_por_que', null);
+    expect(resposta).toHaveProperty('local_onde', null);
+    expect(resposta).toHaveProperty('custo_quanto', null);
+    // Texto preenchido continua indo como está.
+    expect(resposta.acao_o_que).toBe(fixture.respostas[0].acao_o_que);
+  });
+
   it('omite grupo de filhos ausente (= não mexer) e manda lista vazia quando pedida', () => {
     const json = fichaParaJson({ objetoId: 'obj-1', causas: 'x', controles: [] });
     expect(json).toEqual({ objeto_id: 'obj-1', causas: 'x', controles: [] });

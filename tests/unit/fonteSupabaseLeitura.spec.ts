@@ -81,8 +81,24 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
     expect(chamadasRpc.every((c) => c.nome === 'acoes_no_fluxo')).toBe(true);
   });
 
-  it('as gravações ainda rejeitam com "não implementado"', async () => {
-    const { cliente } = clienteFalso({});
-    await expect(criarFonteSupabase(cliente).enviar('x')).rejects.toThrow('não implementado (Task 7)');
+  it('as ações do fluxo chamam as funções do banco com os nomes de parâmetro certos (Task 7)', async () => {
+    // Os nomes (`risco`, `parecer`, `motivo`) têm de ser IGUAIS aos das funções
+    // SQL: o PostgREST acha a função pelo nome dos parâmetros.
+    const { cliente, chamadasRpc } = clienteFalso({});
+    const fonte = criarFonteSupabase(cliente);
+    await fonte.enviar('r1');
+    await fonte.assumir('r1');
+    await fonte.validar('r1');
+    await fonte.homologar('r1', 'Ok.');
+    await fonte.devolver('r1', 'Ajustar.');
+    await fonte.reatribuirObjeto('o1', 'u2');
+    expect(chamadasRpc).toEqual([
+      { nome: 'enviar_para_validacao', args: { risco: 'r1' } },
+      { nome: 'assumir_risco_preliminar', args: { risco: 'r1' } },
+      { nome: 'validar_risco', args: { risco: 'r1', parecer: null } },
+      { nome: 'homologar_risco', args: { risco: 'r1', parecer: 'Ok.' } },
+      { nome: 'devolver_risco', args: { risco: 'r1', motivo: 'Ajustar.' } },
+      { nome: 'reatribuir_objeto', args: { objeto: 'o1', nova_unidade: 'u2' } },
+    ]);
   });
 });
