@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-16  
-> **Fase atual:** B1, B2, B1.1 mescladas na `main`. Etapa **B3 (telas lendo e gravando no banco) concluída** na branch `feat/b3-telas-banco` (2026-11-16), aguardando revisão e PR. Depois: C (Painel no celular, decisão da CGOV) e D (homologação na CGTI).
+> **Fase atual:** B1, B2, B1.1 mescladas na `main`. Etapa **B3 (telas lendo e gravando no banco) concluída** na branch `feat/b3-telas-banco` (2026-11-16), aberta no **PR #7**, aguardando revisão e mesclagem. Depois: C (Painel no celular, decisão da CGOV) e D (homologação na CGTI).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
