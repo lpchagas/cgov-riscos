@@ -11,10 +11,14 @@
  *      (e NÃO P × I) e ser um botão acessível.
  *   3. A página do Painel montada de verdade, com a store de demonstração.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import { useRiscosStore } from '../../src/stores/riscosStore';
+import { definirFonteParaTeste, useRiscosStore } from '../../src/stores/riscosStore';
+import { criarFonteDemonstracao } from '../../src/services/dados';
+import type { FonteDados } from '../../src/services/dados/tipos';
+import { ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
+import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import type { FichaRisco } from '../../src/types/radar.types';
 import { RISCOS_SEMENTE_ANEXO_II } from '../../src/services/dadosSementeAnexoII';
@@ -60,22 +64,33 @@ describe('painelResumo', () => {
     expect(d[2].percentual).toBe(50);
   });
 
-  it('"Precisa da sua atenção" muda conforme o perfil', () => {
-    const tipos = (papel: Parameters<typeof itensDeAtencao>[1]) =>
-      itensDeAtencao(semente(), papel, HOJE).map((i) => i.tipo);
+  /** As `acoes` que a fonte de demonstração devolveria para cada perfil (como o banco faria). */
+  async function acoesDoPerfil(papel: keyof typeof PERFIS_DEMO_ICMBIO, riscos: FichaRisco[]) {
+    const fonte = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO[papel] });
+    const lista = await fonte.acoesNoFluxo(riscos.map((r) => r.id));
+    return Object.fromEntries(lista.map((a) => [a.riscoId, a]));
+  }
+
+  it('"Precisa da sua atenção" muda conforme o perfil', async () => {
+    const lista = semente();
+    const tipos = async (papel: Parameters<typeof itensDeAtencao>[1]) =>
+      itensDeAtencao(lista, papel, HOJE, await acoesDoPerfil(papel as keyof typeof PERFIS_DEMO_ICMBIO, lista)).map(
+        (i) => i.tipo
+      );
 
     // CGOV supervisiona tudo o que está parado no fluxo.
-    expect(tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'prazo', 'prazo']);
+    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'prazo', 'prazo']);
     // A Coordenação-Geral vê a SUA fila de validação, não a da Diretoria.
-    expect(tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'prazo', 'prazo']);
+    expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'prazo', 'prazo']);
     // A Diretoria vê a SUA homologação (e também valida, spec B1 7.1) e não recebe alertas de KRI.
-    expect(tipos('diretor')).toEqual(['validacao', 'homologacao', 'prazo', 'prazo']);
+    expect(await tipos('diretor')).toEqual(['validacao', 'homologacao', 'prazo', 'prazo']);
     // O gestor (1ª Linha) não vê filas de aprovação dos degraus de cima.
-    expect(tipos('gestor')).toEqual(['kri', 'prazo', 'prazo']);
+    expect(await tipos('gestor')).toEqual(['kri', 'prazo', 'prazo']);
   });
 
-  it('fala com a pessoa: "aguardando a sua validação" para a Coordenação-Geral', () => {
-    const [primeiro] = itensDeAtencao(semente(), 'coordenador_geral', HOJE);
+  it('fala com a pessoa: "aguardando a sua validação" para a Coordenação-Geral', async () => {
+    const lista = semente();
+    const [primeiro] = itensDeAtencao(lista, 'coordenador_geral', HOJE, await acoesDoPerfil('coordenador_geral', lista));
     expect(primeiro.titulo).toBe('1 risco aguardando a sua validação');
     expect(primeiro.acao).toBe('Validar agora');
   });
@@ -183,6 +198,9 @@ describe('Painel (página)', () => {
     expect(w.text()).toContain('aguardando validação da Coordenação-Geral');
 
     await w.find('select#painel-ver-como').setValue('diretor');
+    // No sistema, o App recarrega a carteira ao trocar de perfil (as `acoes` mudam); aqui fazemos o mesmo.
+    await useRiscosStore().carregar();
+    await flushPromises();
     expect(useAuthStore().usuarioAtual.papel).toBe('diretor');
     expect(w.text()).toContain('aguardando a sua homologação');
     expect(w.text()).not.toContain('Indicador em alerta');
@@ -216,5 +234,72 @@ describe('Painel (página)', () => {
     const w = await montarPainel();
     expect(w.text()).not.toMatch(/\bPGR\b/);
     expect(w.text()).toContain('Plano de Gestão de Riscos');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. ESTADOS DE CARREGAMENTO, ERRO E VAZIO DO PAINEL (Etapa B3, Tarefa 9)
+// ---------------------------------------------------------------------------
+describe('Painel (estados da carteira)', () => {
+  afterEach(() => definirFonteParaTeste(null));
+
+  async function montarComFonte(fonte: FonteDados) {
+    definirFonteParaTeste(fonte);
+    setActivePinia(createPinia());
+    const store = useRiscosStore();
+    await store.carregar();
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'painel-cgov', component: PainelConsolidadoCgovView, meta: { titulo: 'Painel' } },
+        ...['riscos-lista', 'ficha-bowtie-detalhe', 'dar-apetite', 'trilha-auditoria', 'monitoramento-kris', 'validacao-um-clique'].map(
+          (name) => ({ path: `/${name}/:id?`, name, component: { template: '<div />' } })
+        ),
+      ],
+    });
+    router.push('/');
+    await router.isReady();
+    const w = mount(PainelConsolidadoCgovView, { global: { plugins: [router] } });
+    await flushPromises();
+    return { w, store };
+  }
+
+  it('com a fonte em erro, mostra "Não foi possível carregar os riscos" e "Tentar de novo" recarrega', async () => {
+    const base = criarFonteDemonstracao('normal');
+    let falhar = true;
+    const { w, store } = await montarComFonte({
+      ...base,
+      carregarCarteira: () => (falhar ? Promise.reject(new ErroRadar(MENSAGEM_REDE, 'rede')) : base.carregarCarteira()),
+    });
+    expect(store.estado).toBe('erro');
+    expect(w.find('h1').text()).toBe('Não foi possível carregar os riscos');
+    expect(w.findAll('h1')).toHaveLength(1);
+
+    falhar = false;
+    await w.findAll('button').find((b) => b.text() === 'Tentar de novo')!.trigger('click');
+    await flushPromises();
+    expect(store.estado).toBe('pronto');
+    expect(w.text()).not.toContain('Não foi possível carregar os riscos');
+    expect(w.text()).toContain('Riscos mapeados');
+  });
+
+  it('com a carteira vazia, mostra estado vazio e nenhuma Matriz com zeros enganosos', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const { w } = await montarComFonte({
+      ...base,
+      carregarCarteira: async () => ({ ...(await base.carregarCarteira()), riscos: [] }),
+    });
+    expect(w.text()).toContain('Nenhum risco no seu alcance');
+    expect(w.findAll('button.matriz__celula')).toHaveLength(0);
+  });
+
+  it('"Precisa da sua atenção" segue as ações liberadas (acoes), não o perfil', async () => {
+    const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.gestor });
+    const { w } = await montarComFonte({
+      ...base,
+      acoesNoFluxo: async (ids) => (await base.acoesNoFluxo(ids)).map((a) => ({ ...a, podeValidar: true })),
+    });
+    // O perfil é o do simulador (gestor), mas o banco disse que ele pode validar.
+    expect(w.text()).toContain('aguardando a sua validação');
   });
 });

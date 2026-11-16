@@ -36,6 +36,8 @@ import type { ColunaTabela } from '../components/ui/tipos';
 import RiskBadge from '../components/ui/RiskBadge.vue';
 import Chip from '../components/ui/Chip.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
+import EstadoCarregamento from '../components/ui/EstadoCarregamento.vue';
+import ErroPagina from '../components/ui/ErroPagina.vue';
 import SideSheet from '../components/ui/SideSheet.vue';
 import FormField from '../components/ui/FormField.vue';
 import BrButton from '../components/govbr/BrButton.vue';
@@ -62,6 +64,23 @@ function atualizarFiltros(mudancas: Record<string, string | undefined>): void {
 
 function limparFiltros(): void {
   router.replace({ query: {} });
+}
+
+// ---------------------------------------------------------------------------
+// ESTADO DA CARTEIRA (carregando / erro / pronto) e SELO "processo inativo"
+// ---------------------------------------------------------------------------
+/** 'ocioso' também mostra o esqueleto: nunca mostramos "0 riscos" antes dos dados chegarem. */
+const estadoBloco = computed<'carregando' | 'erro' | 'pronto'>(() =>
+  riscosStore.estado === 'erro' ? 'erro' : riscosStore.estado === 'pronto' ? 'pronto' : 'carregando'
+);
+/** Carteira lida, mas vazia: diferente de "nenhum risco com estes filtros". */
+const carteiraVazia = computed(() => estadoBloco.value === 'pronto' && riscosStore.riscos.length === 0);
+
+/** Objetos de gestão por id, para achar o processo vinculado a cada risco. */
+const objetosPorId = computed(() => new Map(riscosStore.objetosContexto.map((o) => [o.id, o])));
+/** Ex.: objeto ligado a um processo desativado na Cadeia de Valor (`processoAtivo === false`) mostra o selo. */
+function processoInativo(risco: FichaRisco): boolean {
+  return objetosPorId.value.get(risco.objetoId)?.processoAtivo === false;
 }
 
 const riscosVisiveis = computed(() => filtrarRiscos(riscosStore.riscos, filtros.value));
@@ -162,7 +181,14 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
 </script>
 
 <template>
-  <div>
+  <!-- Falha ao carregar a carteira: página de erro inteira (com o próprio <h1>) -->
+  <ErroPagina
+    v-if="estadoBloco === 'erro'"
+    titulo="Não foi possível carregar os riscos"
+    :texto="riscosStore.erro?.message ?? 'Tente de novo em instantes.'"
+    @tentar-de-novo="riscosStore.tentarDeNovo()"
+  />
+  <div v-else>
     <PageHeader
       :titulo="route.meta.titulo ?? 'Riscos'"
       :descricao="route.meta.descricao"
@@ -222,7 +248,7 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
 
     <!-- Filtros ativos + contagem -->
     <div class="resumo-filtros">
-      <p class="resumo-filtros__contagem" aria-live="polite">
+      <p v-if="estadoBloco === 'pronto'" class="resumo-filtros__contagem" aria-live="polite">
         <strong>{{ riscosVisiveis.length }}</strong>
         {{ riscosVisiveis.length === 1 ? 'risco' : 'riscos' }}{{ chipsAtivos.length ? ' com os filtros aplicados' : '' }}
       </p>
@@ -241,8 +267,23 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
       </div>
     </div>
 
+    <!-- Carregando: esqueleto no formato da tabela -->
+    <EstadoCarregamento v-if="estadoBloco === 'carregando'" estado="carregando" formato="tabela" :linhas="8" />
+
+    <!-- Carteira vazia (sem filtros que expliquem): texto próprio -->
+    <EmptyState
+      v-else-if="carteiraVazia"
+      titulo="Nenhum risco no seu alcance"
+      descricao="Quando houver riscos da sua unidade (ou das unidades que você acompanha), eles aparecem aqui."
+      icone="fa-solid fa-magnifying-glass"
+    >
+      <template #acoes>
+        <RouterLink :to="{ name: 'novo-risco' }" class="br-button primary">Novo risco</RouterLink>
+      </template>
+    </EmptyState>
+
     <!-- TABELA -->
-    <DataTable
+    <DataTable v-else
       :colunas="colunas"
       :linhas="riscosVisiveis"
       chave-linha="id"
@@ -261,6 +302,7 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
         <div class="celula-objeto">
           <span class="celula-objeto__nome">{{ linha.nomeObjetoCache }}</span>
           <span class="celula-objeto__evento">{{ linha.eventoRisco }}</span>
+          <Chip v-if="processoInativo(linha)" tom="neutro" icone="fa-solid fa-ban">processo inativo</Chip>
         </div>
       </template>
 

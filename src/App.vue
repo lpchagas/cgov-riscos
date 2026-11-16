@@ -35,6 +35,7 @@ import PageHeader from './components/ui/PageHeader.vue';
 import ToastRegion from './components/ui/ToastRegion.vue';
 import BrMessage from './components/govbr/BrMessage.vue';
 import BrButton from './components/govbr/BrButton.vue';
+import AvisoAtualizacao from './components/ui/AvisoAtualizacao.vue';
 import { usePreferenciasInterface } from './composables/usePreferenciasInterface';
 import { saidaExplicita } from './composables/useSaidaExplicita';
 import { useAuthStore } from './stores/authStore';
@@ -209,6 +210,9 @@ router.afterEach(async (_para, de) => {
               :descricao="route.meta.descricao"
               :fundamento="route.meta.fundamento"
             />
+
+            <!-- Ação gravada, mas a tela não conseguiu se atualizar: aviso em qualquer página -->
+            <AvisoAtualizacao />
 
             <!-- Sem conexão com o banco: mensagem + nova tentativa, no lugar da página -->
             <BrMessage v-if="mostrarErro" state="danger" titulo="Não foi possível carregar o RADAR">

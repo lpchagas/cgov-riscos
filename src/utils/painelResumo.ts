@@ -16,6 +16,7 @@
  */
 import type { RouteLocationRaw } from 'vue-router';
 import type {
+  AcoesFluxo,
   CategoriaRisco,
   ClasseRisco,
   FichaRisco,
@@ -25,7 +26,6 @@ import type {
   PapelGovernanca,
 } from '../types/radar.types';
 import type { TomVisual } from './rotulosInterface';
-import { capacidades } from './acessoPorPerfil';
 
 // ---------------------------------------------------------------------------
 // 1. MATRIZ: quantos riscos há em cada célula (P × I)
@@ -158,16 +158,27 @@ function listaCodigos(riscos: FichaRisco[]): string {
  * - **Diretoria (3º degrau):** riscos aguardando a SUA homologação e prazos dos riscos Críticos.
  * - **CGOV (2ª Linha):** visão de supervisão — tudo o que está parado no fluxo.
  *
+ * QUEM PODE O QUÊ vem de `acoes` (a resposta do banco: `podeValidar`,
+ * `podeHomologar`, `podeEnviar`), e não mais do perfil. Ex.: um risco em validação
+ * só aparece como "a sua validação" se `acoes[risco.id].podeValidar` for verdadeiro.
+ * O perfil só decide quem SUPERVISIONA (CGOV) e quem vê indicadores (KRI) e prazos.
+ * Risco sem entrada em `acoes` conta como "nada liberado".
+ *
  * `hoje` é um parâmetro (e não `new Date()` lá dentro) para que o teste
  * consiga fixar a data e o resultado seja sempre o mesmo.
  */
-export function itensDeAtencao(riscos: FichaRisco[], papel: PapelGovernanca, hoje: Date): ItemAtencao[] {
+export function itensDeAtencao(
+  riscos: FichaRisco[],
+  papel: PapelGovernanca,
+  hoje: Date,
+  acoes: Record<string, AcoesFluxo> = {}
+): ItemAtencao[] {
   const itens: ItemAtencao[] = [];
 
   // (a) Filas do fluxo de aprovação
   const aguardandoCg = riscos.filter((r) => r.statusFluxo === 'em_validacao_cg');
   // Quem valida vê a SUA fila; a CGOV vê a mesma fila só como informação.
-  const podeValidar = capacidades(papel).podeValidar;
+  const podeValidar = aguardandoCg.some((r) => acoes[r.id]?.podeValidar);
   if (aguardandoCg.length && (podeValidar || papel === 'cgov')) {
     const daPessoa = podeValidar;
     itens.push({
@@ -184,7 +195,7 @@ export function itensDeAtencao(riscos: FichaRisco[], papel: PapelGovernanca, hoj
   }
 
   const aguardandoDiretoria = riscos.filter((r) => r.statusFluxo === 'em_homologacao_dir');
-  const podeHomologar = capacidades(papel).podeHomologar;
+  const podeHomologar = aguardandoDiretoria.some((r) => acoes[r.id]?.podeHomologar);
   if (aguardandoDiretoria.length && (podeHomologar || papel === 'cgov')) {
     const daPessoa = podeHomologar;
     itens.push({
@@ -200,8 +211,11 @@ export function itensDeAtencao(riscos: FichaRisco[], papel: PapelGovernanca, hoj
     });
   }
 
-  const devolvidos = riscos.filter((r) => r.statusFluxo === 'devolvido');
-  if (devolvidos.length && (papel === 'gestor' || papel === 'cgov')) {
+  // Devolvidos: quem pode reenviar (`podeEnviar`) ou a CGOV, que supervisiona.
+  const devolvidos = riscos.filter(
+    (r) => r.statusFluxo === 'devolvido' && (papel === 'cgov' || acoes[r.id]?.podeEnviar)
+  );
+  if (devolvidos.length) {
     itens.push({
       id: 'devolvidos',
       tipo: 'devolvido',
