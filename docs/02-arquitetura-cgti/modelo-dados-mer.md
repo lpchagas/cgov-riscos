@@ -123,3 +123,16 @@ O gatilho `fn_registrar_auditoria()` grava em `auditoria_log` toda inclusão, al
 tudo (inclusive as linhas sem objeto); os demais leem a trilha dos objetos que podem ler
 (`pode_ler_objeto`).
 `objeto_id` não tem chave estrangeira de propósito: a trilha sobrevive ao objeto apagado.
+
+### 3.6 Regras da B1.1 (`20261116001` a `20261116004`)
+
+- **Presidência (`001`):** `chefia_imediata` e `homologador_de` recriadas: os riscos da Presidência e da Assessoria (`10.0001`) são validados pelo GABIN (`10.0002`) e homologados pela Presidência; o envio é recusado (`55000`) se o risco exige homologação e não há homologador efetivo.
+- **Unidade ativa (`002`):** `pode_criar_objeto_em` exige unidade ativa (nem a CGOV cria objeto em unidade inativa).
+- **Processo ativo (`002`):** novo vínculo de objeto com processo da Cadeia de Valor só com processo ativo; quem já estava ligado continua visível.
+- **Supervisor pelo banco (`002`):** `macroprocesso_supervisor_id` é preenchido pelo gatilho `regras_objeto_contexto` e propagado por `propagar_supervisor_processo`; sem processo, só a CGOV preenche; sair do processo limpa o supervisor.
+- **Reatribuir objeto (`002`):** RPC `reatribuir_objeto(objeto, nova_unidade)`, só CGOV, de unidade inativa para unidade ativa.
+- **Preliminar da CGOV (`003`):** `cgov_grava_no_risco_preliminar` libera a CGOV para gravar controles, respostas, KRIs e medições e para apagar o risco `preliminar_cgov`.
+- **DAR (`004`):** o gatilho `trg_categorias_dar_reavalia_aprovados` recalcula os riscos aprovados da categoria; quem vira Crítico volta a `em_homologacao_dir` (ação `reaberto_mudanca_dar`); `devolver_risco` aceita a CGOV quando não há ator efetivo.
+- **Importador:** `sync:estrutura` ignora o vínculo com CT de outra GR e avisa no relatório.
+
+Motivos e custos: [[decisoes-tecnicas-b1]], seção 5.

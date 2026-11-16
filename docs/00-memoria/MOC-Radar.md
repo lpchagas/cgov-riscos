@@ -19,6 +19,7 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[decisoes-tecnicas-b2]] — Decisões técnicas da etapa B2 (B2-1 a B2-9 da CGOV e T1 a T11 da execução: link com `token_hash`, dois modos, Edge Function, importador de atribuições) e achados para a CGOV (CT Cuiabá, unidades sem titular).
 - [[guia-supabase-local]] — Como rodar o banco local, testar com pgTAP, importar a estrutura do SharePoint e resolver os erros comuns (etapa B1); seções novas da B2: entrar localmente pelo Mailpit, Edge Function `gerenciar-acesso` e `sync:atribuicoes`.
 - [[2026-11-15-etapa-b2-login-perfis-design]] — Design da etapa B2 (login por link de e-mail e perfis); plano: [[2026-11-15-etapa-b2-login-perfis-plan]].
+- [[2026-11-15-etapa-b1-1-regras-banco-design]] — Design da etapa B1.1 (regras do banco: Presidência, objetos, preliminar da CGOV, DAR); plano: [[2026-11-15-etapa-b1-1-regras-banco-plan]]; decisões B11-1 a B11-9 em [[decisoes-tecnicas-b1]] seção 5.
 - [[2026-11-15-etapa-b1-banco-rls-design]] — Design da etapa B1 (banco, alcance e RLS); plano: [[2026-11-15-etapa-b1-banco-rls-plan]].
 - [[guia-docker-cgti]] — Dossiê executivo e instruções de implantação via Container Docker para a CGTI.
 

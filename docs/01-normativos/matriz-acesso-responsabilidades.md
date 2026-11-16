@@ -311,16 +311,16 @@ Decisões tomadas em **2026-11-15** pelo responsável pelo projeto na CGOV.
 ### Decisões de 2026-11-15 sobre as pendências da B1
 
 Tomadas depois da B2, por perguntas de múltipla escolha. As que mexem no banco serão implementadas
-na etapa **B1.1** (início da B3). Detalhes em [[decisoes-tecnicas-b1]] (seção 4.1) e [[decisoes-tecnicas-b2]].
+na etapa **B1.1** (**concluída**; migrações `20261116001` a `20261116004`). Detalhes em [[decisoes-tecnicas-b1]] (seção 4.1) e [[decisoes-tecnicas-b2]].
 
 | # | Pergunta | Decisão |
 |---|---|---|
 | **P-B1-1** | Quem valida e homologa os riscos da Presidência? | **O titular do GABIN valida e o Presidente homologa.** Exceção desenhada à árvore, tomada de forma consciente (o GABIN é subordinado ao Presidente). |
-| **P-B1-2** | A CGOV pode criar objeto em unidade inativa? | **Não: ninguém cria.** Objetos e riscos antigos continuam visíveis e a CGOV pode reatribuí-los. |
+| **P-B1-2** | A CGOV pode criar objeto em unidade inativa? | **Não: ninguém cria.** Objetos e riscos antigos continuam visíveis e a CGOV pode reatribuí-los (RPC `reatribuir_objeto`). |
 | **P-B1-3** | O Coordenador-Geral vê riscos de processo inativo? | **Sim**, na visão por processo, com a marca "processo inativo". Objetos novos só se ligam a processos ativos. |
 | **P-B1-4** | CT de outra GR no vínculo? | O `sync:estrutura` **ignora o vínculo** e lista no relatório; a validação sobe para a GR da própria unidade. |
 | **P-B1-5** | Risco `preliminar_cgov`? | Enquanto preliminar, a CGOV grava controles, respostas e KRIs e pode apagar o risco; ao ser assumido pela unidade, perde a edição. |
-| **P-B1-6** | `macroprocesso_supervisor_id`? | Preenchido **pelo banco** a partir da unidade supervisora do processo da Cadeia de Valor; não é editável. Sem processo, fica vazio e só a CGOV preenche. |
+| **P-B1-6** | `macroprocesso_supervisor_id`? | Preenchido **pelo banco** a partir da unidade supervisora do processo da Cadeia de Valor; não é editável. Sem processo, fica vazio e só a CGOV preenche. Mudou o supervisor do processo, o banco atualiza os objetos; saiu do processo, o supervisor é limpo. |
 | **P-B1-7** | Alinhar a matriz? | **Feito nesta revisão** (seções 4, 5 e 7). |
 | **P-B1-8** | DAR nova reavalia riscos? | Ao salvar nova DAR, o banco recalcula a criticidade dos riscos aprovados da categoria; os que passam a Crítico **voltam para homologação** (Política, art. 8º, § 2º); os que deixam de ser Críticos só são atualizados. |
 
