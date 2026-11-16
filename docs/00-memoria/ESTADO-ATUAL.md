@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-15  
-> **Fase atual:** Etapas B1 (banco, alcance e RLS) e B2 (login e perfis) na `main`; etapa **B1.1 (regras do banco) concluída** na branch `feat/b1-1-regras-banco`, aguardando mesclagem. Próxima: **B3** (telas lendo e gravando no banco). Reformulação da UI (Fases 0 a 4) e varredura de acessibilidade já mescladas. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
+> **Fase atual:** Etapa B1 (banco, alcance e RLS) na `main` (PR #4). Etapa **B2 (login e perfis)** registrada em commit na branch `feat/b2-login-perfis` e etapa **B1.1 (regras do banco)** na branch `feat/b1-1-regras-banco` (criada a partir da B2); as duas aguardam push e PR. Próxima: **B3** (telas lendo e gravando no banco). Reformulação da UI (Fases 0 a 4) e varredura de acessibilidade já mescladas. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -124,7 +124,7 @@ Design: [[2026-11-15-etapa-b2-login-perfis-design]] · Plano: [[2026-11-15-etapa
   - `npm run test:integracao` (com `db:start` e `db:funcoes`): **3 arquivos, 13 testes passando**.
   - `npm run db:reset && npm run test:db`: **10 arquivos, 475 testes, `Result: PASS`**.
   - `git status --porcelain | grep -i '_temp'`: vazio. `git diff --stat main -- supabase/migrations`: vazio. `grep -rn "service_role\|SERVICE_ROLE" src/`: só **1 comentário** em `src/services/supabase.ts` linha 36 ("a chave `service_role` NUNCA vai para o front"); nenhum uso de código.
-- **Próxima etapa:** pedir o commit da B2; depois **B1.1** (regras do banco decididas em 2026-11-15, com migrações, spec, plano e revisão próprios) e então **B3** (telas lendo e gravando no banco, `TipoUnidade` com os 16 valores, `Skeleton`), C (Painel no celular) e D (homologação na CGTI, limites e SMTP de produção).
+- **Próxima etapa:** B2 registrada em commit (`8eebbe8`); a **B1.1** foi feita em seguida (ver a seção da B1.1). Depois: **B3** (telas lendo e gravando no banco, `TipoUnidade` com os 16 valores, `Skeleton`), C (Painel no celular) e D (homologação na CGTI, limites e SMTP de produção).
 
 ## Etapa B1.1 — regras do banco (2026-11-15, branch `feat/b1-1-regras-banco`)
 Design: [[2026-11-15-etapa-b1-1-regras-banco-design]] · Plano: [[2026-11-15-etapa-b1-1-regras-banco-plan]] · Decisões: [[decisoes-tecnicas-b1]] seção 5 (B11-1 a B11-9)
