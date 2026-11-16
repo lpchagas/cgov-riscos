@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(34);
+select plan(38);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -198,6 +198,26 @@ select pg_temp.entrar_como('presidente@radar.test');
 select throws_like($$update public.riscos set probabilidade = 3 where codigo_radar = 'RADAR-T070-P-AP'$$,
                    'RADAR:%reabriria%homologaria%',
                    'o Presidente editar risco aprovado crítico da Presidência é recusado (não fica preso em validação)');
+
+-- 5d. Reabertura pela criticidade NOVA (a de NEW, não a gravada)
+select pg_temp.sair();
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-A', 2, 2);   -- aprovado, não crítico
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-B', 4, 4, 7); -- aprovado, crítico
+select set_config('radar.fluxo', 'on', true);
+update public.riscos set status_fluxo = 'aprovado' where codigo_radar in ('RADAR-T070-P-A', 'RADAR-T070-P-B');
+select set_config('radar.fluxo', '', true);
+select pg_temp.entrar_como('presidente@radar.test');
+-- Caso A: a edição TORNA o risco crítico -> recusada (senão ficaria preso em validação).
+select throws_like($$update public.riscos set probabilidade = 4, impacto = 4, categoria_id = 7 where codigo_radar = 'RADAR-T070-P-A'$$,
+                   'RADAR:%reabriria%homologaria%',
+                   'caso A: edição que torna o risco crítico é recusada pelo Presidente');
+select is(pg_temp.estado((select id from public.riscos where codigo_radar = 'RADAR-T070-P-A')), 'aprovado',
+          'caso A: o risco segue aprovado');
+-- Caso B: a edição TIRA a criticidade -> permitida e reabre para validação.
+select is(pg_temp.linhas_afetadas($$update public.riscos set probabilidade = 1, impacto = 1 where codigo_radar = 'RADAR-T070-P-B'$$),
+          1, 'caso B: edição que deixa o risco não crítico é permitida');
+select is(pg_temp.estado((select id from public.riscos where codigo_radar = 'RADAR-T070-P-B')), 'em_validacao_cg',
+          'caso B: o risco reabre para validação (o GABIN valida)');
 
 -- ----------------------------------------------------------------------------
 -- 6. Efeito colateral: riscos de outras unidades continuam como antes

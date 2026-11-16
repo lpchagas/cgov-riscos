@@ -294,9 +294,15 @@ $$;
 -- ----------------------------------------------------------------------------
 -- Se o Presidente edita um risco aprovado e crítico da Presidência, a
 -- reabertura o poria em validação e ele ficaria preso (sem homologador).
--- A assinatura é mantida (os gatilhos da migração 004 a chamam); a criticidade
--- vem do risco gravado, localizado pelo código RADAR.
-CREATE OR REPLACE FUNCTION public.fn_fluxo_exigir_validador_na_reabertura(p_codigo text, p_unidade uuid)
+-- Novo 3º parâmetro p_critico: a criticidade que vale APÓS a edição. O gatilho
+-- BEFORE de `riscos` (fn_trava_reabertura_risco) passa a criticidade de NEW,
+-- já recalculada. Sem ele (edição de tabela filha, via fn_fluxo_aplicar_trava),
+-- usa-se a criticidade gravada no risco, localizado pelo código RADAR.
+-- Nova assinatura = apagamos a antiga de 2 argumentos (chamadas com 2
+-- argumentos continuam valendo, pelo DEFAULT).
+DROP FUNCTION IF EXISTS public.fn_fluxo_exigir_validador_na_reabertura(text, uuid);
+CREATE OR REPLACE FUNCTION public.fn_fluxo_exigir_validador_na_reabertura(
+  p_codigo text, p_unidade uuid, p_critico boolean DEFAULT NULL)
 RETURNS void
 LANGUAGE plpgsql
 STABLE
@@ -309,9 +315,10 @@ BEGIN
       p_codigo
       USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.riscos AS r
-              WHERE r.codigo_radar = p_codigo
-                AND (r.is_critico OR r.status_critico = 'pendente_dar'))
+  IF coalesce(p_critico,
+              (SELECT r.is_critico OR r.status_critico = 'pendente_dar'
+                 FROM public.riscos AS r WHERE r.codigo_radar = p_codigo),
+              false)
      AND public.fn_fluxo_homologador_efetivo(p_unidade, auth.uid()) IS NULL THEN
     RAISE EXCEPTION 'RADAR: a alteração reabriria o risco % (que exige homologação) para validação, mas quem altera é o titular da unidade que o homologaria (ex.: o Presidente não homologa o próprio risco). Peça a outro servidor da unidade que faça a alteração.',
       p_codigo
@@ -319,6 +326,97 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- Gatilho BEFORE de `riscos`, recriado igual ao da migração 20261115004, com
+-- uma única diferença: passa NEW.is_critico/status_critico ao helper acima.
+CREATE OR REPLACE FUNCTION public.fn_trava_reabertura_risco()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_mudou   text[] := ARRAY[]::text[];
+  v_unidade uuid;
+BEGIN
+  -- D2: só se apaga risco em rascunho, devolvido ou preliminar_cgov.
+  -- (Em validação/homologação continua valendo a mensagem de "travada", abaixo.)
+  IF TG_OP = 'DELETE' AND OLD.status_fluxo NOT IN ('rascunho', 'devolvido', 'preliminar_cgov',
+                                                   'em_validacao_cg', 'em_homologacao_dir') THEN
+    RAISE EXCEPTION 'RADAR: o risco % está % e faz parte do Plano de Gestão de Riscos: não pode ser excluído (só se exclui risco em rascunho, devolvido ou preliminar da CGOV). Para mudá-lo, edite a ficha — a edição reabre o fluxo de validação. Isso vale também para excluir o objeto do risco.',
+      OLD.codigo_radar, OLD.status_fluxo
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  END IF;
+
+  IF coalesce(current_setting('radar.fluxo', true), '') = 'on' THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+
+  IF OLD.status_fluxo IN ('em_validacao_cg', 'em_homologacao_dir') THEN
+    IF TG_OP = 'UPDATE' AND public.fn_fluxo_reaberto_neste_comando(OLD.id) THEN
+      RETURN NEW;                  -- reaberto por este mesmo comando
+    END IF;
+    RAISE EXCEPTION 'RADAR: a ficha do risco % está travada (estado "%"): não é possível % o risco enquanto ele está em validação ou homologação. Peça à chefia que devolva o risco para ajuste.',
+      OLD.codigo_radar, OLD.status_fluxo, CASE TG_OP WHEN 'DELETE' THEN 'excluir' ELSE 'alterar' END
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  IF OLD.status_fluxo = 'aprovado' THEN
+    IF NEW.probabilidade IS DISTINCT FROM OLD.probabilidade THEN
+      v_mudou := v_mudou || format('probabilidade %s → %s', OLD.probabilidade, NEW.probabilidade);
+    END IF;
+    IF NEW.impacto IS DISTINCT FROM OLD.impacto THEN
+      v_mudou := v_mudou || format('impacto %s → %s', OLD.impacto, NEW.impacto);
+    END IF;
+    IF NEW.possui_evidencia_controle IS DISTINCT FROM OLD.possui_evidencia_controle THEN
+      v_mudou := v_mudou || format('evidência de controle %s → %s', OLD.possui_evidencia_controle, NEW.possui_evidencia_controle);
+    END IF;
+    IF NEW.nivel_eficacia_controle IS DISTINCT FROM OLD.nivel_eficacia_controle THEN
+      v_mudou := v_mudou || format('eficácia do controle %s → %s', OLD.nivel_eficacia_controle, NEW.nivel_eficacia_controle);
+    END IF;
+    IF NEW.fator_controle IS DISTINCT FROM OLD.fator_controle THEN
+      v_mudou := v_mudou || format('fator de controle %s → %s', OLD.fator_controle, NEW.fator_controle);
+    END IF;
+    IF NEW.categoria_id IS DISTINCT FROM OLD.categoria_id THEN
+      v_mudou := v_mudou || format('categoria %s → %s', OLD.categoria_id, NEW.categoria_id);
+    END IF;
+    IF NEW.objeto_id IS DISTINCT FROM OLD.objeto_id THEN
+      v_mudou := v_mudou || 'objeto de gestão de riscos (unidade)'::text;
+    END IF;
+    -- Já recalculados pelo gatilho de cálculo (que roda antes deste). Pegam,
+    -- por exemplo, a DAR que mudou desde a aprovação.
+    IF NEW.is_critico IS DISTINCT FROM OLD.is_critico THEN
+      v_mudou := v_mudou || format('risco crítico %s → %s', OLD.is_critico, NEW.is_critico);
+    END IF;
+    IF NEW.status_critico IS DISTINCT FROM OLD.status_critico THEN
+      v_mudou := v_mudou || format('situação perante a DAR %s → %s', OLD.status_critico, NEW.status_critico);
+    END IF;
+
+    IF cardinality(v_mudou) > 0 THEN
+      -- D1: quem editou passa a ser "quem enviou"; precisa haver alguém acima
+      -- dele para validar (senão o risco ficaria preso em validação).
+      SELECT o.unidade_id INTO v_unidade FROM public.objetos_contexto AS o WHERE o.id = NEW.objeto_id;
+      -- P-B1-1: passa a criticidade JÁ RECALCULADA (NEW): o gatilho de cálculo
+      -- roda antes deste (ordem alfabética) e NEW traz is_critico/status_critico novos.
+      PERFORM public.fn_fluxo_exigir_validador_na_reabertura(OLD.codigo_radar, v_unidade,
+        NEW.is_critico OR NEW.status_critico = 'pendente_dar');
+      NEW.status_fluxo := 'em_validacao_cg';
+      PERFORM public.fn_fluxo_registrar_historico(OLD.id, 'reabertura_nota', 'reaberto_mudanca_nota',
+        format('Risco aprovado reaberto para validação da chefia imediata (alteração: %s; residual %s → %s).',
+               array_to_string(v_mudou, '; '), OLD.nivel_residual, NEW.nivel_residual));
+      PERFORM public.fn_fluxo_marcar_reaberto(OLD.id);
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
 
 -- Garantia: as permissões continuam as da B1 (CREATE OR REPLACE já as preserva;
 -- repetimos para deixar a intenção explícita).
@@ -329,7 +427,8 @@ GRANT  EXECUTE ON FUNCTION public.homologador_de(uuid)  TO authenticated;
 
 -- Funções internas e RPCs recriadas: mesmas permissões da migração 20261115004.
 REVOKE EXECUTE ON FUNCTION public.fn_fluxo_homologador_efetivo(uuid, uuid)            FROM public, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.fn_fluxo_exigir_validador_na_reabertura(text, uuid) FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_fluxo_exigir_validador_na_reabertura(text, uuid, boolean) FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_trava_reabertura_risco() FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.enviar_para_validacao(uuid) FROM public, anon;
 REVOKE EXECUTE ON FUNCTION public.validar_risco(uuid, text)   FROM public, anon;
 GRANT  EXECUTE ON FUNCTION public.enviar_para_validacao(uuid) TO authenticated;
