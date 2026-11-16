@@ -118,6 +118,13 @@ describe('Painel no celular: blocos recolhíveis', () => {
     ]);
   });
 
+  it('o espaço sob o título do bloco de nível fica num wrapper, não na lista .barras (precedência de CSS)', async () => {
+    const w = await montar(false);
+    const lista = w.find('#bloco-nivel-corpo ul.barras');
+    expect(lista.classes()).not.toContain('painel__corpo-bloco');
+    expect(lista.element.parentElement!.classList.contains('painel__corpo-bloco')).toBe(true);
+  });
+
   it('a seção "Atenção" leva a classe que a faz subir no celular', async () => {
     const w = await montar(true);
     expect(w.find('section[aria-labelledby="titulo-atencao"]').classes()).toContain('painel__atencao');

@@ -460,7 +460,13 @@ watch(
       <div class="painel__lateral painel__pilha">
         <!-- No celular os três blocos abaixo começam recolhidos (ver BlocoRecolhivel). -->
         <BlocoRecolhivel id="bloco-nivel" titulo="Riscos por nível residual" class="cartao">
-          <ul class="barras painel__corpo-bloco">
+          <!--
+            O espaço sob o título fica num <div> à parte, e não na própria <ul class="barras">:
+            `.barras { margin: 0 }` tem a mesma especificidade de `.painel__corpo-bloco` e vem
+            DEPOIS no CSS, então venceria e zeraria o espaço (em CSS, empatou, vale a última regra).
+          -->
+          <div class="painel__corpo-bloco">
+          <ul class="barras">
             <li v-for="faixa in distribuicao" :key="faixa.classe" class="barras__linha">
               <span class="barras__rotulo">
                 <i :class="ICONES_CLASSE_RISCO[faixa.classe]" aria-hidden="true"></i>
@@ -476,6 +482,7 @@ watch(
               <strong class="barras__numero radar-numero">{{ faixa.quantidade }}</strong>
             </li>
           </ul>
+          </div>
         </BlocoRecolhivel>
 
         <BlocoRecolhivel id="bloco-dar" titulo="Apetite a riscos (DAR)" class="cartao">
