@@ -718,3 +718,148 @@ COMMENT ON FUNCTION public.salvar_ficha_risco(jsonb) IS
 -- Só quem fez login executa (o Supabase concede EXECUTE a anon por padrão).
 REVOKE EXECUTE ON FUNCTION public.salvar_ficha_risco(jsonb) FROM public, anon;
 GRANT  EXECUTE ON FUNCTION public.salvar_ficha_risco(jsonb) TO authenticated;
+
+
+-- ============================================================================
+-- SEÇÃO 3 — ler_auditoria(...): a trilha de auditoria com o nome de quem agiu
+-- ============================================================================
+-- PARA QUE SERVE:
+-- A tela Auditoria mostra, linha a linha, QUANDO, QUEM, O QUÊ e o que mudou.
+-- O "quem" é o problema: quem não é da CGOV não consegue ler `perfis_usuarios`
+-- de outras pessoas. Esta função (SECURITY DEFINER) busca o nome de quem agiu,
+-- mas SÓ devolve linhas que a pessoa já podia ler em `auditoria_log`.
+--
+-- VISIBILIDADE (idêntica à política "Auditoria: leitura pelo alcance do
+-- objeto" de 20261115005):
+--   - perfil `cgov`: todas as linhas (inclusive as sem objeto_id);
+--   - demais: só linhas com objeto_id em que pode_ler_objeto(objeto_id) é true.
+-- Como a função roda com privilégios do dono, a política de RLS não se aplica
+-- sozinha; por isso o mesmo filtro está escrito aqui. O teste
+-- supabase/tests/082_leituras_b3.test.sql prova que o conjunto de ids é igual
+-- ao de `select id from auditoria_log` para cada perfil.
+--
+-- PARÂMETROS (todos opcionais):
+--   p_de / p_ate    período (realizado_em >= p_de e <= p_ate)
+--   p_tabela        só uma tabela (ex.: 'riscos', 'controles_existentes')
+--   p_antes_em / p_antes_id   CURSOR: devolve só linhas estritamente ANTES
+--                   desta posição na ordem (realizado_em DESC, id DESC).
+--                   Para "Carregar mais", a tela passa a última linha recebida.
+--   p_limite        quantas linhas (padrão 50; no máximo 100).
+--
+-- COLUNAS EXTRAS:
+--   quem_nome / quem_papel  de perfis_usuarios pelo usuario_id (nulo quando a
+--                           mudança veio do administrador direto no banco).
+--   codigo_radar            código do risco envolvido: pelo registro_id (linhas
+--                           de `riscos`) ou pelo `risco_id` dos dados (controles,
+--                           respostas e KRIs); nas medições, via o KRI. Se o
+--                           risco já foi apagado, usa o `codigo_radar` guardado
+--                           em dados_anteriores/dados_novos; senão, nulo.
+--
+-- EXEMPLO: ler_auditoria(p_limite => 2) devolve as 2 linhas mais recentes;
+--   ler_auditoria(p_antes_em => <realizado_em da 2ª>, p_antes_id => <id da 2ª>,
+--   p_limite => 2) devolve as 2 seguintes, sem repetir nem pular nenhuma.
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.ler_auditoria(
+  p_de        timestamptz DEFAULT NULL,
+  p_ate       timestamptz DEFAULT NULL,
+  p_tabela    text        DEFAULT NULL,
+  p_antes_em  timestamptz DEFAULT NULL,
+  p_antes_id  uuid        DEFAULT NULL,
+  p_limite    int         DEFAULT 50
+)
+RETURNS TABLE (
+  id               uuid,
+  realizado_em     timestamptz,
+  tabela_afetada   text,
+  operacao         text,
+  registro_id      uuid,
+  objeto_id        uuid,
+  usuario_id       uuid,
+  quem_nome        text,
+  quem_papel       text,
+  codigo_radar     text,
+  dados_anteriores jsonb,
+  dados_novos      jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  -- 1) A página: filtra, aplica a visibilidade, ordena e limita.
+  WITH pagina AS (
+    SELECT a.*
+      FROM public.auditoria_log AS a
+     WHERE (
+             (SELECT (public.meu_perfil()).papel_governanca) = 'cgov'
+             OR (a.objeto_id IS NOT NULL AND public.pode_ler_objeto(a.objeto_id))
+           )
+       AND (p_de     IS NULL OR a.realizado_em >= p_de)
+       AND (p_ate    IS NULL OR a.realizado_em <= p_ate)
+       AND (p_tabela IS NULL OR a.tabela_afetada = p_tabela)
+       AND (p_antes_em IS NULL
+            OR a.realizado_em < p_antes_em
+            OR (a.realizado_em = p_antes_em AND a.id < p_antes_id))
+     ORDER BY a.realizado_em DESC, a.id DESC
+     LIMIT least(greatest(coalesce(p_limite, 50), 1), 100)
+  )
+  -- 2) Só nas linhas da página: nome de quem agiu e código do risco.
+  SELECT pg.id, pg.realizado_em, pg.tabela_afetada, pg.operacao, pg.registro_id,
+         pg.objeto_id, pg.usuario_id,
+         pf.nome_completo, pf.papel_governanca,
+         coalesce(
+           r.codigo_radar,
+           pg.dados_anteriores ->> 'codigo_radar',
+           pg.dados_novos ->> 'codigo_radar'
+         ),
+         pg.dados_anteriores, pg.dados_novos
+    FROM pagina AS pg
+    LEFT JOIN public.perfis_usuarios AS pf ON pf.id = pg.usuario_id
+    LEFT JOIN public.indicadores_kri AS k
+           ON pg.tabela_afetada = 'medicoes_kri'
+          AND k.id = (coalesce(pg.dados_novos, pg.dados_anteriores) ->> 'kri_id')::uuid
+    LEFT JOIN public.riscos AS r
+           ON r.id = CASE
+                WHEN pg.tabela_afetada = 'riscos' THEN pg.registro_id
+                WHEN pg.tabela_afetada IN ('controles_existentes', 'respostas_tratamento', 'indicadores_kri')
+                  THEN (coalesce(pg.dados_novos, pg.dados_anteriores) ->> 'risco_id')::uuid
+                WHEN pg.tabela_afetada = 'medicoes_kri' THEN k.risco_id
+              END
+   ORDER BY pg.realizado_em DESC, pg.id DESC;
+$$;
+
+COMMENT ON FUNCTION public.ler_auditoria(timestamptz, timestamptz, text, timestamptz, uuid, int) IS
+  'RADAR (B3): trilha de auditoria paginada por cursor (máx. 100), só com as linhas que a política de auditoria_log já permite, acrescida do nome de quem agiu e do código do risco. Ver comentário da migração 20261117001, seção 3.';
+
+REVOKE EXECUTE ON FUNCTION public.ler_auditoria(timestamptz, timestamptz, text, timestamptz, uuid, int) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.ler_auditoria(timestamptz, timestamptz, text, timestamptz, uuid, int) TO authenticated;
+
+
+-- ============================================================================
+-- SEÇÃO 4 — objetos_onde_gravo(): em quais objetos a pessoa pode criar risco
+-- ============================================================================
+-- PARA QUE SERVE:
+-- O seletor de "Novo risco" só deve oferecer os objetos de gestão de riscos em
+-- que a gravação vai ser aceita. Devolve os ids de `objetos_contexto` para os
+-- quais pode_escrever_objeto(id) é verdadeira — a mesma função que a RLS usa.
+--
+-- EXEMPLO: para gestor.uc@ devolve o(s) objeto(s) da FLONA de Caçador (e os
+-- demais da unidade dele); para auditor@ (só leitura) devolve nenhum.
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.objetos_onde_gravo()
+RETURNS SETOF uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT o.id
+    FROM public.objetos_contexto AS o
+   WHERE public.pode_escrever_objeto(o.id);
+$$;
+
+COMMENT ON FUNCTION public.objetos_onde_gravo() IS
+  'RADAR (B3): ids dos objetos de contexto em que a pessoa logada pode gravar risco (pode_escrever_objeto). Ver comentário da migração 20261117001, seção 4.';
+
+REVOKE EXECUTE ON FUNCTION public.objetos_onde_gravo() FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.objetos_onde_gravo() TO authenticated;
