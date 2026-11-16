@@ -8,8 +8,9 @@
 -- UPDATE comum. Na criação, ela gera o código RADAR-<ano>-<NNN>.
 --
 -- O que este arquivo prova:
---   (a)/(b) criar ficha com filhos; o 1º código depois do db:reset é
---           RADAR-<ano>-002 (a semente já tem RADAR-2026-001); o seguinte é maior;
+--   (a)/(b) criar ficha com filhos; o número do código novo é MAIOR que o de
+--           todos os códigos RADAR-<ano>-<NNN> já gravados (a semente tem
+--           RADAR-2026-001) e a sequência já está acima deles; o seguinte é maior;
 --   (c) risco APROVADO: mudar P e trocar os controles numa chamada → reabre
 --       UMA vez (uma linha reaberto_mudanca_nota) e troca os filhos;
 --   (d) a MESMA alteração em dois UPDATEs separados é recusada no 2º (55000) —
@@ -21,7 +22,9 @@
 --   (i) anon não executa; filho de OUTRO risco é recusado (22023).
 --
 -- ATENÇÃO: a sequência riscos_codigo_seq NÃO volta no rollback (sequências
--- nunca voltam). O teste (b) só passa logo depois de `npm run db:reset`.
+-- nunca voltam). Por isso o teste (b) não espera um número fixo (ex.: 002):
+-- compara com o maior número já gravado, e passa mesmo rodando o arquivo
+-- várias vezes seguidas sem `db:reset`.
 -- Pré-requisito: `npm run db:reset`. Tudo é desfeito no final (rollback).
 -- ============================================================================
 
@@ -29,10 +32,13 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(50);
+select plan(52);
 
--- Ano corrente (o código usa o ano de "agora") e ids da semente.
-select extract(year from now())::int as ano,
+-- Ano corrente pelo horário de Brasília (o mesmo que a função usa), o maior
+-- NNN entre os códigos RADAR-<4 dígitos>-<NNN> já gravados, e ids da semente.
+select extract(year from (now() at time zone 'America/Sao_Paulo'))::int as ano,
+       (select coalesce(max((regexp_match(codigo_radar, '^RADAR-\d{4}-(\d+)$'))[1]::int), 0)
+          from public.riscos) as maior_nnn,
        (select id from public.riscos where codigo_radar = 'RADAR-DEMO-COFIS') as r_cofis,
        (select id from public.riscos where codigo_radar = 'RADAR-DEMO-CGPRO') as r_cgpro,
        (select id from public.riscos where codigo_radar = 'RADAR-DEMO-UC-CT') as r_uc_ct
@@ -84,8 +90,12 @@ select f.id as r_a, f.codigo_radar as cod_a
                          'responsavel_medicao', 'Chefe da UC')))) as f
 \gset
 
-select matches(:'cod_a'::text, '^RADAR-\d{4}-\d{3,}$', '(a) código no padrão RADAR-<ano>-<NNN>');
-select is(:'cod_a'::text, format('RADAR-%s-002', :ano), '(b) 1º código depois do db:reset é RADAR-<ano>-002 (semente tem o 001)');
+select matches(:'cod_a'::text, format('^RADAR-%s-\d{3,}$', :ano), '(a) código no padrão RADAR-<ano atual>-<NNN>');
+select cmp_ok(substring(:'cod_a' from '(\d+)$')::int, '>', :maior_nnn,
+              '(b) NNN do código novo é maior que o de todos os códigos RADAR-<ano>-<NNN> já gravados');
+select pg_temp.sair();
+select cmp_ok((select last_value from public.riscos_codigo_seq)::int, '>=', :maior_nnn,
+              '(b) a sequência está acima do maior NNN já gravado (ajuste da semente)');
 
 select pg_temp.sair();
 select is((select status_fluxo from public.riscos where id = :'r_a'), 'rascunho', '(a) ficha nova nasce em rascunho');
@@ -252,6 +262,15 @@ select throws_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$,
   '42501', null, '(g) gestor.uc NÃO altera ficha de risco de outra unidade');
 select pg_temp.sair();
 select isnt((select causas from public.riscos where id = :'r_cgpro'), 'invasão', '(g) a ficha alheia não mudou');
+
+-- cgov@ LÊ o risco da FLONA de Caçador (rascunho) mas não grava nele. A
+-- mensagem usa o código GRAVADO, nunca um "codigo_radar" enviado na ficha.
+select pg_temp.entrar_como('cgov@radar.test');
+select throws_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$,
+    jsonb_build_object('id', :'r_uc_ct', 'codigo_radar', 'RADAR-FALSO-999', 'causas', 'x')),
+  '42501', 'RADAR: você não pode alterar a ficha do risco RADAR-DEMO-UC-CT.',
+  '(g) recusa cita o código gravado, não o enviado no JSON');
+select pg_temp.sair();
 
 -- ----------------------------------------------------------------------------
 -- (h) Valores calculados enviados no JSON são ignorados

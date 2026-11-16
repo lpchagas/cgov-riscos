@@ -377,7 +377,7 @@ GRANT  EXECUTE ON FUNCTION public.acoes_no_fluxo(uuid[]) TO authenticated;
 --   (Médio). O cálculo em si continua todo no gatilho.
 --
 -- CÓDIGO DO RISCO (só na criação):
---   'RADAR-' || ano atual || '-' || número da sequência com 3 dígitos.
+--   'RADAR-' || ano atual (horário de Brasília) || '-' || número da sequência com 3 dígitos.
 --   Ex.: RADAR-2026-002. A numeração é GLOBAL e NÃO recomeça a cada ano
 --   (simples e sem colisão): em 2027 o próximo poderia ser RADAR-2027-153.
 --   Acima de 999 o lpad não corta: RADAR-2027-1000.
@@ -415,6 +415,9 @@ DECLARE
   v_kri     public.indicadores_kri;       -- um KRI "montado" (alteração)
   v_item    jsonb;                        -- o item da vez de uma lista de filhos
   v_grupo   text;                         -- nome da lista (controles, respostas, kris)
+  v_novo    boolean;                      -- true = ficha nova (sem id)
+  v_fator   numeric(3,2);                 -- fator do Quadro 6 (sai da eficácia)
+  v_linhas  integer;                      -- linhas alteradas pelo UPDATE do risco
 
   -- Valores padrão das tabelas, usados na CRIAÇÃO quando a chave não veio.
   -- (São os mesmos DEFAULT das colunas em 20261109001_schema_radar.sql.)
@@ -443,26 +446,55 @@ BEGIN
   END LOOP;
 
   -- -------------------------------------------------------------------------
-  -- 1. O RISCO
+  -- 1. O RISCO — primeiro "montamos" a linha (v_risco); depois gravamos.
   -- -------------------------------------------------------------------------
-  IF nullif(ficha ->> 'id', '') IS NULL THEN
+  v_novo := nullif(ficha ->> 'id', '') IS NULL;
+
+  IF v_novo THEN
     -- 1a. CRIAÇÃO. jsonb_populate_record "monta" uma linha de riscos a partir
     --     do JSON (padrões || ficha: o que veio na ficha vence o padrão).
     v_risco := jsonb_populate_record(NULL::public.riscos, c_padrao_risco || ficha);
+  ELSE
+    -- 1b. ALTERAÇÃO. Lemos o risco atual (só se a pessoa o LÊ — RLS) e
+    --     "montamos" por cima dele: chave omitida mantém o valor atual.
+    v_id := (ficha ->> 'id')::uuid;
+    SELECT r.* INTO v_risco FROM public.riscos AS r WHERE r.id = v_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'RADAR: risco não encontrado ou fora do seu alcance.'
+        USING ERRCODE = 'insufficient_privilege';   -- 42501
+    END IF;
+    -- Guardamos o código GRAVADO antes de misturar o JSON: um "codigo_radar"
+    -- enviado na ficha não pode aparecer nas mensagens de erro.
+    v_codigo := v_risco.codigo_radar;
+    v_risco  := jsonb_populate_record(v_risco, ficha);
+  END IF;
 
-    v_codigo := 'RADAR-' || extract(year FROM now())::int || '-'
+  -- Fator do Quadro 6 a partir da eficácia escolhida (ver comentário acima),
+  -- calculado UMA vez e usado tanto na criação quanto na alteração.
+  -- Ex.: 'Forte' → 0,50. (A trava de evidência continua no gatilho.)
+  v_fator := CASE v_risco.nivel_eficacia_controle
+               WHEN 'Inexistente'  THEN 1.00
+               WHEN 'Fraco'        THEN 0.90
+               WHEN 'Mediano'      THEN 0.75
+               WHEN 'Satisfatório' THEN 0.60
+               WHEN 'Forte'        THEN 0.50
+             END;
+
+  -- search_path: o gatilho de cálculo (20261109001) usa nomes SEM `public.`
+  -- (calcular_nivel_inerente_q7, categorias_risco...). Com o caminho vazio
+  -- desta função ele não os acharia. Então, SÓ durante a gravação do risco,
+  -- o caminho vira "public, pg_temp" (pg_temp por último, como em
+  -- fn_fluxo_mudar_estado, 20261115004) e depois volta a ficar vazio.
+  IF v_novo THEN
+    -- Ano do código pelo horário de Brasília: o servidor roda em UTC, e entre
+    -- 21h e 24h de 31/12 (Brasília) o ano em UTC já seria o seguinte.
+    v_codigo := 'RADAR-' || extract(year FROM (now() AT TIME ZONE 'America/Sao_Paulo'))::int || '-'
                 || lpad(nextval('public.riscos_codigo_seq')::text, 3, '0');
 
     -- Só as colunas de ENTRADA. As calculadas ficam de fora (o gatilho de
     -- cálculo as preenche antes de o banco conferir os NOT NULL).
     -- status_fluxo: 'rascunho', ou 'preliminar_cgov' se pedido — a política de
     -- INSERT só aceita este último vindo da CGOV (senão: erro 42501).
-    --
-    -- search_path: o gatilho de cálculo (20261109001) usa nomes SEM `public.`
-    -- (calcular_nivel_inerente_q7, categorias_risco...). Com o caminho vazio
-    -- desta função ele não os acharia. Então, SÓ durante a gravação do risco,
-    -- o caminho vira "public, pg_temp" (pg_temp por último, como em
-    -- fn_fluxo_mudar_estado, 20261115004) e depois volta a ficar vazio.
     PERFORM set_config('search_path', 'public, pg_temp', true);
     INSERT INTO public.riscos AS r
       (codigo_radar, objeto_id, responsavel_risco_nome,
@@ -479,11 +511,7 @@ BEGIN
        v_risco.justificativa_nao_integridade,
        v_risco.probabilidade, v_risco.justificativa_probabilidade, v_risco.impacto,
        v_risco.justificativa_impacto,
-       v_risco.possui_evidencia_controle, v_risco.nivel_eficacia_controle,
-       -- Quadro 6 (ver comentário acima): o fator sai da eficácia.
-       CASE v_risco.nivel_eficacia_controle
-         WHEN 'Inexistente'  THEN 1.00 WHEN 'Fraco' THEN 0.90 WHEN 'Mediano' THEN 0.75
-         WHEN 'Satisfatório' THEN 0.60 WHEN 'Forte' THEN 0.50 END,
+       v_risco.possui_evidencia_controle, v_risco.nivel_eficacia_controle, v_fator,
        v_risco.estrategia_principal,
        coalesce((ficha ->> 'preliminar_cgov')::boolean, false),
        CASE WHEN coalesce((ficha ->> 'preliminar_cgov')::boolean, false)
@@ -492,21 +520,10 @@ BEGIN
     PERFORM set_config('search_path', '', true);
 
   ELSE
-    -- 1b. ALTERAÇÃO. Lemos o risco atual (só se a pessoa o LÊ — RLS) e
-    --     "montamos" por cima dele: chave omitida mantém o valor atual.
-    v_id := (ficha ->> 'id')::uuid;
-    SELECT r.* INTO v_risco FROM public.riscos AS r WHERE r.id = v_id;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'RADAR: risco não encontrado ou fora do seu alcance.'
-        USING ERRCODE = 'insufficient_privilege';   -- 42501
-    END IF;
-    v_risco := jsonb_populate_record(v_risco, ficha);
-
     -- Nunca status_fluxo, codigo_radar ou calculadas. Se este UPDATE mudar
     -- P, I, eficácia... de um risco aprovado, o gatilho de trava o REABRE
     -- (em_validacao_cg) e marca "reaberto neste comando" — os filhos abaixo
     -- passam pela trava por estarem no mesmo comando.
-    -- (search_path: mesmo motivo explicado na criação, acima.)
     PERFORM set_config('search_path', 'public, pg_temp', true);
     UPDATE public.riscos AS r SET
       objeto_id                     = v_risco.objeto_id,
@@ -525,18 +542,18 @@ BEGIN
       justificativa_impacto         = v_risco.justificativa_impacto,
       possui_evidencia_controle     = v_risco.possui_evidencia_controle,
       nivel_eficacia_controle       = v_risco.nivel_eficacia_controle,
-      fator_controle                = CASE v_risco.nivel_eficacia_controle
-                                        WHEN 'Inexistente'  THEN 1.00 WHEN 'Fraco' THEN 0.90
-                                        WHEN 'Mediano'      THEN 0.75 WHEN 'Satisfatório' THEN 0.60
-                                        WHEN 'Forte'        THEN 0.50 END,
+      fator_controle                = v_fator,
       estrategia_principal          = v_risco.estrategia_principal
     WHERE r.id = v_id;
+    -- Contamos as linhas ANTES do PERFORM abaixo: todo PERFORM reescreve a
+    -- variável FOUND, então "IF NOT FOUND" depois dele nunca seria verdadeiro.
+    GET DIAGNOSTICS v_linhas = ROW_COUNT;
     PERFORM set_config('search_path', '', true);
 
     -- A RLS não dá erro no UPDATE barrado: ela só "não acha" a linha.
-    -- Aqui transformamos isso num erro claro (42501).
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'RADAR: você não pode alterar a ficha do risco %.', v_risco.codigo_radar
+    -- Aqui transformamos isso num erro claro (42501), com o código GRAVADO.
+    IF v_linhas = 0 THEN
+      RAISE EXCEPTION 'RADAR: você não pode alterar a ficha do risco %.', v_codigo
         USING ERRCODE = 'insufficient_privilege';
     END IF;
   END IF;
