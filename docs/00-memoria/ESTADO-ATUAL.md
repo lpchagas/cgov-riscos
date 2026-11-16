@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-16  
-> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** está concluída na branch `feat/c-painel-celular` (ainda não mesclada). Próxima: D (homologação na CGTI).
+> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** está concluída na branch `feat/c-painel-celular` (aberta no PR #8, ainda não mesclada). Próxima: D (homologação na CGTI).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
