@@ -47,7 +47,10 @@ for (const perfil of ['cgov', 'gestor'] as const) {
 
     test('alvos de toque têm pelo menos 44 px', async ({ page }) => {
       await abrirPainel(page, perfil);
-      // Abre os blocos e os "Mostrar mais" para medir também o que fica escondido por padrão.
+      // Abre os três blocos recolhíveis para medir também o que fica escondido por padrão.
+      // NÃO são medidos: os itens 4 em diante de "Precisa da sua atenção" e o botão "Mostrar mais"
+      // de "Maiores riscos", porque na demonstração há só 3 riscos e eles não aparecem. Usam as
+      // mesmas classes dos itens que são medidos.
       for (const nome of TITULOS_BLOCOS) {
         await page.locator('.painel').getByRole('button', { name: nome }).click();
       }
@@ -74,6 +77,8 @@ for (const perfil of ['cgov', 'gestor'] as const) {
 
     test('sem rolagem lateral e registra a altura do Painel', async ({ page }) => {
       await abrirPainel(page, perfil);
+      // Espera o conteúdo carregar: sem isso a altura poderia ser lida no estado "carregando".
+      await expect(page.getByRole('heading', { name: 'Maiores riscos residuais' })).toBeVisible();
       const medidas = await page.evaluate(() => ({
         rola: document.documentElement.scrollWidth > window.innerWidth,
         altura: document.documentElement.scrollHeight,
@@ -91,6 +96,8 @@ test.describe('computador 1280 px', () => {
 
   test('Matriz antes da Atenção, sem botões de bloco e blocos finais visíveis', async ({ page }) => {
     await abrirPainel(page, 'cgov');
+    // Espera o conteúdo carregar antes de medir posições (evita medir o estado "carregando").
+    await expect(page.getByRole('heading', { name: 'Maiores riscos residuais' })).toBeVisible();
     const matriz = await page.getByRole('heading', { level: 2, name: 'Matriz de riscos inerentes' }).boundingBox();
     const atencao = await page.getByRole('heading', { level: 2, name: 'Precisa da sua atenção' }).boundingBox();
     // Lado a lado (7 + 5 colunas): a Matriz fica à esquerda, na mesma linha ou acima da Atenção.

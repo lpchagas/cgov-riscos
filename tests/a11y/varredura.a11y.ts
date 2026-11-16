@@ -203,7 +203,8 @@ for (const tema of TEMAS) {
             expect(rolagem.rola, `rolagem lateral: ${rolagem.culpados.join(', ')}`).toBe(false);
 
             // Altura do Painel no celular: SÓ INFORMA, não reprova. A meta de 3.500 px
-            // depende de uma decisão da CGOV (ver design-system.md §9).
+            // continua só informando: a CGOV decidiu (D-C1) não tirar cartões do Painel.
+            // Os números atuais estão em design-system.md §11.
             if (tela.nome === 'painel' && (largura === 360 || largura === 390)) {
               const altura = await page.evaluate(() => document.documentElement.scrollHeight);
               test.info().annotations.push({ type: 'altura do Painel (px)', description: String(altura) });

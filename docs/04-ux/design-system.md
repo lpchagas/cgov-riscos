@@ -282,11 +282,19 @@ Painel e Riscos também em `carregando` e em `erro`. O estado é simulado pela c
 O Painel passou a ter um modo próprio abaixo de **640 px** (celular). No computador nada mudou.
 Decisões e custos em [[decisoes-tecnicas-c]]; desenho em [[2026-11-16-etapa-c-painel-celular-design]].
 
-| Métrica (390 px, demonstração, blocos fechados) | Fase 4 (§ 9) | Etapa C |
+| Métrica (390 px, demonstração, blocos fechados) | Partida (spec da etapa C) | Etapa C |
 |---|---|---|
 | Altura do Painel, perfil CGOV | 4.104 px | **3.690 px** |
 | Altura do Painel, perfil Gestor | 4.185 px | **3.771 px** |
 | Alvos de toque com lado menor que 44 px | 14 de 49 | **0** |
+
+Sobre a coluna "Partida": os **4.109 px** da § 9 são a medida da Fase 4. Os **4.104 px** são a nova medição
+de partida da etapa C (mesmo Painel, medida em 2026-11-16), por isso os dois números diferem um pouco.
+
+**Modo real com 5 ou mais riscos: NÃO foi medido em navegador** (a demonstração só tem 3 riscos). O limite de
+3 cartões em "Maiores riscos" (`maioresVisiveis`, testado com 3, 4 e 5 riscos em `tests/unit/painelCelular.spec.ts`)
+faz o teto ficar, por lógica, perto de 3.690 px + o botão "Mostrar mais" (cerca de 56 px), ou seja, cerca de
+3.750 px. Isso é **estimativa, não medição**.
 
 **A meta de 3.500 px da Fase 4 continua NÃO atingida:** o Painel ficou 190 px (CGOV) e 271 px (Gestor) acima.
 Sem os alvos de 44 px seria 3.537 / 3.618 px; escolhemos gastar cerca de 150 px em alvos de toque.

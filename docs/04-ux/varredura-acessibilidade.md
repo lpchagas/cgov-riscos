@@ -96,8 +96,10 @@ npx playwright show-report   # abre playwright-report/index.html no navegador
 [info] claro · 360 px · altura do Painel: 4271 px (meta da CGOV: 3.500 px)
 ```
 
-A meta de 3.500 px depende de uma decisão da CGOV sobre tirar cartões do Painel no celular
-([[design-system]] §9).
+A meta de 3.500 px **só informa**, não reprova. A CGOV decidiu (D-C1) **não tirar cartões** do Painel
+(os resumos finais apenas recolhem). Os números atuais estão na [[design-system]] §11: 3.690 px (CGOV) e
+3.771 px (Gestor) em 390 px. Esta varredura registrou 3.793 px em 360 px, uma largura mais estreita, em que
+o texto quebra em mais linhas. O exemplo acima (4271 px) é antigo, de antes da etapa C.
 
 ## 5. Página nova? Inclua na varredura
 

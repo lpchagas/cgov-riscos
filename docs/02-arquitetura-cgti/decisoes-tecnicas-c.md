@@ -24,7 +24,7 @@
 | Código | O que | Por quê | Custo / efeito |
 | --- | --- | --- | --- |
 | **C-1** | **Breakpoint do celular em 639,98 px** (consulta `max-width: 639.98px`), **não** 768 px. O gancho `useCelular()` e o CSS usam a mesma consulta (`CONSULTA_CELULAR`). | O Painel já tinha regras de celular nesse ponto de corte; de 640 a 767 px é tablet, e a tabela vira cartão sozinha abaixo de 768 px. O decimal evita que 640 px caia nos dois lados. | O "modo cartão" das tabelas (< 768 px, Fase 4) e o "modo celular" do Painel têm cortes diferentes. É um desvio declarado da spec (que dizia menos de 768 px). |
-| **C-2** | **Ordem só por CSS (`order`), sem mudar o HTML.** | Muda só o celular e não mexe no computador. | **No celular, a ordem do teclado e do leitor de tela (Matriz antes da Atenção) é diferente da ordem visual.** Se a CGOV preferir ordem real igual nas duas, é preciso trocar o HTML e reposicionar no computador (mesmo custo, invertido). |
+| **C-2** | **Ordem só por CSS (`order`), sem mudar o HTML.** | Muda só o celular e não mexe no computador. | **No celular, a ordem do teclado e do leitor de tela (Matriz antes da Atenção) é diferente da ordem visual.** Se a CGOV preferir ordem real igual nas duas, é preciso trocar o HTML e reposicionar no computador (mesmo custo, invertido). **Aprovada pelo responsável pelo projeto** ao aprovar o design da etapa C em 2026-11-16 (spec §7, call 1, que descrevia a decisão com esse custo). Se a CGOV mudar de ideia: trocar a ordem no HTML e reposicionar no computador. |
 | **C-3** | **`BlocoRecolhivel`** (`src/components/ui/BlocoRecolhivel.vue`): botão com `aria-expanded` e `aria-controls`, padrão já usado em "Mostrar mais". O estado aberto/fechado **não é salvo**. Só recolhe no celular; no computador o título é `h2` e o corpo fica sempre visível. | Um componente só, testável, no padrão que a equipe já conhece. | Ao recarregar a página os blocos voltam fechados. |
 | **C-4** | **Alvos de toque de 44 px no celular, inclusive no `PageHeader` compartilhado** (link "Fundamento"). | WCAG 2.5.8 pede alvo mínimo; o `PageHeader` é usado por todas as telas. | **Todas as telas** ganham a altura de 44 px no "Fundamento" no celular. Os alvos custaram cerca de **150 px** de altura no Painel (ver seção 3). |
 | **C-5** | **O 390 px entrou na varredura de acessibilidade.** As larguras passam a ser 360, 390, 768, 1280 e 1920. | Medimos e projetamos para 390 px; a varredura tem de olhar a mesma largura. | Mais combinações e mais tempo (ver [[varredura-acessibilidade]]). |
@@ -50,6 +50,10 @@ Repetida em 2026-11-16 com um navegador de verdade (Chromium, `scrollHeight`), n
 - **Ordem dos blocos no celular (visual):** Painel (título) → indicadores → Precisa da sua atenção → Matriz de
   riscos inerentes → Maiores riscos residuais → Riscos por nível residual → Apetite a riscos (DAR) → Atividade
   recente.
+- **Modo real com 5 ou mais riscos: NÃO foi medido em navegador** (a demonstração só tem 3 riscos). O limite
+  de 3 cartões em "Maiores riscos" (`maioresVisiveis`, testado com 3, 4 e 5 riscos em
+  `tests/unit/painelCelular.spec.ts`) limita o teto, por lógica, a algo próximo de 3.690 px + o botão
+  "Mostrar mais" (cerca de 56 px), ou seja, cerca de 3.750 px. É **estimativa, não medição**.
 - O Figma (3.346 px) é um desenho com dados de exemplo; a medição no código é que vale.
 
 ## 4. Figma e Code Connect
