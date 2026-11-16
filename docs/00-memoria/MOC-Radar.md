@@ -17,6 +17,8 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[modelo-dados-mer]] — Planta baixa do Banco de Dados PostgreSQL/Supabase (11 tabelas de negócio, inclusive `processos_cadeia_valor`, + a trilha `auditoria_log`; seção 3: unidades reais, perfis, funções de alcance, fluxo de 3 degraus e trilha).
 - [[decisoes-tecnicas-b1]] — Decisões técnicas da etapa B1 (R1 a R23) e decisões da CGOV na revisão final (D1 segregação "sobe um nível", D2 exclusão de risco, D3 alcance do gestor), com motivo, custo e as pendências para a CGOV.
 - [[decisoes-tecnicas-b2]] — Decisões técnicas da etapa B2 (B2-1 a B2-9 da CGOV e T1 a T11 da execução: link com `token_hash`, dois modos, Edge Function, importador de atribuições) e achados para a CGOV (CT Cuiabá, unidades sem titular).
+- [[decisoes-tecnicas-b3]] — Decisões técnicas da etapa B3 (B3-1 a B3-17: camada de dados, `acoes_no_fluxo`, `salvar_ficha_risco`, estados de tela) e pendências.
+- [[2026-11-16-etapa-b3-telas-banco-design]] — Design da etapa B3 (telas lendo e gravando no banco); plano: [[2026-11-16-etapa-b3-telas-banco-plan]].
 - [[guia-supabase-local]] — Como rodar o banco local, testar com pgTAP, importar a estrutura do SharePoint e resolver os erros comuns (etapa B1); seções novas da B2: entrar localmente pelo Mailpit, Edge Function `gerenciar-acesso` e `sync:atribuicoes`.
 - [[2026-11-15-etapa-b2-login-perfis-design]] — Design da etapa B2 (login por link de e-mail e perfis); plano: [[2026-11-15-etapa-b2-login-perfis-plan]].
 - [[2026-11-15-etapa-b1-1-regras-banco-design]] — Design da etapa B1.1 (regras do banco: Presidência, objetos, preliminar da CGOV, DAR); plano: [[2026-11-15-etapa-b1-1-regras-banco-plan]]; decisões B11-1 a B11-9 em [[decisoes-tecnicas-b1]] seção 5.
@@ -29,6 +31,7 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[03-empacotando-com-docker]] — Aula 3: Como o `Dockerfile` empacota o Vue.js com o servidor Nginx para rodar em qualquer máquina.
 - [[04-design-tokens-e-componentes]] — Aula 4: Tokens de design, componentes, telas responsivas (modo cartão das tabelas) e acessibilidade.
 - [[05-login-sessao-e-guardas]] — Aula 5: link mágico, sessão e renovação, por que o menu não é segurança (a RLS é) e os dois modos (demonstração e real).
+- [[06-camada-de-dados-e-async]] — Aula 6: camada de dados com duas fontes, `async/await`, estados de carregamento e erro, paginação de 1.000 linhas e por que a ficha é gravada por uma função.
 
 ## 🎨 5. Interface (Reformulação 2026-11)
 - [[design-system]] — Tokens, componentes e resultados medidos das Fases 1 a 4.

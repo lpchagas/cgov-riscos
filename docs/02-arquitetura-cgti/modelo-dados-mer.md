@@ -136,3 +136,18 @@ tudo (inclusive as linhas sem objeto); os demais leem a trilha dos objetos que p
 - **Importador:** `sync:estrutura` ignora o vínculo com CT de outra GR e avisa no relatório.
 
 Motivos e custos: [[decisoes-tecnicas-b1]], seção 5.
+
+## 3.7 Etapa B3 — leituras e gravação para as telas (`20261117001_leitura_acoes_e_gravacao_ficha.sql`)
+
+Migração única da etapa, com 4 funções e 1 sequência. Todas exigem login (`anon` sem acesso) e respeitam a RLS.
+
+| Objeto | O que faz |
+| --- | --- |
+| `acoes_no_fluxo(riscos uuid[])` | Só leitura. Por risco: `pode_enviar`, `pode_assumir`, `pode_validar`, `pode_homologar`, `pode_devolver`, `devolucao_cgov`, `pode_editar`, `pode_excluir` e `motivo`. Chama as mesmas funções internas do fluxo. Usa a criticidade **gravada** (B3-7). |
+| `salvar_ficha_risco(ficha jsonb)` | Grava risco, controles, respostas, KRIs e ações numa transação. Deriva `fator_controle` da eficácia (Quadro 6); o gatilho de cálculo não mudou. Devolve `(id, codigo_radar)`. |
+| `riscos_codigo_seq` | Sequência global do código `RADAR-<ano>-<NNN>` (ano de Brasília, não recomeça por ano). Só `USAGE` para quem fez login. |
+| `ler_auditoria(de, ate, tabela, antes_em, antes_id, limite)` | Trilha em páginas (padrão 50) com cursor `(realizado_em, id)`; respeita o alcance da trilha. |
+| `objetos_onde_gravo()` | Ids dos objetos em que a pessoa pode gravar (`pode_escrever_objeto`). |
+
+Motivos e custos: [[decisoes-tecnicas-b3]]. Testes: pgTAP `080`, `081` e `082`.
+

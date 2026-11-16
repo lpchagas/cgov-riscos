@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-16  
-> **Fase atual:** B1, B2 (PR #5) e B1.1 (PR #6) mescladas na `main`. Etapa **B3 (telas lendo e gravando no banco)** iniciada em 2026-11-16 na branch `feat/b3-telas-banco` (fase de design: perguntas → spec → plano). Depois: C (Painel no celular, decisão da CGOV) e D (homologação na CGTI).
+> **Fase atual:** B1, B2, B1.1 mescladas na `main`. Etapa **B3 (telas lendo e gravando no banco) concluída** na branch `feat/b3-telas-banco` (2026-11-16), aguardando revisão e PR. Depois: C (Painel no celular, decisão da CGOV) e D (homologação na CGTI).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -150,3 +150,23 @@ Design: [[2026-11-15-etapa-b1-1-regras-banco-design]] · Plano: [[2026-11-15-eta
   - `npm run test:a11y`: **197 passaram, 0 violações** (3,9 min).
   - `npm run test:integracao` (com `db:funcoes`): **3 arquivos, 13 testes passando**.
   - `npm run db:reset && npm run test:db`: **14 arquivos (`000` a `073`), 630 testes, `Result: PASS`**.
+
+## Etapa B3 — telas lendo e gravando no banco (2026-11-16, branch `feat/b3-telas-banco`)
+Design: [[2026-11-16-etapa-b3-telas-banco-design]] · Plano: [[2026-11-16-etapa-b3-telas-banco-plan]] · Decisões: [[decisoes-tecnicas-b3]] · Aula: [[06-camada-de-dados-e-async]]
+- **Situação: etapa B3 concluída** (commits automáticos na branch). Migração única: `20261117001_leitura_acoes_e_gravacao_ficha.sql`.
+- **Entregas:**
+  - **Camada de dados** (`src/services/dados/`) com duas fontes (demonstração e Supabase), tradução de erros do banco (`traduzirErroBanco`) e leitura paginada (`lerTodasAsPaginas`, 1.000 por página).
+  - **Banco:** `acoes_no_fluxo` (quem pode o quê, com `motivo`), `salvar_ficha_risco` (ficha numa transação, fator do Quadro 6 derivado), `riscos_codigo_seq`, `ler_auditoria` (cursor de 50) e `objetos_onde_gravo`. Cálculo e RLS intocados.
+  - **Store assíncrona** com estados carregando/erro/pronto e `avisoAtualizacao`; componentes `EstadoCarregamento`, `ErroPagina` e `AvisoAtualizacao`.
+  - **Telas no banco:** Painel, Riscos, Ficha (com excluir), Novo risco e **edição** (`/riscos/novo?editar=<id>`), Importar (tentar de novo só as recusadas), Aprovações, Objetos (reatribuir), Monitoramento, DAR e Auditoria.
+  - **Varredura de acessibilidade** com Painel e Riscos também em `carregando` e `erro` (`radar.demo-estado.v1`): (16 + 4) telas.
+  - Documentação: [[decisoes-tecnicas-b3]] (B3-1 a B3-17 e pendências), [[06-camada-de-dados-e-async]], [[modelo-dados-mer]] (3.7), [[guia-supabase-local]] (seção 10) e [[design-system]] (seção 10).
+- **Pendências principais** (detalhe em [[decisoes-tecnicas-b3]], seção 3): criticidade gravada em `acoes_no_fluxo` pode divergir após mudança da DAR em risco não aprovado e não editado; formulário edita só o 1º controle/ação/KRI; reimportar a tabela inteira após nova prévia duplica (deliberado); cargo vago da B1.1 segue aberto; ajustes pequenos de interface (coluna Ações no celular, CSV da auditoria sem guarda contra fórmula).
+- **Verificação final da B3 (2026-11-16, nesta ordem):**
+  - `npm test`: **45 arquivos, 502 testes passando**.
+  - `npm run build`: ok (`vue-tsc` + `vite build`).
+  - `npm run test:a11y`: **245 passaram, 0 violações** ((16 + 4) telas × 4 larguras × 3 temas = 240 + 4 autoverificações + 1 teste de menu), em 6,8 min.
+  - `npm run test:integracao` (com `db:start` e `db:funcoes`): **5 arquivos, 29 testes passando**.
+  - `npm run db:reset && npm run test:db`: **17 arquivos (`000` a `082`), 840 testes, `Result: PASS`**.
+  - `git status --porcelain | grep -i '_temp'`: vazio. `git diff --stat main -- supabase/migrations`: só `20261117001_leitura_acoes_e_gravacao_ficha.sql`. `grep -rn "service_role\|SERVICE_ROLE" src/`: só o comentário existente em `src/services/supabase.ts` linha 36.
+

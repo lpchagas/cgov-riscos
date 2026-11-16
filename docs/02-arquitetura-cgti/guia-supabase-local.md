@@ -91,7 +91,7 @@ Regra de ouro: se um teste de regressão falha, primeiro descubra por que o cál
 o teste se a regra normativa (Metodologia SEI 024421455) tiver mudado de fato.
 
 
-## 6. Os testes do banco (arquivos `000` a `073`)
+## 6. Os testes do banco (arquivos `000` a `082`)
 
 `npm run test:db` roda, em ordem, os arquivos de `supabase/tests/`. Rode antes `npm run db:reset`,
 porque vários testes usam a semente de demonstração.
@@ -111,6 +111,9 @@ porque vários testes usam a semente de demonstração.
 | `071_objetos_regras` | Objeto só em unidade e processo ativos; supervisor preenchido pelo banco e propagado; RPC `reatribuir_objeto` (só CGOV, só unidade inativa). |
 | `072_preliminar_cgov` | A CGOV grava controles, respostas, KRIs e medições e apaga o risco enquanto `preliminar_cgov`; perde isso ao ser assumido. |
 | `073_dar_reavalia` | DAR alterada recalcula os aprovados da categoria; quem vira Crítico volta à homologação (`reaberto_mudanca_dar`); a CGOV devolve risco sem ator efetivo. |
+| `080_acoes_no_fluxo` | `acoes_no_fluxo`: o botão só aparece quando a ação passaria (para cada pessoa da semente) e o `motivo` explica a recusa. |
+| `081_salvar_ficha_risco` | `salvar_ficha_risco`: gravação única, fator do Quadro 6 derivado da eficácia, código global sem repetição, recusas por permissão. |
+| `082_leituras_b3` | `ler_auditoria` (cursor de 50) e `objetos_onde_gravo`. |
 
 Resultado esperado: `All tests successful` e `Result: PASS`.
 
@@ -245,3 +248,25 @@ O que ele faz (resumo; a lista completa está em [[decisoes-tecnicas-b2]]):
 - Rodar de novo é seguro: cada passo confere o estado antes de mudar.
 - No relatório, leia com atenção "Unidades sem titular" e os avisos de tipo suspeito (por exemplo, a
   CT Cuiabá cadastrada como Coordenação-Geral).
+
+## 10. Rodar o RADAR no modo real com a semente
+
+Para ver as telas lendo e gravando no banco (etapa B3), com os 19 usuários fictícios e os 10 riscos da semente:
+
+1. `npm run db:start` (Docker ligado) e, para zerar e recarregar a semente, `npm run db:reset`.
+2. `npx supabase status` e copie a `API URL` e a chave `anon` para o `.env` (como na seção 8):
+
+   ```text
+   VITE_SUPABASE_URL=http://127.0.0.1:54321
+   VITE_SUPABASE_ANON_KEY=<a chave anon>
+   ```
+
+3. `npm run dev`, abra o endereço mostrado e entre em `/entrar` com um usuário `@radar.test`
+   (ex.: `cgov@radar.test`, `gestor.uc@radar.test`).
+4. Abra o **Mailpit** em <http://127.0.0.1:54324> e clique no link do e-mail "Seu link de acesso ao RADAR".
+5. Navegue: cada perfil vê só o que a RLS permite, e os botões de fluxo seguem `acoes_no_fluxo`.
+
+Dicas: `npm run db:reset` desfaz o que você gravou nas telas. Apagou o `.env`? Volta ao modo
+demonstração. Sem `db:funcoes`, a tela "Usuários e perfis" não envia convites (o resto funciona). Nenhum
+e-mail sai do Mailpit.
+
