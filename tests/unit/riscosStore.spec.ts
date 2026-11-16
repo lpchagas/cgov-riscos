@@ -15,7 +15,8 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
-import { definirFonteParaTeste, useRiscosStore } from '../../src/stores/riscosStore';
+import { nextTick, reactive } from 'vue';
+import { definirFonteParaTeste, ligarCarteiraASessao, useRiscosStore } from '../../src/stores/riscosStore';
 import { criarFonteDemonstracao } from '../../src/services/dados';
 import type { Carteira, FonteDados } from '../../src/services/dados/tipos';
 import { ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
@@ -257,5 +258,74 @@ describe('riscosStore assíncrona', () => {
     expect(res.erros[0]).toContain('Você não tem permissão');
     expect(salvarFicha.mock.calls.every(([f]) => f.preliminarCgov === true && f.objetoId === objetoId)).toBe(true);
     expect(store.riscos.filter((r) => r.statusFluxo === 'preliminar_cgov')).toHaveLength(1);
+  });
+
+  it('salvarOuAtualizarRisco com id que não está na memória recusa (não cria risco novo)', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+    fonteFalsa({ ...base, salvarFicha });
+    const store = useRiscosStore();
+    await store.carregar();
+
+    const erro = await store.salvarOuAtualizarRisco({ id: 'risco-que-nao-existe', causas: 'x' }).catch((e) => e);
+
+    expect(erro).toBeInstanceOf(ErroRadar);
+    expect(erro.tipo).toBe('nao_encontrado');
+    expect(erro.message).toBe('Risco não encontrado.');
+    expect(salvarFicha).not.toHaveBeenCalled();
+    expect(store.riscos).toHaveLength(3);
+  });
+
+  it('relerRiscos que falha rejeita com ErroRadar (erro cru da fonte é traduzido)', async () => {
+    const base = criarFonteDemonstracao('normal');
+    fonteFalsa({ ...base, relerRisco: vi.fn().mockRejectedValue(new TypeError('Failed to fetch')) });
+    const store = useRiscosStore();
+    await store.carregar();
+
+    const erro = await store.relerRiscos([ID_001()]).catch((e) => e);
+
+    expect(erro).toBeInstanceOf(ErroRadar);
+  });
+});
+
+describe('ligarCarteiraASessao (carga e limpeza pela sessão)', () => {
+  /** Sessão e carteira falsas: só o que a ligação usa. */
+  function montar() {
+    const sessao = reactive({ situacao: 'ativo', usuarioAtual: { id: 'u1', papel: 'gestor' } });
+    const carteira = { carregar: vi.fn(async () => {}), limpar: vi.fn() };
+    const parar = ligarCarteiraASessao(sessao, carteira);
+    return { sessao, carteira, parar };
+  }
+
+  it('sessão ativa carrega na hora (immediate)', () => {
+    const { carteira, parar } = montar();
+    expect(carteira.carregar).toHaveBeenCalledTimes(1);
+    parar();
+  });
+
+  it('perfil relido IGUAL (objeto novo, mesmo id e papel) NÃO recarrega', async () => {
+    const { sessao, carteira, parar } = montar();
+    sessao.usuarioAtual = { id: 'u1', papel: 'gestor' }; // ex.: foco na aba
+    await nextTick();
+    sessao.usuarioAtual = { id: 'u1', papel: 'gestor' }; // ex.: token renovado
+    await nextTick();
+    expect(carteira.carregar).toHaveBeenCalledTimes(1);
+    expect(carteira.limpar).not.toHaveBeenCalled();
+    parar();
+  });
+
+  it('outra pessoa ou outro papel recarrega; sair da situação ativo limpa', async () => {
+    const { sessao, carteira, parar } = montar();
+    sessao.usuarioAtual = { id: 'u2', papel: 'gestor' };
+    await nextTick();
+    expect(carteira.carregar).toHaveBeenCalledTimes(2);
+    sessao.usuarioAtual = { id: 'u2', papel: 'diretor' };
+    await nextTick();
+    expect(carteira.carregar).toHaveBeenCalledTimes(3);
+    sessao.situacao = 'anonimo';
+    await nextTick();
+    expect(carteira.limpar).toHaveBeenCalledTimes(1);
+    expect(carteira.carregar).toHaveBeenCalledTimes(3);
+    parar();
   });
 });

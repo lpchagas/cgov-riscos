@@ -38,7 +38,7 @@
  */
 
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, ref, watch, type WatchStopHandle } from 'vue';
 import type {
   AcoesFluxo,
   ApetiteDeclarado,
@@ -136,6 +136,46 @@ function montarFichaParaSalvar(
   };
   // Tira as chaves vazias: undefined = "não mexer / usar o padrão" na fonte.
   return Object.fromEntries(Object.entries(ficha).filter(([, v]) => v !== undefined)) as FichaParaSalvar;
+}
+
+/** O mínimo da sessão de que a ligação precisa (a `authStore` real serve). */
+export interface SessaoParaCarteira {
+  situacao: string;
+  usuarioAtual: { id: string; papel: string };
+}
+/** O mínimo da carteira de que a ligação precisa (a `riscosStore` real serve). */
+export interface CarteiraLigavel {
+  carregar(): Promise<void>;
+  limpar(): void;
+}
+
+/**
+ * Liga a carteira de riscos à sessão (chamada uma vez pelo `App.vue`):
+ *   - sessão 'ativo' → `carregar()` (na demonstração já nasce 'ativo');
+ *   - qualquer outra situação (saiu, sessão venceu, conta suspensa, erro) → `limpar()`;
+ *   - outra pessoa (id) ou outro perfil (papel) com a sessão ativa → recarrega.
+ *
+ * ATENÇÃO (por que três fontes "primitivas"): a `authStore` remonta o objeto
+ * `usuarioAtual` toda vez que relê o perfil (ao voltar à aba, ao renovar o
+ * token). Se observássemos o objeto ou uma lista nova a cada leitura, o Vue
+ * acharia que "mudou" e recarregaria a carteira inteira a cada foco da aba.
+ * Observando só textos (situação, id, papel), nada acontece quando o perfil
+ * relido é igual ao anterior.
+ * Ex.: perfil relido com o mesmo id e papel → nenhuma recarga;
+ *      papel trocado de 'gestor' para 'diretor' → recarrega.
+ */
+export function ligarCarteiraASessao(
+  sessao: SessaoParaCarteira = useAuthStore(),
+  carteira: CarteiraLigavel = useRiscosStore()
+): WatchStopHandle {
+  return watch(
+    [() => sessao.situacao, () => sessao.usuarioAtual.id, () => sessao.usuarioAtual.papel],
+    ([situacao]) => {
+      if (situacao === 'ativo') void carteira.carregar();
+      else carteira.limpar();
+    },
+    { immediate: true }
+  );
 }
 
 export const useRiscosStore = defineStore('riscos', () => {
@@ -252,11 +292,18 @@ export const useRiscosStore = defineStore('riscos', () => {
   async function relerRiscos(ids: string[]): Promise<void> {
     if (!ids.length) return;
     const minha = geracao;
-    const lidos = await Promise.all(ids.map((id) => fonte().relerRisco(id)));
-    if (minha !== geracao) return;
-    const presentes = lidos.filter((r): r is FichaRisco => r !== null);
-    const listaAcoes = await fonte().acoesNoFluxo(presentes.map((r) => r.id));
-    if (minha !== geracao) return;
+    let lidos: Array<FichaRisco | null>;
+    let listaAcoes: AcoesFluxo[];
+    try {
+      lidos = await Promise.all(ids.map((id) => fonte().relerRisco(id)));
+      if (minha !== geracao) return;
+      const presentes = lidos.filter((r): r is FichaRisco => r !== null);
+      listaAcoes = await fonte().acoesNoFluxo(presentes.map((r) => r.id));
+      if (minha !== geracao) return;
+    } catch (e) {
+      // Como as demais ações públicas: quem chama recebe sempre um ErroRadar.
+      throw comoErroRadar(e);
+    }
 
     ids.forEach((id, i) => {
       const novo = lidos[i];
@@ -432,6 +479,9 @@ export const useRiscosStore = defineStore('riscos', () => {
    */
   async function salvarOuAtualizarRisco(parcial: Partial<FichaRisco>): Promise<FichaRisco> {
     const existente = parcial.id ? riscos.value.find((r) => r.id === parcial.id) : undefined;
+    // Pediram para ALTERAR um risco que não está na memória (excluído, fora do
+    // alcance ou id errado): recusamos, em vez de criar um risco novo por engano.
+    if (parcial.id && !existente) throw new ErroRadar('Risco não encontrado.', 'nao_encontrado');
     const pacote = montarFichaParaSalvar(parcial, existente, objetosContexto.value[0]?.id ?? '');
     let gravado = { id: '', codigoRadar: '' };
     await executar(

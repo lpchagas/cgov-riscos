@@ -185,15 +185,28 @@ async function salvar(enviar: boolean): Promise<void> {
       : [],
   };
 
-  // A gravação vai à fonte de dados (assíncrona). Se a fonte recusar, a
-  // mensagem já vem em português claro e a pessoa continua no formulário.
+  // PASSO 1 — gravar. Se a fonte recusar, a mensagem já vem em português
+  // claro e a pessoa continua no formulário (nada foi criado).
   let ficha: FichaRisco;
   try {
     ficha = await riscosStore.salvarOuAtualizarRisco(dadosDaFicha);
-    if (enviar) await riscosStore.submeterParaValidacaoCg(ficha.id);
   } catch (e) {
     mostrar({ tom: 'perigo', mensagem: (e as Error).message });
     return;
+  }
+
+  // PASSO 2 — enviar (só em "Salvar e enviar"). O risco JÁ EXISTE: se o envio
+  // for recusado, NÃO ficamos no formulário (apertar de novo criaria um
+  // segundo risco). Levamos a pessoa à ficha, de onde ela tenta enviar de novo.
+  // Ex.: "Rascunho salvo (RADAR-2026-004), mas não foi enviado: Esta unidade não tem chefia…"
+  if (enviar) {
+    try {
+      await riscosStore.submeterParaValidacaoCg(ficha.id);
+    } catch (e) {
+      mostrar({ tom: 'aviso', mensagem: `Rascunho salvo (${ficha.codigoRadar}), mas não foi enviado: ${(e as Error).message}` });
+      router.push({ name: 'ficha-bowtie-detalhe', params: { id: ficha.id } });
+      return;
+    }
   }
   mostrar({
     tom: 'sucesso',

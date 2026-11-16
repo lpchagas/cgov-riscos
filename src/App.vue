@@ -38,7 +38,7 @@ import BrButton from './components/govbr/BrButton.vue';
 import { usePreferenciasInterface } from './composables/usePreferenciasInterface';
 import { saidaExplicita } from './composables/useSaidaExplicita';
 import { useAuthStore } from './stores/authStore';
-import { useRiscosStore } from './stores/riscosStore';
+import { ligarCarteiraASessao } from './stores/riscosStore';
 import { useToast } from './composables/useToast';
 import { AVISO_SO_CGOV } from './router/guarda';
 import { podeAbrirRota } from './utils/acessoPorPerfil';
@@ -122,26 +122,11 @@ watch(
 /**
  * CARGA E LIMPEZA DA CARTEIRA DE RISCOS (etapa B3).
  * O App é o primeiro componente a existir, então é aqui que ligamos a store
- * de riscos à sessão:
- *   - sessão 'ativo' → `carregar()` (na demonstração a situação já nasce
- *     'ativo', então a carteira carrega assim que o sistema abre);
- *   - qualquer outra situação (saiu, sessão venceu, conta suspensa, erro) →
- *     `limpar()`: nenhum dado de uma pessoa fica na memória para a próxima;
- *   - outra pessoa (id) ou outro perfil (papel) com a sessão ativa → recarrega,
- *     porque o alcance e os botões (`acoes`) dependem de quem está usando.
- *     Ex.: na demonstração, trocar de "Gestor" para "Diretoria" no simulador
- *     recarrega a carteira e a fila de homologação aparece.
- * `immediate: true` roda a regra uma vez já na abertura.
+ * de riscos à sessão: 'ativo' → carrega; saiu/venceu/suspensa → limpa; outra
+ * pessoa ou outro perfil → recarrega. A regra (e o cuidado para NÃO recarregar
+ * a cada foco da aba) está comentada em `ligarCarteiraASessao`.
  */
-const riscosStore = useRiscosStore();
-watch(
-  () => [authStore.situacao, authStore.usuarioAtual.id, authStore.usuarioAtual.papel] as const,
-  ([situacao]) => {
-    if (situacao === 'ativo') void riscosStore.carregar();
-    else riscosStore.limpar();
-  },
-  { immediate: true }
-);
+ligarCarteiraASessao();
 
 /**
  * Quando a janela volta ao foco, relemos o perfil: se a CGOV suspendeu a pessoa enquanto a

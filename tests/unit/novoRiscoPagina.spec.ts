@@ -9,11 +9,15 @@
  *   - a prévia mostra a trava de evidência (controle "Forte" sem evidência → Fraco 0,9);
  *   - o fluxo completo cria o risco e o envia para validação da Coordenação-Geral.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
-import { useRiscosStore } from '../../src/stores/riscosStore';
+import { definirFonteParaTeste, useRiscosStore } from '../../src/stores/riscosStore';
+import { criarFonteDemonstracao } from '../../src/services/dados';
+import type { FonteDados } from '../../src/services/dados/tipos';
+import { ErroRadar } from '../../src/services/dados/errosBanco';
+import { useToast } from '../../src/composables/useToast';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import { dadosExemplo, dadosVazios, validarEtapa } from '../../src/utils/formularioRisco';
 import FormularioRiscoView from '../../src/views/FormularioRiscoView.vue';
@@ -109,5 +113,34 @@ describe('Página Novo risco', () => {
     expect(novo.nivelInerente).toBe(18);
     expect(router.currentRoute.value.name).toBe('ficha-bowtie-detalhe');
     w.unmount();
+  });
+
+  describe('"Salvar e enviar" com envio recusado', () => {
+    afterEach(() => definirFonteParaTeste(null));
+
+    it('grava UMA vez, avisa "Rascunho salvo…, mas não foi enviado" e abre a ficha', async () => {
+      // Fonte falsa: grava normalmente, mas recusa o envio.
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      const recusa = new ErroRadar('Esta unidade não tem chefia acima para validar o risco. Procure a CGOV.', 'estado');
+      definirFonteParaTeste({ ...base, salvarFicha, enviar: vi.fn().mockRejectedValue(recusa) });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+
+      const { w, router } = await montar();
+      await botao(w, 'Preencher com exemplo').trigger('click');
+      for (let i = 0; i < 4; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      const novo = store.riscos.find((r) => r.id === String(router.currentRoute.value.params.id))!;
+      expect(router.currentRoute.value.name).toBe('ficha-bowtie-detalhe');
+      expect(novo.statusFluxo).toBe('rascunho');
+      const { toasts } = useToast();
+      expect(toasts.value[toasts.value.length - 1].mensagem).toBe(
+        `Rascunho salvo (${novo.codigoRadar}), mas não foi enviado: ${recusa.message}`
+      );
+      w.unmount();
+    });
   });
 });
