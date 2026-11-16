@@ -15,10 +15,14 @@
 -- criticidade gravada neles ficava velha até alguém editar a ficha.
 -- Regra P-B1-8 (decisão da CGOV): quando o apetite de uma categoria muda, o
 -- banco reavalia, na hora, os riscos `aprovado` daquela categoria:
---   - os que passam a EXIGIR HOMOLOGAÇÃO (is_critico, ou status_critico =
---     'pendente_dar' — o mesmo critério de validar_risco) voltam para
+--   - os que PASSAM A SER CRÍTICOS (is_critico era falso e passou a
+--     verdadeiro — texto literal da spec, §2) voltam para
 --     `em_homologacao_dir`, com uma linha no histórico do fluxo
---     (etapa 'reabertura_nota', ação NOVA 'reaberto_mudanca_dar');
+--     (etapa 'reabertura_nota', ação NOVA 'reaberto_mudanca_dar').
+--     Inclui o caso mais comum: a PRIMEIRA publicação da DAR (categoria
+--     'pendente_dar' → 'baixo'), em que um Médio aprovado vira crítico.
+--     Ir para 'pendente_dar' sem virar crítico NÃO reabre (o risco segue
+--     aprovado, só com status_critico atualizado);
 --   - os que deixam de ser críticos só têm a criticidade atualizada e
 --     CONTINUAM aprovados (sem linha no histórico; a trilha de auditoria
 --     registra a mudança);
@@ -57,10 +61,19 @@
 -- Ex.: risco da Presidência que o PRÓPRIO Presidente enviou: ninguém acima
 -- dele homologa (fn_fluxo_homologador_efetivo devolve nulo); ou unidade fora
 -- da árvore. Nesses casos o risco VAI MESMO ASSIM para em_homologacao_dir
--- (a fila de homologação o mostra e a CGOV resolve — por exemplo, pedindo que
--- outro servidor reenvie), e o texto do histórico registra o problema.
--- A mudança da DAR NÃO é abortada: a DAR é decisão da governança e não pode
--- ficar refém de um cadastro incompleto de uma unidade.
+-- (a fila de homologação o mostra) e o texto do histórico registra o
+-- problema. A mudança da DAR NÃO é abortada: a DAR é decisão da governança e
+-- não pode ficar refém de um cadastro incompleto de uma unidade.
+-- A SAÍDA REAL desse impasse está no item 3 abaixo: devolver_risco passa a
+-- aceitar que a CGOV DEVOLVA a ficha à unidade quando o estado atual não tem
+-- ator efetivo (sem homologador em em_homologacao_dir, ou sem validador em
+-- em_validacao_cg). A unidade ajusta e reenvia (outro servidor, se for o caso).
+--
+-- TRILHA DE AUDITORIA (efeito aceito): TODO risco aprovado da categoria
+-- recebe o UPDATE de recálculo — inclusive os de residual Alto/Extremo/Baixo,
+-- cuja criticidade não muda. Cada um ganha uma linha em auditoria_log e tem
+-- `atualizado_em` renovado. Filtrar só os Médios duplicaria uma regra do
+-- cálculo; o impacto é baixo porque mudanças da DAR são raras.
 --
 -- Tabela historico_fluxo: a coluna `acao` não tem CHECK (texto livre gravado
 -- só pelas funções do fluxo), então a ação nova não exige alterar restrição.
@@ -85,8 +98,8 @@ AS $$
 DECLARE
   v_risco        public.riscos;   -- risco ANTES do recálculo
   v_novo         public.riscos;   -- risco DEPOIS do recálculo
-  v_exigia       boolean;         -- exigia homologação antes?
-  v_exige        boolean;         -- exige homologação agora?
+  v_exigia       boolean;         -- era crítico antes?
+  v_exige        boolean;         -- é crítico agora?
   v_unidade      uuid;
   v_homologa     uuid;            -- homologador efetivo (D1)
   v_texto        text;
@@ -102,35 +115,34 @@ BEGIN
      ORDER BY r.id
        FOR UPDATE
   LOOP
-    v_exigia := v_risco.is_critico OR v_risco.status_critico = 'pendente_dar';
+    v_exigia := v_risco.is_critico;
 
     -- Reaciona o cálculo EXISTENTE (UPDATE "aprovado → aprovado" com o sinal
     -- radar.fluxo). A linha devolvida já vem com a criticidade nova.
     v_novo  := public.fn_fluxo_mudar_estado(v_risco.id, 'aprovado');
-    v_exige := v_novo.is_critico OR v_novo.status_critico = 'pendente_dar';
+    v_exige := v_novo.is_critico;
 
     IF v_exige AND NOT v_exigia THEN
-      -- Passou a exigir homologação: volta ao 3º degrau.
+      -- Passou a ser Risco Crítico: volta ao 3º degrau.
       SELECT o.unidade_id INTO v_unidade
         FROM public.objetos_contexto AS o WHERE o.id = v_novo.objeto_id;
       v_homologa := public.fn_fluxo_homologador_efetivo(
                       v_unidade, public.fn_fluxo_quem_enviou(v_novo.id));
 
       v_texto := format(
-        'DAR alterada: categoria %s com apetite %s → %s. O risco aprovado (residual %s, %s) passou a %s e voltou para homologação.',
+        'DAR alterada: categoria %s com apetite %s → %s. O risco aprovado (residual %s, %s) passou a Risco Crítico (fora do apetite) e voltou para homologação.',
         NEW.nome, OLD.apetite_declarado, NEW.apetite_declarado,
-        v_novo.nivel_residual, v_novo.classificacao_residual,
-        CASE WHEN v_novo.is_critico THEN 'Risco Crítico (fora do apetite)'
-             ELSE 'aguardar a definição do apetite (pendente_dar)' END);
+        v_novo.nivel_residual, v_novo.classificacao_residual);
       IF v_homologa IS NULL THEN
-        v_texto := v_texto || ' Atenção: não há homologador efetivo para este risco (quem o enviou é o titular da unidade que o homologaria, ou a unidade não tem GR, Diretoria ou Presidência acima). A CGOV deve resolver.';
+        v_texto := v_texto || ' Atenção: não há homologador efetivo para este risco (quem o enviou é o titular da unidade que o homologaria, ou a unidade não tem GR, Diretoria ou Presidência acima). A CGOV pode devolver a ficha à unidade para ajuste e reenvio.';
       END IF;
 
       PERFORM public.fn_fluxo_mudar_estado(v_novo.id, 'em_homologacao_dir');
       PERFORM public.fn_fluxo_registrar_historico(v_novo.id, 'reabertura_nota',
                                                   'reaberto_mudanca_dar', v_texto);
     END IF;
-    -- Demais casos (deixou de ser crítico, ou nada mudou): o UPDATE acima já
+    -- Demais casos (deixou de ser crítico, foi para pendente_dar sem virar
+    -- crítico, ou nada mudou): o UPDATE acima já
     -- gravou a criticidade nova; o risco continua aprovado.
   END LOOP;
 
@@ -156,3 +168,74 @@ AFTER UPDATE OF apetite_declarado ON public.categorias_risco
 FOR EACH ROW
 WHEN (OLD.apetite_declarado IS DISTINCT FROM NEW.apetite_declarado)
 EXECUTE FUNCTION public.fn_dar_reavaliar_aprovados();
+
+-- ----------------------------------------------------------------------------
+-- 3. devolver_risco: saída pela CGOV quando o estado não tem ator efetivo
+-- ----------------------------------------------------------------------------
+-- Recriada a partir da definição vigente (migração 20261115004; a 20261116001
+-- não a recriou). Mesma assinatura, SECURITY DEFINER, search_path vazio e as
+-- mesmas permissões. ÚNICA diferença: se não existe ator efetivo no estado
+-- atual —
+--   em_homologacao_dir e fn_fluxo_homologador_efetivo(...) é NULO, ou
+--   em_validacao_cg    e fn_fluxo_validador_efetivo(...)   é NULO —
+-- um usuário ATIVO com papel `cgov` pode devolver o risco (→ devolvido). O
+-- histórico é o mesmo de uma devolução comum ('devolucao_ajuste' /
+-- 'devolvido_ajuste'), assinado pela CGOV, e o motivo continua obrigatório.
+-- Quando EXISTE ator efetivo, nada muda: só o titular dele devolve, e a CGOV
+-- recebe a mesma recusa 42501 de sempre.
+-- Ex.: risco da Presidência enviado pelo próprio Presidente fica em
+-- em_homologacao_dir após a DAR mudar (ninguém o homologaria); cgov@ devolve
+-- com "Reenviar por outro servidor." → devolvido.
+CREATE OR REPLACE FUNCTION public.devolver_risco(risco uuid, motivo text)
+RETURNS public.riscos
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_risco   public.riscos;
+  v_unidade uuid;
+  v_quem    uuid;    -- unidade cujo titular pode devolver no estado atual
+  v_motivo  text := nullif(btrim(coalesce(devolver_risco.motivo, '')), '');
+BEGIN
+  IF v_motivo IS NULL THEN
+    RAISE EXCEPTION 'RADAR: informe o motivo da devolução (é obrigatório).'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  SELECT r.* INTO v_risco FROM public.riscos AS r WHERE r.id = devolver_risco.risco FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RADAR: risco % não encontrado.', devolver_risco.risco USING ERRCODE = 'no_data_found';
+  END IF;
+
+  SELECT o.unidade_id INTO v_unidade FROM public.objetos_contexto AS o WHERE o.id = v_risco.objeto_id;
+
+  IF v_risco.status_fluxo = 'em_validacao_cg' THEN
+    v_quem := public.fn_fluxo_validador_efetivo(v_unidade, public.fn_fluxo_quem_enviou(v_risco.id));
+  ELSIF v_risco.status_fluxo = 'em_homologacao_dir' THEN
+    v_quem := public.fn_fluxo_homologador_efetivo(v_unidade, public.fn_fluxo_quem_enviou(v_risco.id));
+  ELSE
+    RAISE EXCEPTION 'RADAR: estado não permite devolver o risco % (está em "%"; só se devolve risco em validação ou homologação).',
+      v_risco.codigo_radar, v_risco.status_fluxo
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  END IF;
+
+  IF v_quem IS NULL THEN
+    -- P-B1-8: ninguém pode agir neste estado → só a CGOV (perfil ativo) devolve.
+    IF NOT coalesce((public.meu_perfil()).papel_governanca = 'cgov', false) THEN
+      RAISE EXCEPTION 'RADAR: o risco % não tem quem o valide ou homologue neste estado; só a CGOV pode devolvê-lo à unidade.', v_risco.codigo_radar
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+  ELSIF NOT public.e_titular_de(v_quem) THEN
+    RAISE EXCEPTION 'RADAR: só o titular que valida ou homologa o risco % neste estado pode devolvê-lo.', v_risco.codigo_radar
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  v_risco := public.fn_fluxo_mudar_estado(v_risco.id, 'devolvido');
+  PERFORM public.fn_fluxo_registrar_historico(v_risco.id, 'devolucao_ajuste', 'devolvido_ajuste', v_motivo);
+  RETURN v_risco;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.devolver_risco(uuid, text) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.devolver_risco(uuid, text) TO authenticated;

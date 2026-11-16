@@ -23,7 +23,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(36);
+select plan(52);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -62,6 +62,8 @@ $$;
 --   C: Médio, Estratégico (1, moderado), APROVADO  → não muda (outra categoria)
 --   D: Baixo, Operacional, APROVADO                → continua aprovado, não crítico
 --   F: Médio, Orçamentário (3, baixo), APROVADO    → crítico; ao subir o apetite deixa de ser
+--   G: Médio, TI (8, moderado), APROVADO           → moderado → pendente_dar (fica aprovado);
+--                                                    depois 1ª publicação pendente_dar → baixo (crítico)
 -- Presidência (objeto 73), enviado pelo próprio Presidente:
 --   E: Médio, Operacional, APROVADO → vira crítico, mas não há homologador efetivo
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-A', 2, 3, 2, 'aprovado');
@@ -69,6 +71,7 @@ select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-C', 2, 3, 1, 'aprovado');
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-D', 1, 2, 2, 'aprovado');
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-F', 2, 3, 3, 'aprovado');
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-G', 2, 3, 8, 'aprovado');
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000073', 'RADAR-T073-E', 2, 3, 2, 'aprovado');
 
 select
@@ -77,7 +80,8 @@ select
   (select id from public.riscos where codigo_radar = 'RADAR-T073-C') as r_c,
   (select id from public.riscos where codigo_radar = 'RADAR-T073-D') as r_d,
   (select id from public.riscos where codigo_radar = 'RADAR-T073-E') as r_e,
-  (select id from public.riscos where codigo_radar = 'RADAR-T073-F') as r_f
+  (select id from public.riscos where codigo_radar = 'RADAR-T073-F') as r_f,
+  (select id from public.riscos where codigo_radar = 'RADAR-T073-G') as r_g
 \gset
 
 -- E foi "enviado" pelo próprio Presidente (linha de envio no histórico).
@@ -173,7 +177,10 @@ select is((select status_fluxo from public.riscos where id = :'r_e'), 'em_homolo
           'E (Presidência, enviado pelo Presidente) também vai para em_homologacao_dir');
 select ok((select despacho_texto ilike '%não há homologador%'
              from public.historico_fluxo where risco_id = :'r_e' and acao = 'reaberto_mudanca_dar'),
-          'E: o histórico registra que não há homologador efetivo (CGOV deve resolver)');
+          'E: o histórico registra que não há homologador efetivo');
+select ok((select despacho_texto ilike '%CGOV pode devolver a ficha%'
+             from public.historico_fluxo where risco_id = :'r_e' and acao = 'reaberto_mudanca_dar'),
+          'E: o histórico indica a saída (a CGOV pode devolver a ficha à unidade)');
 
 -- D: Baixo → continua aprovado, sem histórico
 select is((select status_fluxo from public.riscos where id = :'r_d'), 'aprovado', 'D (Baixo) continua aprovado');
@@ -192,6 +199,31 @@ select is((select count(*)::int
                or r.status_critico is distinct from a.status_critico
                or (select count(*) from public.auditoria_log l where l.registro_id = r.id) <> a.n_trilha), 0,
           'nenhum risco não aprovado ou de outra categoria foi tocado');
+
+-- ----------------------------------------------------------------------------
+-- 3b. Saída do impasse: a CGOV devolve o risco SEM homologador efetivo (E)
+-- ----------------------------------------------------------------------------
+-- Quem não é CGOV não usa essa saída (nem o Presidente, nem um titular qualquer).
+select pg_temp.entrar_como('presidente@radar.test');
+select throws_ok(format($$select public.devolver_risco(%L, 'Ajustar.')$$, :'r_e'), '42501', null,
+                 'presidente@ não devolve E (ele é quem enviou; não há ator efetivo)');
+select pg_temp.entrar_como('gr@radar.test');
+select throws_ok(format($$select public.devolver_risco(%L, 'Ajustar.')$$, :'r_e'), '42501', null,
+                 'gr@ (não CGOV) não devolve E');
+-- A CGOV não devolve risco que TEM homologador efetivo (A → gr@).
+select pg_temp.entrar_como('cgov@radar.test');
+select throws_ok(format($$select public.devolver_risco(%L, 'Ajustar.')$$, :'r_a'), '42501', null,
+                 'CGOV NÃO devolve A, que tem homologador efetivo (gr@)');
+select throws_ok(format($$select public.devolver_risco(%L, '   ')$$, :'r_e'), '22023', null,
+                 'CGOV: motivo continua obrigatório');
+select is((select status_fluxo from public.devolver_risco(:'r_e', 'Reenviar por outro servidor da unidade.')),
+          'devolvido', 'CGOV devolve E (sem homologador efetivo) → devolvido');
+select pg_temp.sair();
+select is((select usuario_id from public.historico_fluxo
+            where risco_id = :'r_e' and acao = 'devolvido_ajuste' and etapa = 'devolucao_ajuste'),
+          :'u_cgov'::uuid, 'E: devolução registrada no histórico com a CGOV como autora');
+select is((select status_fluxo from public.riscos where id = :'r_a'), 'em_homologacao_dir',
+          'A continua em homologação (a tentativa da CGOV foi recusada)');
 
 -- O homologador de A (gr@, titular da GR5) homologa de novo → aprovado.
 select pg_temp.entrar_como('gr@radar.test');
@@ -215,6 +247,32 @@ select ok((select count(*) from public.auditoria_log
             where tabela_afetada = 'riscos' and registro_id = :'r_f' and usuario_id = :'u_cgov'
               and dados_novos->>'is_critico' = 'false' and dados_anteriores->>'is_critico' = 'true') = 1,
           'trilha: a mudança de criticidade de F registrada com a CGOV');
+
+-- ----------------------------------------------------------------------------
+-- 5. pendente_dar: ir para pendente_dar sem virar crítico NÃO reabre;
+--    a 1ª publicação da DAR que torna o risco crítico reabre
+-- ----------------------------------------------------------------------------
+select pg_temp.entrar_como('cgov@radar.test');
+select lives_ok($$update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 8$$,
+                'CGOV põe a categoria TI em pendente_dar (moderado → pendente_dar)');
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'r_g'), 'aprovado',
+          'G (Médio) continua aprovado: pendente_dar não é Risco Crítico');
+select is((select status_critico from public.riscos where id = :'r_g'), 'pendente_dar',
+          'G: status_critico atualizado para pendente_dar');
+select is((select count(*)::int from public.historico_fluxo where risco_id = :'r_g'), 0,
+          'G: nenhuma linha de histórico');
+
+select pg_temp.entrar_como('cgov@radar.test');
+select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 8$$,
+                'CGOV publica a DAR da categoria TI (pendente_dar → baixo)');
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'r_g'), 'em_homologacao_dir',
+          'G vira Risco Crítico na 1ª publicação → em_homologacao_dir');
+select ok((select is_critico and status_critico = 'sim' from public.riscos where id = :'r_g'),
+          'G: is_critico = true, status_critico = sim');
+select is((select count(*)::int from public.historico_fluxo where risco_id = :'r_g' and acao = 'reaberto_mudanca_dar'), 1,
+          'G: uma linha reaberto_mudanca_dar');
 
 select * from finish();
 rollback;
