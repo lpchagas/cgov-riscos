@@ -164,6 +164,14 @@ export const useRiscosStore = defineStore('riscos', () => {
 
   const estado = ref<EstadoCarteira>('ocioso');
   const erro = ref<ErroRadar | null>(null);
+  /**
+   * Aviso de "tela desatualizada": a ação FOI gravada, mas a releitura depois
+   * dela falhou (ex.: a rede caiu entre as duas). A ação NÃO é dada como
+   * falha (a pessoa não deve repetir o que já foi feito); a tela mostra este
+   * aviso e sugere "Atualizar". Some na próxima carga ou releitura que der certo.
+   */
+  const avisoAtualizacao = ref<ErroRadar | null>(null);
+  const MENSAGEM_TELA_DESATUALIZADA = 'A ação foi concluída, mas não foi possível atualizar a tela. Use Atualizar.';
 
   // Estado reativo de busca global (br-header #main-searchbox) e filtros da Matriz 5x5:
   const termoBuscaGlobal = ref<string>('');
@@ -203,6 +211,7 @@ export const useRiscosStore = defineStore('riscos', () => {
       unidades.value = carteira.unidades;
       processos.value = carteira.processos;
       acoes.value = porRisco(listaAcoes);
+      avisoAtualizacao.value = null;
       estado.value = 'pronto';
     } catch (e) {
       if (velha()) return;
@@ -227,6 +236,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     acoes.value = {};
     estado.value = 'ocioso';
     erro.value = null;
+    avisoAtualizacao.value = null;
     limparFiltrosPainel();
   }
 
@@ -266,20 +276,37 @@ export const useRiscosStore = defineStore('riscos', () => {
       }
     });
     for (const a of listaAcoes) acoes.value[a.riscoId] = a;
+    avisoAtualizacao.value = null;
+  }
+
+  /**
+   * Relê DEPOIS de uma gravação que deu certo. Se a releitura falhar, não
+   * lança: guarda o aviso "tela desatualizada" (com o tipo do erro original).
+   * Ex.: enviar() gravou, relerRisco() caiu por rede → a ação resolve e
+   *      avisoAtualizacao.message = 'A ação foi concluída, mas não foi possível…'
+   */
+  async function relerDepoisDaAcao(ids: string[]): Promise<void> {
+    try {
+      await relerRiscos(ids);
+    } catch (e) {
+      avisoAtualizacao.value = new ErroRadar(MENSAGEM_TELA_DESATUALIZADA, comoErroRadar(e).tipo);
+    }
   }
 
   /**
    * Roda uma gravação na fonte e, se der certo, relê os riscos afetados.
-   * Se a fonte recusar, NADA muda na memória e o `ErroRadar` é relançado
-   * para a tela mostrar a mensagem.
+   * - Se a fonte RECUSAR a gravação, NADA muda na memória e o `ErroRadar` é
+   *   relançado para a tela mostrar a mensagem.
+   * - Se a gravação deu certo e só a RELEITURA falhou, a ação resolve
+   *   normalmente e fica o `avisoAtualizacao` (ver `relerDepoisDaAcao`).
    */
   async function executar(acao: () => Promise<unknown>, idsParaReler: () => string[]): Promise<void> {
     try {
       await acao();
-      await relerRiscos(idsParaReler());
     } catch (e) {
       throw comoErroRadar(e);
     }
+    await relerDepoisDaAcao(idsParaReler());
   }
 
   // ---------------------------------------------------------------------------
@@ -406,16 +433,19 @@ export const useRiscosStore = defineStore('riscos', () => {
   async function salvarOuAtualizarRisco(parcial: Partial<FichaRisco>): Promise<FichaRisco> {
     const existente = parcial.id ? riscos.value.find((r) => r.id === parcial.id) : undefined;
     const pacote = montarFichaParaSalvar(parcial, existente, objetosContexto.value[0]?.id ?? '');
-    let id = '';
+    let gravado = { id: '', codigoRadar: '' };
     await executar(
       async () => {
-        id = (await fonte().salvarFicha(pacote)).id;
+        gravado = await fonte().salvarFicha(pacote);
       },
-      () => [id]
+      () => [gravado.id]
     );
-    const salvo = riscos.value.find((r) => r.id === id);
-    if (!salvo) throw new ErroRadar('Risco não encontrado. Atualize a página.', 'nao_encontrado');
-    return salvo;
+    const salvo = riscos.value.find((r) => r.id === gravado.id);
+    if (salvo) return salvo;
+    // A ficha FOI gravada, mas a releitura falhou (há `avisoAtualizacao`):
+    // devolvemos o que sabemos (o que a tela mandou + id e código da fonte),
+    // para a tela seguir sem pedir que a pessoa grave de novo.
+    return { ...existente, ...parcial, id: gravado.id, codigoRadar: gravado.codigoRadar } as FichaRisco;
   }
 
   /**
@@ -520,11 +550,8 @@ export const useRiscosStore = defineStore('riscos', () => {
       }
     }
     // Relê na ordem inversa: o primeiro da tabela fica no topo da lista.
-    try {
-      await relerRiscos([...novos].reverse());
-    } catch (e) {
-      throw comoErroRadar(e);
-    }
+    // (Releitura que falha não desfaz a importação: vira `avisoAtualizacao`.)
+    await relerDepoisDaAcao([...novos].reverse());
     return { importados: novos.length, total: lido.fichas.length, avisos: lido.avisos, erros };
   }
 
@@ -658,6 +685,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     acoes,
     estado,
     erro,
+    avisoAtualizacao,
     // filtros
     termoBuscaGlobal,
     celulaMatrizSelecionada,

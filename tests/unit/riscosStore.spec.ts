@@ -188,6 +188,30 @@ describe('riscosStore assíncrona', () => {
     expect(store.estado).toBe('pronto');
   });
 
+  it('releitura que falha não desfaz a ação: resolve, deixa o aviso e o aviso some na próxima releitura', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const relerRisco = vi
+      .fn((id: string) => base.relerRisco(id))
+      .mockRejectedValueOnce(new ErroRadar(MENSAGEM_REDE, 'rede'));
+    const enviar = vi.fn().mockResolvedValue(undefined);
+    fonteFalsa({ ...base, enviar, relerRisco });
+    const store = useRiscosStore();
+    await store.carregar();
+    const id = ID_001();
+
+    await expect(store.submeterParaValidacaoCg(id)).resolves.toBeUndefined();
+
+    expect(enviar).toHaveBeenCalledWith(id);
+    expect(store.avisoAtualizacao).toBeInstanceOf(ErroRadar);
+    expect(store.avisoAtualizacao!.message).toBe(
+      'A ação foi concluída, mas não foi possível atualizar a tela. Use Atualizar.'
+    );
+    expect(store.avisoAtualizacao!.tipo).toBe('rede');
+
+    await store.relerRiscos([id]); // agora a releitura funciona
+    expect(store.avisoAtualizacao).toBeNull();
+  });
+
   it('alterarApetiteCategoriaDAR relê os riscos da categoria (e só eles)', async () => {
     const base = criarFonteDemonstracao('normal');
     const relerRisco = vi.fn((id: string) => base.relerRisco(id));
