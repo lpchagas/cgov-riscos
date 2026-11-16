@@ -6,7 +6,7 @@
  *   - Nova largura de tela ou novo tema? Acrescente em `LARGURAS` ou `TEMAS`.
  *
  * O total de testes é a multiplicação das três listas:
- *   (16 + 4) telas × 4 larguras × 3 temas = 240 combinações.
+ *   (16 + 4) telas × 5 larguras × 3 temas = 300 combinações.
  *   As 4 telas a mais são os estados "carregando" e "erro" do Painel e de Riscos (Etapa B3).
  */
 
@@ -100,8 +100,8 @@ export const TELAS: Tela[] = [
   { nome: 'riscos-erro', rota: '/riscos', titulo: 'Não foi possível carregar os riscos', estadoDemo: 'erro' },
 ];
 
-/** Larguras em pixels: celular pequeno, tablet, notebook e monitor grande. */
-export const LARGURAS: number[] = [360, 768, 1280, 1920];
+/** Larguras em pixels: celular pequeno, celular comum (390), tablet, notebook e monitor grande. */
+export const LARGURAS: number[] = [360, 390, 768, 1280, 1920];
 
 export const TEMAS: Tema[] = ['claro', 'escuro', 'contraste'];
 

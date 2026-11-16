@@ -6,7 +6,7 @@
  * Como os testes são montados: três laços, um dentro do outro.
  *
  *   para cada TEMA (claro, escuro, contraste)
- *     para cada LARGURA (360, 768, 1280, 1920)
+ *     para cada LARGURA (360, 390, 768, 1280, 1920)
  *       para cada TELA (painel, dar, riscos, ...)
  *         → 1 teste, com nome do tipo "claro › 360 px › painel"
  *
@@ -180,7 +180,7 @@ test('menu do gestor não mostra ferramentas da CGOV', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// As 240 combinações ((16 + 4) telas × 4 larguras × 3 temas).
+// As 300 combinações ((16 + 4) telas × 5 larguras × 3 temas).
 // ---------------------------------------------------------------------------------------------
 for (const tema of TEMAS) {
   test.describe(tema, () => {
@@ -204,10 +204,10 @@ for (const tema of TEMAS) {
 
             // Altura do Painel no celular: SÓ INFORMA, não reprova. A meta de 3.500 px
             // depende de uma decisão da CGOV (ver design-system.md §9).
-            if (tela.nome === 'painel' && largura === 360) {
+            if (tela.nome === 'painel' && (largura === 360 || largura === 390)) {
               const altura = await page.evaluate(() => document.documentElement.scrollHeight);
               test.info().annotations.push({ type: 'altura do Painel (px)', description: String(altura) });
-              console.log(`[info] ${tema} · 360 px · altura do Painel: ${altura} px (meta da CGOV: 3.500 px)`);
+              console.log(`[info] ${tema} · ${largura} px · altura do Painel: ${altura} px (meta da CGOV: 3.500 px)`);
             }
           });
         }

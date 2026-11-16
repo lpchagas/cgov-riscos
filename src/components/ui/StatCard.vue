@@ -132,6 +132,8 @@ const componente = computed(() => (props.para ? RouterLink : 'div'));
   .stat-card--compacto {
     padding: var(--esp-3);
     min-height: 44px;
+    /* Os textos ocultos (só para leitor de tela) ancoram aqui, sem vazar para a página. */
+    position: relative;
   }
 
   .stat-card--compacto .stat-card__descricao,

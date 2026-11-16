@@ -959,5 +959,29 @@ watch(
   .linha-tempo li:nth-child(2)::after {
     display: none;
   }
+
+  /*
+   * ALVOS DE TOQUE DE 44 px (WCAG 2.5.5 / diretriz de toque de celulares):
+   * dedo é bem mais largo que o ponteiro do mouse. Links, botões e o seletor
+   * "Ver como" ganham altura (e largura) mínima de 44 px. O texto fica
+   * centralizado na vertical com `inline-flex` + `align-items: center`.
+   * EXCEÇÃO deliberada: links dentro de frase (`.painel__dica a`) ficam como
+   * estão — a WCAG 2.5.8 isenta links em texto corrido.
+   */
+  .painel {
+    --alvo-toque: 44px;
+  }
+  .link-acao,
+  .codigo,
+  .atencao__mais,
+  .painel__maiores-mais,
+  .painel__perfil-select {
+    min-height: var(--alvo-toque);
+    min-width: var(--alvo-toque);
+  }
+  .codigo {
+    display: inline-flex;
+    align-items: center;
+  }
 }
 </style>

@@ -86,6 +86,11 @@ const aberto = ref(props.abertoNoCelular);
   flex-wrap: wrap;
 }
 
+/* O h2 também cresce, para o botão dentro dele poder ocupar a largura. */
+.bloco-recolhivel__titulo:has(.bloco-recolhivel__botao) {
+  flex: 1;
+}
+
 /* Mesmo visual de `.cartao__titulo` do Painel. */
 .bloco-recolhivel__titulo {
   margin: 0;
@@ -98,6 +103,9 @@ const aberto = ref(props.abertoNoCelular);
   display: inline-flex;
   align-items: center;
   gap: var(--esp-2);
+  /* A área tocável ocupa a largura útil do cabeçalho (o link do slot `acao` não é empurrado). */
+  flex: 1;
+  min-width: 0;
   min-height: 44px;
   padding: 0;
   border: 0;

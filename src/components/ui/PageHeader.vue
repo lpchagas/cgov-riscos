@@ -139,4 +139,12 @@ const idFundamento = `fundamento-${useId()}`;
   flex-wrap: wrap;
   gap: var(--esp-2);
 }
+
+/* Celular: o botão "Fundamento" vira alvo de toque de 44 px (computador não muda). */
+@media (max-width: 639.98px) {
+  .cabecalho-pagina__fundamento-botao {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
 </style>
