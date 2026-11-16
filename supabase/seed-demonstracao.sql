@@ -196,3 +196,24 @@ SELECT r.codigo,
   FROM _demo_riscos r;
 
 COMMIT;
+
+-- ----------------------------------------------------------------------------
+-- 6. Ajuste da sequência do código do risco (Etapa B3, migração 20261117001)
+-- ----------------------------------------------------------------------------
+-- EXPLICAÇÃO DIDÁTICA:
+-- A função salvar_ficha_risco gera o código RADAR-<ano>-<NNN> com a sequência
+-- public.riscos_codigo_seq, que nasce em 1. Mas a semente já gravou
+-- RADAR-2026-001 (o Caso de Controle do Anexo II). Sem este ajuste, a 1ª ficha
+-- nova tentaria RADAR-2026-001 de novo e daria erro de código repetido.
+--
+-- Aqui pegamos o MAIOR número final dos códigos no formato
+-- RADAR-<4 dígitos>-<número> e colocamos a sequência nele. Códigos fora desse
+-- formato (RADAR-DEMO-*, RADAR-T0xx-* dos testes) são ignorados pela
+-- expressão regular.
+-- Exemplo: hoje o maior é RADAR-2026-001 → setval(1, true) → o próximo
+-- nextval é 2 → a 1ª ficha nova vira RADAR-2026-002.
+-- Se não houver nenhum código nesse formato: setval(1, false) → o próximo é 1.
+SELECT setval('public.riscos_codigo_seq',
+              greatest(1, coalesce(max((regexp_match(codigo_radar, '^RADAR-\d{4}-(\d+)$'))[1]::int), 0)),
+              coalesce(max((regexp_match(codigo_radar, '^RADAR-\d{4}-(\d+)$'))[1]::int), 0) > 0)
+  FROM public.riscos;
