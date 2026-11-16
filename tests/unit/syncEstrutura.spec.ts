@@ -343,6 +343,44 @@ describe('vínculo com a Coordenação Territorial (microgrupo "CT ...")', () =>
     ]);
   });
 
+  // P-B1-4: a CT precisa ser da MESMA Gerência Regional da unidade.
+  const GR8_E_CT_OUTRA = [
+    linha({ icmbio_id: '93.8000', id_mae: '90.0000', tipo: 'Gerência Regional', sigla: 'GR8', macrogrupo: 'GR', mesogrupo: 'GR8' }),
+    linha({
+      icmbio_id: '93.8001',
+      id_mae: '93.8000',
+      tipo: 'Coordenação Territorial',
+      sigla: 'CT Outra',
+      uorg_nome: 'CT Outra',
+      macrogrupo: 'GR',
+      mesogrupo: 'GR8',
+    }),
+  ];
+
+  it('CT de outra GR → vínculo null e aviso "vínculo com CT de outra GR ignorado"', () => {
+    // A UC está sob a GR9, mas o microgrupo aponta para a CT da GR8.
+    const { unidades, avisos } = montarArvore([...ARVORE_BASE, ...GR8_E_CT_OUTRA, ucDaCt('CT Outra')]);
+    const uc = unidades.find((u) => u.icmbio_id === '21.0100');
+    expect(uc?.coordenacao_territorial_icmbio_id).toBeNull();
+    expect(avisos).toEqual([
+      'vínculo com CT de outra GR ignorado: 21.0100 "PARNA de Teste" (GR 93.9000) → CT 93.8001 "CT Outra" (GR 93.8000)',
+    ]);
+  });
+
+  it('CT da mesma GR continua vinculada, mesmo com outra GR na lista', () => {
+    const { unidades, avisos } = montarArvore([...ARVORE_BASE, ...GR8_E_CT_OUTRA, ucDaCt('CT Teste')]);
+    expect(unidades.find((u) => u.icmbio_id === '21.0100')?.coordenacao_territorial_icmbio_id).toBe('93.9001');
+    expect(avisos).toHaveLength(0);
+  });
+
+  it('unidade sem GR ancestral (ligada direto à Presidência) mantém o vínculo', () => {
+    // Sem GR de um dos lados não dá para afirmar que é "outra GR": mantém o comportamento anterior.
+    const uc = { ...ucDaCt('CT Teste'), id_mae: '90.0000' };
+    const { unidades, avisos } = montarArvore([...ARVORE_BASE, uc]);
+    expect(unidades.find((u) => u.icmbio_id === '21.0100')?.coordenacao_territorial_icmbio_id).toBe('93.9001');
+    expect(avisos).toHaveLength(0);
+  });
+
   it('unidade sem microgrupo de CT → vínculo null', () => {
     const { unidades } = montarArvore(ARVORE_BASE);
     expect(unidades.every((u) => u.coordenacao_territorial_icmbio_id === null)).toBe(true);
