@@ -20,6 +20,8 @@
  */
 import type { ModoAuth } from '../../stores/authStore';
 import { criarFonteDemonstracao, type EstadoDemonstracao } from './fonteDemonstracao';
+import { supabaseClient } from '../supabase';
+import { criarFonteSupabase } from './fonteSupabase';
 import type { FonteDados } from './tipos';
 
 export type * from './tipos';
@@ -41,8 +43,8 @@ function lerEstadoDemo(): EstadoDemonstracao {
 
 export function criarFonteDados(modo: ModoAuth): FonteDados {
   if (modo === 'real') {
-    // A fonte Supabase chega na Task 6 (criarFonteSupabase(supabaseClient!)).
-    throw new Error('Fonte de dados do Supabase ainda não implementada.');
+    // Modo real: o cliente existe sempre que o modo é 'real' (há `.env` configurado).
+    return criarFonteSupabase(supabaseClient!);
   }
   return criarFonteDemonstracao(lerEstadoDemo());
 }

@@ -331,7 +331,9 @@ describe('criarFonteDados', () => {
     expect(c.riscos.length).toBeGreaterThan(0);
   });
 
-  it('modo real ainda não implementado (Task 6)', () => {
-    expect(() => criarFonteDados('real')).toThrow(/não implementad/);
+  it('modo real devolve a fonte Supabase (as leituras estão na Task 6)', () => {
+    const fonte = criarFonteDados('real');
+    expect(typeof fonte.carregarCarteira).toBe('function');
+    expect(typeof fonte.lerAuditoria).toBe('function');
   });
 });
