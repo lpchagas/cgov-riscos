@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(32);
+select plan(34);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -165,19 +165,39 @@ select is((select status_fluxo from public.validar_risco(:'p_nc', 'Ok.')), 'apro
           'o titular do GABIN valida o risco não crítico da Presidência');
 
 -- ----------------------------------------------------------------------------
--- 5. Risco CRÍTICO da Presidência enviado pelo Presidente: recusado na homologação
+-- 5. Risco CRÍTICO da Presidência enviado pelo Presidente: recusado já no ENVIO
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('presidente@radar.test');
-select is((select status_fluxo from public.enviar_para_validacao(:'p_cr')), 'em_validacao_cg',
-          'o Presidente envia o risco crítico da Presidência');
-select pg_temp.entrar_como('gabin@radar.test');
-select throws_like(format($$select public.validar_risco(%L, 'ok')$$, :'p_cr'),
+select throws_like(format($$select public.enviar_para_validacao(%L)$$, :'p_cr'),
                    'RADAR:%homologação%',
-                   'crítico enviado pelo Presidente: sem ninguém acima para homologar, a validação é recusada com mensagem RADAR');
-select is(pg_temp.estado(:'p_cr'), 'em_validacao_cg', 'o risco recusado continua em validação (nada mudou)');
+                   'crítico enviado pelo Presidente: o envio é recusado com mensagem RADAR (ninguém acima para homologar)');
+select is(pg_temp.estado(:'p_cr'), 'rascunho', 'o risco recusado continua rascunho (não fica preso em validação)');
+
+-- 5b. Rede de segurança: a DAR muda enquanto o risco do Presidente espera validação.
+select pg_temp.sair();
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-DAR', 3, 2);
+select id as p_dar from public.riscos where codigo_radar = 'RADAR-T070-P-DAR' \gset
 select pg_temp.entrar_como('presidente@radar.test');
-select throws_ok(format($$select public.homologar_risco(%L, 'ok')$$, :'p_cr'), '42501', null,
-                 'o Presidente NÃO homologa o próprio risco');
+select is((select status_fluxo from public.enviar_para_validacao(:'p_dar')), 'em_validacao_cg',
+          'risco não crítico: o Presidente envia normalmente');
+select pg_temp.sair();
+update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 2;   -- passa a exigir homologação
+select pg_temp.entrar_como('gabin@radar.test');
+select throws_like(format($$select public.validar_risco(%L, 'ok')$$, :'p_dar'),
+                   'RADAR:%homologação%Presidente%',
+                   'validar_risco continua recusando (rede de segurança) com a mensagem do titular que enviou');
+select is(pg_temp.estado(:'p_dar'), 'em_validacao_cg', 'e o risco segue em validação');
+
+-- 5c. Reabertura: o Presidente edita risco aprovado e crítico da Presidência
+select pg_temp.sair();
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-AP', 4, 4, 7);
+select set_config('radar.fluxo', 'on', true);
+update public.riscos set status_fluxo = 'aprovado' where codigo_radar = 'RADAR-T070-P-AP';
+select set_config('radar.fluxo', '', true);
+select pg_temp.entrar_como('presidente@radar.test');
+select throws_like($$update public.riscos set probabilidade = 3 where codigo_radar = 'RADAR-T070-P-AP'$$,
+                   'RADAR:%reabriria%homologaria%',
+                   'o Presidente editar risco aprovado crítico da Presidência é recusado (não fica preso em validação)');
 
 -- ----------------------------------------------------------------------------
 -- 6. Efeito colateral: riscos de outras unidades continuam como antes
