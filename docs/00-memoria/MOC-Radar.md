@@ -4,6 +4,7 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 
 ## 📌 1. Memória Ativa do Projeto
 - [[ESTADO-ATUAL]] — O que já foi construído, status dos testes e próximos passos.
+- [[prompt-etapa-d-piloto-sede]] — Prompt de partida da etapa D (nova): piloto com dados reais só na Sede, dois ambientes e login por senha temporária; depois homologação da CGTI.
 - [[GLOSSARIO-ACESSIVEL]] — Explicação sem jargões dos termos de programação e das siglas oficiais da CGOV.
 
 ## 📜 2. Base Normativa e Regras de Cálculo (Regime B)
