@@ -156,7 +156,8 @@ function listaCodigos(riscos: FichaRisco[]): string {
  * - **Gestor (1ª Linha):** indicadores em alerta, riscos devolvidos e prazos.
  * - **Coordenação-Geral (2º degrau):** riscos aguardando a SUA validação, indicadores e prazos.
  * - **Diretoria (3º degrau):** riscos aguardando a SUA homologação e prazos dos riscos Críticos.
- * - **CGOV (2ª Linha):** só vê filas se o banco liberar ação a ela (ex.: devolução).
+ * - **CGOV (2ª Linha):** supervisiona: itens neutros "aguardando ... nas unidades" para os
+ *   riscos parados que ela não decide (os itens "a sua ..." seguem só `podeValidar`/`podeHomologar`).
  *
  * QUEM PODE O QUÊ vem de `acoes` (a resposta do banco: `podeValidar`,
  * `podeHomologar`, `podeEnviar`), e não mais do perfil. Ex.: um risco em validação
@@ -205,6 +206,36 @@ export function itensDeAtencao(
       acao: 'Homologar agora',
       destino: { name: 'validacao-um-clique' },
     });
+  }
+
+  // SUPERVISÃO da CGOV (2ª Linha): riscos parados no fluxo que ela NÃO decide.
+  // Itens neutros ("nas unidades"), para não parecerem tarefa da pessoa.
+  // Ex.: 2 riscos em validação, nenhum com `podeValidar` → "2 riscos aguardando validação nas unidades".
+  if (papel === 'cgov') {
+    const paradosCg = riscos.filter((r) => r.statusFluxo === 'em_validacao_cg' && !acoes[r.id]?.podeValidar);
+    if (paradosCg.length) {
+      itens.push({
+        id: 'fila-cg-supervisao',
+        tipo: 'validacao',
+        tom: 'info',
+        titulo: `${plural(paradosCg.length, 'risco aguardando', 'riscos aguardando')} validação nas unidades`,
+        detalhe: listaCodigos(paradosCg),
+        acao: 'Abrir aprovações',
+        destino: { name: 'validacao-um-clique' },
+      });
+    }
+    const paradosDir = riscos.filter((r) => r.statusFluxo === 'em_homologacao_dir' && !acoes[r.id]?.podeHomologar);
+    if (paradosDir.length) {
+      itens.push({
+        id: 'fila-diretoria-supervisao',
+        tipo: 'homologacao',
+        tom: 'aviso',
+        titulo: `${plural(paradosDir.length, 'risco aguardando', 'riscos aguardando')} homologação nas unidades`,
+        detalhe: listaCodigos(paradosDir),
+        acao: 'Abrir aprovações',
+        destino: { name: 'validacao-um-clique' },
+      });
+    }
   }
 
   // Devolvidos: quem pode reenviar (`podeEnviar`) ou a CGOV, que supervisiona.

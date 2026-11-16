@@ -78,8 +78,8 @@ describe('painelResumo', () => {
         (i) => i.tipo
       );
 
-    // CGOV supervisiona (KRI e prazos), mas não decide validação/homologação: sem `podeValidar`, nada de fila.
-    expect(await tipos('cgov')).toEqual(['kri', 'prazo', 'prazo']);
+    // CGOV supervisiona o que está parado no fluxo (itens neutros), sem decidir.
+    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'prazo', 'prazo']);
     // A Coordenação-Geral vê a SUA fila de validação, não a da Diretoria.
     expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'prazo', 'prazo']);
     // A Diretoria vê a SUA homologação (e também valida, spec B1 7.1) e não recebe alertas de KRI.
@@ -209,8 +209,9 @@ describe('Painel (página)', () => {
 
   it('trocar o perfil no seletor "Ver como" muda "Precisa da sua atenção"', async () => {
     const w = await montarPainel();
-    // A CGOV (perfil padrão) não decide a validação: a fila não aparece em "Precisa da sua atenção".
-    expect(w.text()).not.toContain('aguardando a sua validação');
+    // A CGOV (perfil padrão) só supervisiona: texto neutro, nunca "a sua validação".
+    expect(w.text()).toContain('aguardando validação nas unidades');
+    expect(w.text()).not.toContain('a sua validação');
 
     await w.find('select#painel-ver-como').setValue('diretor');
     // No sistema, o App recarrega a carteira ao trocar de perfil (as `acoes` mudam); aqui fazemos o mesmo.
