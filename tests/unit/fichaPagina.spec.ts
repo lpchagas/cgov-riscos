@@ -35,7 +35,11 @@ async function montar(caminho: string) {
 const idDe = (codigo: string) => useRiscosStore().riscos.find((r) => r.codigoRadar === codigo)!.id;
 
 describe('Ficha do risco', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(async () => {
+    setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
+  });
 
   it('endereço inexistente avisa "Risco não encontrado"', async () => {
     const { w } = await montar('/riscos/nao-existe');

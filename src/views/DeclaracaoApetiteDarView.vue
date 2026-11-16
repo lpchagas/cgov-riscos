@@ -85,21 +85,34 @@ function pedirMudanca(categoria: CategoriaRisco, para: ApetiteDeclarado): void {
   };
 }
 
-function confirmarMudanca(): void {
+// Gravações na fonte de dados (assíncronas); recusa → mensagem já traduzida.
+const avisarErro = (e: unknown) => mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+
+async function confirmarMudanca(): Promise<void> {
   if (!pedido.value) return;
   const { categoria, de, para } = pedido.value;
-  riscosStore.alterarApetiteCategoriaDAR(categoria.id, para);
   pedido.value = null;
+  try {
+    await riscosStore.alterarApetiteCategoriaDAR(categoria.id, para);
+  } catch (e) {
+    avisarErro(e);
+    return;
+  }
   mostrar({
     tom: 'sucesso',
     mensagem: `Apetite de ${categoria.nome}: ${ROTULOS_APETITE[para].rotulo}.`,
-    acao: { rotulo: 'Desfazer', executar: () => riscosStore.alterarApetiteCategoriaDAR(categoria.id, de) },
+    acao: { rotulo: 'Desfazer', executar: () => riscosStore.alterarApetiteCategoriaDAR(categoria.id, de).catch(avisarErro) },
   });
 }
 
-function salvarJustificativa(categoria: CategoriaRisco, texto: string): void {
+async function salvarJustificativa(categoria: CategoriaRisco, texto: string): Promise<void> {
   if (texto.trim() === categoria.justificativaDar) return;
-  riscosStore.atualizarJustificativaCategoriaDAR(categoria.id, texto.trim());
+  try {
+    await riscosStore.atualizarJustificativaCategoriaDAR(categoria.id, texto.trim());
+  } catch (e) {
+    avisarErro(e);
+    return;
+  }
   mostrar({ tom: 'sucesso', mensagem: `Justificativa de ${categoria.nome} salva.` });
 }
 

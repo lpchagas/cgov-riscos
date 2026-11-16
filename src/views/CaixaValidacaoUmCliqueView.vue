@@ -55,13 +55,20 @@ const fila = computed<Fila>({
   set: (f) => router.replace({ query: { fila: f } }),
 });
 
-const itens = computed<FichaRisco[]>(() =>
-  fila.value === 'cg' ? riscosStore.filaValidacaoCg : riscosStore.filaHomologacaoDiretoria
-);
+/**
+ * Por enquanto a tela lista TODOS os riscos em cada etapa (pela situação) e
+ * desabilita os botões para quem não decide — como antes da B3. As filas da
+ * store (`filaValidacaoCg`, que seguem as `acoes`) entram aqui no redesenho
+ * da tela Aprovações.
+ */
+const emValidacao = computed(() => riscosStore.riscos.filter((r) => r.statusFluxo === 'em_validacao_cg'));
+const emHomologacao = computed(() => riscosStore.riscos.filter((r) => r.statusFluxo === 'em_homologacao_dir'));
+
+const itens = computed<FichaRisco[]>(() => (fila.value === 'cg' ? emValidacao.value : emHomologacao.value));
 
 const OPCOES_FILA = computed<OpcaoSegmento<Fila>[]>(() => [
-  { valor: 'cg', rotulo: `Coordenação-Geral (${riscosStore.filaValidacaoCg.length})` },
-  { valor: 'diretoria', rotulo: `Diretoria (${riscosStore.filaHomologacaoDiretoria.length})` },
+  { valor: 'cg', rotulo: `Coordenação-Geral (${emValidacao.value.length})` },
+  { valor: 'diretoria', rotulo: `Diretoria (${emHomologacao.value.length})` },
 ]);
 
 /** Item aberto: o da URL, se ainda estiver na fila; senão, o primeiro. */
@@ -81,8 +88,16 @@ const podeAgir = computed(() => (fila.value === 'cg' ? authStore.podeAprovarCg :
 // ---------------------------------------------------------------------------
 // AÇÕES
 // ---------------------------------------------------------------------------
-function validar(risco: FichaRisco): void {
-  riscosStore.aprovarEmUmCliqueCg(risco.id);
+// As ações vão à fonte de dados (assíncronas). Se a fonte recusar, a tela
+// mostra a mensagem já traduzida e nada muda.
+async function validar(risco: FichaRisco): Promise<void> {
+  try {
+    await riscosStore.aprovarEmUmCliqueCg(risco.id);
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  }
+  // `risco` é o mesmo objeto da store, já relido: mostra a situação nova.
   const foiParaDiretoria = risco.statusFluxo === 'em_homologacao_dir';
   mostrar({
     tom: 'sucesso',
@@ -92,8 +107,13 @@ function validar(risco: FichaRisco): void {
   });
 }
 
-function homologar(risco: FichaRisco): void {
-  riscosStore.homologarEmUmCliqueDiretoria(risco.id);
+async function homologar(risco: FichaRisco): Promise<void> {
+  try {
+    await riscosStore.homologarEmUmCliqueDiretoria(risco.id);
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  }
   mostrar({ tom: 'sucesso', mensagem: `${risco.codigoRadar} homologado e incluído no Plano de Gestão de Riscos.` });
 }
 
@@ -108,14 +128,19 @@ function pedirDevolucao(risco: FichaRisco): void {
   erroDespacho.value = undefined;
 }
 
-function confirmarDevolucao(): void {
+async function confirmarDevolucao(): Promise<void> {
   if (!devolvendo.value) return;
   if (despacho.value.trim().length < 10) {
     erroDespacho.value = 'Explique o ajuste necessário (pelo menos 10 caracteres).';
     return;
   }
   const r = devolvendo.value;
-  riscosStore.solicitarAjusteRapido(r.id, despacho.value.trim());
+  try {
+    await riscosStore.solicitarAjusteRapido(r.id, despacho.value.trim());
+  } catch (e) {
+    erroDespacho.value = (e as Error).message;
+    return;
+  }
   devolvendo.value = null;
   mostrar({ tom: 'aviso', mensagem: `${r.codigoRadar} devolvido à unidade para ajuste.` });
 }

@@ -48,8 +48,10 @@ describe('validarEtapa', () => {
 });
 
 describe('Página Novo risco', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
     document.body.innerHTML = '';
   });
 
@@ -99,7 +101,9 @@ describe('Página Novo risco', () => {
     await botao(w, 'Preencher com exemplo').trigger('click');
     for (let i = 0; i < 4; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
     expect(store.riscos.length).toBe(antes + 1);
-    const novo = store.riscos.find((r) => r.nomeObjetoCache === 'Processo de Concessão e Autorização Ambiental')!;
+    // O nome do objeto agora vem do objeto gravado (fonte de dados), não do
+    // texto livre do formulário: achamos o risco novo pelo id da ficha aberta.
+    const novo = store.obterRiscoPorId(String(router.currentRoute.value.params.id))!;
     expect(novo.statusFluxo).toBe('em_validacao_cg');
     // P=3, I=4 → Quadro 7 = 18 (nunca 3 × 4 = 12)
     expect(novo.nivelInerente).toBe(18);

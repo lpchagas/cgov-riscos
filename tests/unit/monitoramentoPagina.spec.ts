@@ -32,8 +32,10 @@ async function montar(caminho = '/monitoramento') {
 }
 
 describe('Página Monitoramento', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
     document.body.innerHTML = '';
   });
 
@@ -93,7 +95,10 @@ describe('Página Monitoramento', () => {
     valor.dispatchEvent(new Event('input'));
     salvar();
     await flushPromises();
-    expect(kri.medicoes).toHaveLength(antes + 1);
+    // Depois de gravar, a store RELÊ o risco: os indicadores chegam como objetos
+    // novos, então procuramos o KRI de novo na store (a expectativa é a mesma).
+    const kriRelido = store.obterRiscoPorId(aprovado.id)!.kris.find((k) => k.id === kri.id)!;
+    expect(kriRelido.medicoes).toHaveLength(antes + 1);
     expect(aprovado.statusFluxo).toBe('aprovado');
     w.unmount();
   });

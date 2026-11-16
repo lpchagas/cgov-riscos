@@ -31,8 +31,10 @@ async function montar() {
 }
 
 describe('Página Objetos de gestão', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
     document.body.innerHTML = '';
   });
 

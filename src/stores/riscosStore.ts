@@ -4,64 +4,166 @@
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA (PARA INICIANTES EM PROGRAMAÇÃO):
- * Esta Store Pinia gerencia o ciclo completo de vida das Fichas de Risco:
- * 1. Carrega os dados iniciais do Caso de Controle do Anexo II (e salva
- *    alterações no navegador via localStorage ou no Supabase quando configurado);
- * 2. Calcula automaticamente o Risco Inerente, a Trava de Evidência de Controle,
- *    o Risco Residual e a Criticidade frente à DAR usando `calculadoraRiscoRadar.ts`;
- * 3. Opera o Fluxo de Governança em 3 Degraus ("Aprovação em 1 Clique"):
- *    - 1º Degrau (Gestor / 1ª Linha): submete para a Coordenação-Geral;
- *    - 2º Degrau (Líder de Macroprocesso / CG): aprova em 1 clique. Se o risco
- *      for Crítico (fora do apetite da DAR), escala automaticamente para o Diretor!
- *    - 3º Degrau (Diretor): homologa em 1 clique os Riscos Críticos para o
- *      Plano de Gestão de Riscos do ICMBio;
- * 4. Separa Monitoramento Contínuo (lançar KRI ou andamento de ação 5W2H mantém
- *    o status 'aprovado') de Reavaliação de Nota (alterar P, I ou Fator reabre
- *    o status para 'em_validacao_cg').
+ * Esta Store Pinia é a "memória compartilhada" das telas: guarda a carteira de
+ * riscos, os objetos, as categorias (DAR), as unidades e os processos, e
+ * oferece as ações do fluxo ("Aprovação em 1 Clique").
+ *
+ * Desde a etapa B3 ela NÃO calcula nem decide nada sozinha. Quem faz isso é a
+ * FONTE DE DADOS (`src/services/dados/`):
+ *   - modo demonstração → `fonteDemonstracao.ts` (memória + calculadora oficial);
+ *   - modo real         → `fonteSupabase.ts` (banco: RLS, fluxo, trigger de cálculo).
+ * A store só: (1) pede os dados à fonte, (2) guarda o que veio, (3) depois de
+ * cada ação RELÊ o(s) risco(s) afetado(s), para a tela mostrar o que o banco
+ * de fato gravou.
+ *
+ * Ciclo de vida da carteira (`estado`):
+ *   'ocioso'     → nada carregado (antes de entrar, ou depois de sair);
+ *   'carregando' → `carregar()` em andamento;
+ *   'pronto'     → dados na memória;
+ *   'erro'       → a carga falhou (`erro` tem a mensagem pronta para a tela;
+ *                  `tentarDeNovo()` repete a carga).
+ *
+ * Quem chama `carregar()` e `limpar()`? O `App.vue`, observando a sessão
+ * (`authStore.situacao`): ficou 'ativo' → carrega; deixou de ser 'ativo'
+ * (saiu, sessão venceu, conta suspensa) → limpa. Assim nenhum dado de uma
+ * pessoa fica na memória para a próxima.
+ *
+ * Exemplo de uso numa tela:
+ *   const riscosStore = useRiscosStore();
+ *   try {
+ *     await riscosStore.submeterParaValidacaoCg(risco.id);
+ *   } catch (e) {
+ *     mostrar({ tom: 'perigo', mensagem: (e as ErroRadar).message });
+ *   }
  */
 
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type {
+  AcoesFluxo,
   ApetiteDeclarado,
   CategoriaRisco,
   ClasseRisco,
   FichaRisco,
+  MedicaoKri,
   NivelEficaciaControle,
   NivelImpacto,
   NivelProbabilidade,
   ObjetoContexto,
+  ProcessoCadeiaValor,
   RespostaTratamento5W2H,
   UnidadeOrganizacional,
 } from '../types/radar.types';
-import {
-  CATEGORIAS_QUADRO_2_SEMENTE,
-  OBJETOS_CONTEXTO_SEMENTE,
-  RISCOS_SEMENTE_ANEXO_II,
-  UNIDADES_SEMENTE,
-} from '../services/dadosSementeAnexoII';
-import {
-  calcularRiscoCompletoRadar,
-  gerarSintaxePadraoRisco,
-} from '../utils/calculadoraRiscoRadar';
+import { criarFonteDados } from '../services/dados';
+import type {
+  EventoAuditoria,
+  EventoFluxo,
+  FichaParaSalvar,
+  FiltrosAuditoria,
+  FonteDados,
+} from '../services/dados/tipos';
+import { fichaDaSkillParaSalvar, fichaParaSalvarDeRisco } from '../services/dados/conversores';
+import { ErroRadar, traduzirErroBanco } from '../services/dados/errosBanco';
 import { importarTabelaMarkdownSkill } from '../utils/importadorSkillMarkdown';
 import { riscoCorrespondeAoTermo } from '../utils/filtrosRiscos';
 import { useAuthStore } from './authStore';
 
+export type EstadoCarteira = 'ocioso' | 'carregando' | 'pronto' | 'erro';
+
+// ---------------------------------------------------------------------------
+// INJEÇÃO DA FONTE (SÓ PARA TESTES)
+// ---------------------------------------------------------------------------
+/** Fonte falsa usada pelos testes no lugar da fonte do modo atual. */
+let fonteDeTeste: FonteDados | null = null;
+
+/**
+ * SÓ PARA TESTES: faz a store usar uma fonte falsa (ex.: uma que demora ou
+ * falha de propósito). Passe `null` para voltar à fonte normal.
+ * Ex.: definirFonteParaTeste(fonteQueFalha); await useRiscosStore().carregar();
+ */
+export function definirFonteParaTeste(f: FonteDados | null): void {
+  fonteDeTeste = f;
+}
+
+/** Garante que todo erro que sai da store é um `ErroRadar` (mensagem pronta para a tela). */
+function comoErroRadar(e: unknown): ErroRadar {
+  return e instanceof ErroRadar ? e : traduzirErroBanco(e);
+}
+
+/** Converte uma lista de `AcoesFluxo` num dicionário por id do risco. */
+function porRisco(lista: AcoesFluxo[]): Record<string, AcoesFluxo> {
+  return Object.fromEntries(lista.map((a) => [a.riscoId, a]));
+}
+
+/**
+ * Monta o pacote de gravação (só campos de ENTRADA) a partir do formato
+ * antigo das telas (`Partial<FichaRisco>`). Os campos calculados (inerente,
+ * residual, criticidade…) são ignorados: quem calcula é a fonte.
+ *
+ * - Risco que já existe: parte da ficha atual + o que a tela mudou.
+ * - Risco novo: só o que a tela mandou; os filhos perdem o id provisório
+ *   da tela (ex.: 'ctrl-1731760000000'), porque quem dá o id é a fonte.
+ */
+function montarFichaParaSalvar(
+  parcial: Partial<FichaRisco>,
+  existente: FichaRisco | undefined,
+  objetoPadrao: string
+): FichaParaSalvar {
+  if (existente) return fichaParaSalvarDeRisco({ ...existente, ...parcial });
+
+  const ficha: FichaParaSalvar = {
+    objetoId: parcial.objetoId ?? objetoPadrao,
+    preliminarCgov: parcial.origemPreliminarCgov || parcial.statusFluxo === 'preliminar_cgov' || undefined,
+    responsavelRiscoNome: parcial.responsavelRiscoNome,
+    causas: parcial.causas,
+    eventoRisco: parcial.eventoRisco,
+    consequencias: parcial.consequencias,
+    objetivoAfetado: parcial.objetivoAfetado,
+    categoriaId: parcial.categoriaId,
+    subcategoriaIntegridade: parcial.subcategoriaIntegridade,
+    testeIntegridadeAplicavel: parcial.testeIntegridadeAplicavel,
+    justificativaNaoIntegridade: parcial.justificativaNaoIntegridade,
+    probabilidade: parcial.probabilidade,
+    justificativaProbabilidade: parcial.justificativaProbabilidade,
+    impacto: parcial.impacto,
+    justificativaImpacto: parcial.justificativaImpacto,
+    possuiEvidenciaControle: parcial.possuiEvidenciaControle,
+    nivelEficaciaControle: parcial.nivelEficaciaControle,
+    estrategiaPrincipal: parcial.estrategiaPrincipal,
+    controles: parcial.controlesExistentes?.map(({ id: _id, ...c }) => c),
+    respostas: parcial.respostasTratamento?.map(({ id: _id, ...x }) => x),
+    kris: parcial.kris?.map(({ id: _id, medicoes: _m, ...k }) => k),
+  };
+  // Tira as chaves vazias: undefined = "não mexer / usar o padrão" na fonte.
+  return Object.fromEntries(Object.entries(ficha).filter(([, v]) => v !== undefined)) as FichaParaSalvar;
+}
+
 export const useRiscosStore = defineStore('riscos', () => {
-  // Clona os dados semente para garantir isolamento entre testes e sessões:
-  const riscos = ref<FichaRisco[]>(
-    JSON.parse(JSON.stringify(RISCOS_SEMENTE_ANEXO_II))
-  );
-  const categorias = ref<CategoriaRisco[]>(
-    JSON.parse(JSON.stringify(CATEGORIAS_QUADRO_2_SEMENTE))
-  );
-  const unidades = ref<UnidadeOrganizacional[]>(
-    JSON.parse(JSON.stringify(UNIDADES_SEMENTE))
-  );
-  const objetosContexto = ref<ObjetoContexto[]>(
-    JSON.parse(JSON.stringify(OBJETOS_CONTEXTO_SEMENTE))
-  );
+  // ---------------------------------------------------------------------------
+  // A FONTE DE DADOS
+  // ---------------------------------------------------------------------------
+  // Criada só na primeira vez em que é usada e mantida enquanto a store viver:
+  // na demonstração é ELA que guarda os dados (recriar = perder o que foi feito).
+  let fonteDoModo: FonteDados | null = null;
+  function fonte(): FonteDados {
+    if (fonteDeTeste) return fonteDeTeste;
+    fonteDoModo ??= criarFonteDados(useAuthStore().modo);
+    return fonteDoModo;
+  }
+
+  // ---------------------------------------------------------------------------
+  // DADOS (começam vazios: só se enchem depois de `carregar()`)
+  // ---------------------------------------------------------------------------
+  const riscos = ref<FichaRisco[]>([]);
+  const categorias = ref<CategoriaRisco[]>([]);
+  const unidades = ref<UnidadeOrganizacional[]>([]);
+  const objetosContexto = ref<ObjetoContexto[]>([]);
+  const processos = ref<ProcessoCadeiaValor[]>([]);
+  /** O que a pessoa logada pode fazer com cada risco. Ex.: acoes.value['risco-1'].podeValidar */
+  const acoes = ref<Record<string, AcoesFluxo>>({});
+
+  const estado = ref<EstadoCarteira>('ocioso');
+  const erro = ref<ErroRadar | null>(null);
 
   // Estado reativo de busca global (br-header #main-searchbox) e filtros da Matriz 5x5:
   const termoBuscaGlobal = ref<string>('');
@@ -71,7 +173,118 @@ export const useRiscosStore = defineStore('riscos', () => {
   } | null>(null);
   const categoriaFiltroId = ref<number | null>(null);
 
-  // Getters computados para os painéis da CGOV, CGs e Diretorias:
+  // ---------------------------------------------------------------------------
+  // CARGA, NOVA TENTATIVA E LIMPEZA
+  // ---------------------------------------------------------------------------
+  /**
+   * "Número da geração" dos dados. Sobe a cada `carregar()` e a cada `limpar()`.
+   * Uma leitura guarda o número de quando começou; se, ao terminar, o número
+   * mudou, o resultado é VELHO e vai para o lixo.
+   * Ex.: carga lenta começa (geração 1) → pessoa sai → `limpar()` (geração 2)
+   *      → a carga termina: 1 ≠ 2, nada é gravado (a próxima pessoa não vê
+   *      os riscos de quem saiu). Mesma ideia de `authStore.lerPerfil`.
+   */
+  let geracao = 0;
+
+  /** Lê a carteira inteira e as ações possíveis de cada risco. Nunca lança: falha vira `estado = 'erro'`. */
+  async function carregar(): Promise<void> {
+    const minha = ++geracao;
+    const velha = () => minha !== geracao;
+    estado.value = 'carregando';
+    erro.value = null;
+    try {
+      const carteira = await fonte().carregarCarteira();
+      if (velha()) return;
+      const listaAcoes = await fonte().acoesNoFluxo(carteira.riscos.map((r) => r.id));
+      if (velha()) return;
+      riscos.value = carteira.riscos;
+      objetosContexto.value = carteira.objetos;
+      categorias.value = carteira.categorias;
+      unidades.value = carteira.unidades;
+      processos.value = carteira.processos;
+      acoes.value = porRisco(listaAcoes);
+      estado.value = 'pronto';
+    } catch (e) {
+      if (velha()) return;
+      erro.value = comoErroRadar(e);
+      estado.value = 'erro';
+    }
+  }
+
+  /** Botão "Tentar de novo" das telas de erro. */
+  function tentarDeNovo(): Promise<void> {
+    return carregar();
+  }
+
+  /** Esvazia tudo (ao sair). Qualquer leitura ainda em andamento será descartada. */
+  function limpar(): void {
+    geracao++;
+    riscos.value = [];
+    objetosContexto.value = [];
+    categorias.value = [];
+    unidades.value = [];
+    processos.value = [];
+    acoes.value = {};
+    estado.value = 'ocioso';
+    erro.value = null;
+    limparFiltrosPainel();
+  }
+
+  /**
+   * Relê da fonte os riscos indicados e as ações possíveis deles.
+   * - Risco que voltou: substitui o da memória MANTENDO o mesmo objeto (assim
+   *   uma tela que guardou a referência, ex.: o painel lateral da lista, se
+   *   atualiza sozinha).
+   * - Risco novo (ex.: acabou de ser criado): entra no topo da lista.
+   * - `null` (excluído ou fora do alcance): sai da lista.
+   * Se a pessoa saiu no meio da leitura, o resultado é descartado.
+   */
+  async function relerRiscos(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    const minha = geracao;
+    const lidos = await Promise.all(ids.map((id) => fonte().relerRisco(id)));
+    if (minha !== geracao) return;
+    const presentes = lidos.filter((r): r is FichaRisco => r !== null);
+    const listaAcoes = await fonte().acoesNoFluxo(presentes.map((r) => r.id));
+    if (minha !== geracao) return;
+
+    ids.forEach((id, i) => {
+      const novo = lidos[i];
+      const idx = riscos.value.findIndex((r) => r.id === id);
+      if (!novo) {
+        if (idx >= 0) riscos.value.splice(idx, 1);
+        delete acoes.value[id];
+        return;
+      }
+      if (idx >= 0) {
+        const atual = riscos.value[idx] as unknown as Record<string, unknown>;
+        // Apaga campos que deixaram de existir (ex.: subcategoria apagada) e copia os novos.
+        for (const chave of Object.keys(atual)) if (!(chave in novo)) delete atual[chave];
+        Object.assign(atual, novo);
+      } else {
+        riscos.value.unshift(novo);
+      }
+    });
+    for (const a of listaAcoes) acoes.value[a.riscoId] = a;
+  }
+
+  /**
+   * Roda uma gravação na fonte e, se der certo, relê os riscos afetados.
+   * Se a fonte recusar, NADA muda na memória e o `ErroRadar` é relançado
+   * para a tela mostrar a mensagem.
+   */
+  async function executar(acao: () => Promise<unknown>, idsParaReler: () => string[]): Promise<void> {
+    try {
+      await acao();
+      await relerRiscos(idsParaReler());
+    } catch (e) {
+      throw comoErroRadar(e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // GETTERS (filtros, filas e resumos)
+  // ---------------------------------------------------------------------------
   const riscosFiltrados = computed(() => {
     const termo = termoBuscaGlobal.value.trim().toLowerCase();
     return riscos.value.filter((r) => {
@@ -97,13 +310,26 @@ export const useRiscosStore = defineStore('riscos', () => {
     riscos.value.filter((r) => r.statusCritico === 'sim')
   );
 
+  /**
+   * As filas seguem as `acoes` (o que EU posso fazer), não só a situação do
+   * risco. Ex.: um risco em validação de outra Coordenação-Geral não entra na
+   * minha fila, porque `acoes[id].podeValidar` vem `false` para mim.
+   */
   const filaValidacaoCg = computed(() =>
-    riscos.value.filter((r) => r.statusFluxo === 'em_validacao_cg')
+    riscos.value.filter((r) => acoes.value[r.id]?.podeValidar)
   );
 
   const filaHomologacaoDiretoria = computed(() =>
-    riscos.value.filter((r) => r.statusFluxo === 'em_homologacao_dir')
+    riscos.value.filter((r) => acoes.value[r.id]?.podeHomologar)
   );
+
+  /** Riscos sem chefia que decida: a CGOV devolve direto à unidade. */
+  const filaSemDecisor = computed(() =>
+    riscos.value.filter((r) => acoes.value[r.id]?.devolucaoCgov)
+  );
+
+  /** Só as unidades ativas (as inativas somem das listas de escolha). */
+  const unidadesAtivas = computed(() => unidades.value.filter((u) => u.ativa));
 
   const trilhaAuditoriaGlobal = computed(() => {
     const eventos: Array<{
@@ -164,253 +390,40 @@ export const useRiscosStore = defineStore('riscos', () => {
     return cat ? cat.apetiteDeclarado : 'pendente_dar';
   }
 
+  function obterRiscoPorId(id: string): FichaRisco | undefined {
+    return riscos.value.find((r) => r.id === id || r.codigoRadar === id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // GRAVAÇÃO DA FICHA
+  // ---------------------------------------------------------------------------
   /**
-   * Cria ou atualiza uma Ficha de Risco recalculando todas as notas pelo Motor RADAR.
+   * Cria (sem `id`) ou altera (com `id`) uma Ficha de Risco. Manda só os dados
+   * de ENTRADA; a fonte calcula (Quadros 6, 7 e 8 e DAR) e a store relê.
+   * Ex.: const ficha = await salvarOuAtualizarRisco({ objetoId: 'obj-1', probabilidade: 1, impacto: 5 });
+   *      ficha.nivelInerente → 15 (Quadro 7, calculado pela fonte)
    */
-  function salvarOuAtualizarRisco(parcial: Partial<FichaRisco>): FichaRisco {
-    const categoriaId = parcial.categoriaId ?? 2;
-    const catObj =
-      categorias.value.find((c) => c.id === categoriaId) ?? categorias.value[1];
-    const p = (parcial.probabilidade ?? 3) as NivelProbabilidade;
-    const i = (parcial.impacto ?? 3) as NivelImpacto;
-    const eficacia = (parcial.nivelEficaciaControle ??
-      'Inexistente') as NivelEficaciaControle;
-    const evidencia = Boolean(parcial.possuiEvidenciaControle);
-
-    const calculo = calcularRiscoCompletoRadar({
-      probabilidade: p,
-      impacto: i,
-      eficaciaControle: eficacia,
-      possuiEvidenciaComprovada: evidencia,
-      apetiteCategoria: catObj.apetiteDeclarado,
-    });
-
-    const causas = parcial.causas ?? 'Causa em detalhamento';
-    const eventoRisco = parcial.eventoRisco ?? 'Evento de risco identificado';
-    const consequencias = parcial.consequencias ?? 'Impacto nas entregas';
-    const objetivoAfetado =
-      parcial.objetivoAfetado ?? 'Alcance dos objetivos institucionais';
-
-    const descricaoPadrao = gerarSintaxePadraoRisco({
-      causas,
-      eventoRisco,
-      consequencias,
-      objetivoAfetado,
-    });
-
-    const existenteIdx = parcial.id
-      ? riscos.value.findIndex((r) => r.id === parcial.id)
-      : -1;
-
-    const novaFicha: FichaRisco = {
-      id: parcial.id ?? `risco-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      codigoRadar:
-        parcial.codigoRadar ??
-        `RADAR-2026-${String(riscos.value.length + 1).padStart(3, '0')}`,
-      objetoId: parcial.objetoId ?? objetosContexto.value[0].id,
-      // Unidade dona = a do objeto escolhido (no modo demonstração).
-      unidadeId:
-        parcial.unidadeId ??
-        (objetosContexto.value.find((o) => o.id === (parcial.objetoId ?? objetosContexto.value[0].id))?.unidadeId ??
-          objetosContexto.value[0].unidadeId),
-      atualizadoEm: null,
-      nomeObjetoCache:
-        parcial.nomeObjetoCache ?? objetosContexto.value[0].nomeObjeto,
-      responsavelRiscoNome:
-        parcial.responsavelRiscoNome ?? 'Gestor de Riscos (1ª Linha)',
-      causas,
-      eventoRisco,
-      consequencias,
-      objetivoAfetado,
-      descricaoPadrao,
-      categoriaId: catObj.id,
-      categoriaNome: catObj.nome,
-      subcategoriaIntegridade: parcial.subcategoriaIntegridade,
-      testeIntegridadeAplicavel: Boolean(parcial.testeIntegridadeAplicavel),
-      justificativaNaoIntegridade: parcial.justificativaNaoIntegridade,
-      probabilidade: p,
-      justificativaProbabilidade: parcial.justificativaProbabilidade,
-      impacto: i,
-      justificativaImpacto: parcial.justificativaImpacto,
-      nivelInerente: calculo.nivelInerente,
-      classificacaoInerente: calculo.classificacaoInerente,
-      possuiEvidenciaControle: evidencia,
-      nivelEficaciaControle: calculo.eficaciaFinal,
-      fatorControle: calculo.fatorFinal,
-      nivelResidual: calculo.nivelResidual,
-      classificacaoResidual: calculo.classificacaoResidual,
-      statusCritico: calculo.statusCritico,
-      isCritico: calculo.isCritico,
-      memoriaCalculo: calculo.memoriaCalculo,
-      origemPreliminarCgov: Boolean(parcial.origemPreliminarCgov),
-      statusFluxo: parcial.statusFluxo ?? 'rascunho',
-      estrategiaPrincipal: parcial.estrategiaPrincipal ?? 'Mitigar',
-      controlesExistentes: parcial.controlesExistentes ?? [],
-      respostasTratamento: parcial.respostasTratamento ?? [],
-      kris: parcial.kris ?? [],
-      historicoFluxo: parcial.historicoFluxo ?? [],
-    };
-
-    if (existenteIdx >= 0) {
-      riscos.value[existenteIdx] = novaFicha;
-    } else {
-      riscos.value.unshift(novaFicha);
-    }
-
-    return novaFicha;
+  async function salvarOuAtualizarRisco(parcial: Partial<FichaRisco>): Promise<FichaRisco> {
+    const existente = parcial.id ? riscos.value.find((r) => r.id === parcial.id) : undefined;
+    const pacote = montarFichaParaSalvar(parcial, existente, objetosContexto.value[0]?.id ?? '');
+    let id = '';
+    await executar(
+      async () => {
+        id = (await fonte().salvarFicha(pacote)).id;
+      },
+      () => [id]
+    );
+    const salvo = riscos.value.find((r) => r.id === id);
+    if (!salvo) throw new ErroRadar('Risco não encontrado. Atualize a página.', 'nao_encontrado');
+    return salvo;
   }
 
   /**
-   * 1º Degrau -> 2º Degrau: Gestor da 1ª Linha submete para validação da Coordenação-Geral.
+   * Reavaliação de nota: grava a nova P, I e eficácia do controle. A fonte
+   * recalcula e, se o risco estava aprovado, reabre para validação da
+   * Coordenação-Geral.
    */
-  function submeterParaValidacaoCg(riscoId: string): void {
-    const auth = useAuthStore();
-    const risco = riscos.value.find((r) => r.id === riscoId);
-    if (!risco) return;
-
-    risco.statusFluxo = 'em_validacao_cg';
-    risco.historicoFluxo.push({
-      id: `hist-${Date.now()}`,
-      etapa: 'submissao_1a_linha',
-      acao: 'submetido',
-      usuarioNome: auth.usuarioAtual.nome,
-      usuarioPapel: auth.usuarioAtual.papel,
-      despachoTexto:
-        'Ficha submetida pela 1ª Linha para validação da Coordenação-Geral supervisora do Macroprocesso.',
-      criadoEm: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * 2º Degrau: Líder de Macroprocesso (Coordenação-Geral ou GR) aprova em 1 clique.
-   * - Se o risco for Crítico (`isCritico === true` ou `statusCritico === 'sim'`),
-   *   escala automaticamente para homologação da Diretoria (`em_homologacao_dir`).
-   * - Se estiver dentro do apetite da DAR, já vai direto para `'aprovado'`.
-   */
-  function aprovarEmUmCliqueCg(
-    riscoId: string,
-    despachoOpcional?: string
-  ): void {
-    const auth = useAuthStore();
-    const risco = riscos.value.find((r) => r.id === riscoId);
-    if (!risco) return;
-
-    if (risco.isCritico || risco.statusCritico === 'sim') {
-      risco.statusFluxo = 'em_homologacao_dir';
-    } else {
-      risco.statusFluxo = 'aprovado';
-    }
-
-    risco.historicoFluxo.push({
-      id: `hist-${Date.now()}`,
-      etapa: 'validacao_cg',
-      acao: 'aprovado_1_clique',
-      usuarioNome: auth.usuarioAtual.nome,
-      usuarioPapel: auth.usuarioAtual.papel,
-      despachoTexto:
-        despachoOpcional ||
-        (risco.statusFluxo === 'em_homologacao_dir'
-          ? 'Validado em 1 clique pela Coordenação-Geral e encaminhado à Diretoria por se tratar de Risco Crítico.'
-          : 'Aprovado em 1 clique pela Coordenação-Geral (Risco dentro do apetite da DAR).'),
-      criadoEm: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * 3º Degrau: Diretor homologa Risco Crítico em 1 clique para o Plano de Gestão de Riscos.
-   */
-  function homologarEmUmCliqueDiretoria(
-    riscoId: string,
-    despachoOpcional?: string
-  ): void {
-    const auth = useAuthStore();
-    const risco = riscos.value.find((r) => r.id === riscoId);
-    if (!risco) return;
-
-    risco.statusFluxo = 'aprovado';
-    risco.historicoFluxo.push({
-      id: `hist-${Date.now()}`,
-      etapa: 'homologacao_diretoria',
-      acao: 'aprovado_1_clique',
-      usuarioNome: auth.usuarioAtual.nome,
-      usuarioPapel: auth.usuarioAtual.papel,
-      despachoTexto:
-        despachoOpcional ||
-        'Homologado em 1 clique pela Diretoria para integrar o Plano de Gestão de Riscos do ICMBio.',
-      criadoEm: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * Solicitação de Ajuste Rápido (devolução motivada em 1 clique para a 1ª Linha).
-   */
-  function solicitarAjusteRapido(
-    riscoId: string,
-    despachoMotivo: string
-  ): void {
-    const auth = useAuthStore();
-    const risco = riscos.value.find((r) => r.id === riscoId);
-    if (!risco) return;
-
-    risco.statusFluxo = 'devolvido';
-    risco.historicoFluxo.push({
-      id: `hist-${Date.now()}`,
-      etapa: 'devolucao_ajuste',
-      acao: 'devolvido_ajuste',
-      usuarioNome: auth.usuarioAtual.nome,
-      usuarioPapel: auth.usuarioAtual.papel,
-      despachoTexto: despachoMotivo,
-      criadoEm: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * Monitoramento Contínuo (Seção 4.6 da Metodologia):
-   * Lançar uma leitura de KRI NÃO derruba o status `'aprovado'` do risco!
-   */
-  function registrarMedicaoKri(
-    riscoId: string,
-    kriId: string,
-    medicao: {
-      dataMedicao: string;
-      valorApurado: string;
-      emAlerta: boolean;
-      observacao?: string;
-    }
-  ): void {
-    const risco = riscos.value.find((r) => r.id === riscoId);
-    if (!risco) return;
-    const kri = risco.kris.find((k) => k.id === kriId);
-    if (!kri) return;
-
-    kri.medicoes.unshift({
-      id: `med-${Date.now()}`,
-      ...medicao,
-    });
-  }
-
-  /**
-   * Monitoramento Contínuo de Ações 5W2H:
-   * Atualizar o status de execução da ação também mantém o risco `'aprovado'`.
-   */
-  function atualizarStatusTratamento(
-    riscoId: string,
-    tratamentoId: string,
-    novoStatus: RespostaTratamento5W2H['statusExecucao']
-  ): void {
-    const risco = riscos.value.find((r) => r.id === riscoId);
-    if (!risco) return;
-    const trat = risco.respostasTratamento.find((t) => t.id === tratamentoId);
-    if (!trat) return;
-    trat.statusExecucao = novoStatus;
-  }
-
-  /**
-   * Regra de Governança para Reavaliação de Nota:
-   * Se um risco já aprovado tiver sua Probabilidade, Impacto ou Fator de Controle
-   * alterados, o motor recalcula o residual e reabre o status para `'em_validacao_cg'`.
-   */
-  function reavaliarPontuacaoRiscoAprovado(
+  async function reavaliarPontuacaoRiscoAprovado(
     riscoId: string,
     novosDados: {
       probabilidade: NivelProbabilidade;
@@ -418,170 +431,205 @@ export const useRiscosStore = defineStore('riscos', () => {
       nivelEficaciaControle: NivelEficaciaControle;
       possuiEvidenciaControle: boolean;
     }
-  ): void {
-    const auth = useAuthStore();
-    const risco = riscos.value.find((r) => r.id === riscoId);
-    if (!risco) return;
-
-    const apetite = obterApetitePorCategoria(risco.categoriaId);
-    const calculo = calcularRiscoCompletoRadar({
-      probabilidade: novosDados.probabilidade,
-      impacto: novosDados.impacto,
-      eficaciaControle: novosDados.nivelEficaciaControle,
-      possuiEvidenciaComprovada: novosDados.possuiEvidenciaControle,
-      apetiteCategoria: apetite,
-    });
-
-    risco.probabilidade = novosDados.probabilidade;
-    risco.impacto = novosDados.impacto;
-    risco.possuiEvidenciaControle = novosDados.possuiEvidenciaControle;
-    risco.nivelEficaciaControle = calculo.eficaciaFinal;
-    risco.fatorControle = calculo.fatorFinal;
-    risco.nivelInerente = calculo.nivelInerente;
-    risco.classificacaoInerente = calculo.classificacaoInerente;
-    risco.nivelResidual = calculo.nivelResidual;
-    risco.classificacaoResidual = calculo.classificacaoResidual;
-    risco.statusCritico = calculo.statusCritico;
-    risco.isCritico = calculo.isCritico;
-    risco.memoriaCalculo = calculo.memoriaCalculo;
-
-    // Reabre para validação em 1 clique da Coordenação-Geral:
-    risco.statusFluxo = 'em_validacao_cg';
-    risco.historicoFluxo.push({
-      id: `hist-${Date.now()}`,
-      etapa: 'reabertura_nota',
-      acao: 'reaberto_mudanca_nota',
-      usuarioNome: auth.usuarioAtual.nome,
-      usuarioPapel: auth.usuarioAtual.papel,
-      despachoTexto: `Pontuação reavaliada (${calculo.memoriaCalculo}). Reaberto para validação da Coordenação-Geral.`,
-      criadoEm: new Date().toISOString(),
-    });
+  ): Promise<void> {
+    await salvarOuAtualizarRisco({ id: riscoId, ...novosDados });
   }
 
+  async function excluirRisco(id: string): Promise<void> {
+    await executar(() => fonte().excluirRisco(id), () => [id]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // FLUXO DE APROVAÇÃO ("Aprovação em 1 Clique")
+  // ---------------------------------------------------------------------------
+  /** 1º degrau: a 1ª Linha envia para validação da Coordenação-Geral. */
+  async function submeterParaValidacaoCg(riscoId: string): Promise<void> {
+    await executar(() => fonte().enviar(riscoId), () => [riscoId]);
+  }
+
+  /** A unidade assume o risco preliminar da CGOV (vira rascunho dela). */
+  async function assumirRisco(riscoId: string): Promise<void> {
+    await executar(() => fonte().assumir(riscoId), () => [riscoId]);
+  }
+
+  /** 2º degrau: valida em 1 clique (Crítico sobe para a Diretoria — quem decide é a fonte). */
+  async function aprovarEmUmCliqueCg(riscoId: string, despachoOpcional?: string): Promise<void> {
+    await executar(() => fonte().validar(riscoId, despachoOpcional), () => [riscoId]);
+  }
+
+  /** 3º degrau: a Diretoria homologa o Risco Crítico para o Plano de Gestão de Riscos. */
+  async function homologarEmUmCliqueDiretoria(riscoId: string, despachoOpcional?: string): Promise<void> {
+    await executar(() => fonte().homologar(riscoId, despachoOpcional), () => [riscoId]);
+  }
+
+  /** Devolução para ajuste (motivo obrigatório). */
+  async function devolverRisco(riscoId: string, motivo: string): Promise<void> {
+    await executar(() => fonte().devolver(riscoId, motivo), () => [riscoId]);
+  }
+
+  /** Nome antigo da devolução, mantido para as telas que já o usam. */
+  function solicitarAjusteRapido(riscoId: string, despachoMotivo: string): Promise<void> {
+    return devolverRisco(riscoId, despachoMotivo);
+  }
+
+  // ---------------------------------------------------------------------------
+  // MONITORAMENTO CONTÍNUO (não reabre o risco aprovado)
+  // ---------------------------------------------------------------------------
+  async function registrarMedicaoKri(
+    riscoId: string,
+    kriId: string,
+    medicao: Omit<MedicaoKri, 'id'>
+  ): Promise<void> {
+    await executar(() => fonte().registrarMedicao(kriId, medicao), () => [riscoId]);
+  }
+
+  async function atualizarStatusTratamento(
+    riscoId: string,
+    tratamentoId: string,
+    novoStatus: RespostaTratamento5W2H['statusExecucao']
+  ): Promise<void> {
+    await executar(() => fonte().atualizarStatusTratamento(tratamentoId, novoStatus), () => [riscoId]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // PASSO 0 (CGOV): IMPORTAR A TABELA DA SKILL
+  // ---------------------------------------------------------------------------
   /**
-   * Passo 0 (CGOV): Importa tabela Markdown gerada pela skill `cgov-gestao-riscos-v4`.
+   * Lê a tabela Markdown da skill `cgov-gestao-riscos-v4` e grava cada linha
+   * como risco PRELIMINAR da CGOV no objeto escolhido. Uma linha recusada não
+   * impede as outras: o motivo vai para `erros`.
+   * Ex.: { importados: 2, total: 3, avisos: [], erros: ['Linha 3 (RADAR-2026-009): Você não tem permissão…'] }
    */
-  function importarMarkdownDaSkill(
+  async function importarMarkdownDaSkill(
     markdown: string,
-    objetoIdPadrao?: string,
-    responsavelNomePadrao = 'Ponto Focal 1ª Linha (A validar)'
-  ): { importados: number; avisos: string[]; erros: string[] } {
-    const resultado = importarTabelaMarkdownSkill(markdown);
-    if (resultado.erros.length > 0) {
-      return {
-        importados: 0,
-        avisos: resultado.avisos,
-        erros: resultado.erros,
-      };
+    objetoId: string
+  ): Promise<{ importados: number; total: number; avisos: string[]; erros: string[] }> {
+    const lido = importarTabelaMarkdownSkill(markdown);
+    if (lido.erros.length > 0) {
+      return { importados: 0, total: lido.fichas.length, avisos: lido.avisos, erros: lido.erros };
     }
 
-    for (const item of resultado.fichas) {
-      const cat =
-        categorias.value.find(
-          (c) => c.nome.toLowerCase() === item.categoriaNome.toLowerCase()
-        ) ?? categorias.value[1];
-
-      salvarOuAtualizarRisco({
-        codigoRadar: item.codigoRadar,
-        objetoId: objetoIdPadrao ?? objetosContexto.value[0].id,
-        nomeObjetoCache: item.nomeObjeto,
-        responsavelRiscoNome: responsavelNomePadrao,
-        causas: item.causas,
-        eventoRisco: item.eventoRisco,
-        consequencias: item.consequencias,
-        objetivoAfetado: item.objetivoAfetado,
-        categoriaId: cat.id,
-        categoriaNome: cat.nome,
-        subcategoriaIntegridade: item.subcategoriaIntegridade,
-        probabilidade: item.probabilidade,
-        impacto: item.impacto,
-        possuiEvidenciaControle: item.possuiEvidenciaControle,
-        nivelEficaciaControle: item.nivelEficaciaControle,
-        estrategiaPrincipal: item.estrategiaTratamento,
-        origemPreliminarCgov: true,
-        statusFluxo: 'preliminar_cgov',
-        controlesExistentes:
-          item.controlesTexto && item.controlesTexto !== 'Inexistente'
-            ? [
-                {
-                  id: `ctrl-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-                  descricaoControle: item.controlesTexto,
-                  evidenciaFuncionamento: item.possuiEvidenciaControle
-                    ? 'Previsto no ato normativo analisado'
-                    : 'Sem evidência documental comprovada',
-                  possuiEvidenciaComprovada: item.possuiEvidenciaControle,
-                  desenhoAdequado: item.possuiEvidenciaControle,
-                  operacaoComprovada: item.possuiEvidenciaControle,
-                },
-              ]
-            : [],
-        kris: item.kriSugerido
-          ? [
-              {
-                id: `kri-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-                nomeIndicador: item.kriSugerido,
-                formulaCalculo: 'Definido preliminarmente via skill CGOV',
-                fonteDados: 'SEI / Sistema Setorial',
-                periodicidade: 'Trimestral',
-                metaAlvo: '100%',
-                limiteAlerta: '< 80%',
-                responsavelMedicao: responsavelNomePadrao,
-                medicoes: [],
-              },
-            ]
-          : [],
-      });
-    }
-
-    return {
-      importados: resultado.fichas.length,
-      avisos: resultado.avisos,
-      erros: [],
-    };
-  }
-
-  /**
-   * Simulador / Configurador da DAR (Declaração de Apetite a Riscos — Anexo III):
-   * Permite à CGOV/CIG atualizar o apetite de uma categoria ('baixo' | 'moderado' | 'pendente_dar')
-   * e recalcula instantaneamente a criticidade de todos os riscos daquela categoria!
-   */
-  function alterarApetiteCategoriaDAR(
-    categoriaId: number,
-    novoApetite: ApetiteDeclarado
-  ): void {
-    const cat = categorias.value.find((c) => c.id === categoriaId);
-    if (!cat) return;
-    cat.apetiteDeclarado = novoApetite;
-
-    for (const r of riscos.value) {
-      if (r.categoriaId === categoriaId) {
-        const recalculo = calcularRiscoCompletoRadar({
-          probabilidade: r.probabilidade,
-          impacto: r.impacto,
-          eficaciaControle: r.nivelEficaciaControle,
-          possuiEvidenciaComprovada: r.possuiEvidenciaControle,
-          apetiteCategoria: novoApetite,
-        });
-        r.statusCritico = recalculo.statusCritico;
-        r.isCritico = recalculo.isCritico;
-        r.memoriaCalculo = recalculo.memoriaCalculo;
+    const erros: string[] = [];
+    const novos: string[] = [];
+    for (const [i, item] of lido.fichas.entries()) {
+      try {
+        const { id } = await fonte().salvarFicha(fichaDaSkillParaSalvar(item, categorias.value, objetoId));
+        novos.push(id);
+      } catch (e) {
+        erros.push(`Linha ${i + 1} (${item.codigoRadar}): ${comoErroRadar(e).message}`);
       }
     }
+    // Relê na ordem inversa: o primeiro da tabela fica no topo da lista.
+    try {
+      await relerRiscos([...novos].reverse());
+    } catch (e) {
+      throw comoErroRadar(e);
+    }
+    return { importados: novos.length, total: lido.fichas.length, avisos: lido.avisos, erros };
   }
 
-  function atualizarJustificativaCategoriaDAR(
-    categoriaId: number,
-    novaJustificativa: string
-  ): void {
-    const cat = categorias.value.find((c) => c.id === categoriaId);
-    if (!cat) return;
-    cat.justificativaDar = novaJustificativa;
+  // ---------------------------------------------------------------------------
+  // DAR (Declaração de Apetite a Riscos)
+  // ---------------------------------------------------------------------------
+  /**
+   * A CGOV muda o apetite de uma categoria. A fonte recalcula a criticidade
+   * de TODOS os riscos dela; a store relê os riscos da categoria.
+   */
+  async function alterarApetiteCategoriaDAR(categoriaId: number, novoApetite: ApetiteDeclarado): Promise<void> {
+    await executar(
+      async () => {
+        await fonte().alterarApetite(categoriaId, novoApetite);
+        // O apetite é dado de ENTRADA (o que a CGOV escolheu): copiamos para a memória.
+        const cat = categorias.value.find((c) => c.id === categoriaId);
+        if (cat) cat.apetiteDeclarado = novoApetite;
+      },
+      () => riscos.value.filter((r) => r.categoriaId === categoriaId).map((r) => r.id)
+    );
   }
 
-  function alternarFiltroCelulaMatriz(
-    p: NivelProbabilidade,
-    i: NivelImpacto
-  ): void {
+  async function atualizarJustificativaCategoriaDAR(categoriaId: number, novaJustificativa: string): Promise<void> {
+    await executar(
+      async () => {
+        await fonte().alterarJustificativa(categoriaId, novaJustificativa);
+        const cat = categorias.value.find((c) => c.id === categoriaId);
+        if (cat) cat.justificativaDar = novaJustificativa;
+      },
+      () => []
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // OBJETOS DE GESTÃO DE RISCOS
+  // ---------------------------------------------------------------------------
+  /** Cria (ou altera, com `id`) um objeto. Devolve o objeto como a fonte gravou. */
+  async function salvarNovoObjetoContexto(parcial: Partial<ObjetoContexto>): Promise<ObjetoContexto> {
+    try {
+      const salvo = await fonte().salvarObjeto({
+        ...parcial,
+        nomeObjeto: parcial.nomeObjeto ?? 'Novo Objeto de Gestão de Riscos',
+        unidadeId: parcial.unidadeId ?? unidadesAtivas.value[0]?.id ?? '',
+      });
+      const idx = objetosContexto.value.findIndex((o) => o.id === salvo.id);
+      if (idx >= 0) objetosContexto.value[idx] = salvo;
+      else objetosContexto.value.unshift(salvo);
+      return salvo;
+    } catch (e) {
+      throw comoErroRadar(e);
+    }
+  }
+
+  /**
+   * Só CGOV: leva um objeto (e os riscos dele) para outra unidade ativa.
+   * Depois, a unidade do objeto é atualizada na memória e os riscos dele relidos.
+   */
+  async function reatribuirObjeto(objetoId: string, novaUnidadeId: string): Promise<void> {
+    await executar(
+      async () => {
+        await fonte().reatribuirObjeto(objetoId, novaUnidadeId);
+        const obj = objetosContexto.value.find((o) => o.id === objetoId);
+        if (obj) {
+          obj.unidadeId = novaUnidadeId;
+          obj.unidadeAtiva = unidades.value.find((u) => u.id === novaUnidadeId)?.ativa ?? true;
+        }
+      },
+      () => riscos.value.filter((r) => r.objetoId === objetoId).map((r) => r.id)
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // LEITURAS QUE SÓ REPASSAM À FONTE
+  // ---------------------------------------------------------------------------
+  /** Ids dos objetos em que a pessoa pode criar risco (seletor do "Novo risco"). */
+  async function objetosOndeGravo(): Promise<string[]> {
+    try {
+      return await fonte().objetosOndeGravo();
+    } catch (e) {
+      throw comoErroRadar(e);
+    }
+  }
+
+  /** Uma página da trilha de auditoria (50 por vez, do mais novo para o mais antigo). */
+  async function lerAuditoria(f: FiltrosAuditoria): Promise<EventoAuditoria[]> {
+    try {
+      return await fonte().lerAuditoria(f);
+    } catch (e) {
+      throw comoErroRadar(e);
+    }
+  }
+
+  /** Os `n` passos mais recentes do fluxo (cartão "Atividade recente" do Painel). */
+  async function lerAtividadeRecente(n: number): Promise<EventoFluxo[]> {
+    try {
+      return await fonte().lerAtividadeRecente(n);
+    } catch (e) {
+      throw comoErroRadar(e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // FILTROS DO PAINEL (só memória, não vão à fonte)
+  // ---------------------------------------------------------------------------
+  function alternarFiltroCelulaMatriz(p: NivelProbabilidade, i: NivelImpacto): void {
     if (
       celulaMatrizSelecionada.value &&
       celulaMatrizSelecionada.value.p === p &&
@@ -599,65 +647,59 @@ export const useRiscosStore = defineStore('riscos', () => {
     categoriaFiltroId.value = null;
   }
 
-  function obterRiscoPorId(id: string): FichaRisco | undefined {
-    return riscos.value.find((r) => r.id === id || r.codigoRadar === id);
-  }
-
-  function salvarNovoObjetoContexto(
-    parcial: Partial<ObjetoContexto>
-  ): ObjetoContexto {
-    const novoObj: ObjetoContexto = {
-      id: parcial.id ?? `obj-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-      tipoObjeto: parcial.tipoObjeto ?? 'Processo',
-      nomeObjeto: parcial.nomeObjeto ?? 'Novo Objeto de Gestão de Riscos',
-      unidadeId: parcial.unidadeId ?? unidades.value[0].id,
-      macroprocessoSupervisorId:
-        parcial.macroprocessoSupervisorId ?? 'uni-cgge',
-      diretoriaId: parcial.diretoriaId ?? 'uni-diplan',
-      objetivoEstrategicoAssociado:
-        parcial.objetivoEstrategicoAssociado ??
-        'Objetivo estratégico institucional do ICMBio',
-      insumosPrincipais: parcial.insumosPrincipais ?? 'Processos SEI e normativos',
-      entregasPrincipais: parcial.entregasPrincipais ?? 'Atos técnicos e relatórios',
-      partesInteressadas: parcial.partesInteressadas ?? 'Unidades do ICMBio e sociedade',
-      cicloAno: parcial.cicloAno ?? 2026,
-      processoId: parcial.processoId ?? null,
-      processoNome: parcial.processoNome ?? null,
-      processoAtivo: parcial.processoAtivo ?? null,
-      unidadeAtiva: parcial.unidadeAtiva ?? true,
-    };
-    objetosContexto.value.unshift(novoObj);
-    return novoObj;
-  }
-
   return {
+    // dados
     riscos,
     categorias,
     unidades,
+    unidadesAtivas,
     objetosContexto,
+    processos,
+    acoes,
+    estado,
+    erro,
+    // filtros
     termoBuscaGlobal,
     celulaMatrizSelecionada,
     categoriaFiltroId,
+    // getters
     riscosFiltrados,
     riscosCriticosCarteira,
     filaValidacaoCg,
     filaHomologacaoDiretoria,
+    filaSemDecisor,
     trilhaAuditoriaGlobal,
     resumoPorClasse,
+    obterRiscoPorId,
+    obterApetitePorCategoria,
+    // ciclo de vida
+    carregar,
+    tentarDeNovo,
+    limpar,
+    relerRiscos,
+    // ações
     salvarOuAtualizarRisco,
+    reavaliarPontuacaoRiscoAprovado,
+    excluirRisco,
     submeterParaValidacaoCg,
+    assumirRisco,
     aprovarEmUmCliqueCg,
     homologarEmUmCliqueDiretoria,
+    devolverRisco,
     solicitarAjusteRapido,
     registrarMedicaoKri,
     atualizarStatusTratamento,
-    reavaliarPontuacaoRiscoAprovado,
     importarMarkdownDaSkill,
     alterarApetiteCategoriaDAR,
     atualizarJustificativaCategoriaDAR,
+    salvarNovoObjetoContexto,
+    reatribuirObjeto,
+    // leituras repassadas
+    objetosOndeGravo,
+    lerAuditoria,
+    lerAtividadeRecente,
+    // filtros do painel
     alternarFiltroCelulaMatriz,
     limparFiltrosPainel,
-    obterRiscoPorId,
-    salvarNovoObjetoContexto,
   };
 });

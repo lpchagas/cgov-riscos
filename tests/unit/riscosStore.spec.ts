@@ -1,0 +1,237 @@
+/**
+ * ============================================================================
+ * TESTES DA STORE ASSÍNCRONA (`tests/unit/riscosStore.spec.ts`) — Etapa B3
+ * ============================================================================
+ *
+ * EXPLICAÇÃO DIDÁTICA:
+ * A store agora só conversa com uma "fonte de dados". Aqui usamos uma fonte
+ * FALSA (a de demonstração, com algumas funções trocadas por espiãs `vi.fn`)
+ * para conferir, sem banco:
+ *   - o ciclo carregando → pronto / erro → "Tentar de novo";
+ *   - que uma carga lenta que termina DEPOIS de sair é jogada fora;
+ *   - que cada ação chama a fonte e depois relê o risco;
+ *   - que as filas seguem as `acoes` (o que eu posso fazer), não a situação;
+ *   - que uma ação recusada não muda nada e devolve o erro à tela.
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createPinia, setActivePinia } from 'pinia';
+import { definirFonteParaTeste, useRiscosStore } from '../../src/stores/riscosStore';
+import { criarFonteDemonstracao } from '../../src/services/dados';
+import type { Carteira, FonteDados } from '../../src/services/dados/tipos';
+import { ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
+import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
+import type { AcoesFluxo } from '../../src/types/radar.types';
+
+const ID_001 = () => useRiscosStore().riscos.find((r) => r.codigoRadar === 'RADAR-2026-001')!.id;
+
+/** Fonte de demonstração (como Coordenação-Geral) com as trocas pedidas pelo teste. */
+function fonteFalsa(trocas: Partial<FonteDados> = {}): FonteDados {
+  const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.coordenador_geral });
+  const fonte = { ...base, ...trocas };
+  definirFonteParaTeste(fonte);
+  return fonte;
+}
+
+/** Promessa que o próprio teste resolve quando quiser (simula o banco lento). */
+function adiada<T>() {
+  let resolver!: (v: T) => void;
+  const promessa = new Promise<T>((r) => (resolver = r));
+  return { promessa, resolver };
+}
+
+describe('riscosStore assíncrona', () => {
+  beforeEach(() => setActivePinia(createPinia()));
+  afterEach(() => definirFonteParaTeste(null));
+
+  it('começa ociosa e vazia; carregar passa por "carregando" e termina "pronto"', async () => {
+    fonteFalsa();
+    const store = useRiscosStore();
+    expect(store.estado).toBe('ocioso');
+    expect(store.riscos).toHaveLength(0);
+
+    const carga = store.carregar();
+    expect(store.estado).toBe('carregando');
+    await carga;
+
+    expect(store.estado).toBe('pronto');
+    expect(store.riscos).toHaveLength(3);
+    expect(store.categorias.length).toBeGreaterThan(0);
+    expect(store.objetosContexto.length).toBeGreaterThan(0);
+    expect(store.acoes[ID_001()].podeValidar).toBe(true);
+  });
+
+  it('falha na carga → estado "erro" com ErroRadar; "Tentar de novo" volta a "pronto"', async () => {
+    const base = criarFonteDemonstracao('normal');
+    fonteFalsa({
+      carregarCarteira: vi
+        .fn<() => Promise<Carteira>>()
+        .mockRejectedValueOnce(new ErroRadar(MENSAGEM_REDE, 'rede'))
+        .mockImplementation(() => base.carregarCarteira()),
+    });
+    const store = useRiscosStore();
+
+    await store.carregar();
+    expect(store.estado).toBe('erro');
+    expect(store.erro).toBeInstanceOf(ErroRadar);
+    expect(store.erro!.message).toBe(MENSAGEM_REDE);
+
+    await store.tentarDeNovo();
+    expect(store.estado).toBe('pronto');
+    expect(store.erro).toBeNull();
+    expect(store.riscos).toHaveLength(3);
+  });
+
+  it('descarta carga velha ao sair: carga lenta + limpar() antes de terminar → nada entra', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const lenta = adiada<Carteira>();
+    fonteFalsa({ carregarCarteira: () => lenta.promessa });
+    const store = useRiscosStore();
+
+    const carga = store.carregar();
+    store.limpar(); // a pessoa saiu antes de a carteira chegar
+    lenta.resolver(await base.carregarCarteira());
+    await carga;
+
+    expect(store.riscos).toHaveLength(0);
+    expect(store.estado).toBe('ocioso');
+  });
+
+  it('carga velha também é ignorada quando uma carga mais nova começou depois', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const lenta = adiada<Carteira>();
+    const carregarCarteira = vi
+      .fn<() => Promise<Carteira>>()
+      .mockImplementationOnce(() => lenta.promessa)
+      .mockImplementation(async () => ({ ...(await base.carregarCarteira()), riscos: [] }));
+    fonteFalsa({ carregarCarteira });
+    const store = useRiscosStore();
+
+    const velha = store.carregar();
+    await store.carregar(); // a nova (carteira vazia) termina primeiro
+    lenta.resolver(await base.carregarCarteira());
+    await velha;
+
+    expect(store.riscos).toHaveLength(0); // a velha (3 riscos) foi descartada
+    expect(store.estado).toBe('pronto');
+  });
+
+  it('limpar zera riscos, objetos, categorias e ações', async () => {
+    fonteFalsa();
+    const store = useRiscosStore();
+    await store.carregar();
+    store.termoBuscaGlobal = 'fraude';
+
+    store.limpar();
+
+    expect(store.riscos).toHaveLength(0);
+    expect(store.objetosContexto).toHaveLength(0);
+    expect(store.categorias).toHaveLength(0);
+    expect(store.unidades).toHaveLength(0);
+    expect(store.acoes).toEqual({});
+    expect(store.estado).toBe('ocioso');
+    expect(store.termoBuscaGlobal).toBe('');
+  });
+
+  it('submeterParaValidacaoCg chama fonte.enviar e DEPOIS relê o risco', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const enviar = vi.fn((id: string) => base.enviar(id));
+    const relerRisco = vi.fn((id: string) => base.relerRisco(id));
+    fonteFalsa({ ...base, enviar, relerRisco });
+    const store = useRiscosStore();
+    await store.carregar();
+    const devolvido = store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-001')!;
+    // Leva o 001 para "devolvido" pela fonte, para poder enviá-lo de novo.
+    await base.devolver(devolvido.id, 'Ajustar a evidência do controle.');
+    await store.relerRiscos([devolvido.id]);
+    relerRisco.mockClear();
+
+    await store.submeterParaValidacaoCg(devolvido.id);
+
+    expect(enviar).toHaveBeenCalledWith(devolvido.id);
+    expect(relerRisco).toHaveBeenCalledWith(devolvido.id);
+    expect(enviar.mock.invocationCallOrder[0]).toBeLessThan(relerRisco.mock.invocationCallOrder[0]);
+    expect(store.obterRiscoPorId(devolvido.id)!.statusFluxo).toBe('em_validacao_cg');
+  });
+
+  it('filaValidacaoCg segue as `acoes`, não o statusFluxo', async () => {
+    const base = criarFonteDemonstracao('normal');
+    // A fonte diz: posso validar SÓ o RADAR-2026-003 (aprovado), e não o 001 (em validação).
+    const acoesNoFluxo = async (ids: string[]): Promise<AcoesFluxo[]> => {
+      const lista = await base.acoesNoFluxo(ids);
+      const riscos = (await base.carregarCarteira()).riscos;
+      return lista.map((a) => ({
+        ...a,
+        podeValidar: riscos.find((r) => r.id === a.riscoId)!.codigoRadar === 'RADAR-2026-003',
+        podeHomologar: false,
+        devolucaoCgov: riscos.find((r) => r.id === a.riscoId)!.codigoRadar === 'RADAR-2026-002',
+      }));
+    };
+    fonteFalsa({ ...base, acoesNoFluxo });
+    const store = useRiscosStore();
+    await store.carregar();
+
+    expect(store.filaValidacaoCg.map((r) => r.codigoRadar)).toEqual(['RADAR-2026-003']);
+    expect(store.filaHomologacaoDiretoria).toHaveLength(0);
+    expect(store.filaSemDecisor.map((r) => r.codigoRadar)).toEqual(['RADAR-2026-002']);
+  });
+
+  it('ação recusada mantém os dados e relança o ErroRadar', async () => {
+    const recusa = new ErroRadar('Só é possível enviar risco em rascunho ou devolvido.', 'estado');
+    fonteFalsa({ enviar: vi.fn().mockRejectedValue(recusa) });
+    const store = useRiscosStore();
+    await store.carregar();
+    const antes = JSON.parse(JSON.stringify(store.riscos));
+
+    await expect(store.submeterParaValidacaoCg(ID_001())).rejects.toBe(recusa);
+
+    expect(JSON.parse(JSON.stringify(store.riscos))).toEqual(antes);
+    expect(store.estado).toBe('pronto');
+  });
+
+  it('alterarApetiteCategoriaDAR relê os riscos da categoria (e só eles)', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const relerRisco = vi.fn((id: string) => base.relerRisco(id));
+    fonteFalsa({ ...base, relerRisco });
+    const store = useRiscosStore();
+    await store.carregar();
+    const socio = store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!;
+    expect(socio.statusCritico).toBe('sim'); // residual Médio, apetite Baixo
+
+    await store.alterarApetiteCategoriaDAR(socio.categoriaId, 'moderado');
+
+    expect(relerRisco.mock.calls.map(([id]) => id)).toEqual([socio.id]);
+    expect(store.categorias.find((c) => c.id === socio.categoriaId)!.apetiteDeclarado).toBe('moderado');
+    expect(socio.statusCritico).toBe('nao'); // mesmo objeto, atualizado pela releitura
+  });
+
+  it('importar grava cada linha como preliminar e segue depois de uma recusa', async () => {
+    const base = criarFonteDemonstracao('normal');
+    let chamadas = 0;
+    const salvarFicha = vi.fn(async (f: Parameters<FonteDados['salvarFicha']>[0]) => {
+      chamadas++;
+      if (chamadas === 1) throw new ErroRadar('Você não tem permissão para esta ação.', 'permissao');
+      return base.salvarFicha(f);
+    });
+    fonteFalsa({ ...base, salvarFicha });
+    const store = useRiscosStore();
+    await store.carregar();
+    const objetoId = store.objetosContexto[0].id;
+    const linha = (n: number) =>
+      `| RSC-0${n} | Concessão de Autorização | Devido a causa ${n}, poderá ocorrer o evento ${n}, ocasionando a consequência ${n} e impactando o objetivo. | Operacional | 3 | 4 | 18 | Extremo | Inexistente | Inexistente (1,0) | 18 | Extremo | pendente_dar | sim | Mitigar | |`;
+    const md = [
+      '| ID | Objeto de GR | Descrição na sintaxe | Categoria | P | I | Inerente | Classe | Controles e evidências | Eficácia e fator | Residual | Classe residual | Apetite da categoria | Crítico? | Estratégia | KRI |',
+      '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+      linha(1),
+      linha(2),
+    ].join('\n');
+
+    const res = await store.importarMarkdownDaSkill(md, objetoId);
+
+    expect(res.total).toBe(2);
+    expect(res.importados).toBe(1);
+    expect(res.erros).toHaveLength(1);
+    expect(res.erros[0]).toContain('Você não tem permissão');
+    expect(salvarFicha.mock.calls.every(([f]) => f.preliminarCgov === true && f.objetoId === objetoId)).toBe(true);
+    expect(store.riscos.filter((r) => r.statusFluxo === 'preliminar_cgov')).toHaveLength(1);
+  });
+});

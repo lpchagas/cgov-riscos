@@ -11,6 +11,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { useRiscosStore } from '../../src/stores/riscosStore';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { eventosParaCsv } from '../../src/utils/auditoriaCsv';
 import TrilhaAuditoriaGovernancaView from '../../src/views/TrilhaAuditoriaGovernancaView.vue';
@@ -35,7 +36,11 @@ describe('eventosParaCsv', () => {
 });
 
 describe('Página Auditoria', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(async () => {
+    setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
+  });
 
   async function montar() {
     const router = createRouter({

@@ -127,8 +127,15 @@ const { mostrar } = useToast();
 /** Situações em que a 1ª Linha ainda pode enviar o risco à Coordenação-Geral. */
 const STATUS_QUE_PODEM_SER_ENVIADOS: StatusFluxoRisco[] = ['rascunho', 'preliminar_cgov', 'devolvido'];
 
-function enviarParaValidacao(risco: FichaRisco): void {
-  riscosStore.submeterParaValidacaoCg(risco.id);
+// As ações da store agora são assíncronas (vão à fonte de dados): esperamos
+// terminar e, se a fonte recusar, mostramos a mensagem já traduzida.
+async function enviarParaValidacao(risco: FichaRisco): Promise<void> {
+  try {
+    await riscosStore.submeterParaValidacaoCg(risco.id);
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  }
   mostrar({ tom: 'sucesso', mensagem: `${risco.codigoRadar} enviado para validação da Coordenação-Geral.` });
 }
 
@@ -138,13 +145,18 @@ function enviarParaValidacao(risco: FichaRisco): void {
  * risco para nova validação da Coordenação-Geral. O cálculo é feito pela
  * store, com a calculadora oficial — a tela não calcula nada.
  */
-function reavaliarControleDemonstracao(risco: FichaRisco): void {
-  riscosStore.reavaliarPontuacaoRiscoAprovado(risco.id, {
-    probabilidade: risco.probabilidade,
-    impacto: risco.impacto,
-    nivelEficaciaControle: 'Satisfatório',
-    possuiEvidenciaControle: true,
-  });
+async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
+  try {
+    await riscosStore.reavaliarPontuacaoRiscoAprovado(risco.id, {
+      probabilidade: risco.probabilidade,
+      impacto: risco.impacto,
+      nivelEficaciaControle: 'Satisfatório',
+      possuiEvidenciaControle: true,
+    });
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  }
   mostrar({ tom: 'aviso', mensagem: `${risco.codigoRadar} foi reavaliado e voltou para validação da Coordenação-Geral.` });
 }
 </script>

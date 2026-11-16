@@ -77,6 +77,15 @@ const perfil = computed<PapelGovernanca>({
 // 1. INDICADORES
 // ---------------------------------------------------------------------------
 const riscos = computed(() => riscosStore.riscos);
+
+/**
+ * Indicadores da carteira: quantos riscos estão EM validação e EM homologação
+ * (pela situação), seja quem for que decide. As filas da store
+ * (`filaValidacaoCg`…) agora são "o que EU posso decidir" e servem ao menu e
+ * à tela Aprovações; o Painel continua mostrando o total da carteira.
+ */
+const aguardandoValidacao = computed(() => riscos.value.filter((r) => r.statusFluxo === 'em_validacao_cg').length);
+const aguardandoHomologacao = computed(() => riscos.value.filter((r) => r.statusFluxo === 'em_homologacao_dir').length);
 const noPlano = computed(() => riscos.value.filter((r) => r.statusFluxo === 'aprovado').length);
 
 // ---------------------------------------------------------------------------
@@ -176,14 +185,14 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
       />
       <StatCard
         rotulo="Aguardando validação"
-        :valor="riscosStore.filaValidacaoCg.length"
+        :valor="aguardandoValidacao"
         tom="info"
         descricao="Com a Coordenação-Geral (2º degrau)"
         :para="{ name: 'riscos-lista', query: { status: 'em_validacao_cg' } }"
       />
       <StatCard
         rotulo="Aguardando homologação"
-        :valor="riscosStore.filaHomologacaoDiretoria.length"
+        :valor="aguardandoHomologacao"
         tom="aviso"
         descricao="Com a Diretoria (3º degrau)"
         :para="{ name: 'riscos-lista', query: { status: 'em_homologacao_dir' } }"

@@ -37,8 +37,10 @@ async function montar(caminho = '/aprovacoes') {
 const botao = (w: ReturnType<typeof mount>, texto: string) => w.findAll('button').find((b) => b.text().includes(texto))!;
 
 describe('Página Aprovações', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
     document.body.innerHTML = '';
   });
 

@@ -86,19 +86,26 @@ function abrirCadastro(): void {
   cadastroAberto.value = true;
 }
 
-function salvar(): void {
+async function salvar(): Promise<void> {
   if (novo.value.nomeObjeto.trim().length < 3) {
     erroNome.value = 'Informe o nome do objeto (pelo menos 3 caracteres).';
     return;
   }
-  const obj = riscosStore.salvarNovoObjetoContexto({
-    ...novo.value,
-    nomeObjeto: novo.value.nomeObjeto.trim(),
-    objetivoEstrategicoAssociado: novo.value.objetivoEstrategicoAssociado.trim() || undefined,
-    entregasPrincipais: novo.value.entregasPrincipais.trim() || undefined,
-    partesInteressadas: novo.value.partesInteressadas.trim() || undefined,
-    cicloAno: 2026,
-  });
+  // Grava na fonte de dados (assíncrona); recusa → mensagem já traduzida.
+  let obj: ObjetoContexto;
+  try {
+    obj = await riscosStore.salvarNovoObjetoContexto({
+      ...novo.value,
+      nomeObjeto: novo.value.nomeObjeto.trim(),
+      objetivoEstrategicoAssociado: novo.value.objetivoEstrategicoAssociado.trim() || undefined,
+      entregasPrincipais: novo.value.entregasPrincipais.trim() || undefined,
+      partesInteressadas: novo.value.partesInteressadas.trim() || undefined,
+      cicloAno: 2026,
+    });
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  }
   cadastroAberto.value = false;
   mostrar({ tom: 'sucesso', mensagem: `Objeto "${obj.nomeObjeto}" cadastrado.` });
 }

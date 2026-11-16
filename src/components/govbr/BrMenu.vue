@@ -48,11 +48,13 @@ interface ItemMenu {
   descricaoContador?: string;
 }
 
-/** Quantos riscos aguardam decisão do PERFIL ATUAL. */
+/**
+ * Quantos riscos aguardam decisão do PERFIL ATUAL. As filas da store já vêm
+ * das `acoes` (o que ESTA pessoa pode validar ou homologar), então não é
+ * preciso conferir o perfil aqui.
+ */
 const pendentesDoPerfil = computed(
-  () =>
-    (authStore.podeAprovarCg ? riscosStore.filaValidacaoCg.length : 0) +
-    (authStore.podeHomologarDiretoria ? riscosStore.filaHomologacaoDiretoria.length : 0)
+  () => riscosStore.filaValidacaoCg.length + riscosStore.filaHomologacaoDiretoria.length
 );
 
 /**

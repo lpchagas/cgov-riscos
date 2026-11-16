@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
+import { useRiscosStore } from '../../src/stores/riscosStore';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import type { FichaRisco } from '../../src/types/radar.types';
 import { RISCOS_SEMENTE_ANEXO_II } from '../../src/services/dadosSementeAnexoII';
@@ -134,7 +135,11 @@ describe('MatrizCalorAssimetrica', () => {
 // 3. A PÁGINA DO PAINEL
 // ---------------------------------------------------------------------------
 describe('Painel (página)', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(async () => {
+    setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
+  });
 
   async function montarPainel() {
     const router = createRouter({

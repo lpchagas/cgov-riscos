@@ -90,19 +90,25 @@ function abrirLeitura(linha: LinhaKri): void {
   erroValor.value = undefined;
 }
 
-function salvarLeitura(): void {
+async function salvarLeitura(): Promise<void> {
   const l = leituraDe.value;
   if (!l) return;
   if (!formLeitura.value.valor.trim()) {
     erroValor.value = 'Informe o valor apurado (ex.: 85%).';
     return;
   }
-  riscosStore.registrarMedicaoKri(l.risco.id, l.kri.id, {
-    dataMedicao: formLeitura.value.data,
-    valorApurado: formLeitura.value.valor.trim(),
-    emAlerta: formLeitura.value.emAlerta,
-    observacao: formLeitura.value.observacao.trim() || undefined,
-  });
+  // Grava na fonte de dados (assíncrona); se recusar, a mensagem aparece no campo.
+  try {
+    await riscosStore.registrarMedicaoKri(l.risco.id, l.kri.id, {
+      dataMedicao: formLeitura.value.data,
+      valorApurado: formLeitura.value.valor.trim(),
+      emAlerta: formLeitura.value.emAlerta,
+      observacao: formLeitura.value.observacao.trim() || undefined,
+    });
+  } catch (e) {
+    erroValor.value = (e as Error).message;
+    return;
+  }
   leituraDe.value = null;
   mostrar({
     tom: formLeitura.value.emAlerta ? 'aviso' : 'sucesso',
@@ -144,8 +150,13 @@ function prazo(l: LinhaAcao): { texto: string; tom: TomVisual } {
   return { texto: `vence em ${l.dias} ${l.dias === 1 ? 'dia' : 'dias'}`, tom: l.dias <= 15 ? 'aviso' : 'neutro' };
 }
 
-function mudarSituacao(l: LinhaAcao, valor: RespostaTratamento5W2H['statusExecucao']): void {
-  riscosStore.atualizarStatusTratamento(l.risco.id, l.acao.id, valor);
+async function mudarSituacao(l: LinhaAcao, valor: RespostaTratamento5W2H['statusExecucao']): Promise<void> {
+  try {
+    await riscosStore.atualizarStatusTratamento(l.risco.id, l.acao.id, valor);
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  }
   mostrar({ tom: 'sucesso', mensagem: `Ação de ${l.risco.codigoRadar}: ${SITUACOES.find((s) => s.valor === valor)?.rotulo}.` });
 }
 

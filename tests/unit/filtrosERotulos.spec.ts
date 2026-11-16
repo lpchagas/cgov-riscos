@@ -16,7 +16,11 @@ import {
 } from '../../src/utils/rotulosInterface';
 
 describe('Filtros da lista de Riscos (/riscos)', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(async () => {
+    setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
+  });
 
   it('lê filtros válidos da URL e descarta valores inválidos', () => {
     expect(lerFiltrosDaQuery({ q: 'contrato', p: '3', i: '5', critico: 'sim', nivel: 'Alto' })).toEqual({

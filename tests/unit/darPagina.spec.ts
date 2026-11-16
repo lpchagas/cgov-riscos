@@ -23,7 +23,11 @@ import DeclaracaoApetiteDarView from '../../src/views/DeclaracaoApetiteDarView.v
 const SOCIOAMBIENTAL = 7; // RADAR-2026-003: residual 8,4 (Médio), apetite Baixo → Crítico
 
 describe('simularImpactoDar', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(async () => {
+    setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
+  });
 
   it('prevê que o RADAR-2026-003 deixa de ser Crítico com apetite Moderado', () => {
     const store = useRiscosStore();
@@ -33,13 +37,13 @@ describe('simularImpactoDar', () => {
     expect(resumirImpactoDar(impacto)).toBe('1 risco deixa de ser Crítico.');
   });
 
-  it('a prévia bate com o que a store aplica (mesma regra oficial)', () => {
+  it('a prévia bate com o que a store aplica (mesma regra oficial)', async () => {
     const store = useRiscosStore();
     for (const apetite of ['baixo', 'moderado', 'pendente_dar'] as const) {
       const previsto = simularImpactoDar(store.riscos, SOCIOAMBIENTAL, apetite);
       const esperadoCriticos = store.riscos.filter((r) => r.categoriaId === SOCIOAMBIENTAL && r.statusCritico === 'sim').length
         + previsto.passamACriticos.length - previsto.deixamDeSerCriticos.length;
-      store.alterarApetiteCategoriaDAR(SOCIOAMBIENTAL, apetite);
+      await store.alterarApetiteCategoriaDAR(SOCIOAMBIENTAL, apetite);
       const real = store.riscos.filter((r) => r.categoriaId === SOCIOAMBIENTAL && r.statusCritico === 'sim').length;
       expect(real).toBe(esperadoCriticos);
     }
@@ -54,8 +58,10 @@ describe('simularImpactoDar', () => {
 });
 
 describe('Página Apetite (DAR)', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
     document.body.innerHTML = '';
   });
 
@@ -113,6 +119,7 @@ describe('Página Apetite (DAR)', () => {
     const { toasts } = useToast();
     const aviso = toasts.value[toasts.value.length - 1];
     aviso.acao!.executar();
+    await flushPromises(); // o Desfazer também vai à fonte de dados (assíncrono)
     expect(store.categorias.find((c) => c.id === SOCIOAMBIENTAL)!.apetiteDeclarado).toBe('baixo');
     expect(store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!.statusCritico).toBe('sim');
     w.unmount();

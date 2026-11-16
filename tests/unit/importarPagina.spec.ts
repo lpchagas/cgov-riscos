@@ -32,7 +32,11 @@ async function montar() {
 const botao = (w: ReturnType<typeof mount>, t: string) => w.findAll('button').find((b) => b.text().includes(t))!;
 
 describe('Página Importar riscos', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(async () => {
+    setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
+  });
 
   it('sem texto, "Ver prévia" pede a tabela', async () => {
     const { w } = await montar();
@@ -52,7 +56,10 @@ describe('Página Importar riscos', () => {
     await botao(w, 'Importar 2 riscos').trigger('click');
     await flushPromises();
     expect(store.riscos.length).toBe(antes + 2);
-    expect(store.riscos.find((r) => r.codigoRadar === 'RSC-IN-01')!.statusFluxo).toBe('preliminar_cgov');
+    // O código RADAR agora é dado pela fonte de dados (o da skill, ex.: RSC-IN-01,
+    // é descartado — spec B3 §5.3): conferimos os 2 riscos preliminares novos.
+    expect(store.riscos.filter((r) => r.statusFluxo === 'preliminar_cgov')).toHaveLength(2);
+    expect(store.riscos.some((r) => r.codigoRadar === 'RSC-IN-01')).toBe(false);
     expect(router.currentRoute.value.query.status).toBe('preliminar_cgov');
   });
 

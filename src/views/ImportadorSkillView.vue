@@ -104,11 +104,17 @@ const podeImportar = computed(() => !!previa.value && previa.value.fichas.length
 // ---------------------------------------------------------------------------
 // PASSO 3: confirmar
 // ---------------------------------------------------------------------------
-function importar(): void {
-  const res = riscosStore.importarMarkdownDaSkill(texto.value);
-  if (res.erros.length) {
-    mostrar({ tom: 'perigo', mensagem: 'A tabela tem erros. Corrija e veja a prévia de novo.' });
+async function importar(): Promise<void> {
+  // Até a tela ganhar o seletor de objeto (redesenho da Importação), os riscos
+  // vão para o primeiro objeto da lista, como antes.
+  const objetoId = riscosStore.objetosContexto[0]?.id ?? '';
+  const res = await riscosStore.importarMarkdownDaSkill(texto.value, objetoId);
+  if (res.erros.length && res.importados === 0) {
+    mostrar({ tom: 'perigo', mensagem: `Nenhum risco importado. ${res.erros[0]}` });
     return;
+  }
+  if (res.erros.length) {
+    mostrar({ tom: 'aviso', mensagem: `${res.importados} de ${res.total} riscos importados. ${res.erros[0]}` });
   }
   mostrar({ tom: 'sucesso', mensagem: `${res.importados} ${res.importados === 1 ? 'risco importado' : 'riscos importados'} como Preliminar CGOV.` });
   router.push({ name: 'riscos-lista', query: { status: 'preliminar_cgov' } });

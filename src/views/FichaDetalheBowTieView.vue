@@ -78,11 +78,18 @@ const acao = computed(() => {
   return null; // aprovado: nada a fazer aqui
 });
 
-function executarAcao(): void {
+// A ação vai à fonte de dados (assíncrona). O `r` é o mesmo objeto da store,
+// atualizado pela releitura: depois do `await` ele já mostra a nova situação.
+async function executarAcao(): Promise<void> {
   const r = risco.value;
   const a = acao.value;
   if (!r || !a) return;
-  a.executar();
+  try {
+    await a.executar();
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  }
   mostrar({ tom: 'sucesso', mensagem: `${r.codigoRadar} ${a.aviso}. Situação: ${ROTULOS_STATUS_FLUXO[r.statusFluxo].rotulo}.` });
 }
 

@@ -23,7 +23,7 @@ import { computed, nextTick, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useToast } from '../composables/useToast';
-import type { EstrategiaTratamento, NivelEficaciaControle } from '../types/radar.types';
+import type { EstrategiaTratamento, FichaRisco, NivelEficaciaControle } from '../types/radar.types';
 import {
   SUBCATEGORIAS_INTEGRIDADE_QUADRO_3,
   calcularRiscoCompletoRadar,
@@ -141,7 +141,7 @@ function preencherExemplo(): void {
 // ---------------------------------------------------------------------------
 // SALVAR
 // ---------------------------------------------------------------------------
-function salvar(enviar: boolean): void {
+async function salvar(enviar: boolean): Promise<void> {
   // Ao enviar, TODAS as etapas precisam estar válidas; rascunho só precisa da 1ª.
   const etapasParaValidar = enviar ? [1, 2, 3, 4] : [1];
   for (const n of etapasParaValidar) {
@@ -157,7 +157,7 @@ function salvar(enviar: boolean): void {
 
   const v = d.value;
   const agora = Date.now();
-  const ficha = riscosStore.salvarOuAtualizarRisco({
+  const dadosDaFicha: Partial<FichaRisco> = {
     nomeObjetoCache: v.nomeObjeto,
     responsavelRiscoNome: v.responsavel || 'Gestor de riscos da unidade (1ª Linha)',
     causas: v.causas,
@@ -183,9 +183,18 @@ function salvar(enviar: boolean): void {
     kris: v.nomeKri
       ? [{ id: `kri-${agora}`, nomeIndicador: v.nomeKri, formulaCalculo: 'A definir pela unidade', fonteDados: 'A definir', periodicidade: 'Trimestral', metaAlvo: 'A definir', limiteAlerta: 'A definir', responsavelMedicao: v.responsavel || 'Unidade', medicoes: [] }]
       : [],
-  });
+  };
 
-  if (enviar) riscosStore.submeterParaValidacaoCg(ficha.id);
+  // A gravação vai à fonte de dados (assíncrona). Se a fonte recusar, a
+  // mensagem já vem em português claro e a pessoa continua no formulário.
+  let ficha: FichaRisco;
+  try {
+    ficha = await riscosStore.salvarOuAtualizarRisco(dadosDaFicha);
+    if (enviar) await riscosStore.submeterParaValidacaoCg(ficha.id);
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  }
   mostrar({
     tom: 'sucesso',
     mensagem: enviar ? `${ficha.codigoRadar} enviado para validação da Coordenação-Geral.` : `${ficha.codigoRadar} salvo como rascunho.`,
