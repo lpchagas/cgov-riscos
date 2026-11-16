@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-16  
-> **Fase atual:** B1, B2, B1.1 mescladas na `main`. Etapa **B3 (telas lendo e gravando no banco) concluída** na branch `feat/b3-telas-banco` (2026-11-16), aberta no **PR #7**, aguardando revisão e mesclagem. Depois: C (Painel no celular, decisão da CGOV) e D (homologação na CGTI).
+> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). Próximas: C (Painel no celular, decisão da CGOV) e D (homologação na CGTI).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -151,9 +151,9 @@ Design: [[2026-11-15-etapa-b1-1-regras-banco-design]] · Plano: [[2026-11-15-eta
   - `npm run test:integracao` (com `db:funcoes`): **3 arquivos, 13 testes passando**.
   - `npm run db:reset && npm run test:db`: **14 arquivos (`000` a `073`), 630 testes, `Result: PASS`**.
 
-## Etapa B3 — telas lendo e gravando no banco (2026-11-16, branch `feat/b3-telas-banco`)
+## Etapa B3 — telas lendo e gravando no banco (2026-11-16, mesclada na `main` pelo PR #7)
 Design: [[2026-11-16-etapa-b3-telas-banco-design]] · Plano: [[2026-11-16-etapa-b3-telas-banco-plan]] · Decisões: [[decisoes-tecnicas-b3]] · Aula: [[06-camada-de-dados-e-async]]
-- **Situação: etapa B3 concluída** (commits automáticos na branch). Migração única: `20261117001_leitura_acoes_e_gravacao_ficha.sql`.
+- **Situação: etapa B3 concluída e mesclada na `main`** (PR #7, merge `ea8e239`). Migração única: `20261117001_leitura_acoes_e_gravacao_ficha.sql`.
 - **Entregas:**
   - **Camada de dados** (`src/services/dados/`) com duas fontes (demonstração e Supabase), tradução de erros do banco (`traduzirErroBanco`) e leitura paginada (`lerTodasAsPaginas`, 1.000 por página).
   - **Banco:** `acoes_no_fluxo` (quem pode o quê, com `motivo`), `salvar_ficha_risco` (ficha numa transação, fator do Quadro 6 derivado), `riscos_codigo_seq`, `ler_auditoria` (cursor de 50) e `objetos_onde_gravo`. Cálculo e RLS intocados.
