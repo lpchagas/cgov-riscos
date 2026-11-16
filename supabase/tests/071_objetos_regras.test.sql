@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(29);
+select plan(31);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -186,6 +186,24 @@ update public.objetos_contexto set processo_id = null where id = '00000000-0000-
 select is((select macroprocesso_supervisor_id from public.objetos_contexto
             where id = '00000000-0000-4000-b000-000000000173'),
           null, 'objeto que sai do processo perde o supervisor herdado');
+
+-- Cliente que desvincula o processo E manda o supervisor explicitamente nulo
+-- (ex.: formulário que envia todos os campos): não pode dar 42501 para o gestor.
+select pg_temp.sair();
+-- (o processo 071 pode ter sido inativado acima; este é um processo ativo à parte)
+insert into public.processos_cadeia_valor (id, proc_id, nome, unidade_supervisora_id, ativo)
+values ('00000000-0000-4000-c000-000000000073', 'T-071-ATIVO-2', 'Processo ativo 2 (teste 071)', :'cgpro', true);
+insert into public.objetos_contexto (id, tipo_objeto, nome_objeto, unidade_id, processo_id, objetivo_estrategico_associado)
+values ('00000000-0000-4000-b000-000000000175', 'Processo', 'Teste 071 — desvínculo com supervisor nulo',
+        :'uc', '00000000-0000-4000-c000-000000000073', 'Objetivo de demonstração');
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select lives_ok(
+  $q$update public.objetos_contexto set processo_id = null, macroprocesso_supervisor_id = null
+      where id = '00000000-0000-4000-b000-000000000175'$q$,
+  'gestor desvincula o processo mandando o supervisor como nulo (sem 42501)');
+select is((select macroprocesso_supervisor_id from public.objetos_contexto
+            where id = '00000000-0000-4000-b000-000000000175'),
+          null, '... e o supervisor herdado fica limpo');
 
 select * from finish();
 rollback;

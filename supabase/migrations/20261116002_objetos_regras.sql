@@ -92,9 +92,10 @@ BEGIN
       FROM public.processos_cadeia_valor AS p WHERE p.id = NEW.processo_id;
     NEW.macroprocesso_supervisor_id := v_supervisora;
   ELSIF TG_OP = 'UPDATE' AND OLD.processo_id IS NOT NULL
-        AND NEW.macroprocesso_supervisor_id IS NOT DISTINCT FROM OLD.macroprocesso_supervisor_id THEN
+        AND (NEW.macroprocesso_supervisor_id IS NULL
+             OR NEW.macroprocesso_supervisor_id IS NOT DISTINCT FROM OLD.macroprocesso_supervisor_id) THEN
     -- O objeto SAIU do processo (processo_id foi a nulo) e o cliente não mexeu no
-    -- supervisor: o valor antigo era "emprestado" do processo, então é limpo
+    -- supervisor (ou o mandou como nulo, que é o mesmo efeito): o valor antigo era "emprestado" do processo, então é limpo
     -- automaticamente, sem erro. (Se o cliente mandou outro valor, cai na regra abaixo.)
     NEW.macroprocesso_supervisor_id := NULL;
   ELSIF (TG_OP = 'INSERT' AND NEW.macroprocesso_supervisor_id IS NOT NULL)
