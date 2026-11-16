@@ -30,6 +30,13 @@ describe('lerTodasAsPaginas', () => {
   });
 });
 
+describe('tamanho inválido', () => {
+  it('recusa tamanho zero ou negativo com mensagem clara', async () => {
+    await expect(lerTodasAsPaginas(bancoFalso(1), 0)).rejects.toThrow('maior que zero');
+    await expect(emLotes([1], -1, async (l) => l)).rejects.toThrow('maior que zero');
+  });
+});
+
 describe('emLotes', () => {
   it('divide 2.500 ids em 3 lotes de até 1.000', async () => {
     const ids = Array.from({ length: 2500 }, (_, i) => i);

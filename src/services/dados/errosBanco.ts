@@ -48,6 +48,8 @@ type Entrada = [trecho: string, mensagem: string, tipo: TipoErroRadar];
  */
 const DICIONARIO: Entrada[] = [
   // --- Travas da ficha (20261115004) ---
+  // A variante de EXCLUSÃO vem antes da genérica (que fala em "editar").
+  ['não é possível excluir o risco enquanto ele está em validação', 'Este risco está em validação ou homologação e não pode ser excluído agora. Peça à chefia que o devolva para ajuste.', 'estado'],
   ['está travada', 'Este risco está em validação ou homologação e não pode ser editado agora. Peça à chefia que o devolva para ajuste.', 'estado'],
   ['faz parte do Plano de Gestão de Riscos: não pode ser excluído', 'Risco que já está no Plano de Gestão de Riscos não pode ser excluído. Para mudá-lo, edite a ficha: a edição reabre a validação.', 'estado'],
 
@@ -66,6 +68,8 @@ const DICIONARIO: Entrada[] = [
   ['mas quem o enviou é o titular da unidade que o homologaria', 'Quem enviou o risco é quem o homologaria. Devolva a ficha para que outro servidor da unidade a envie.', 'estado'],
 
   // --- Reabertura por alteração da ficha ---
+  // Variante em que quem altera é quem homologaria (vem antes da genérica, que casa em "reabriria o risco").
+  ['(que exige homologação) para validação, mas quem altera é o titular', 'Esta alteração reabriria o risco, mas você é quem o homologaria e não pode aprovar a própria alteração. Procure a CGOV.', 'estado'],
   ['a alteração reabriria o risco', 'Esta alteração reabriria o risco para validação, mas não há quem o valide sem ser você. Procure a CGOV ou peça a outro servidor da unidade que altere.', 'estado'],
 
   // --- Homologar ---
@@ -89,6 +93,7 @@ const DICIONARIO: Entrada[] = [
   ['só a CGOV reatribui objeto de unidade inativa', 'Só a CGOV reatribui objeto de unidade inativa.', 'permissao'],
   ['só objetos de unidade inativa podem ser reatribuídos', 'Só objetos de unidade inativa podem ser reatribuídos.', 'estado'],
   ['a unidade de destino não existe ou está inativa', 'A unidade de destino não existe ou está inativa. Escolha outra.', 'validacao'],
+  ['não pode ser alterado diretamente', 'A situação do risco só muda pelas ações do fluxo (enviar, validar, homologar, devolver).', 'estado'],
   ['objeto não encontrado', 'Objeto não encontrado. Atualize a página.', 'nao_encontrado'],
   ['não encontrado', 'Risco não encontrado.', 'nao_encontrado'], // "risco ... não encontrado"
 ];
@@ -109,8 +114,8 @@ const GENERICA = 'Não foi possível concluir a operação agora. Tente de novo;
 
 /** Erros de rede do navegador chegam como TypeError ("Failed to fetch", "Load failed"...). */
 function ehFalhaDeRede(erro: unknown, mensagem: string): boolean {
-  if (erro instanceof TypeError) return true;
-  return /failed to fetch|networkerror|network request failed|load failed/i.test(mensagem);
+  // TypeError só é rede quando a mensagem lembra rede; outros TypeError são bugs (nunca mostrar o texto).
+  return /fetch|network|failed to fetch|networkerror|load failed/i.test(mensagem);
 }
 
 /** Primeira letra maiúscula (para mostrar um "RADAR: algo novo" sem o prefixo). */

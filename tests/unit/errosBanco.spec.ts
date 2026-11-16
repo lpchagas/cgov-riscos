@@ -47,6 +47,33 @@ describe('traduzirErroBanco', () => {
     expect(traduzirErroBanco(original)).toBe(original);
   });
 
+  it('TypeError que não é de rede vira desconhecido com a frase genérica', () => {
+    const e = traduzirErroBanco(new TypeError("Cannot read properties of undefined (reading 'x')"));
+    expect(e.tipo).toBe('desconhecido');
+    expect(e.message).not.toContain('Cannot read');
+    expect(e.message).toMatch(/^Não foi possível concluir a operação/);
+  });
+
+  it('distingue a trava de exclusão da trava de edição', () => {
+    const e = traduzirErroBanco({
+      code: '55000',
+      message: 'RADAR: a ficha do risco X está travada (estado "em_validacao_cg"): não é possível excluir o risco enquanto ele está em validação ou homologação. Peça à chefia que devolva o risco para ajuste.',
+    });
+    expect(e.message).toContain('não pode ser excluído agora');
+  });
+
+  it('distingue as duas variantes de reabertura por alteração', () => {
+    const semChefia = traduzirErroBanco({ code: '55000', message: 'RADAR: a alteração reabriria o risco X para validação, mas não há chefia acima de quem alterou para validá-lo (quem altera não valida a própria mudança). Procure a CGOV.' });
+    const homologa = traduzirErroBanco({ code: '55000', message: 'RADAR: a alteração reabriria o risco X (que exige homologação) para validação, mas quem altera é o titular da unidade que o homologaria (ex.: o Presidente não homologa o próprio risco). Peça a outro servidor da unidade que faça a alteração.' });
+    expect(homologa.message).toContain('você é quem o homologaria');
+    expect(semChefia.message).not.toBe(homologa.message);
+  });
+
+  it('traduz a recusa de mudar status_fluxo direto', () => {
+    const e = traduzirErroBanco({ code: '42501', message: 'RADAR: o status_fluxo do risco X não pode ser alterado diretamente (de "a" para "b"). Use as ações do fluxo.' });
+    expect(e.message).toBe('A situação do risco só muda pelas ações do fluxo (enviar, validar, homologar, devolver).');
+  });
+
   it('dicionário cobre todas as mensagens RADAR: do fluxo', () => {
     // Trechos fixos copiados das migrações 20261115004, 20261116001, 20261116002 e 20261116004.
     const mensagens = [
@@ -64,7 +91,8 @@ describe('traduzirErroBanco', () => {
       'RADAR: o risco X exige homologação, mas quem o enviou é o titular da unidade que o homologaria (ex.: o Presidente). Devolva a ficha.',
       // reabertura por alteração
       'RADAR: a alteração reabriria o risco X para validação, mas não há chefia acima de quem alterou para validá-lo. Procure a CGOV.',
-      'RADAR: a alteração reabriria o risco X (que exige homologação) para validação, mas quem altera é o titular da unidade que o homologaria.',
+      'RADAR: a alteração reabriria o risco X (que exige homologação) para validação, mas quem altera é o titular da unidade que o homologaria (ex.: o Presidente não homologa o próprio risco). Peça a outro servidor da unidade que faça a alteração.',
+      'RADAR: o status_fluxo do risco X não pode ser alterado diretamente (de "a" para "b"). Use as ações do fluxo de aprovação.',
       // homologar_risco
       'RADAR: só o titular da Gerência Regional, da Diretoria ou da Presidência responsável pode homologar o risco X.',
       'RADAR: estado não permite homologar o risco X (está em "y"; só se homologa risco em homologação).',

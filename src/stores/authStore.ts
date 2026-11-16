@@ -20,6 +20,8 @@
  *    (tem conta, mas a CGOV não cadastrou perfil), inativo (suspensa), ativo ou erro.
  */
 
+// Texto único da falha de rede: mora em services/dados/errosBanco.ts.
+import { MENSAGEM_REDE } from '../services/dados/errosBanco';
 import { guardarVolta } from '../utils/voltaAposLogin';
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
@@ -56,8 +58,6 @@ export interface PerfilRadar {
 // A "volta após o login" mora em utils/voltaAposLogin.ts (localStorage com validade de 1 hora).
 export { CHAVE_VOLTA } from '../utils/voltaAposLogin';
 
-// Texto único da falha de rede: mora em services/dados/errosBanco.ts.
-import { MENSAGEM_REDE } from '../services/dados/errosBanco';
 
 /** Chave do localStorage onde fica o perfil simulado (a varredura de acessibilidade usa a mesma). */
 export const CHAVE_PERFIL_DEMO = 'radar.perfil-demo.v1';

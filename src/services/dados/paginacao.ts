@@ -26,6 +26,7 @@ export async function lerTodasAsPaginas<T>(
   pedirPagina: (inicio: number, fim: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
   tamanho: number = TAMANHO_PAGINA,
 ): Promise<T[]> {
+  if (tamanho <= 0) throw new Error('O tamanho da página deve ser maior que zero.');
   const todas: T[] = [];
   for (let inicio = 0; ; inicio += tamanho) {
     const { data, error } = await pedirPagina(inicio, inicio + tamanho - 1);
@@ -46,6 +47,7 @@ export async function emLotes<T, R>(
   tamanho: number,
   fazer: (lote: T[]) => Promise<R[]>,
 ): Promise<R[]> {
+  if (tamanho <= 0) throw new Error('O tamanho do lote deve ser maior que zero.');
   const resultado: R[] = [];
   for (let i = 0; i < itens.length; i += tamanho) {
     resultado.push(...(await fazer(itens.slice(i, i + tamanho))));
