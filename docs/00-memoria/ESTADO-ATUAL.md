@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
-> **Última atualização:** 2026-11-15  
-> **Fase atual:** Etapa B1 (banco, alcance e RLS) na `main` (PR #4). Etapa **B2 (login e perfis)** registrada em commit na branch `feat/b2-login-perfis` e etapa **B1.1 (regras do banco)** na branch `feat/b1-1-regras-banco` (criada a partir da B2); as duas aguardam push e PR. Próxima: **B3** (telas lendo e gravando no banco). Reformulação da UI (Fases 0 a 4) e varredura de acessibilidade já mescladas. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
+> **Última atualização:** 2026-11-16  
+> **Fase atual:** B1, B2 (PR #5) e B1.1 (PR #6) mescladas na `main`. Etapa **B3 (telas lendo e gravando no banco)** iniciada em 2026-11-16 na branch `feat/b3-telas-banco` (fase de design: perguntas → spec → plano). Depois: C (Painel no celular, decisão da CGOV) e D (homologação na CGTI).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
