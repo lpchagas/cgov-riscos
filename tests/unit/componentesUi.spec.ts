@@ -23,6 +23,7 @@ import DataTableGenerico from '../../src/components/ui/DataTable.vue';
 const DataTable = DataTableGenerico as any;
 import SegmentedControl from '../../src/components/ui/SegmentedControl.vue';
 import Chip from '../../src/components/ui/Chip.vue';
+import StatCard from '../../src/components/ui/StatCard.vue';
 
 describe('RiskBadge', () => {
   it('mostra ícone + texto + valor com vírgula (não depende só da cor)', () => {
@@ -143,5 +144,33 @@ describe('Chip', () => {
     expect(botao.attributes('aria-label')).toBe('Remover filtro Alto');
     await botao.trigger('click');
     expect(w.emitted('remover')).toHaveLength(1);
+  });
+});
+
+describe('StatCard compacto', () => {
+  // Sem destino (`para`) o cartão é um <div>; assim não precisamos do roteador.
+  const base = { rotulo: 'Críticos', valor: 3, descricao: 'Fora do apetite da DAR' };
+
+  it('com `compacto`, a raiz recebe a classe stat-card--compacto', () => {
+    const w = mount(StatCard, { props: { ...base, compacto: true } });
+    expect(w.classes()).toContain('stat-card--compacto');
+  });
+
+  it('sem `compacto`, não recebe a classe (computador igual a hoje)', () => {
+    const w = mount(StatCard, { props: base });
+    expect(w.classes()).not.toContain('stat-card--compacto');
+  });
+
+  it('a descrição e o "Ver lista" continuam no DOM para o leitor de tela', () => {
+    const w = mount(StatCard, {
+      props: { ...base, compacto: true },
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    });
+    expect(w.text()).toContain('Fora do apetite da DAR');
+    const comLink = mount(StatCard, {
+      props: { ...base, compacto: true, para: '/riscos' },
+      global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
+    });
+    expect(comLink.text()).toContain('Ver lista');
   });
 });
