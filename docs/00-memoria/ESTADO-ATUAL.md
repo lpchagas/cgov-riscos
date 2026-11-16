@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-15  
-> **Fase atual:** Etapa B1 (banco, alcance e RLS) concluída na branch `feat/b1-banco-rls`, aguardando commit; próxima: B2/B3. Reformulação da UI (Fases 0 a 4) e varredura de acessibilidade já mescladas na `main`. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
+> **Fase atual:** Etapa B1 (banco, alcance e RLS) mesclada na `main` pelo PR #4. Etapa **B2** (login por link de e-mail e perfis) **concluída, aguardando commit** na branch `feat/b2-login-perfis`; depois, B3. Reformulação da UI (Fases 0 a 4) e varredura de acessibilidade já mescladas na `main`. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -99,12 +99,29 @@ Design: [[2026-11-15-etapa-b1-banco-rls-design]] (aprovado) · Plano: [[2026-11-
   - Trilha de auditoria também em **perfis** (inclusive titularidade) e na **DAR** (`categorias_risco`).
   - `anon` sem privilégio nas tabelas de negócio; sequência de `categorias_risco` acertada no `seed.sql`; importador recusa `--sim` em banco remoto (salvo `--permitir-remoto`).
 - **Lacuna de dados para a CGOV (SharePoint):** das 11 CTs, só a **CT Curitiba** tem unidades vinculadas (73 unidades: 45 UCs, 12 NGIs e 16 subunidades, pelo `microgrupo`, gravado em `coordenacao_territorial_id`, decisão R9); o `microgrupo` "CT Cuiabá" (42 unidades) não tem CT correspondente na lista; os avisos do importador (mãe inexistente, `id_mae` igual à própria unidade 22.0078, processos com várias unidades líderes) precisam de correção na lista.
-- **Pendências para decisão da CGOV (do B1):** lista completa em [[decisoes-tecnicas-b1]], seção 4. As principais:
-  1. Quem valida os riscos da **Presidência** (hoje `enviar_para_validacao` recusa).
-  2. A CGOV **não grava** controles, respostas e KRIs de risco `preliminar_cgov`, nem apaga preliminar criado por engano (spec 7.1).
-  3. `macroprocesso_supervisor_id` é livre para quem escreve no objeto; a spec pede preenchimento a partir do processo.
-  4. Alinhar a matriz de acesso com a D3 (alcance do gestor = todas as descendentes).
-  5. A DAR mudada não reavalia riscos aprovados (só na próxima edição ou validação).
-  6. **Mover um risco entre objetos**: a trilha grava só o `objeto_id` novo (o objeto antigo não vê a saída).
-- **Próxima etapa:** **B2** (login por link de e-mail só para convidados, carga da lista de atribuições fora do repositório e conexão do app ao Supabase) e **B3** (telas lendo e gravando no banco, `TipoUnidade` do front com os 16 valores, `Skeleton` de carregamento). Antes: pedir o commit da B1 e decidir as pendências acima. Depois: C (Painel no celular) e D (homologação na CGTI).
+- **Pendências da B1 (decididas em 2026-11-15, a implementar na B1.1):** são **8**, listadas na seção 4.1 de [[decisoes-tecnicas-b1]] (a B2 não resolveu nenhuma). Em resumo: (1) quem valida os riscos da Presidência; (2) CGOV cria objeto em unidade inativa; (3) visão por processo do Coordenador-Geral ignora `ativo`; (4) `chefia_imediata` não confere a GR da CT; (5) CGOV não grava controles/KRIs de risco `preliminar_cgov`; (6) `macroprocesso_supervisor_id` livre; (7) alinhar a matriz de acesso com a D3 e com a spec B1 7.1; (8) DAR mudada não reavalia riscos aprovados.
+- **Situação seguinte:** a B1 foi mesclada na `main` pelo PR #4 e a **B2 está concluída** (ver a seção da B2 abaixo). Próximas: **B3** (telas lendo e gravando no banco, `TipoUnidade` com os 16 valores, `Skeleton`), depois C (Painel no celular) e D (homologação na CGTI).
 - **Verificação final da B1 (após a onda de correção):** `npm test` **139 testes** (23 arquivos) passando; `npm run build` ok; `npm run test:a11y` **160 passaram, 0 violações**; `npm run db:reset && npm run test:db` **10 arquivos (`000` a `060`), 475 testes, `Result: PASS`** (2026-11-15).
+
+## Etapa B2 — login e perfis (2026-11-15, branch `feat/b2-login-perfis`)
+Design: [[2026-11-15-etapa-b2-login-perfis-design]] · Plano: [[2026-11-15-etapa-b2-login-perfis-plan]] · Decisões: [[decisoes-tecnicas-b2]] · Aula: [[05-login-sessao-e-guardas]]
+- **Situação: etapa B2 concluída e registrada em commit na branch `feat/b2-login-perfis`** (a partir daqui os commits são automáticos a cada alteração relevante; ver AGENTS.md, "Regras de Git"). Nenhuma migração nova (`supabase/migrations/` igual à `main`).
+- **Entregas:**
+  - **Login por link de e-mail só para convidados** (`/entrar`, `/entrar/retorno`, `/acesso-nao-liberado`), com `token_hash` + `verifyOtp` (funciona com convite enviado pelo servidor e em outro navegador); modelo de e-mail em português em `supabase/templates/`.
+  - **Dois modos** (B2-1): sem `.env`, "Modo demonstração" com o simulador "Ver como" dos 10 perfis; com `.env`, login real. Explicado no `.env.example`.
+  - **Tabela de acesso por perfil** (`src/utils/acessoPorPerfil.ts`), guarda das rotas (`src/router/guarda.ts`) e menu filtrado. O menu é conforto; a segurança é a RLS.
+  - **Tela "Usuários e perfis"** (`/usuarios`, só CGOV): cadastrar, editar, enviar link (um ou lote) e ver a situação do convite.
+  - **Edge Function `gerenciar-acesso`** (`criar`, `enviar_link`, `listar_situacao`), servida por `npm run db:funcoes`; a `service_role` fica só no servidor.
+  - **Importador `npm run sync:atribuicoes`**: cria contas e perfis a partir da lista de atribuições (arquivo real só em `_temp/`, relatório nunca salvo, matrícula ignorada, nunca envia e-mail).
+  - Documentação: [[guia-supabase-local]] (seções 8 e 9), [[decisoes-tecnicas-b2]] (B2-1 a B2-9 e T1 a T11), Aula 5 ([[05-login-sessao-e-guardas]]).
+- **Achados para a CGOV (SharePoint):** a **CT Cuiabá (23.3005)** está com o tipo "Coordenação-Geral" (o titular receberia `coordenador_geral`; o importador e a tela avisam); **unidades sem titular** não conseguem validar riscos (o relatório do importador as lista).
+- **Decisões de 2026-11-15 sobre as pendências (CGOV):** as duas do importador estão **implementadas** (P-B2-1: titular com e-mail vazio/inválido não tira a chave de ninguém na unidade e gera o aviso `titular_sem_email`; P-B2-2: perfil suspenso com a chave que não está na linha da unidade a perde). As **8 pendências da B1** estão **decididas, a implementar na B1.1** (item 7, a matriz, já foi feito): Presidência validada pelo GABIN e homologada pelo Presidente; DAR nova recalcula riscos aprovados e os que viram Crítico voltam à homologação; CGOV grava e apaga enquanto `preliminar_cgov`; ninguém cria objeto em unidade inativa; CG vê processo inativo com marca; `sync:estrutura` ignora CT de outra GR; `macroprocesso_supervisor_id` preenchido pelo banco. Ver [[decisoes-tecnicas-b1]] 4.1 e [[decisoes-tecnicas-b2]] 4.2.
+- **Achado CT Cuiabá:** a CGOV confirmou que o tipo "Coordenação-Geral" da CT Cuiabá (23.3005) está errado e vai corrigir a lista do SharePoint e as circunscrições (UCs e NGIs) de cada CT; depois basta `npm run sync:estrutura -- --pasta _temp/`. Nenhum e-mail pode ser enviado a servidores do ICMBio antes da aprovação da CGTI.
+- **Verificação final da B2 (2026-11-15, nesta ordem):**
+  - `npm test`: **35 arquivos, 346 testes passando** (recontado depois das decisões de 2026-11-15).
+  - `npm run build`: ok (`vue-tsc` + `vite build`).
+  - `npm run test:a11y`: **197 passaram, 0 violações** (16 telas × 4 larguras × 3 temas = 192 + 4 autoverificações + 1 teste de menu), em 3,9 min.
+  - `npm run test:integracao` (com `db:start` e `db:funcoes`): **3 arquivos, 13 testes passando**.
+  - `npm run db:reset && npm run test:db`: **10 arquivos, 475 testes, `Result: PASS`**.
+  - `git status --porcelain | grep -i '_temp'`: vazio. `git diff --stat main -- supabase/migrations`: vazio. `grep -rn "service_role\|SERVICE_ROLE" src/`: só **1 comentário** em `src/services/supabase.ts` linha 36 ("a chave `service_role` NUNCA vai para o front"); nenhum uso de código.
+- **Próxima etapa:** pedir o commit da B2; depois **B1.1** (regras do banco decididas em 2026-11-15, com migrações, spec, plano e revisão próprios) e então **B3** (telas lendo e gravando no banco, `TipoUnidade` com os 16 valores, `Skeleton`), C (Painel no celular) e D (homologação na CGTI, limites e SMTP de produção).

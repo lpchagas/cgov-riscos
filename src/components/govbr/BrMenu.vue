@@ -22,6 +22,7 @@ import { computed, onBeforeUnmount, onMounted } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../../stores/riscosStore';
 import { useAuthStore } from '../../stores/authStore';
+import { podeAbrirRota } from '../../utils/acessoPorPerfil';
 
 const props = defineProps<{
   /** Gaveta aberta (só tem efeito no celular/tablet). */
@@ -54,7 +55,11 @@ const pendentesDoPerfil = computed(
     (authStore.podeHomologarDiretoria ? riscosStore.filaHomologacaoDiretoria.length : 0)
 );
 
-const grupos = computed<{ titulo: string; itens: ItemMenu[] }[]>(() => [
+/**
+ * Lista COMPLETA de grupos e itens. O que a pessoa de fato vê é filtrado abaixo por
+ * `grupos`, usando a tabela única de acesso (`podeAbrirRota`).
+ */
+const todosOsGrupos = computed<{ titulo: string; itens: ItemMenu[] }[]>(() => [
   {
     titulo: 'Visão geral',
     itens: [
@@ -100,9 +105,26 @@ const grupos = computed<{ titulo: string; itens: ItemMenu[] }[]>(() => [
   },
   {
     titulo: 'Ferramentas',
-    itens: [{ nomeRota: 'importar-skill', rotulo: 'Importar riscos', icone: 'fa-solid fa-file-import' }],
+    itens: [
+      { nomeRota: 'importar-skill', rotulo: 'Importar riscos', icone: 'fa-solid fa-file-import' },
+      { nomeRota: 'usuarios-perfis', rotulo: 'Usuários e perfis', icone: 'fa-solid fa-users-gear' },
+    ],
   },
 ]);
+
+/**
+ * Só os itens que o PERFIL ATUAL pode abrir; grupo que ficou vazio some.
+ * Exemplo: o gestor não tem "Importar riscos" nem "Usuários e perfis", então
+ * o grupo "Ferramentas" inteiro desaparece para ele.
+ */
+const grupos = computed(() =>
+  todosOsGrupos.value
+    .map((grupo) => ({
+      ...grupo,
+      itens: grupo.itens.filter((item) => podeAbrirRota(authStore.usuarioAtual.papel, item.nomeRota)),
+    }))
+    .filter((grupo) => grupo.itens.length > 0)
+);
 
 function estaAtivo(item: ItemMenu): boolean {
   const nome = String(route.name ?? '');

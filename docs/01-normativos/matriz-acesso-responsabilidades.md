@@ -130,7 +130,7 @@ subunidades internas dela, como Bases Avançadas, Serviços e Setores (P8).
 
 | Cargo | Regra de alcance (leitura) | Fundamento |
 |---|---|---|
-| **Gestor** (chefe de UC, NGI, Coordenação, Divisão, Centro; responsável por processo) | própria unidade + subunidades internas | Orientação da CGOV; P8 |
+| **Gestor** (chefe de UC, NGI, Coordenação, Divisão, Centro; responsável por processo) | própria unidade + **todas as descendentes** (subunidades internas e as que estão abaixo na árvore) | Orientação da CGOV; P8; decisão D3 da B1 |
 | **Coordenador Territorial** | própria CT + NGIs e UCs vinculados à CT | Orientação da CGOV; Regimento art. 16; P2 |
 | **Gerente Regional** | própria GR + todas as descendentes (DAS-GR, SAT-GR, COAGR, CTs, NGIs, UCs) | Orientação da CGOV |
 | **Coordenador-Geral** | própria CG + descendentes **+ riscos de qualquer unidade cujo processo pertence a macroprocesso supervisionado pela CG** (visão por processo) | Regimento art. 4º; P1b |
@@ -147,16 +147,16 @@ Hoje o simulador tem `gestor`, `lider_cg`, `diretor` e `cgov`. A partir da etapa
 
 | Perfil | Quem recebe (cargo no Regimento) | Linha (Política) | Alcance de leitura | Escreve fichas de | Fluxo extra |
 |---|---|---|---|---|---|
-| `gestor` | Chefes de UC e NGI, Coordenadores, Chefes de Divisão/Serviço/Setor, Coordenadores de Centro, Chefe da ACADEBio, responsáveis por processo; Procurador-Chefe, Corregedor, Ouvidor, CGCS | 1ª | própria unidade + subunidades | própria unidade | — |
+| `gestor` | Chefes de UC e NGI, Coordenadores, Chefes de Divisão/Serviço/Setor, Coordenadores de Centro, Chefe da ACADEBio, responsáveis por processo; Procurador-Chefe, Corregedor, Ouvidor, CGCS | 1ª | própria unidade + todas as descendentes (D3) | própria unidade | — |
 | `coordenador_territorial` | Coordenador Territorial (art. 193) | 1ª | CT + NGIs e UCs vinculados | própria CT | **valida** (2º degrau) as fichas dos NGIs e UCs da CT |
 | `gerente_regional` | Gerente Regional (art. 191) | 1ª | GR + todas as descendentes | própria GR | **valida** (2º degrau) as fichas das unidades da GR sem CT; **homologa** (3º degrau) os riscos críticos de toda a GR |
 | `coordenador_geral` | Coordenadores-Gerais (art. 185) | 1ª | CG + descendentes + visão por processo | própria CG | **valida** (2º degrau) as fichas das Coordenações da CG |
-| `diretor` | Diretores (arts. 182–183) | 1ª e alta administração | todas as unidades | própria Diretoria | **homologa** (3º degrau) os riscos críticos das unidades da Sede na sua árvore |
-| `presidencia` | Presidente e Assessoria (arts. 21 e 175) | alta administração | todas as unidades | Presidência | — |
+| `diretor` | Diretores (arts. 182–183) | 1ª e alta administração | todas as unidades | própria Diretoria | **valida** (2º degrau) as fichas dos Centros e das Coordenações-Gerais da sua árvore e **homologa** (3º degrau) os riscos críticos das unidades da Sede na sua árvore |
+| `presidencia` | Presidente e Assessoria (arts. 21 e 175) | alta administração | todas as unidades | Presidência | **homologa** (3º degrau) os riscos críticos das unidades ligadas a ela e os riscos da própria Presidência (decisão P-B1-1, seção 9) |
 | `auditoria` | Auditor-Chefe e AUDIT (art. 31) | 3ª | todas as unidades, somente leitura | própria AUDIT | — (avaliação independente) |
 | `cgov` | Servidores da CGOV (art. 37) | 2ª | todas as unidades | própria CGOV | consolida o Plano de Gestão de Riscos, simula a DAR, importa tabelas, mantém o catálogo de objetos, cadastra usuários e atribui perfis |
 | `cgge` | Servidores da CGGE (art. 36) | supervisão | todas as unidades | própria CGGE | — |
-| `gabin` | Chefe de Gabinete e equipe (arts. 22 e 177) | apoio à alta administração | todas as unidades | próprio GABIN | — |
+| `gabin` | Chefe de Gabinete e equipe (arts. 22 e 177) | apoio à alta administração | todas as unidades | próprio GABIN | **valida** (2º degrau) os riscos da Presidência (Presidente e Assessoria) — exceção desenhada à árvore, decisão P-B1-1 (seção 9) |
 
 **Uma pessoa, uma unidade, um perfil.** Quem acumula funções (por exemplo, substituto) recebe o
 perfil do cargo de maior alcance enquanto durar a substituição. O registro da troca fica na
@@ -226,7 +226,7 @@ significa "vê tudo e edita só a própria unidade".
 | Novo risco (`/riscos/novo`) | E | E | E | E | E | E | E | E | E | E |
 | Objetos de gestão (`/objetos`) | V | V | V | V | V\* | V\* | V\* | **E** (catálogo) | V\* | V\* |
 | Monitoramento — KRIs e Plano de ação (`/monitoramento`) | E | E+ | E+ | E+ | E+ | E+ | V\* | E+ | E+ | E+ |
-| Aprovações (`/aprovacoes`) | V (as próprias) | **A** (valida) | **A** (valida e homologa) | **A** (valida) | **A** (homologa) | V\* | V\* | V\* | V\* | V\* |
+| Aprovações (`/aprovacoes`) | V (as próprias) | **A** (valida) | **A** (valida e homologa) | **A** (valida) | **A** (valida e homologa) | **A** (homologa) | V\* | V\* | V\* | **A** (valida riscos da Presidência) |
 | Apetite a riscos — DAR (`/dar`) | V (vigente) | V | V | V | V | V | V | **E** (simular e propor) | V | V |
 | Auditoria — trilha (`/auditoria`) | V | V | V | V | V\* | V\* | V\* | V\* | V\* | V\* |
 | Importar riscos (`/importar`) | — | — | — | — | — | — | — | **E** | — | — |
@@ -239,6 +239,12 @@ significa "vê tudo e edita só a própria unidade".
   `cgov-gestao-riscos-v4`. Pode ser liberado para os gestores numa versão futura.
 - **AUDIT nunca edita riscos de outras unidades**, nem age em aprovações, para preservar a
   independência da 3ª linha (Decreto art. 18, I).
+- **Alinhada ao sistema (etapa B2, pendência 7 da B1, decidida em 2026-11-15):** esta tabela e as
+  seções 4 e 5 agora dizem o que o banco e o front já fazem: o **Diretor valida** os Centros e as
+  Coordenações-Gerais da sua árvore e **homologa**; a **Presidência homologa** os riscos das unidades
+  ligadas a ela; o **GABIN valida** os riscos da Presidência (P-B1-1); e o alcance do gestor é a
+  própria unidade e **todas as descendentes** (D3). O front aplica isso em `src/utils/acessoPorPerfil.ts`.
+  Ver [[decisoes-tecnicas-b2]].
 
 ### Exemplos práticos
 
@@ -301,6 +307,22 @@ Decisões tomadas em **2026-11-15** pelo responsável pelo projeto na CGOV.
 | **P6** | Quem cadastra usuários e perfis? | **A CGOV atribui perfil e unidade; a CGTI cuida da conta institucional.** | Regimento, arts. 37 (CGOV) e 67 (CGTI). |
 | **P7** | Nome do colegiado nas telas | **Comitê Interno de Governança.** | Política, Metodologia e Decreto nº 9.203/2017, art. 15-A. |
 | **P8** | A unidade inclui as subunidades internas? | **Sim, a chefia vê as subunidades.** Quem chefia só a Divisão vê só a Divisão. | Regimento, arts. 9º e 20. |
+
+### Decisões de 2026-11-15 sobre as pendências da B1
+
+Tomadas depois da B2, por perguntas de múltipla escolha. As que mexem no banco serão implementadas
+na etapa **B1.1** (início da B3). Detalhes em [[decisoes-tecnicas-b1]] (seção 4.1) e [[decisoes-tecnicas-b2]].
+
+| # | Pergunta | Decisão |
+|---|---|---|
+| **P-B1-1** | Quem valida e homologa os riscos da Presidência? | **O titular do GABIN valida e o Presidente homologa.** Exceção desenhada à árvore, tomada de forma consciente (o GABIN é subordinado ao Presidente). |
+| **P-B1-2** | A CGOV pode criar objeto em unidade inativa? | **Não: ninguém cria.** Objetos e riscos antigos continuam visíveis e a CGOV pode reatribuí-los. |
+| **P-B1-3** | O Coordenador-Geral vê riscos de processo inativo? | **Sim**, na visão por processo, com a marca "processo inativo". Objetos novos só se ligam a processos ativos. |
+| **P-B1-4** | CT de outra GR no vínculo? | O `sync:estrutura` **ignora o vínculo** e lista no relatório; a validação sobe para a GR da própria unidade. |
+| **P-B1-5** | Risco `preliminar_cgov`? | Enquanto preliminar, a CGOV grava controles, respostas e KRIs e pode apagar o risco; ao ser assumido pela unidade, perde a edição. |
+| **P-B1-6** | `macroprocesso_supervisor_id`? | Preenchido **pelo banco** a partir da unidade supervisora do processo da Cadeia de Valor; não é editável. Sem processo, fica vazio e só a CGOV preenche. |
+| **P-B1-7** | Alinhar a matriz? | **Feito nesta revisão** (seções 4, 5 e 7). |
+| **P-B1-8** | DAR nova reavalia riscos? | Ao salvar nova DAR, o banco recalcula a criticidade dos riscos aprovados da categoria; os que passam a Crítico **voltam para homologação** (Política, art. 8º, § 2º); os que deixam de ser Críticos só são atualizados. |
 
 **Revisão prevista:** quando as minutas da Política e da Metodologia forem publicadas, revisar
 esta matriz inteira (seções 4 a 9) contra o texto oficial e registrar as mudanças aqui.

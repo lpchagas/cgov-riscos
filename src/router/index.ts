@@ -20,6 +20,9 @@
  * baixa o código de uma página quando o usuário a visita pela primeira vez.
  */
 import { createRouter, createWebHistory } from 'vue-router';
+import { useToast } from '../composables/useToast';
+import { useAuthStore } from '../stores/authStore';
+import { decidirNavegacao } from './guarda';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -160,6 +163,43 @@ const router = createRouter({
     },
 
     // ----------------------------------------------------------------------
+    // ADMINISTRAÇÃO (só CGOV). A tela real chega na Tarefa 6; até lá, um aviso.
+    // ----------------------------------------------------------------------
+    {
+      path: '/usuarios',
+      name: 'usuarios-perfis',
+      component: () => import('../views/UsuariosPerfisView.vue'),
+      meta: {
+        cabecalhoProprio: true, // a view desenha o próprio PageHeader (com o botão Cadastrar)
+        titulo: 'Usuários e perfis',
+        descricao: 'Quem acessa o RADAR, com qual perfil e em qual unidade.',
+      },
+    },
+
+    // ----------------------------------------------------------------------
+    // ACESSO (login por link no e-mail). Públicas: abrem sem login; sem menu lateral.
+    // Cada tela desenha o próprio <h1>, por isso `cabecalhoProprio`.
+    // ----------------------------------------------------------------------
+    {
+      path: '/entrar',
+      name: 'entrar',
+      component: () => import('../views/EntrarView.vue'),
+      meta: { titulo: 'Entrar', publica: true, semMenu: true, cabecalhoProprio: true },
+    },
+    {
+      path: '/entrar/retorno',
+      name: 'entrar-retorno',
+      component: () => import('../views/EntrarRetornoView.vue'),
+      meta: { titulo: 'Conferindo seu link', publica: true, semMenu: true, cabecalhoProprio: true },
+    },
+    {
+      path: '/acesso-nao-liberado',
+      name: 'acesso-nao-liberado',
+      component: () => import('../views/AcessoNaoLiberadoView.vue'),
+      meta: { titulo: 'Acesso não liberado', publica: true, semMenu: true, cabecalhoProprio: true },
+    },
+
+    // ----------------------------------------------------------------------
     // INSTITUCIONAL (aberta pelos atalhos do rodapé, com âncoras #normas etc.)
     // ----------------------------------------------------------------------
     {
@@ -184,6 +224,27 @@ const router = createRouter({
     // Qualquer endereço desconhecido volta ao Painel.
     { path: '/:caminho(.*)*', redirect: { name: 'painel-cgov' } },
   ],
+});
+
+// ---------------------------------------------------------------------------
+// GUARDA GLOBAL: antes de abrir qualquer tela, decide se a pessoa pode entrar.
+// A regra mora em `guarda.ts` (função pura e testada); aqui só juntamos os fatos
+// e executamos a decisão. `iniciar()` espera a leitura da sessão terminar.
+// ---------------------------------------------------------------------------
+router.beforeEach(async (para) => {
+  const auth = useAuthStore();
+  await auth.iniciar();
+  const decisao = decidirNavegacao({
+    modo: auth.modo,
+    situacao: auth.situacao,
+    papel: auth.modo === 'real' && !auth.perfil ? null : auth.usuarioAtual.papel,
+    nomeRota: String(para.name ?? ''),
+    publica: Boolean(para.meta.publica),
+    caminhoCompleto: para.fullPath,
+  });
+  if (decisao.tipo === 'seguir') return true;
+  if (decisao.aviso) useToast().mostrar({ mensagem: decisao.aviso, tom: 'aviso' });
+  return decisao.para;
 });
 
 // Atualiza o título da aba do navegador: "Riscos · RADAR | ICMBio".

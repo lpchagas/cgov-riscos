@@ -66,15 +66,15 @@ describe('painelResumo', () => {
     // CGOV supervisiona tudo o que está parado no fluxo.
     expect(tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'prazo', 'prazo']);
     // A Coordenação-Geral vê a SUA fila de validação, não a da Diretoria.
-    expect(tipos('lider_cg')).toEqual(['validacao', 'kri', 'prazo', 'prazo']);
-    // A Diretoria vê a SUA homologação e não recebe alertas de KRI.
-    expect(tipos('diretor')).toEqual(['homologacao', 'prazo', 'prazo']);
+    expect(tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'prazo', 'prazo']);
+    // A Diretoria vê a SUA homologação (e também valida, spec B1 7.1) e não recebe alertas de KRI.
+    expect(tipos('diretor')).toEqual(['validacao', 'homologacao', 'prazo', 'prazo']);
     // O gestor (1ª Linha) não vê filas de aprovação dos degraus de cima.
     expect(tipos('gestor')).toEqual(['kri', 'prazo', 'prazo']);
   });
 
   it('fala com a pessoa: "aguardando a sua validação" para a Coordenação-Geral', () => {
-    const [primeiro] = itensDeAtencao(semente(), 'lider_cg', HOJE);
+    const [primeiro] = itensDeAtencao(semente(), 'coordenador_geral', HOJE);
     expect(primeiro.titulo).toBe('1 risco aguardando a sua validação');
     expect(primeiro.acao).toBe('Validar agora');
   });
@@ -168,16 +168,16 @@ describe('Painel (página)', () => {
 
   it('não tem mais o simulador da DAR nem a carteira completa (foram para /dar e /riscos)', async () => {
     const w = await montarPainel();
-    expect(w.find('select').exists()).toBe(false);
+    // O único <select> do Painel é o "Ver como" (perfil de demonstração).
+    expect(w.findAll('select').map((s) => s.attributes('id'))).toEqual(['painel-ver-como']);
     expect(w.text()).not.toContain('Lançar Medição');
   });
 
-  it('trocar o perfil no controle segmentado muda "Precisa da sua atenção"', async () => {
+  it('trocar o perfil no seletor "Ver como" muda "Precisa da sua atenção"', async () => {
     const w = await montarPainel();
     expect(w.text()).toContain('aguardando validação da Coordenação-Geral');
 
-    const diretoria = w.findAll('[role="radio"]').find((b) => b.text().includes('Diretoria'))!;
-    await diretoria.trigger('click');
+    await w.find('select#painel-ver-como').setValue('diretor');
     expect(useAuthStore().usuarioAtual.papel).toBe('diretor');
     expect(w.text()).toContain('aguardando a sua homologação');
     expect(w.text()).not.toContain('Indicador em alerta');

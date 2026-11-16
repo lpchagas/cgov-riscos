@@ -27,6 +27,12 @@
 import { nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 
+/**
+ * Telas de acesso (`meta.semMenu`) não têm menu nem busca: ficam só os atalhos
+ * "conteúdo" e "rodapé", renumerados (1/2 e 2/2). Assim não sobram links "mortos".
+ */
+defineProps<{ semMenu?: boolean }>();
+
 const emit = defineEmits<{ (e: 'abrir-menu'): void }>();
 const router = useRouter();
 
@@ -62,20 +68,20 @@ async function irParaBusca(): Promise<void> {
 <template>
   <nav class="br-skiplink" aria-label="Atalhos de navegação por teclado">
     <a class="br-item" href="#main-content" accesskey="1">
-      Ir para o conteúdo <span aria-hidden="true">(1/4)</span>
+      Ir para o conteúdo <span aria-hidden="true">({{ semMenu ? "1/2" : "1/4" }})</span>
       <span aria-hidden="true" class="br-tag text ml-1">1</span>
     </a>
-    <a class="br-item" href="#main-navigation" accesskey="2" @click.prevent="irParaMenu">
+    <a v-if="!semMenu" class="br-item" href="#main-navigation" accesskey="2" @click.prevent="irParaMenu">
       Ir para o menu <span aria-hidden="true">(2/4)</span>
       <span aria-hidden="true" class="br-tag text ml-1">2</span>
     </a>
-    <a class="br-item" href="#main-searchbox" accesskey="3" @click.prevent="irParaBusca">
+    <a v-if="!semMenu" class="br-item" href="#main-searchbox" accesskey="3" @click.prevent="irParaBusca">
       Ir para a busca <span aria-hidden="true">(3/4)</span>
       <span aria-hidden="true" class="br-tag text ml-1">3</span>
     </a>
-    <a class="br-item" href="#footer" accesskey="4">
-      Ir para o rodapé <span aria-hidden="true">(4/4)</span>
-      <span aria-hidden="true" class="br-tag text ml-1">4</span>
+    <a class="br-item" href="#footer" :accesskey="semMenu ? '2' : '4'">
+      Ir para o rodapé <span aria-hidden="true">({{ semMenu ? "2/2" : "4/4" }})</span>
+      <span aria-hidden="true" class="br-tag text ml-1">{{ semMenu ? 2 : 4 }}</span>
     </a>
   </nav>
 </template>

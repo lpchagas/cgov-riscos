@@ -17,7 +17,7 @@ describe('Fluxo de Validação em 1 Clique (3 Degraus) e Monitoramento Contínuo
     store.submeterParaValidacaoCg(riscoAnexoII.id);
     expect(store.riscos[0].statusFluxo).toBe('em_validacao_cg');
 
-    auth.alternarPerfilDemo('lider_cg');
+    auth.alternarPerfilDemo('coordenador_geral');
     store.aprovarEmUmCliqueCg(riscoAnexoII.id);
     // Como é Risco Crítico, sobe para homologação da Diretoria:
     expect(store.riscos[0].statusFluxo).toBe('em_homologacao_dir');

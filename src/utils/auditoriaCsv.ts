@@ -30,9 +30,15 @@ export interface EventoAuditoria {
 
 export const ROTULOS_PAPEL: Record<string, string> = {
   gestor: 'Gestor da unidade (1ª Linha)',
-  lider_cg: 'Coordenação-Geral (2º degrau)',
+  coordenador_territorial: 'Coordenação Territorial (1º degrau)',
+  gerente_regional: 'Gerência Regional (2º degrau)',
+  coordenador_geral: 'Coordenação-Geral (2º degrau)',
   diretor: 'Diretoria (3º degrau)',
+  presidencia: 'Presidência (3º degrau)',
+  auditoria: 'Auditoria Interna (3ª Linha)',
   cgov: 'CGOV (2ª Linha)',
+  cgge: 'CGGE (2ª Linha)',
+  gabin: 'Gabinete',
 };
 
 /** Coloca o texto entre aspas e dobra as aspas de dentro. Ex.: a"b → "a""b" */

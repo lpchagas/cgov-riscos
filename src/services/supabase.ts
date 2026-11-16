@@ -20,5 +20,17 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undef
 export const isSupabaseConfigurado = Boolean(supabaseUrl && supabaseAnonKey);
 
 export const supabaseClient: SupabaseClient | null = isSupabaseConfigurado
-  ? createClient(supabaseUrl!, supabaseAnonKey!)
+  ? createClient(supabaseUrl!, supabaseAnonKey!, {
+      auth: {
+        // Nós mesmos tratamos o link do e-mail na tela /entrar/retorno (authStore.concluirRetorno),
+        // então o cliente NÃO deve procurar sozinho a sessão na barra de endereço.
+        detectSessionInUrl: false,
+        // Guarda a sessão no navegador para a pessoa não precisar entrar a cada visita.
+        persistSession: true,
+        // Renova o token de acesso sozinho antes de vencer.
+        autoRefreshToken: true,
+      },
+    })
   : null;
+
+// IMPORTANTE: aqui só entra a chave ANON (pública). A chave `service_role` NUNCA vai para o front.

@@ -8,8 +8,8 @@ tags: [acessibilidade, wcag, axe-core, playwright, testes]
 
 # Varredura de acessibilidade do RADAR (`npm run test:a11y`)
 
-> **Em uma frase:** um único comando abre o RADAR num navegador de verdade, passa por **13 telas ×
-> 4 larguras × 3 temas = 156 combinações** e **reprova** se encontrar qualquer problema de
+> **Em uma frase:** um único comando abre o RADAR num navegador de verdade, passa por **16 telas ×
+> 4 larguras × 3 temas = 192 combinações** e **reprova** se encontrar qualquer problema de
 > acessibilidade (WCAG 2.2, níveis A e AA) ou se alguma página rolar para o lado.
 
 ## 1. O que é isso, sem jargão
@@ -44,10 +44,10 @@ npm run test:a11y
 O que acontece:
 
 1. O Playwright sobe o servidor do RADAR sozinho, na porta **5199** (não precisa rodar `npm run dev`).
-2. Roda **160 testes**: as 156 combinações mais 4 *autoverificações* (seção 6). Leva cerca de 3 minutos.
-3. No fim, desliga o servidor e mostra o placar, por exemplo `160 passed (3.0m)`.
+2. Roda **197 testes**: as 192 combinações, 4 *autoverificações* (seção 6) e o teste do menu do gestor. Leva cerca de 3 minutos.
+3. No fim, desliga o servidor e mostra o placar, por exemplo `197 passed (4.0m)`.
 
-Resultado esperado hoje: **160 passed**. Qualquer `failed` reprova o comando.
+Resultado esperado hoje: **197 passed**. Qualquer `failed` reprova o comando.
 
 **Rodar só uma parte** (o filtro `-g` procura no nome do teste; as partes do nome são separadas por espaço):
 
@@ -117,7 +117,7 @@ mudar, atualize aqui também; senão o teste falha com "não mostrou o título e
 ## 6. Por que existem as 4 "autoverificações"
 
 Um teste que nunca falha não prova nada. Se o axe-core deixasse de carregar, todas as telas dariam
-"0 violações" e pareceria que está tudo certo. Por isso, antes das 156 combinações:
+"0 violações" e pareceria que está tudo certo. Por isso, antes das 192 combinações:
 
 - **"o axe acusa uma imagem sem texto alternativo"** coloca de propósito uma imagem sem descrição
   no Painel e exige que o axe a acuse;
@@ -128,11 +128,16 @@ Um teste que nunca falha não prova nada. Se o axe-core deixasse de carregar, to
 - **"ficha de risco inexistente não passa por engano"** abre a Ficha de um risco que não existe
   ("Risco não encontrado") e exige que a varredura reprove.
 
-Além disso, cada teste das 156 combinações confere quatro coisas antes de rodar o axe:
+Além disso, cada teste das 192 combinações confere quatro coisas antes de rodar o axe:
 1. o `<h1>` tem o título **exato** da tela;
 2. o endereço final é o pedido (sem redirecionamento);
 3. a aba certa está selecionada, quando a tela abre numa aba;
 4. o tema pedido foi aplicado (`<html data-theme="escuro">`, por exemplo).
+
+**Teste do menu do gestor.** Além das telas, um teste avulso abre o Painel com o perfil `gestor`
+(gravado no navegador antes da página abrir) e exige que o menu **não** tenha "Importar riscos" nem
+"Usuários e perfis", e que abrir `/importar` leve de volta ao Painel. Telas sem o campo `perfil`
+em `telas.ts` abrem com o perfil padrão `cgov`; "Usuários e perfis" é só da CGOV.
 
 ## 7. Problemas comuns
 

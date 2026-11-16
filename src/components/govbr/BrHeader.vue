@@ -19,6 +19,9 @@
  * - ☰ abre/fecha o menu lateral (celular) ou recolhe/expande (computador).
  * - A BUSCA leva para a lista de Riscos já filtrada (`/riscos?q=termo`).
  *   Abaixo de 1024 px ela vira um botão de lupa que abre a lista.
+ * - Nas telas de acesso (`meta.semMenu`: entrar, retorno, acesso não liberado) o
+ *   cabeçalho fica enxuto: sem ☰ e sem busca (não há menu nem login ainda), e a conta
+ *   se reduz a um botão "Sair" quando existe uma conta sem acesso liberado.
  * - A caixa da CONTA tem largura FIXA (240 px) para qualquer perfil; nomes
  *   longos terminam em "…" e o nome completo fica na dica e no leitor de tela.
  */
@@ -28,8 +31,14 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePreferenciasInterface, TEMAS_DISPONIVEIS, ROTULOS_TEMA } from '../../composables/usePreferenciasInterface';
 import { isSupabaseConfigurado } from '../../services/supabase';
 import type { PapelGovernanca } from '../../types/radar.types';
+import { PAPEIS, ROTULOS_PAPEL } from '../../utils/acessoPorPerfil';
+import { saidaExplicita } from '../../composables/useSaidaExplicita';
 
-defineProps<{ menuAberto: boolean }>();
+defineProps<{
+  menuAberto: boolean;
+  /** Tela de acesso (sem menu lateral): esconde o ☰ e a busca. */
+  semMenu?: boolean;
+}>();
 const emit = defineEmits<{ (e: 'alternar-menu'): void }>();
 
 const authStore = useAuthStore();
@@ -72,13 +81,24 @@ function buscar(): void {
 const menuUsuarioAberto = ref(false);
 const areaMenuUsuario = ref<HTMLElement | null>(null);
 
-/** Rótulos curtos dos 4 perfis das 3 Linhas de governança. */
-const OPCOES_PERFIL: { papel: PapelGovernanca; rotulo: string; linha: string; detalhe: string }[] = [
-  { papel: 'gestor', rotulo: 'Gestor da unidade', linha: '1ª Linha', detalhe: '1ª Linha · cadastra riscos' },
-  { papel: 'lider_cg', rotulo: 'Coordenação-Geral', linha: '2º degrau', detalhe: '2º degrau · valida riscos' },
-  { papel: 'diretor', rotulo: 'Diretoria', linha: '3º degrau', detalhe: '3º degrau · homologa Críticos' },
-  { papel: 'cgov', rotulo: 'Analista de governança', linha: '2ª Linha', detalhe: '2ª Linha (CGOV) · governa a DAR' },
-];
+/** Os 10 perfis do simulador, montados da tabela única de acesso. */
+const OPCOES_PERFIL = PAPEIS.map((papel) => ({ papel, ...ROTULOS_PAPEL[papel], detalhe: ROTULOS_PAPEL[papel].linha }));
+
+/** Modo demonstração: sem login; o perfil é simulado. */
+const ehDemonstracao = computed(() => authStore.modo === 'demonstracao');
+
+/** Caixa da conta completa: na demonstração ou com perfil ativo (modo real). */
+const mostrarConta = computed(() => ehDemonstracao.value || authStore.situacao === 'ativo');
+
+/**
+ * Conta que existe, mas sem acesso liberado (sem perfil ou suspensa), ou com erro persistente
+ * ao falar com o banco: só o botão "Sair" (quem está preso num erro precisa conseguir sair).
+ */
+const mostrarSoSair = computed(
+  () =>
+    !ehDemonstracao.value &&
+    (authStore.situacao === 'sem_perfil' || authStore.situacao === 'inativo' || authStore.situacao === 'erro')
+);
 
 /** O que aparece na caixa da conta: papel em cima, unidade e linha embaixo. */
 const conta = computed(() => {
@@ -96,6 +116,21 @@ function iniciais(nome: string): string {
     .slice(0, 2)
     .map((p) => p[0])
     .join('');
+}
+
+/**
+ * "Sair" (só no modo real): levanta a bandeirinha de saída DE PROPÓSITO (para o App não
+ * mostrar "Sua sessão terminou"), encerra a sessão e vai a /entrar sem motivo.
+ */
+async function sair(): Promise<void> {
+  menuUsuarioAberto.value = false;
+  saidaExplicita.value = true;
+  try {
+    await authStore.sair();
+    await router.push({ name: 'entrar' });
+  } finally {
+    saidaExplicita.value = false;
+  }
 }
 
 function escolherPerfil(papel: PapelGovernanca): void {
@@ -140,6 +175,7 @@ onBeforeUnmount(() => {
     <div class="barra">
       <!-- Botão do menu lateral -->
       <button
+        v-if="!semMenu"
         id="header-navigation"
         type="button"
         class="barra__icone-botao"
@@ -162,7 +198,7 @@ onBeforeUnmount(() => {
       </RouterLink>
 
       <!-- Busca global (centralizada, até 560 px) -->
-      <form id="main-searchbox" class="barra__busca" role="search" @submit.prevent="buscar">
+      <form v-if="!semMenu" id="main-searchbox" class="barra__busca" role="search" @submit.prevent="buscar">
         <label for="searchbox-radar" class="radar-so-leitor">Buscar riscos</label>
         <i class="fa-solid fa-magnifying-glass barra__busca-icone" aria-hidden="true"></i>
         <input
@@ -177,6 +213,7 @@ onBeforeUnmount(() => {
       <div class="barra__ferramentas">
         <!-- Abaixo de 1024 px a caixa de busca vira este botão -->
         <RouterLink
+          v-if="!semMenu"
           :to="{ name: 'riscos-lista' }"
           class="barra__icone-botao barra__busca-botao"
           aria-label="Buscar riscos"
@@ -198,7 +235,13 @@ onBeforeUnmount(() => {
         </button>
 
         <!-- Menu do usuário (largura fixa) -->
-        <div ref="areaMenuUsuario" class="barra__usuario">
+        <!-- Conta sem acesso liberado: só "Sair" -->
+        <button v-if="mostrarSoSair" type="button" class="barra__sair" @click="sair">
+          <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+          Sair
+        </button>
+
+        <div v-if="mostrarConta" ref="areaMenuUsuario" class="barra__usuario">
           <button
             type="button"
             class="barra__usuario-botao"
@@ -218,9 +261,12 @@ onBeforeUnmount(() => {
 
           <div v-show="menuUsuarioAberto" id="menu-usuario" class="barra__menu">
             <p class="barra__menu-titulo">{{ authStore.usuarioAtual.nome }}</p>
-            <p class="barra__menu-sub">{{ authStore.usuarioAtual.cargo }}</p>
+            <p class="barra__menu-sub">
+              {{ authStore.usuarioAtual.cargo }} · {{ authStore.usuarioAtual.unidadeSigla }}
+            </p>
 
-            <fieldset class="barra__perfis">
+            <!-- Simulador: SÓ na demonstração. No modo real o perfil vem do banco. -->
+            <fieldset v-if="ehDemonstracao" class="barra__perfis">
               <legend>Simular perfil (demonstração)</legend>
               <label v-for="op in OPCOES_PERFIL" :key="op.papel" class="barra__perfil">
                 <input
@@ -250,6 +296,12 @@ onBeforeUnmount(() => {
               <i class="fa-solid fa-database" aria-hidden="true"></i>
               {{ isSupabaseConfigurado ? 'Dados: Supabase (PostgreSQL)' : 'Dados de demonstração (Anexo II)' }}
             </p>
+
+            <!-- Sair: só no modo real (na demonstração não há login) -->
+            <button v-if="!ehDemonstracao" type="button" class="barra__menu-sair" @click="sair">
+              <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+              Sair
+            </button>
           </div>
         </div>
       </div>
@@ -581,6 +633,35 @@ onBeforeUnmount(() => {
 .barra__perfil-detalhe {
   font-size: var(--texto-xs);
   color: var(--texto-secundario);
+}
+
+.barra__sair,
+.barra__menu-sair {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: var(--alvo-minimo);
+  padding: 0 var(--esp-4);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-pilula);
+  background: var(--superficie);
+  color: var(--texto);
+  font: inherit;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semi);
+  cursor: pointer;
+}
+
+.barra__sair:hover,
+.barra__menu-sair:hover {
+  border-color: var(--cor-primaria);
+  background: var(--superficie-alta);
+}
+
+.barra__menu-sair {
+  width: 100%;
+  justify-content: center;
+  margin-top: var(--esp-3);
 }
 
 .barra__fonte-dados {

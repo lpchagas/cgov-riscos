@@ -6,7 +6,7 @@
  *   - Nova largura de tela ou novo tema? Acrescente em `LARGURAS` ou `TEMAS`.
  *
  * O total de testes é a multiplicação das três listas:
- *   13 telas × 4 larguras × 3 temas = 156 combinações.
+ *   16 telas × 4 larguras × 3 temas = 192 combinações.
  */
 
 /** Os 3 temas do menu "Aparência". Precisam ser iguais a `TemaInterface` (usePreferenciasInterface.ts). */
@@ -27,7 +27,34 @@ export interface Tela {
   rota: string;
   titulo: string;
   aba?: string;
+  /**
+   * Perfil de demonstração com que a tela abre (opcional). Sem ele, vale o padrão `cgov`.
+   * É gravado no navegador ANTES da página abrir, como o tema. Ex.: "/usuarios" só abre para `cgov`.
+   */
+  perfil?: PapelGovernanca;
 }
+
+/**
+ * Perfis possíveis (cópia dos 10 de `PapelGovernanca`, em `src/types/radar.types.ts`).
+ * Duplicado de propósito: a varredura roda no Playwright e não importa código Vue/Vite.
+ */
+export type PapelGovernanca =
+  | 'gestor'
+  | 'coordenador_territorial'
+  | 'gerente_regional'
+  | 'coordenador_geral'
+  | 'diretor'
+  | 'presidencia'
+  | 'auditoria'
+  | 'cgov'
+  | 'cgge'
+  | 'gabin';
+
+/**
+ * Chave onde o modo demonstração guarda o perfil escolhido.
+ * Igual a `CHAVE_PERFIL_DEMO` em `src/stores/authStore.ts` (mudou lá? mude aqui).
+ */
+export const CHAVE_PERFIL_DEMO = 'radar.perfil-demo.v1';
 
 /** Nome do risco de demonstração usado na Ficha (Caso de Controle do Anexo II, `dadosSementeAnexoII.ts`). */
 const RISCO_DEMONSTRACAO = 'Gestão e Execução de Processos Críticos da Unidade (Caso de Controle Anexo II)';
@@ -48,6 +75,11 @@ export const TELAS: Tela[] = [
   { nome: 'auditoria', rota: '/auditoria', titulo: 'Auditoria' },
   { nome: 'importar', rota: '/importar', titulo: 'Importar riscos' },
   { nome: 'sobre', rota: '/sobre', titulo: 'Sobre o RADAR' },
+  // Telas da Etapa B2 (login e perfis). As duas primeiras não têm menu lateral (`meta.semMenu`).
+  { nome: 'entrar', rota: '/entrar', titulo: 'Entrar no RADAR' },
+  { nome: 'acesso-nao-liberado', rota: '/acesso-nao-liberado?exemplo=inativo', titulo: 'Acesso não liberado' },
+  // Só a CGOV abre "Usuários e perfis".
+  { nome: 'usuarios', rota: '/usuarios', titulo: 'Usuários e perfis', perfil: 'cgov' },
 ];
 
 /** Larguras em pixels: celular pequeno, tablet, notebook e monitor grande. */

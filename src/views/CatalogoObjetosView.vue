@@ -18,6 +18,7 @@
 import { computed, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
+import { useAuthStore } from '../stores/authStore';
 import { useToast } from '../composables/useToast';
 import type { ObjetoContexto, UnidadeOrganizacional } from '../types/radar.types';
 import PageHeader from '../components/ui/PageHeader.vue';
@@ -31,6 +32,7 @@ import BrButton from '../components/govbr/BrButton.vue';
 
 const route = useRoute();
 const riscosStore = useRiscosStore();
+const authStore = useAuthStore();
 const { mostrar } = useToast();
 
 // ---------------------------------------------------------------------------
@@ -106,7 +108,7 @@ function salvar(): void {
   <div class="objetos">
     <PageHeader :titulo="route.meta.titulo ?? 'Objetos de gestão'" :descricao="route.meta.descricao" :fundamento="route.meta.fundamento">
       <template #acoes>
-        <BrButton variant="primary" icon="fa-solid fa-plus" @click="abrirCadastro">Novo objeto</BrButton>
+        <BrButton v-if="authStore.capacidades.editaCatalogoObjetos" variant="primary" icon="fa-solid fa-plus" @click="abrirCadastro">Novo objeto</BrButton>
       </template>
     </PageHeader>
 

@@ -18,5 +18,7 @@ export default defineConfig({
     globals: true,
     // Só os testes de unidade. A varredura de acessibilidade (tests/a11y/) roda no Playwright.
     include: ['tests/unit/**/*.spec.ts'],
+    // Limpa o localStorage antes de cada teste: o perfil simulado fica lá e vazaria entre testes.
+    setupFiles: ['tests/unit/setup.ts'],
   },
 });

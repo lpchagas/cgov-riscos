@@ -113,9 +113,20 @@ export type TipoUnidade =
   | 'uc';
 
 /**
- * Papéis de usuário na governança das 3 Linhas do ICMBio.
+ * Os 10 perfis de usuário do RADAR. As chaves são idênticas ao CHECK da coluna
+ * `perfis.papel` no banco (migração 20261115001): mudar uma aqui exige mudar lá.
  */
-export type PapelGovernanca = 'gestor' | 'lider_cg' | 'diretor' | 'cgov';
+export type PapelGovernanca =
+  | 'gestor'
+  | 'coordenador_territorial'
+  | 'gerente_regional'
+  | 'coordenador_geral'
+  | 'diretor'
+  | 'presidencia'
+  | 'auditoria'
+  | 'cgov'
+  | 'cgge'
+  | 'gabin';
 
 /**
  * Representa uma Unidade Organizacional do ICMBio (Sede, Diretoria, CG, GR, Centro, NGI ou UC).

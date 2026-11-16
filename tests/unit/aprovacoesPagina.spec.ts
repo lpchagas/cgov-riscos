@@ -58,6 +58,7 @@ describe('Página Aprovações', () => {
   });
 
   it('validar um risco Crítico o envia para a Diretoria', async () => {
+    useAuthStore().alternarPerfilDemo('coordenador_geral'); // a CGOV só vê (matriz, seção 7)
     const { w } = await montar();
     await botao(w, 'Validar risco').trigger('click');
     await flushPromises();
@@ -68,6 +69,7 @@ describe('Página Aprovações', () => {
   });
 
   it('devolver exige despacho; com despacho, o risco volta para a unidade', async () => {
+    useAuthStore().alternarPerfilDemo('coordenador_geral');
     const { w } = await montar();
     await botao(w, 'Devolver para ajuste').trigger('click');
     await flushPromises();
@@ -93,7 +95,7 @@ describe('Página Aprovações', () => {
     useAuthStore().alternarPerfilDemo('gestor');
     const { w } = await montar();
     expect(botao(w, 'Validar risco').attributes('disabled')).toBeDefined();
-    expect(w.text()).toContain('Só a Coordenação-Geral ou a CGOV validam');
+    expect(w.text()).toContain('Só as chefias (Coordenação Territorial, Gerência Regional, Coordenação-Geral, Diretoria ou Presidência) validam');
     w.unmount();
   });
 });

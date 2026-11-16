@@ -21,5 +21,9 @@ declare module 'vue-router' {
     migalhaPai?: { rotulo: string; nome: string };
     /** Quando true, a própria view desenha o PageHeader (para incluir ações). */
     cabecalhoProprio?: boolean;
+    /** Quando true, a tela abre sem login (ex.: /entrar). */
+    publica?: boolean;
+    /** Quando true, o shell não mostra o menu lateral (telas de acesso). */
+    semMenu?: boolean;
   }
 }

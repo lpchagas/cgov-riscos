@@ -143,7 +143,7 @@ const enviadoEm = (r: FichaRisco) => {
 
     <p v-if="!podeAgir" class="aviso-perfil" role="note">
       <i class="fa-solid fa-lock" aria-hidden="true"></i>
-      {{ fila === 'cg' ? 'Só a Coordenação-Geral ou a CGOV validam.' : 'Só a Diretoria ou a CGOV homologam.' }}
+      {{ fila === 'cg' ? 'Só as chefias (Coordenação Territorial, Gerência Regional, Coordenação-Geral, Diretoria ou Presidência) validam.' : 'Só a Gerência Regional, a Diretoria ou a Presidência homologam.' }}
       Para testar, troque o perfil no menu do usuário.
     </p>
 

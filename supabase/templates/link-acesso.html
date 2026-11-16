@@ -1,0 +1,20 @@
+<!--
+  EXPLICAÇÃO DIDÁTICA: modelo do e-mail "link de acesso" do RADAR.
+  Os trechos entre chaves duplas, mais abaixo, são trocados pelo Supabase na hora do envio:
+  SiteURL = endereço do sistema; TokenHash = código de uso único do link.
+  CUIDADO: não escreva chaves duplas em comentários; o Supabase tenta executá-las e o e-mail
+  passa a sair com o texto padrão em inglês ("Your sign-in link").
+  A tela /entrar/retorno do RADAR lê o token_hash da barra de endereço e confere o link.
+-->
+<!doctype html>
+<html lang="pt-BR">
+  <body style="font-family: Arial, sans-serif; line-height: 1.5;">
+    <h2>Seu link de acesso ao RADAR</h2>
+    <p>Olá! Use o botão abaixo para entrar no RADAR (Rede de Avaliação, Diagnóstico e Ação em Riscos).</p>
+    <p>
+      <a href="{{ .SiteURL }}/entrar/retorno?token_hash={{ .TokenHash }}&type=email">Entrar no RADAR</a>
+    </p>
+    <p>O link vale por 1 hora e só funciona uma vez.</p>
+    <p>Se você não pediu este acesso, ignore este e-mail.</p>
+  </body>
+</html>
