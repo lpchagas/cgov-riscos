@@ -33,12 +33,14 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
     sigla: 'PRESIDÊNCIA',
     nome: 'Presidência do ICMBio / Comitê Interno de Governança (CIG)',
     tipo: 'presidencia',
+    ativa: true,
   },
   {
     id: 'uni-diplan',
     sigla: 'DIPLAN',
     nome: 'Diretoria de Planejamento, Administração e Logística',
     tipo: 'diretoria',
+    ativa: true,
     unidadePaiId: 'uni-presidencia',
   },
   {
@@ -46,6 +48,7 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
     sigla: 'DIBIO',
     nome: 'Diretoria de Pesquisa, Avaliação e Monitoramento da Biodiversidade',
     tipo: 'diretoria',
+    ativa: true,
     unidadePaiId: 'uni-presidencia',
   },
   {
@@ -53,6 +56,7 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
     sigla: 'CGGE',
     nome: 'Coordenação-Geral de Gestão Estratégica (Supervisora de Macroprocesso)',
     tipo: 'coordenacao-geral',
+    ativa: true,
     unidadePaiId: 'uni-diplan',
   },
   {
@@ -60,6 +64,7 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
     sigla: 'CGFIN',
     nome: 'Coordenação-Geral de Finanças e Orçamento (Supervisora de Macroprocesso)',
     tipo: 'coordenacao-geral',
+    ativa: true,
     unidadePaiId: 'uni-diplan',
   },
   {
@@ -67,6 +72,7 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
     sigla: 'CGTI',
     nome: 'Coordenação-Geral de Tecnologia da Informação (Supervisora de Macroprocesso)',
     tipo: 'coordenacao-geral',
+    ativa: true,
     unidadePaiId: 'uni-diplan',
   },
   {
@@ -74,6 +80,7 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
     sigla: 'CGOV',
     nome: 'Coordenação de Governança e Gestão de Riscos (2ª Linha — Unidade Central)',
     tipo: 'coordenacao',
+    ativa: true,
     unidadePaiId: 'uni-cgge',
   },
   {
@@ -81,6 +88,7 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
     sigla: 'GR-1 Norte',
     nome: 'Gerência Regional 1 — Amazônia',
     tipo: 'gerencia-regional',
+    ativa: true,
     unidadePaiId: 'uni-presidencia',
   },
   {
@@ -88,6 +96,7 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
     sigla: 'PARNA Brasília',
     nome: 'Parque Nacional de Brasília (Unidade de Conservação)',
     tipo: 'uc',
+    ativa: true,
     unidadePaiId: 'uni-presidencia',
   },
 ];
@@ -198,6 +207,10 @@ export const OBJETOS_CONTEXTO_SEMENTE: ObjetoContexto[] = [
     partesInteressadas:
       'Diretorias, Coordenações-Gerais, Unidades de Conservação e sociedade.',
     cicloAno: 2026,
+    processoId: null,
+    processoNome: null,
+    processoAtivo: null,
+    unidadeAtiva: true,
   },
   {
     id: 'obj-fiscalizacao-autos',
@@ -216,6 +229,10 @@ export const OBJETOS_CONTEXTO_SEMENTE: ObjetoContexto[] = [
     partesInteressadas:
       'Unidades de Conservação, Procuradoria Federal Especializada, Corregedoria e sociedade.',
     cicloAno: 2026,
+    processoId: null,
+    processoNome: null,
+    processoAtivo: null,
+    unidadeAtiva: true,
   },
   {
     id: 'obj-autorizacao-uc',
@@ -234,6 +251,10 @@ export const OBJETOS_CONTEXTO_SEMENTE: ObjetoContexto[] = [
     partesInteressadas:
       'Chefias de UCs, comunidades tradicionais, pesquisadores e visitantes.',
     cicloAno: 2026,
+    processoId: null,
+    processoNome: null,
+    processoAtivo: null,
+    unidadeAtiva: true,
   },
 ];
 
@@ -246,6 +267,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     id: 'risco-anexo-ii-01',
     codigoRadar: 'RADAR-2026-001',
     objetoId: 'obj-anexo-ii',
+    unidadeId: 'uni-cgov',
+    atualizadoEm: null,
     nomeObjetoCache:
       'Gestão e Execução de Processos Críticos da Unidade (Caso de Controle Anexo II)',
     responsavelRiscoNome: 'Gestor de Riscos da Unidade (1ª Linha)',
@@ -380,6 +403,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     id: 'risco-integra-02',
     codigoRadar: 'RADAR-2026-002',
     objetoId: 'obj-fiscalizacao-autos',
+    unidadeId: 'uni-parna-bsb',
+    atualizadoEm: null,
     nomeObjetoCache:
       'Lavratura e Julgamento de Autos de Infração Ambiental em Unidades de Conservação',
     responsavelRiscoNome: 'Coordenação de Fiscalização Setorial (1ª Linha)',
@@ -496,6 +521,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     id: 'risco-socio-03',
     codigoRadar: 'RADAR-2026-003',
     objetoId: 'obj-autorizacao-uc',
+    unidadeId: 'uni-gr1',
+    atualizadoEm: null,
     nomeObjetoCache:
       'Autorização Direta de Uso Público e Eventos em Unidades de Conservação',
     responsavelRiscoNome: 'Gestor da Unidade de Conservação (1ª Linha)',

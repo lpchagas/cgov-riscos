@@ -19,10 +19,9 @@
  *   3. Clique numa linha → PAINEL LATERAL com o resumo e a memória de cálculo,
  *      sem perder o lugar na lista. "Ver ficha completa" abre a Ficha do risco.
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter, type LocationQueryRaw } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
-import { useToast } from '../composables/useToast';
 import type { ClasseRisco, FichaRisco, StatusFluxoRisco } from '../types/radar.types';
 import { filtrarRiscos, lerFiltrosDaQuery } from '../utils/filtrosRiscos';
 import {
@@ -36,9 +35,12 @@ import type { ColunaTabela } from '../components/ui/tipos';
 import RiskBadge from '../components/ui/RiskBadge.vue';
 import Chip from '../components/ui/Chip.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
+import EstadoCarregamento from '../components/ui/EstadoCarregamento.vue';
+import ErroPagina from '../components/ui/ErroPagina.vue';
 import SideSheet from '../components/ui/SideSheet.vue';
 import FormField from '../components/ui/FormField.vue';
 import BrButton from '../components/govbr/BrButton.vue';
+import AcoesDoRisco from '../components/radar/AcoesDoRisco.vue';
 import MemoriaCalculoBar from '../components/radar/MemoriaCalculoBar.vue';
 
 const route = useRoute();
@@ -62,6 +64,23 @@ function atualizarFiltros(mudancas: Record<string, string | undefined>): void {
 
 function limparFiltros(): void {
   router.replace({ query: {} });
+}
+
+// ---------------------------------------------------------------------------
+// ESTADO DA CARTEIRA (carregando / erro / pronto) e SELO "processo inativo"
+// ---------------------------------------------------------------------------
+/** 'ocioso' também mostra o esqueleto: nunca mostramos "0 riscos" antes dos dados chegarem. */
+const estadoBloco = computed<'carregando' | 'erro' | 'pronto'>(() =>
+  riscosStore.estado === 'erro' ? 'erro' : riscosStore.estado === 'pronto' ? 'pronto' : 'carregando'
+);
+/** Carteira lida, mas vazia: diferente de "nenhum risco com estes filtros". */
+const carteiraVazia = computed(() => estadoBloco.value === 'pronto' && riscosStore.riscos.length === 0);
+
+/** Objetos de gestão por id, para achar o processo vinculado a cada risco. */
+const objetosPorId = computed(() => new Map(riscosStore.objetosContexto.map((o) => [o.id, o])));
+/** Ex.: objeto ligado a um processo desativado na Cadeia de Valor (`processoAtivo === false`) mostra o selo. */
+function processoInativo(risco: FichaRisco): boolean {
+  return objetosPorId.value.get(risco.objetoId)?.processoAtivo === false;
 }
 
 const riscosVisiveis = computed(() => filtrarRiscos(riscosStore.riscos, filtros.value));
@@ -117,40 +136,31 @@ const colunas: ColunaTabela<FichaRisco>[] = [
 // ---------------------------------------------------------------------------
 const riscoEmResumo = ref<FichaRisco | null>(null);
 
+// Se o risco aberto no painel sair da memória (ex.: acabou de ser excluído),
+// fecha o painel em vez de deixar um risco que já não existe.
+watch(
+  () => riscoEmResumo.value !== null && !riscosStore.riscos.some((r) => r.id === riscoEmResumo.value!.id),
+  (sumiu) => {
+    if (sumiu) riscoEmResumo.value = null;
+  }
+);
+
 // ---------------------------------------------------------------------------
-// AÇÕES DO FLUXO (vieram do Painel antigo, que mostrava a carteira inteira)
+// AÇÕES DO FLUXO: todas em `AcoesDoRisco` (inclusive "Editar ficha", que abre
+// o formulário em modo edição — `/riscos/novo?editar=<id>`). Editar um risco
+// aprovado o devolve para validação da chefia; quem decide é o RADAR.
 // ---------------------------------------------------------------------------
-// O `riscoEmResumo` aponta para o MESMO objeto da store; por isso, quando a
-// store muda o status, o painel lateral se atualiza sozinho.
-const { mostrar } = useToast();
-
-/** Situações em que a 1ª Linha ainda pode enviar o risco à Coordenação-Geral. */
-const STATUS_QUE_PODEM_SER_ENVIADOS: StatusFluxoRisco[] = ['rascunho', 'preliminar_cgov', 'devolvido'];
-
-function enviarParaValidacao(risco: FichaRisco): void {
-  riscosStore.submeterParaValidacaoCg(risco.id);
-  mostrar({ tom: 'sucesso', mensagem: `${risco.codigoRadar} enviado para validação da Coordenação-Geral.` });
-}
-
-/**
- * DEMONSTRAÇÃO da regra de reabertura: mudar a avaliação de um risco já
- * aprovado (aqui, o controle passa a "Satisfatório", fator 0,6) devolve o
- * risco para nova validação da Coordenação-Geral. O cálculo é feito pela
- * store, com a calculadora oficial — a tela não calcula nada.
- */
-function reavaliarControleDemonstracao(risco: FichaRisco): void {
-  riscosStore.reavaliarPontuacaoRiscoAprovado(risco.id, {
-    probabilidade: risco.probabilidade,
-    impacto: risco.impacto,
-    nivelEficaciaControle: 'Satisfatório',
-    possuiEvidenciaControle: true,
-  });
-  mostrar({ tom: 'aviso', mensagem: `${risco.codigoRadar} foi reavaliado e voltou para validação da Coordenação-Geral.` });
-}
 </script>
 
 <template>
-  <div>
+  <!-- Falha ao carregar a carteira: página de erro inteira (com o próprio <h1>) -->
+  <ErroPagina
+    v-if="estadoBloco === 'erro'"
+    titulo="Não foi possível carregar os riscos"
+    :texto="riscosStore.erro?.message ?? 'Tente de novo em instantes.'"
+    @tentar-de-novo="riscosStore.tentarDeNovo()"
+  />
+  <div v-else>
     <PageHeader
       :titulo="route.meta.titulo ?? 'Riscos'"
       :descricao="route.meta.descricao"
@@ -210,7 +220,7 @@ function reavaliarControleDemonstracao(risco: FichaRisco): void {
 
     <!-- Filtros ativos + contagem -->
     <div class="resumo-filtros">
-      <p class="resumo-filtros__contagem" aria-live="polite">
+      <p v-if="estadoBloco === 'pronto'" class="resumo-filtros__contagem" aria-live="polite">
         <strong>{{ riscosVisiveis.length }}</strong>
         {{ riscosVisiveis.length === 1 ? 'risco' : 'riscos' }}{{ chipsAtivos.length ? ' com os filtros aplicados' : '' }}
       </p>
@@ -229,8 +239,23 @@ function reavaliarControleDemonstracao(risco: FichaRisco): void {
       </div>
     </div>
 
+    <!-- Carregando: esqueleto no formato da tabela -->
+    <EstadoCarregamento v-if="estadoBloco === 'carregando'" estado="carregando" formato="tabela" :linhas="8" />
+
+    <!-- Carteira vazia (sem filtros que expliquem): texto próprio -->
+    <EmptyState
+      v-else-if="carteiraVazia"
+      titulo="Nenhum risco no seu alcance"
+      descricao="Quando houver riscos da sua unidade (ou das unidades que você acompanha), eles aparecem aqui."
+      icone="fa-solid fa-magnifying-glass"
+    >
+      <template #acoes>
+        <RouterLink :to="{ name: 'novo-risco' }" class="br-button primary">Novo risco</RouterLink>
+      </template>
+    </EmptyState>
+
     <!-- TABELA -->
-    <DataTable
+    <DataTable v-else
       :colunas="colunas"
       :linhas="riscosVisiveis"
       chave-linha="id"
@@ -249,6 +274,7 @@ function reavaliarControleDemonstracao(risco: FichaRisco): void {
         <div class="celula-objeto">
           <span class="celula-objeto__nome">{{ linha.nomeObjetoCache }}</span>
           <span class="celula-objeto__evento">{{ linha.eventoRisco }}</span>
+          <Chip v-if="processoInativo(linha)" tom="neutro" icone="fa-solid fa-ban">processo inativo</Chip>
         </div>
       </template>
 
@@ -343,6 +369,14 @@ function reavaliarControleDemonstracao(risco: FichaRisco): void {
           </div>
         </dl>
 
+        <!-- Botões de fluxo: só os que o banco libera para esta pessoa -->
+        <AcoesDoRisco
+          class="resumo__acoes"
+          :risco="riscoEmResumo"
+          :acoes="riscosStore.acoes[riscoEmResumo.id]"
+          mostrar-edicao
+        />
+
         <h3 class="resumo__subtitulo">Descrição padronizada</h3>
         <p class="resumo__descricao">{{ riscoEmResumo.descricaoPadrao }}</p>
 
@@ -363,20 +397,6 @@ function reavaliarControleDemonstracao(risco: FichaRisco): void {
 
       <template #acoes>
         <BrButton variant="secondary" @click="riscoEmResumo = null">Fechar</BrButton>
-        <BrButton
-          v-if="riscoEmResumo && STATUS_QUE_PODEM_SER_ENVIADOS.includes(riscoEmResumo.statusFluxo)"
-          variant="secondary"
-          @click="enviarParaValidacao(riscoEmResumo)"
-        >
-          Enviar para validação
-        </BrButton>
-        <BrButton
-          v-if="riscoEmResumo && riscoEmResumo.statusFluxo === 'aprovado'"
-          variant="secondary"
-          @click="reavaliarControleDemonstracao(riscoEmResumo)"
-        >
-          Reavaliar controle (demonstração)
-        </BrButton>
         <RouterLink
           v-if="riscoEmResumo"
           :to="{ name: 'ficha-bowtie-detalhe', params: { id: riscoEmResumo.id } }"
@@ -481,6 +501,10 @@ function reavaliarControleDemonstracao(risco: FichaRisco): void {
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: var(--texto-secundario);
+}
+
+.resumo__acoes {
+  margin-bottom: var(--esp-4);
 }
 
 .resumo__etiquetas {

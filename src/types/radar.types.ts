@@ -110,7 +110,15 @@ export type TipoUnidade =
   | 'coordenacao'
   | 'centro-pesquisa'
   | 'ngi'
-  | 'uc';
+  | 'uc'
+  | 'coordenacao-territorial'
+  | 'coordenacao-assessoramento'
+  | 'orgao-assistencia'
+  | 'gabinete'
+  | 'divisao'
+  | 'servico'
+  | 'setor'
+  | 'base-avancada';
 
 /**
  * Os 10 perfis de usuário do RADAR. As chaves são idênticas ao CHECK da coluna
@@ -137,6 +145,8 @@ export interface UnidadeOrganizacional {
   nome: string;
   tipo: TipoUnidade;
   unidadePaiId?: string;
+  /** Unidade desativada some das listas de escolha, mas o histórico continua. */
+  ativa: boolean;
 }
 
 /**
@@ -160,8 +170,14 @@ export interface ObjetoContexto {
   tipoObjeto: 'Macroprocesso' | 'Processo' | 'Projeto' | 'Plano' | 'Ação' | 'Unidade';
   nomeObjeto: string;
   unidadeId: string;
-  macroprocessoSupervisorId: string;
-  diretoriaId: string;
+  macroprocessoSupervisorId: string | null;
+  diretoriaId: string | null;
+  /** Processo da cadeia de valor ao qual o objeto está vinculado (null = sem vínculo). */
+  processoId: string | null;
+  processoNome: string | null;
+  processoAtivo: boolean | null;
+  /** false quando a unidade do objeto foi desativada (só a CGOV reatribui). */
+  unidadeAtiva: boolean;
   objetivoEstrategicoAssociado: string;
   insumosPrincipais: string;
   entregasPrincipais: string;
@@ -228,10 +244,19 @@ export interface IndicadorKri {
  */
 export interface HistoricoFluxoItem {
   id: string;
-  etapa: 'submissao_1a_linha' | 'validacao_cg' | 'homologacao_diretoria' | 'devolucao_ajuste' | 'reabertura_nota';
-  acao: 'submetido' | 'aprovado_1_clique' | 'devolvido_ajuste' | 'reaberto_mudanca_nota';
+  etapa: 'submissao_1a_linha' | 'validacao_cg' | 'homologacao_diretoria' | 'devolucao_ajuste' | 'reabertura_nota' | 'assuncao_preliminar';
+  acao:
+    | 'submetido'
+    | 'assumido'
+    | 'validado'
+    | 'validado_e_homologado'
+    | 'homologado'
+    | 'devolvido_ajuste'
+    | 'reaberto_mudanca_nota'
+    | 'reaberto_mudanca_dar'
+    | 'aprovado_1_clique';
   usuarioNome: string;
-  usuarioPapel: PapelGovernanca;
+  usuarioPapel: PapelGovernanca | string;
   despachoTexto?: string;
   criadoEm: string;
 }
@@ -243,6 +268,10 @@ export interface FichaRisco {
   id: string;
   codigoRadar: string;
   objetoId: string;
+  /** Unidade dona do risco (vem do objeto; usada para filtrar e para o alcance). */
+  unidadeId: string;
+  /** Momento da última gravação no banco (null no modo demonstração). */
+  atualizadoEm: string | null;
   nomeObjetoCache?: string;
   responsavelRiscoNome: string;
 
@@ -288,4 +317,33 @@ export interface FichaRisco {
   respostasTratamento: RespostaTratamento5W2H[];
   kris: IndicadorKri[];
   historicoFluxo: HistoricoFluxoItem[];
+}
+
+/**
+ * O que a pessoa logada pode fazer com um risco, já decidido pelo banco
+ * (a tela só mostra ou esconde botões conforme estes campos).
+ */
+export interface AcoesFluxo {
+  riscoId: string;
+  podeEnviar: boolean;
+  podeAssumir: boolean;
+  podeValidar: boolean;
+  podeHomologar: boolean;
+  podeDevolver: boolean;
+  /** true quando quem devolve é a CGOV (devolve direto à unidade). */
+  devolucaoCgov: boolean;
+  podeEditar: boolean;
+  podeExcluir: boolean;
+  /** Explicação curta quando nenhuma ação está liberada (null = nada a explicar). */
+  motivo: string | null;
+}
+
+/** Processo da Cadeia de Valor do ICMBio ao qual um objeto de risco pode ser vinculado. */
+export interface ProcessoCadeiaValor {
+  id: string;
+  procId: string;
+  nome: string;
+  macroprocesso: string | null;
+  ativo: boolean;
+  unidadeSupervisoraId: string | null;
 }

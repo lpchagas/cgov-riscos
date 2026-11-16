@@ -6,8 +6,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 describe('Template Base Gov.br DS e Novas Páginas do Sistema RADAR', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
   });
 
   it('filtra riscos por termoBuscaGlobal e por célula selecionada da Matriz Assimétrica (Quadro 7)', () => {
@@ -29,11 +31,11 @@ describe('Template Base Gov.br DS e Novas Páginas do Sistema RADAR', () => {
     expect(store.riscosFiltrados[0].codigoRadar).toBe('RADAR-2026-001');
   });
 
-  it('permite cadastrar novo Objeto de Gestão de Riscos no Catálogo (/objetos) e consultar trilha de auditoria global (/auditoria)', () => {
+  it('permite cadastrar novo Objeto de Gestão de Riscos no Catálogo (/objetos) e consultar trilha de auditoria global (/auditoria)', async () => {
     const store = useRiscosStore();
     const qtdInicial = store.objetosContexto.length;
 
-    const novoObj = store.salvarNovoObjetoContexto({
+    const novoObj = await store.salvarNovoObjetoContexto({
       tipoObjeto: 'Macroprocesso',
       nomeObjeto: 'Prevenção e Combate a Incêndios Florestais (MIF)',
       unidadeId: 'uni-dibio',

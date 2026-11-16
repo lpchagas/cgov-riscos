@@ -11,22 +11,9 @@
  *   3. começa com o "BOM" (﻿), que avisa o Excel de que o texto é UTF-8
  *      — sem ele, "Coordenação" aparece como "CoordenaÃ§Ã£o".
  */
-import { formatarDataHora, formatarNivel } from './rotulosInterface';
-import { descreverEventoFluxo } from './painelResumo';
-
-export interface EventoAuditoria {
-  criadoEm: string;
-  codigoRadar: string;
-  nomeObjeto: string;
-  categoriaNome: string;
-  nivelResidual: number;
-  classificacaoResidual: string;
-  etapa: string;
-  acao: string;
-  usuarioNome: string;
-  usuarioPapel: string;
-  despachoTexto?: string;
-}
+import { formatarDataHora } from './rotulosInterface';
+import { descreverEvento, quemFez, ROTULOS_TABELA } from './auditoriaLegivel';
+import type { EventoAuditoria as EventoAuditoriaBanco } from '../services/dados/tipos';
 
 export const ROTULOS_PAPEL: Record<string, string> = {
   gestor: 'Gestor da unidade (1ª Linha)',
@@ -41,28 +28,37 @@ export const ROTULOS_PAPEL: Record<string, string> = {
   gabin: 'Gabinete',
 };
 
-/** Coloca o texto entre aspas e dobra as aspas de dentro. Ex.: a"b → "a""b" */
-function campo(valor: string): string {
-  return `"${valor.replace(/"/g, '""')}"`;
+/**
+ * Coloca o texto entre aspas e dobra as aspas de dentro. Ex.: a"b → "a""b"
+ * SEGURANÇA: o Excel executa como fórmula todo texto que começa com = + - @
+ * (ou tab / retorno de carro). Um nome de objeto como `=HYPERLINK(...)` viraria
+ * ataque. Por isso esses textos ganham um apóstrofo na frente, que o torna texto.
+ */
+export function campo(valor: string): string {
+  const seguro = /^[=+\-@\t\r]/.test(valor) ? `'${valor}` : valor;
+  return `"${seguro.replace(/"/g, '""')}"`;
 }
 
-export function eventosParaCsv(eventos: EventoAuditoria[]): string {
-  const cabecalho = ['Data e hora', 'Risco', 'Objeto', 'Categoria', 'Residual', 'Nível', 'O que aconteceu', 'Quem', 'Papel', 'Despacho'];
-  const linhas = eventos.map((e) =>
-    [
-      formatarDataHora(e.criadoEm),
-      e.codigoRadar,
-      e.nomeObjeto,
-      e.categoriaNome,
-      formatarNivel(e.nivelResidual),
-      e.classificacaoResidual,
-      descreverEventoFluxo(e),
-      e.usuarioNome,
-      ROTULOS_PAPEL[e.usuarioPapel] ?? e.usuarioPapel,
-      e.despachoTexto ?? '',
+/**
+ * CSV da Auditoria "de verdade": uma linha por evento carregado na tela, com
+ * as mesmas colunas legíveis que a pessoa vê (título e mudanças em texto).
+ * Ex.: "Risco RADAR-2026-003 criado" · "Causas: A → B".
+ */
+export function eventosAuditoriaParaCsv(eventos: EventoAuditoriaBanco[]): string {
+  const cabecalho = ['Data e hora', 'Tabela', 'Risco', 'O que aconteceu', 'Mudanças', 'Quem', 'Papel'];
+  const linhas = eventos.map((e) => {
+    const { titulo, mudancas } = descreverEvento(e);
+    return [
+      formatarDataHora(e.realizadoEm),
+      ROTULOS_TABELA[e.tabela] ?? e.tabela,
+      e.codigoRadar ?? '',
+      titulo,
+      mudancas.map((m) => `${m.campo}: ${m.antes} → ${m.depois}`).join(' | '),
+      quemFez(e),
+      e.quemPapel ? (ROTULOS_PAPEL[e.quemPapel] ?? e.quemPapel) : '',
     ]
       .map(campo)
-      .join(';')
-  );
+      .join(';');
+  });
   return '﻿' + [cabecalho.map(campo).join(';'), ...linhas].join('\r\n');
 }

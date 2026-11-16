@@ -35,9 +35,11 @@ import PageHeader from './components/ui/PageHeader.vue';
 import ToastRegion from './components/ui/ToastRegion.vue';
 import BrMessage from './components/govbr/BrMessage.vue';
 import BrButton from './components/govbr/BrButton.vue';
+import AvisoAtualizacao from './components/ui/AvisoAtualizacao.vue';
 import { usePreferenciasInterface } from './composables/usePreferenciasInterface';
 import { saidaExplicita } from './composables/useSaidaExplicita';
 import { useAuthStore } from './stores/authStore';
+import { ligarCarteiraASessao } from './stores/riscosStore';
 import { useToast } from './composables/useToast';
 import { AVISO_SO_CGOV } from './router/guarda';
 import { podeAbrirRota } from './utils/acessoPorPerfil';
@@ -117,6 +119,15 @@ watch(
     }
   }
 );
+
+/**
+ * CARGA E LIMPEZA DA CARTEIRA DE RISCOS (etapa B3).
+ * O App é o primeiro componente a existir, então é aqui que ligamos a store
+ * de riscos à sessão: 'ativo' → carrega; saiu/venceu/suspensa → limpa; outra
+ * pessoa ou outro perfil → recarrega. A regra (e o cuidado para NÃO recarregar
+ * a cada foco da aba) está comentada em `ligarCarteiraASessao`.
+ */
+ligarCarteiraASessao();
 
 /**
  * Quando a janela volta ao foco, relemos o perfil: se a CGOV suspendeu a pessoa enquanto a
@@ -199,6 +210,9 @@ router.afterEach(async (_para, de) => {
               :descricao="route.meta.descricao"
               :fundamento="route.meta.fundamento"
             />
+
+            <!-- Ação gravada, mas a tela não conseguiu se atualizar: aviso em qualquer página -->
+            <AvisoAtualizacao />
 
             <!-- Sem conexão com o banco: mensagem + nova tentativa, no lugar da página -->
             <BrMessage v-if="mostrarErro" state="danger" titulo="Não foi possível carregar o RADAR">

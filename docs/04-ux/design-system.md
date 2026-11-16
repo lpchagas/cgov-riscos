@@ -258,3 +258,21 @@ as mesmas 156 combinações, reprova se houver violação do axe ou rolagem late
 Painel em 360 px (**4.271 px**; os 4.109 px acima foram medidos em 390 px). Na primeira execução,
 o axe-core 4.10.3 encontrou uma violação que a versão anterior não acusava, no progresso do Plano
 de ação (`aria-label` em `<p>`). Ela já foi corrigida. Guia: [[varredura-acessibilidade]].
+
+## 10. Estados de carregamento, erro e aviso (etapa B3)
+
+Antes da B3 os dados eram síncronos e nada "carregava". Agora a store é assíncrona e cada tela tem
+os três momentos: carregando, erro e pronto. Componentes (em `src/components/ui/`, exceto o último):
+
+| Componente | Para quê | Detalhes |
+| --- | --- | --- |
+| `EstadoCarregamento` | Um **bloco** da tela (cartões, tabela) | `estado` = `carregando` (esqueleto `Skeleton`, "Carregando…" para leitor de tela), `erro` (mensagem + "Tentar de novo") ou `pronto` (slot). `formato` = `cartao` ou `tabela`. |
+| `ErroPagina` | **Página inteira** que não pôde carregar (Template V3 — Erro do gov.br) | O título é o `<h1>`; a tela não desenha o `PageHeader` junto. Ações: "Tentar de novo" e "Ir para a Página Principal". Ilustração só com tokens e `aria-hidden`. |
+| `AvisoAtualizacao` | Aviso global quando a **ação deu certo mas a releitura falhou** | Fica no `App.vue`; botão "Atualizar"; some quando a releitura funciona. |
+| `AcoesDoRisco` (`src/components/radar/`) | Botões do fluxo de um risco (enviar, assumir, validar, homologar, devolver, editar, excluir) | Só mostra o que `acoes_no_fluxo` permite e explica pelo `motivo`; confirmação em diálogo. Usado no painel lateral e na Ficha. |
+
+**Varredura de acessibilidade:** passou de 16 para **(16 + 4) telas** × 4 larguras × 3 temas, com o
+Painel e Riscos também em `carregando` e em `erro`. O estado é simulado pela chave
+`radar.demo-estado.v1` do navegador (`carregando` ou `erro`), gravada antes da página abrir
+(`tests/a11y/telas.ts`, campo `estadoDemo`). Decisões: [[decisoes-tecnicas-b3]].
+

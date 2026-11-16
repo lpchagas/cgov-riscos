@@ -9,11 +9,13 @@
  *   - registrar leitura exige o valor e NÃO reabre a validação do risco;
  *   - o semáforo usa a leitura MAIS RECENTE (não a primeira da lista).
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
-import { useRiscosStore } from '../../src/stores/riscosStore';
+import { useRiscosStore, definirFonteParaTeste } from '../../src/stores/riscosStore';
+import { criarFonteDemonstracao } from '../../src/services/dados';
+import { ErroRadar } from '../../src/services/dados/errosBanco';
 import MonitoramentoKriPlanoAcaoView from '../../src/views/MonitoramentoKriPlanoAcaoView.vue';
 
 async function montar(caminho = '/monitoramento') {
@@ -32,8 +34,10 @@ async function montar(caminho = '/monitoramento') {
 }
 
 describe('Página Monitoramento', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
     document.body.innerHTML = '';
   });
 
@@ -93,7 +97,10 @@ describe('Página Monitoramento', () => {
     valor.dispatchEvent(new Event('input'));
     salvar();
     await flushPromises();
-    expect(kri.medicoes).toHaveLength(antes + 1);
+    // Depois de gravar, a store RELÊ o risco: os indicadores chegam como objetos
+    // novos, então procuramos o KRI de novo na store (a expectativa é a mesma).
+    const kriRelido = store.obterRiscoPorId(aprovado.id)!.kris.find((k) => k.id === kri.id)!;
+    expect(kriRelido.medicoes).toHaveLength(antes + 1);
     expect(aprovado.statusFluxo).toBe('aprovado');
     w.unmount();
   });
@@ -109,5 +116,62 @@ describe('Página Monitoramento', () => {
     const ultima = [...kri.medicoes].sort((a, b) => b.dataMedicao.localeCompare(a.dataMedicao))[0];
     expect(cartao.text()).toContain(ultima.emAlerta ? 'Em alerta' : 'Dentro do limite');
     w.unmount();
+  });
+
+  describe('falha da fonte (B3)', () => {
+    afterEach(() => definirFonteParaTeste(null));
+
+    it('medição recusada mostra a mensagem e mantém o formulário preenchido', async () => {
+      const base = criarFonteDemonstracao('normal');
+      definirFonteParaTeste({
+        ...base,
+        registrarMedicao: async () => { throw new ErroRadar('Sem permissão para lançar medição neste indicador.', 'permissao'); },
+      });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      const aprovado = store.riscos.find((r) => r.statusFluxo === 'aprovado' && r.kris.length)!;
+      const kri = aprovado.kris[0];
+      const antes = kri.medicoes.length;
+
+      const { w } = await montar();
+      const cartao = w.findAll('.kri').find((c) => c.text().includes(kri.nomeIndicador))!;
+      await cartao.findAll('button').find((b) => b.text().includes('Registrar leitura'))!.trigger('click');
+      await flushPromises();
+      const dialogo = document.body.querySelector('[role="dialog"]') as HTMLElement;
+      const valor = dialogo.querySelector('input[type="text"]') as HTMLInputElement;
+      valor.value = '77%';
+      valor.dispatchEvent(new Event('input'));
+      [...dialogo.querySelectorAll('button')].find((b) => b.textContent?.includes('Salvar leitura'))!.click();
+      await flushPromises();
+
+      expect(dialogo.querySelector('[role="alert"]')?.textContent).toContain('Sem permissão para lançar medição');
+      expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+      expect((dialogo.querySelector('input[type="text"]') as HTMLInputElement).value).toBe('77%');
+      expect(store.obterRiscoPorId(aprovado.id)!.kris.find((k) => k.id === kri.id)!.medicoes).toHaveLength(antes);
+      w.unmount();
+    });
+
+    it('mudança de situação recusada avisa pelo aviso rápido e a ação não muda', async () => {
+      const base = criarFonteDemonstracao('normal');
+      definirFonteParaTeste({
+        ...base,
+        atualizarStatusTratamento: async () => { throw new ErroRadar('Só quem responde pela ação muda a situação.', 'permissao'); },
+      });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      const { w } = await montar('/monitoramento?aba=plano');
+      const seletor = w.find('select.situacao');
+      const antes = (seletor.element as HTMLSelectElement).value;
+      await seletor.setValue(antes === 'concluida' ? 'em_andamento' : 'concluida');
+      await flushPromises();
+      const { useToast } = await import('../../src/composables/useToast');
+      const ultimo = useToast().toasts.value.at(-1)!;
+      expect(ultimo.mensagem).toContain('Só quem responde pela ação');
+      // O seletor volta ao valor anterior (a tela não fica mostrando uma situação que não foi gravada).
+      expect((w.find('select.situacao').element as HTMLSelectElement).value).toBe(antes);
+      w.unmount();
+    });
   });
 });

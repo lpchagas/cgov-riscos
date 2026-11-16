@@ -11,10 +11,16 @@ import {
   ROTULOS_CRITICIDADE,
   ROTULOS_STATUS_FLUXO,
   formatarNivel,
+  ROTULOS_TIPO_UNIDADE,
+  ROTULOS_ACAO_HISTORICO,
 } from '../../src/utils/rotulosInterface';
 
 describe('Filtros da lista de Riscos (/riscos)', () => {
-  beforeEach(() => setActivePinia(createPinia()));
+  beforeEach(async () => {
+    setActivePinia(createPinia());
+    // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
+    await useRiscosStore().carregar();
+  });
 
   it('lê filtros válidos da URL e descarta valores inválidos', () => {
     expect(lerFiltrosDaQuery({ q: 'contrato', p: '3', i: '5', critico: 'sim', nivel: 'Alto' })).toEqual({
@@ -77,5 +83,26 @@ describe('Rótulos da interface (glossário do diagnóstico)', () => {
       .flatMap((r) => [r.rotulo, r.descricao])
       .join(' ');
     expect(textos).not.toMatch(/\bPGR\b/);
+  });
+});
+
+describe('Rótulos de unidade e de histórico do fluxo', () => {
+  it('todo tipo de unidade do banco tem rótulo', () => {
+    const tipos = [
+      'presidencia', 'diretoria', 'coordenacao-geral', 'gerencia-regional', 'coordenacao', 'centro-pesquisa',
+      'ngi', 'uc', 'coordenacao-territorial', 'coordenacao-assessoramento', 'orgao-assistencia', 'gabinete',
+      'divisao', 'servico', 'setor', 'base-avancada',
+    ];
+    expect(Object.keys(ROTULOS_TIPO_UNIDADE).sort()).toEqual([...tipos].sort());
+    for (const t of tipos) expect(ROTULOS_TIPO_UNIDADE[t as keyof typeof ROTULOS_TIPO_UNIDADE]).toBeTruthy();
+  });
+
+  it('toda ação do histórico tem rótulo e a da DAR cita "DAR"', () => {
+    const acoes = [
+      'submetido', 'assumido', 'validado', 'validado_e_homologado', 'homologado',
+      'devolvido_ajuste', 'reaberto_mudanca_nota', 'reaberto_mudanca_dar', 'aprovado_1_clique',
+    ];
+    expect(Object.keys(ROTULOS_ACAO_HISTORICO).sort()).toEqual([...acoes].sort());
+    expect(ROTULOS_ACAO_HISTORICO.reaberto_mudanca_dar).toContain('DAR');
   });
 });

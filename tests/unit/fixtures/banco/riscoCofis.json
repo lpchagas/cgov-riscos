@@ -1,0 +1,189 @@
+{
+  "_comentario": "Linhas REAIS do banco local (seed-demonstracao.sql), copiadas com to_jsonb em 2026-11-16: risco RADAR-DEMO-COFIS, seu objeto, a unidade COFIS, o processo 2.02.3 e a categoria 4. Na semente esse risco não tem filhos; os filhos (controles, respostas, kris, medicoes, historico) foram escritos à mão com os MESMOS nomes de coluna, só para testar o agrupamento.",
+  "risco": {
+    "id": "e58bb8dd-ca88-4b6a-bc37-7fcfd0f72141",
+    "causas": "concentração do conhecimento técnico em um único servidor, ausência de manuais operacionais padronizados e inexistência de substituto formalmente capacitado",
+    "impacto": 5,
+    "criado_em": "2026-11-16T09:57:27.225509+00:00",
+    "objeto_id": "00000000-0000-4000-b000-000000000006",
+    "is_critico": true,
+    "categoria_id": 4,
+    "codigo_radar": "RADAR-DEMO-COFIS",
+    "evento_risco": "afastamento inesperado ou rotatividade do servidor responsável pela condução do processo crítico",
+    "status_fluxo": "aprovado",
+    "atualizado_em": "2026-11-16T09:57:27.225509+00:00",
+    "consequencias": "paralisação das entregas da unidade, atraso no cumprimento de prazos legais e perda de memória técnica institucional",
+    "probabilidade": 4,
+    "fator_controle": 0.5,
+    "nivel_inerente": 24,
+    "nivel_residual": 12.0,
+    "status_critico": "sim",
+    "descricao_padrao": "Devido o(a) concentração do conhecimento técnico em um único servidor, ausência de manuais operacionais padronizados e inexistência de substituto formalmente capacitado, poderá ocorrer o(a) afastamento inesperado ou rotatividade do servidor responsável pela condução do processo crítico, ocasionando o(a) paralisação das entregas da unidade, atraso no cumprimento de prazos legais e perda de memória técnica institucional e impactando o alcance do continuidade e tempestividade das entregas previstas no Planejamento Estratégico do ICMBio.",
+    "objetivo_afetado": "continuidade e tempestividade das entregas previstas no Planejamento Estratégico do ICMBio",
+    "estrategia_principal": "Mitigar",
+    "justificativa_impacto": "Justificativa de demonstração do impacto.",
+    "classificacao_inerente": "Extremo",
+    "classificacao_residual": "Alto",
+    "origem_preliminar_cgov": false,
+    "responsavel_risco_nome": "Gestor de Riscos da Unidade (1ª Linha)",
+    "nivel_eficacia_controle": "Forte",
+    "subcategoria_integridade": null,
+    "possui_evidencia_controle": true,
+    "justificativa_probabilidade": "Justificativa de demonstração da probabilidade.",
+    "teste_integridade_aplicavel": false,
+    "justificativa_nao_integridade": null
+  },
+  "objeto": {
+    "id": "00000000-0000-4000-b000-000000000006",
+    "ciclo_ano": 2026,
+    "criado_em": "2026-11-16T09:57:27.225509+00:00",
+    "unidade_id": "ecf58a9c-a93d-4f48-afab-a609749a70cf",
+    "nome_objeto": "Demo — Fiscalização (COFIS)",
+    "processo_id": null,
+    "tipo_objeto": "Processo",
+    "diretoria_id": null,
+    "insumos_principais": null,
+    "entregas_principais": null,
+    "partes_interessadas": null,
+    "macroprocesso_supervisor_id": null,
+    "objetivo_estrategico_associado": "Garantir a continuidade operacional e a governança dos processos institucionais do ICMBio."
+  },
+  "unidade": {
+    "id": "ecf58a9c-a93d-4f48-afab-a609749a70cf",
+    "nome": "Cord. de Fiscalização",
+    "tipo": "coordenacao",
+    "ativa": true,
+    "sigla": "COFIS",
+    "criado_em": "2026-11-16T09:57:27.102044+00:00",
+    "icmbio_id": "10.2024",
+    "hierarquia": "02.04.05",
+    "atualizado_em": "2026-11-16T09:57:27.102044+00:00",
+    "nome_completo": "Coordenação de Fiscalização",
+    "grupo_regional": null,
+    "unidade_pai_id": "7c32ab56-a01b-4a24-bbab-eedb6c698924",
+    "coordenacao_territorial_id": null
+  },
+  "processo": {
+    "id": "52ea998a-541b-4788-b219-2fee9d967ee6",
+    "nome": "Fiscalização ambiental",
+    "ativo": true,
+    "proc_id": "2.02.3",
+    "macro_id": "2.02",
+    "proc_tipo": "Finalístico",
+    "atualizado_em": "2026-11-16T09:57:27.102044+00:00",
+    "macroprocesso": "Proteção",
+    "unidade_lider_id": "ecf58a9c-a93d-4f48-afab-a609749a70cf",
+    "unidade_supervisora_id": "7c32ab56-a01b-4a24-bbab-eedb6c698924"
+  },
+  "categoria": {
+    "id": 4,
+    "nome": "Conformidade/Legal",
+    "apetite_declarado": "baixo",
+    "justificativa_dar": "Baixa tolerância a desvios normativos e sanções legais.",
+    "descricao_normativa": "Descumprimento de leis, portarias, instruções normativas ou determinações de órgãos de controle.",
+    "subcategorias_permitidas": []
+  },
+  "objetoComProcesso": {
+    "id": "00000000-0000-4000-b000-000000000002",
+    "ciclo_ano": 2026,
+    "criado_em": "2026-11-16T09:57:27.225509+00:00",
+    "unidade_id": "4104e888-df00-4c74-a3f5-250ead7401ee",
+    "nome_objeto": "Demo — Fiscalização ambiental na FLONA do Tapajós",
+    "processo_id": "52ea998a-541b-4788-b219-2fee9d967ee6",
+    "tipo_objeto": "Processo",
+    "diretoria_id": "c1dd7ed6-bcf8-4179-9838-15b37bfac93d",
+    "insumos_principais": null,
+    "entregas_principais": null,
+    "partes_interessadas": null,
+    "macroprocesso_supervisor_id": "7c32ab56-a01b-4a24-bbab-eedb6c698924",
+    "objetivo_estrategico_associado": "Garantir a continuidade operacional e a governança dos processos institucionais do ICMBio."
+  },
+  "controles": [
+    {
+      "id": "11111111-0000-4000-a000-000000000001",
+      "risco_id": "e58bb8dd-ca88-4b6a-bc37-7fcfd0f72141",
+      "descricao_controle": "Escala de substituição formal publicada em portaria",
+      "evidencia_funcionamento": "Portaria de substituição no SEI",
+      "possui_evidencia_comprovada": true,
+      "desenho_adequado": true,
+      "operacao_comprovada": true,
+      "criado_em": "2026-11-16T10:00:00+00:00"
+    }
+  ],
+  "respostas": [
+    {
+      "id": "22222222-0000-4000-a000-000000000001",
+      "risco_id": "e58bb8dd-ca88-4b6a-bc37-7fcfd0f72141",
+      "estrategia": "Mitigar",
+      "acao_o_que": "Elaborar manual operacional do processo",
+      "justificativa_por_que": "Reduzir a dependência de um único servidor",
+      "local_onde": null,
+      "responsavel_quem": "Coordenação de Fiscalização",
+      "prazo_quando": "2027-03-31",
+      "procedimento_como": "Oficinas internas e revisão pela chefia",
+      "custo_quanto": "Sem custo adicional",
+      "status_execucao": "em_andamento",
+      "criado_em": "2026-11-16T10:00:00+00:00"
+    }
+  ],
+  "kris": [
+    {
+      "id": "33333333-0000-4000-a000-000000000001",
+      "risco_id": "e58bb8dd-ca88-4b6a-bc37-7fcfd0f72141",
+      "nome_indicador": "Percentual de processos com substituto capacitado",
+      "formula_calculo": "(processos com substituto / total) x 100",
+      "fonte_dados": "Planilha da coordenação",
+      "periodicidade": "Trimestral",
+      "meta_alvo": "100%",
+      "limite_alerta": "< 80%",
+      "responsavel_medicao": "Coordenação de Fiscalização",
+      "criado_em": "2026-11-16T10:00:00+00:00"
+    }
+  ],
+  "medicoes": [
+    {
+      "id": "44444444-0000-4000-a000-000000000001",
+      "kri_id": "33333333-0000-4000-a000-000000000001",
+      "data_medicao": "2026-09-30",
+      "valor_apurado": "60%",
+      "em_alerta": true,
+      "observacao": null,
+      "criado_em": "2026-10-01T10:00:00+00:00"
+    },
+    {
+      "id": "44444444-0000-4000-a000-000000000002",
+      "kri_id": "33333333-0000-4000-a000-000000000001",
+      "data_medicao": "2026-12-31",
+      "valor_apurado": "85%",
+      "em_alerta": false,
+      "observacao": "Melhorou após a capacitação",
+      "criado_em": "2027-01-02T10:00:00+00:00"
+    }
+  ],
+  "historico": [
+    {
+      "id": "55555555-0000-4000-a000-000000000002",
+      "risco_id": "e58bb8dd-ca88-4b6a-bc37-7fcfd0f72141",
+      "etapa": "validacao_cg",
+      "acao": "validado",
+      "usuario_nome": "Coordenador(a)-Geral — demonstração",
+      "usuario_papel": "coordenador_geral",
+      "despacho_texto": null,
+      "criado_em": "2026-11-10T10:00:00+00:00",
+      "usuario_id": null,
+      "sequencia": 2
+    },
+    {
+      "id": "55555555-0000-4000-a000-000000000001",
+      "risco_id": "e58bb8dd-ca88-4b6a-bc37-7fcfd0f72141",
+      "etapa": "submissao_1a_linha",
+      "acao": "submetido",
+      "usuario_nome": "Gestor(a) de unidade — demonstração",
+      "usuario_papel": "gestor",
+      "despacho_texto": "Enviado para validação.",
+      "criado_em": "2026-11-09T10:00:00+00:00",
+      "usuario_id": null,
+      "sequencia": 1
+    }
+  ]
+}

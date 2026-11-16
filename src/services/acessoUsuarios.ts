@@ -12,6 +12,7 @@
  * Erros do servidor chegam como `Error` com mensagem começando em "RADAR:".
  */
 import { supabaseClient } from './supabase';
+import { lerTodasAsPaginas } from './dados/paginacao';
 import type { PapelGovernanca } from '../types/radar.types';
 
 export interface PerfilListado {
@@ -38,29 +39,6 @@ export interface UnidadeOpcao {
 
 const TAMANHO_LOTE = 200;
 
-/**
- * Tamanho de cada página de leitura. O PostgREST devolve no máximo 1.000 linhas por pedido
- * (`max_rows`); sem paginar, quem passasse da 1.000ª pessoa sumiria da tela.
- */
-const TAMANHO_PAGINA = 1000;
-
-/**
- * Lê uma tabela inteira, página por página (`.range`), até vir uma página incompleta.
- * Recebe uma função que monta o pedido de UMA página; a ordem precisa ser ESTÁVEL
- * (termina num desempate por `id`), senão linhas podem repetir ou faltar entre páginas.
- */
-async function lerTodasAsPaginas(
-  pedirPagina: (inicio: number, fim: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>,
-): Promise<any[]> {
-  const todas: any[] = [];
-  for (let inicio = 0; ; inicio += TAMANHO_PAGINA) {
-    const { data, error } = await pedirPagina(inicio, inicio + TAMANHO_PAGINA - 1);
-    if (error) throw new Error(`RADAR: ${error.message}`);
-    todas.push(...(data ?? []));
-    if (!data || data.length < TAMANHO_PAGINA) return todas;
-  }
-}
-
 function cliente() {
   if (!supabaseClient) throw new Error('RADAR: o banco de dados não está configurado.');
   return supabaseClient;
@@ -86,7 +64,7 @@ async function chamarFuncao<T>(body: Record<string, unknown>): Promise<T> {
 
 export async function listarPerfis(): Promise<PerfilListado[]> {
   // Ordem por nome (o que a tela mostra) + id (desempate estável entre as páginas).
-  const linhas = await lerTodasAsPaginas((ini, fim) =>
+  const linhas = await lerTodasAsPaginas<any>((ini, fim) =>
     cliente()
       .from('perfis_usuarios')
       .select('id, nome_completo, email, cargo, unidade_id, papel_governanca, ativo, titular_chefia, unidades(sigla, nome)')
@@ -112,7 +90,7 @@ export async function listarPerfis(): Promise<PerfilListado[]> {
 }
 
 export async function listarUnidadesAtivas(): Promise<UnidadeOpcao[]> {
-  const linhas = await lerTodasAsPaginas((ini, fim) =>
+  const linhas = await lerTodasAsPaginas<any>((ini, fim) =>
     cliente()
       .from('unidades')
       .select('id, nome, sigla, tipo, icmbio_id, unidade_pai:unidade_pai_id(tipo)')

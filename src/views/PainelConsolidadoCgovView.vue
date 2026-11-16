@@ -24,7 +24,7 @@
  * REGRA DE OURO: esta página não calcula nenhum nível de risco. Ela só lê os
  * valores que a calculadora oficial gravou nas fichas (ver `painelResumo.ts`).
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useAuthStore } from '../stores/authStore';
@@ -53,6 +53,10 @@ import DataTable from '../components/ui/DataTable.vue';
 import RiskBadge from '../components/ui/RiskBadge.vue';
 import Chip from '../components/ui/Chip.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
+import EstadoCarregamento from '../components/ui/EstadoCarregamento.vue';
+import ErroPagina from '../components/ui/ErroPagina.vue';
+import type { EventoFluxo } from '../services/dados/tipos';
+import type { ErroRadar } from '../services/dados/errosBanco';
 import MatrizCalorAssimetrica from '../components/radar/MatrizCalorAssimetrica.vue';
 
 const route = useRoute();
@@ -77,6 +81,25 @@ const perfil = computed<PapelGovernanca>({
 // 1. INDICADORES
 // ---------------------------------------------------------------------------
 const riscos = computed(() => riscosStore.riscos);
+
+// ---------------------------------------------------------------------------
+// ESTADO DA CARTEIRA (carregando / erro / pronto)
+// ---------------------------------------------------------------------------
+/** 'ocioso' (ainda não começou) também mostra o esqueleto: nunca mostramos zeros antes dos dados. */
+const estadoBloco = computed<'carregando' | 'erro' | 'pronto'>(() =>
+  riscosStore.estado === 'erro' ? 'erro' : riscosStore.estado === 'pronto' ? 'pronto' : 'carregando'
+);
+/** Carteira lida com sucesso, mas sem nenhum risco no alcance da pessoa. */
+const carteiraVazia = computed(() => estadoBloco.value === 'pronto' && riscos.value.length === 0);
+
+/**
+ * Indicadores da carteira: quantos riscos estão EM validação e EM homologação
+ * (pela situação), seja quem for que decide. As filas da store
+ * (`filaValidacaoCg`…) agora são "o que EU posso decidir" e servem ao menu e
+ * à tela Aprovações; o Painel continua mostrando o total da carteira.
+ */
+const aguardandoValidacao = computed(() => riscos.value.filter((r) => r.statusFluxo === 'em_validacao_cg').length);
+const aguardandoHomologacao = computed(() => riscos.value.filter((r) => r.statusFluxo === 'em_homologacao_dir').length);
 const noPlano = computed(() => riscos.value.filter((r) => r.statusFluxo === 'aprovado').length);
 
 // ---------------------------------------------------------------------------
@@ -102,7 +125,7 @@ const resumoCelula = computed(() => {
 // 3. PRECISA DA SUA ATENÇÃO
 // ---------------------------------------------------------------------------
 const LIMITE_ATENCAO = 6;
-const atencao = computed(() => itensDeAtencao(riscos.value, perfil.value, new Date()));
+const atencao = computed(() => itensDeAtencao(riscos.value, perfil.value, new Date(), riscosStore.acoes));
 const atencaoVisivel = computed(() => atencao.value.slice(0, LIMITE_ATENCAO));
 
 /**
@@ -138,11 +161,43 @@ const colunasMaiores: ColunaTabela<FichaRisco>[] = [
 
 const distribuicao = computed(() => distribuicaoPorNivelResidual(riscos.value));
 const dar = computed(() => resumirDar(riscosStore.categorias));
-const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
+
+// ATIVIDADE RECENTE: vem da fonte (assíncrona), com estado PRÓPRIO: se ela falhar,
+// só este cartão mostra o erro; o resto do Painel continua funcionando.
+const atividade = ref<EventoFluxo[]>([]);
+const estadoAtividade = ref<'carregando' | 'erro' | 'pronto'>('carregando');
+const erroAtividade = ref<ErroRadar | null>(null);
+
+async function carregarAtividade(): Promise<void> {
+  estadoAtividade.value = 'carregando';
+  try {
+    atividade.value = await riscosStore.lerAtividadeRecente(5);
+    estadoAtividade.value = 'pronto';
+  } catch (e) {
+    erroAtividade.value = e as ErroRadar;
+    estadoAtividade.value = 'erro';
+  }
+}
+
+// Lê a atividade quando a carteira fica pronta (e de novo a cada nova carga).
+watch(
+  () => riscosStore.estado,
+  (estado) => {
+    if (estado === 'pronto') void carregarAtividade();
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
-  <div class="painel">
+  <!-- Falha ao carregar a carteira: página de erro inteira (com o próprio <h1>) -->
+  <ErroPagina
+    v-if="estadoBloco === 'erro'"
+    titulo="Não foi possível carregar os riscos"
+    :texto="riscosStore.erro?.message ?? 'Tente de novo em instantes.'"
+    @tentar-de-novo="riscosStore.tentarDeNovo()"
+  />
+  <div v-else class="painel">
     <!-- CABEÇALHO DA PÁGINA, com o simulador de perfil à direita -->
     <PageHeader
       :titulo="route.meta.titulo ?? 'Painel'"
@@ -159,6 +214,21 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
       </template>
     </PageHeader>
 
+    <!-- Carregando: esqueletos no formato de cada bloco -->
+    <template v-if="estadoBloco === 'carregando'">
+      <EstadoCarregamento estado="carregando" formato="cartao" />
+      <EstadoCarregamento estado="carregando" formato="tabela" :linhas="6" />
+    </template>
+
+    <!-- Carteira vazia: nada de Matriz com zeros, que pareceria "tudo certo" -->
+    <section v-else-if="carteiraVazia" class="cartao">
+      <EmptyState
+        titulo="Nenhum risco no seu alcance"
+        descricao="Quando houver riscos da sua unidade (ou das unidades que você acompanha), o Painel os mostra aqui."
+      />
+    </section>
+
+    <template v-else>
     <!-- 1. INDICADORES -->
     <section class="painel__kpis" aria-label="Indicadores do Plano de Gestão de Riscos">
       <StatCard
@@ -176,14 +246,14 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
       />
       <StatCard
         rotulo="Aguardando validação"
-        :valor="riscosStore.filaValidacaoCg.length"
+        :valor="aguardandoValidacao"
         tom="info"
         descricao="Com a Coordenação-Geral (2º degrau)"
         :para="{ name: 'riscos-lista', query: { status: 'em_validacao_cg' } }"
       />
       <StatCard
         rotulo="Aguardando homologação"
-        :valor="riscosStore.filaHomologacaoDiretoria.length"
+        :valor="aguardandoHomologacao"
         tom="aviso"
         descricao="Com a Diretoria (3º degrau)"
         :para="{ name: 'riscos-lista', query: { status: 'em_homologacao_dir' } }"
@@ -386,6 +456,12 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
             <h2 id="titulo-atividade" class="cartao__titulo">Atividade recente</h2>
             <RouterLink :to="{ name: 'trilha-auditoria' }" class="link-acao">Auditoria</RouterLink>
           </div>
+          <EstadoCarregamento
+            :estado="estadoAtividade"
+            :erro="erroAtividade"
+            :linhas="3"
+            @tentar-de-novo="carregarAtividade()"
+          >
           <ol v-if="atividade.length" class="linha-tempo">
             <li v-for="ev in atividade" :key="ev.id">
               <span class="linha-tempo__quando">{{ formatarDataHora(ev.criadoEm) }}</span>
@@ -398,9 +474,11 @@ const atividade = computed(() => riscosStore.trilhaAuditoriaGlobal.slice(0, 4));
             </li>
           </ol>
           <p v-else class="painel__dica">Nenhuma movimentação registrada ainda.</p>
+          </EstadoCarregamento>
         </section>
       </div>
     </div>
+    </template>
   </div>
 </template>
 

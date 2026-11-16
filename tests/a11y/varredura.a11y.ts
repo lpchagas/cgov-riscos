@@ -16,7 +16,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import type { Result } from 'axe-core';
-import { CHAVE_PERFIL_DEMO, CHAVE_PREFERENCIAS, LARGURAS, TAGS_WCAG, TELAS, TEMAS, type Tela, type Tema } from './telas';
+import { CHAVE_ESTADO_DEMO, CHAVE_PERFIL_DEMO, CHAVE_PREFERENCIAS, LARGURAS, TAGS_WCAG, TELAS, TEMAS, type Tela, type Tema } from './telas';
 
 /**
  * Abre uma tela do RADAR já no tema pedido e só termina quando ela estiver pronta.
@@ -42,6 +42,13 @@ async function abrirTela(page: Page, tela: Tela, tema: Tema): Promise<void> {
     await page.addInitScript(
       ([chave, valor]) => window.localStorage.setItem(chave, valor),
       [CHAVE_PERFIL_DEMO, tela.perfil],
+    );
+  }
+  // Estado simulado da camada de dados (carregando/erro), também gravado antes de abrir.
+  if (tela.estadoDemo) {
+    await page.addInitScript(
+      ([chave, valor]) => window.localStorage.setItem(chave, valor),
+      [CHAVE_ESTADO_DEMO, tela.estadoDemo],
     );
   }
   await page.goto(tela.rota);
@@ -173,7 +180,7 @@ test('menu do gestor não mostra ferramentas da CGOV', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// As 192 combinações (16 telas × 4 larguras × 3 temas).
+// As 240 combinações ((16 + 4) telas × 4 larguras × 3 temas).
 // ---------------------------------------------------------------------------------------------
 for (const tema of TEMAS) {
   test.describe(tema, () => {

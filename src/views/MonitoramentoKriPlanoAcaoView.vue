@@ -30,6 +30,8 @@ import FormField from '../components/ui/FormField.vue';
 import DataTable from '../components/ui/DataTable.vue';
 import type { ColunaTabela } from '../components/ui/tipos';
 import EmptyState from '../components/ui/EmptyState.vue';
+import EstadoCarregamento from '../components/ui/EstadoCarregamento.vue';
+import BrMessage from '../components/govbr/BrMessage.vue';
 import BrTabs from '../components/govbr/BrTabs.vue';
 import BrButton from '../components/govbr/BrButton.vue';
 import type { TomVisual } from '../utils/rotulosInterface';
@@ -83,26 +85,48 @@ const krisEmAlerta = computed(() => kris.value.filter((k) => k.semaforo.tom === 
 const leituraDe = ref<LinhaKri | null>(null);
 const formLeitura = ref({ data: '', valor: '', emAlerta: false, observacao: '' });
 const erroValor = ref<string | undefined>();
+/** Recusa vinda do banco (já traduzida). Fica no painel, com o formulário preenchido, para tentar de novo. */
+const erroGravacao = ref<string | undefined>();
+/** true enquanto a leitura está sendo gravada: evita duplo clique gravar duas medições. */
+const gravandoLeitura = ref(false);
+
+/** A tela segue o estado da carteira: carregando → esqueleto; erro → mensagem + "Tentar de novo". */
+const estadoBloco = computed<'carregando' | 'erro' | 'pronto'>(() =>
+  riscosStore.estado === 'erro' ? 'erro' : riscosStore.estado === 'pronto' ? 'pronto' : 'carregando'
+);
 
 function abrirLeitura(linha: LinhaKri): void {
   leituraDe.value = linha;
   formLeitura.value = { data: hoje.toISOString().slice(0, 10), valor: '', emAlerta: false, observacao: '' };
   erroValor.value = undefined;
+  erroGravacao.value = undefined;
 }
 
-function salvarLeitura(): void {
+async function salvarLeitura(): Promise<void> {
   const l = leituraDe.value;
   if (!l) return;
   if (!formLeitura.value.valor.trim()) {
     erroValor.value = 'Informe o valor apurado (ex.: 85%).';
     return;
   }
-  riscosStore.registrarMedicaoKri(l.risco.id, l.kri.id, {
-    dataMedicao: formLeitura.value.data,
-    valorApurado: formLeitura.value.valor.trim(),
-    emAlerta: formLeitura.value.emAlerta,
-    observacao: formLeitura.value.observacao.trim() || undefined,
-  });
+  if (gravandoLeitura.value) return;
+  gravandoLeitura.value = true;
+  erroGravacao.value = undefined;
+  // Grava no banco. Se recusar, a mensagem traduzida aparece no painel e o que a pessoa
+  // digitou continua lá (ex.: "85%" não se perde por uma falha de rede).
+  try {
+    await riscosStore.registrarMedicaoKri(l.risco.id, l.kri.id, {
+      dataMedicao: formLeitura.value.data,
+      valorApurado: formLeitura.value.valor.trim(),
+      emAlerta: formLeitura.value.emAlerta,
+      observacao: formLeitura.value.observacao.trim() || undefined,
+    });
+  } catch (e) {
+    erroGravacao.value = (e as Error).message;
+    return;
+  } finally {
+    gravandoLeitura.value = false;
+  }
   leituraDe.value = null;
   mostrar({
     tom: formLeitura.value.emAlerta ? 'aviso' : 'sucesso',
@@ -144,8 +168,22 @@ function prazo(l: LinhaAcao): { texto: string; tom: TomVisual } {
   return { texto: `vence em ${l.dias} ${l.dias === 1 ? 'dia' : 'dias'}`, tom: l.dias <= 15 ? 'aviso' : 'neutro' };
 }
 
-function mudarSituacao(l: LinhaAcao, valor: RespostaTratamento5W2H['statusExecucao']): void {
-  riscosStore.atualizarStatusTratamento(l.risco.id, l.acao.id, valor);
+/** Ids das ações que estão sendo gravadas agora (o seletor delas fica desligado). */
+const gravandoAcao = ref<string[]>([]);
+
+async function mudarSituacao(l: LinhaAcao, valor: RespostaTratamento5W2H['statusExecucao'], seletor?: HTMLSelectElement): Promise<void> {
+  if (gravandoAcao.value.includes(l.acao.id)) return;
+  gravandoAcao.value.push(l.acao.id);
+  try {
+    await riscosStore.atualizarStatusTratamento(l.risco.id, l.acao.id, valor);
+  } catch (e) {
+    // O banco recusou: volta o seletor para a situação que continua valendo e avisa o motivo.
+    if (seletor) seletor.value = l.acao.statusExecucao;
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+    return;
+  } finally {
+    gravandoAcao.value = gravandoAcao.value.filter((id) => id !== l.acao.id);
+  }
   mostrar({ tom: 'sucesso', mensagem: `Ação de ${l.risco.codigoRadar}: ${SITUACOES.find((s) => s.valor === valor)?.rotulo}.` });
 }
 
@@ -159,6 +197,8 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
 
 <template>
   <div class="monitoramento">
+    <EstadoCarregamento v-if="estadoBloco !== 'pronto'" :estado="estadoBloco" :erro="riscosStore.erro" formato="tabela" :linhas="6" @tentar-de-novo="riscosStore.tentarDeNovo()" />
+    <template v-else>
     <aside class="lembrete" aria-label="Regra do monitoramento">
       <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
       <p>
@@ -275,7 +315,9 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
                   class="situacao"
                   :value="linha.acao.statusExecucao"
                   :aria-label="`Situação da ação: ${linha.acao.acaoOQue}`"
-                  @change="mudarSituacao(linha, ($event.target as HTMLSelectElement).value as RespostaTratamento5W2H['statusExecucao'])"
+                  :disabled="gravandoAcao.includes(linha.acao.id)"
+                  :aria-busy="gravandoAcao.includes(linha.acao.id)"
+                  @change="mudarSituacao(linha, ($event.target as HTMLSelectElement).value as RespostaTratamento5W2H['statusExecucao'], $event.target as HTMLSelectElement)"
                 >
                   <option v-for="s in SITUACOES" :key="s.valor" :value="s.valor">{{ s.rotulo }}</option>
                 </select>
@@ -288,6 +330,7 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
         </template>
       </BrTabs>
     </section>
+    </template>
 
     <!-- REGISTRAR LEITURA -->
     <Dialog :aberto="leituraDe !== null" titulo="Registrar leitura" @fechar="leituraDe = null">
@@ -296,6 +339,7 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
           <strong>{{ leituraDe.kri.nomeIndicador }}</strong> · {{ leituraDe.risco.codigoRadar }}<br />
           Meta: {{ leituraDe.kri.metaAlvo }} · Alerta: {{ leituraDe.kri.limiteAlerta }}
         </p>
+        <BrMessage v-if="erroGravacao" state="danger">{{ erroGravacao }}</BrMessage>
         <div class="formulario">
           <FormField rotulo="Data da leitura" obrigatorio v-slot="{ attrs }">
             <input v-bind="attrs" v-model="formLeitura.data" type="date" />
@@ -314,7 +358,7 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
       </template>
       <template #acoes>
         <BrButton variant="secondary" @click="leituraDe = null">Cancelar</BrButton>
-        <BrButton variant="primary" @click="salvarLeitura">Salvar leitura</BrButton>
+        <BrButton variant="primary" :disabled="gravandoLeitura" :aria-busy="gravandoLeitura" @click="salvarLeitura">Salvar leitura</BrButton>
       </template>
     </Dialog>
   </div>

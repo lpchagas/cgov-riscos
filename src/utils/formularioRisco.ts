@@ -18,7 +18,11 @@
  */
 import type {
   CategoriaRisco,
+  ControleExistente,
   EstrategiaTratamento,
+  FichaRisco,
+  IndicadorKri,
+  RespostaTratamento5W2H,
   NivelEficaciaControle,
   NivelImpacto,
   NivelProbabilidade,
@@ -27,7 +31,8 @@ import { validarRegraIntegridade } from './calculadoraRiscoRadar';
 
 /** Todos os campos do assistente (o que a pessoa digita). */
 export interface DadosNovoRisco {
-  nomeObjeto: string;
+  /** Id do objeto de gestão escolhido no seletor (só os objetos em que a pessoa grava). */
+  objetoId: string;
   responsavel: string;
   causas: string;
   evento: string;
@@ -62,18 +67,22 @@ export const ETAPAS_NOVO_RISCO = [
 /** Formulário vazio (o ponto de partida de um cadastro novo). */
 export function dadosVazios(): DadosNovoRisco {
   return {
-    nomeObjeto: '', responsavel: '', causas: '', evento: '', consequencias: '', objetivo: '',
+    objetoId: '', responsavel: '', causas: '', evento: '', consequencias: '', objetivo: '',
     categoriaId: null, subcategoriaIntegridade: '', decideSobreTerceiros: false, justificativaNaoIntegridade: '',
     probabilidade: null, impacto: null, eficacia: 'Inexistente', possuiEvidencia: false, descricaoControle: '', evidenciaControle: '',
     estrategia: 'Mitigar', acaoOQue: '', acaoQuem: '', acaoPrazo: '', nomeKri: '',
   };
 }
 
-/** Exemplo pronto, para demonstrações e treinamentos (botão "Preencher com exemplo"). */
-export function dadosExemplo(): DadosNovoRisco {
+/**
+ * Exemplo pronto, para demonstrações e treinamentos (botão "Preencher com exemplo").
+ * O objeto vem de fora (a tela sabe quais objetos a pessoa pode usar).
+ * Ex.: dadosExemplo('obj-anexo-ii') → formulário completo no objeto 'obj-anexo-ii'.
+ */
+export function dadosExemplo(objetoId = ''): DadosNovoRisco {
   return {
     ...dadosVazios(),
-    nomeObjeto: 'Processo de Concessão e Autorização Ambiental',
+    objetoId,
     responsavel: 'Gestor Ponto Focal (1ª Linha)',
     causas: 'ausência de roteiro padronizado de conferência documental',
     evento: 'aprovação de processo com instrução incompleta',
@@ -99,7 +108,7 @@ export function validarEtapa(etapa: number, d: DadosNovoRisco, categorias: Categ
   const erros: ErrosEtapa = {};
 
   if (etapa === 1) {
-    if (!obrigatorio(d.nomeObjeto)) erros.nomeObjeto = 'Informe o processo, projeto ou unidade (objeto de gestão).';
+    if (!d.objetoId) erros.objetoId = 'Escolha o objeto de gestão (processo, projeto ou unidade) do risco.';
     if (!obrigatorio(d.causas)) erros.causas = 'Descreva as causas (o que pode provocar o evento).';
     if (!obrigatorio(d.evento)) erros.evento = 'Descreva o evento de risco (o que pode acontecer).';
     if (!obrigatorio(d.consequencias)) erros.consequencias = 'Descreva as consequências.';
@@ -141,4 +150,123 @@ export function validarEtapa(etapa: number, d: DadosNovoRisco, categorias: Categ
   }
 
   return erros;
+}
+
+
+// ---------------------------------------------------------------------------
+// EDIÇÃO: da ficha gravada para o formulário, e de volta
+// ---------------------------------------------------------------------------
+/**
+ * Preenche o formulário com um risco que já existe ("Editar ficha").
+ * O formulário tem UM controle, UMA ação 5W2H e UM KRI: usamos o PRIMEIRO de
+ * cada lista. Os demais itens não somem — `dadosParaFicha` os devolve intactos.
+ * Ex.: risco com P=3, I=4 e controle "Dupla checagem" →
+ *      { probabilidade: 3, impacto: 4, descricaoControle: 'Dupla checagem', ... }
+ */
+export function dadosDeRisco(r: FichaRisco): DadosNovoRisco {
+  const controle = r.controlesExistentes[0];
+  const resposta = r.respostasTratamento[0];
+  const kri = r.kris[0];
+  return {
+    objetoId: r.objetoId,
+    responsavel: r.responsavelRiscoNome ?? '',
+    causas: r.causas ?? '',
+    evento: r.eventoRisco ?? '',
+    consequencias: r.consequencias ?? '',
+    objetivo: r.objetivoAfetado ?? '',
+    categoriaId: r.categoriaId ?? null,
+    subcategoriaIntegridade: r.subcategoriaIntegridade ?? '',
+    decideSobreTerceiros: r.testeIntegridadeAplicavel ?? false,
+    justificativaNaoIntegridade: r.justificativaNaoIntegridade ?? '',
+    probabilidade: r.probabilidade ?? null,
+    impacto: r.impacto ?? null,
+    eficacia: r.nivelEficaciaControle ?? 'Inexistente',
+    possuiEvidencia: r.possuiEvidenciaControle ?? false,
+    descricaoControle: controle?.descricaoControle ?? '',
+    evidenciaControle: controle?.evidenciaFuncionamento ?? '',
+    estrategia: r.estrategiaPrincipal ?? 'Mitigar',
+    acaoOQue: resposta?.acaoOQue ?? '',
+    acaoQuem: resposta?.responsavelQuem ?? '',
+    acaoPrazo: resposta?.prazoQuando ?? '',
+    nomeKri: kri?.nomeIndicador ?? '',
+  };
+}
+
+/**
+ * Monta o pacote que a tela entrega à store (`salvarOuAtualizarRisco`).
+ * Só dados de ENTRADA: quem calcula inerente, residual e criticidade é o RADAR.
+ *
+ * - Risco NOVO (`existente` ausente): cria as listas com um item cada (se preenchido).
+ * - EDIÇÃO (`existente` presente): o 1º item de cada lista recebe o que a pessoa
+ *   editou (mantendo o id e os campos que o formulário não mostra) e os outros
+ *   itens seguem como estavam. Item novo vai com id vazio (`''`) = "crie um id".
+ *   Ex.: risco com 2 controles; a pessoa muda o texto do 1º →
+ *        controlesExistentes: [{ id: 'c1', descricaoControle: 'novo texto', ... }, { id: 'c2', ... }]
+ */
+export function dadosParaFicha(
+  d: DadosNovoRisco,
+  opcoes: { ehIntegridade: boolean; existente?: FichaRisco }
+): Partial<FichaRisco> {
+  const { ehIntegridade, existente } = opcoes;
+  const responsavel = d.responsavel || 'Gestor de riscos da unidade (1ª Linha)';
+
+  // CONTROLE (Quadro 6)
+  const controleAntigo = existente?.controlesExistentes[0];
+  const controle: ControleExistente | undefined = d.descricaoControle
+    ? {
+        ...(controleAntigo ?? { id: '', desenhoAdequado: d.possuiEvidencia, operacaoComprovada: d.possuiEvidencia }),
+        descricaoControle: d.descricaoControle,
+        evidenciaFuncionamento: d.evidenciaControle,
+        possuiEvidenciaComprovada: d.possuiEvidencia,
+      }
+    : undefined;
+
+  // AÇÃO DE TRATAMENTO (5W2H)
+  const respostaAntiga = existente?.respostasTratamento[0];
+  const resposta: RespostaTratamento5W2H | undefined = d.acaoOQue
+    ? {
+        ...(respostaAntiga ?? { id: '', procedimentoComo: 'Execução acompanhada via SEI', statusExecucao: 'nao_iniciada' as const }),
+        estrategia: d.estrategia,
+        acaoOQue: d.acaoOQue,
+        responsavelQuem: d.acaoQuem,
+        prazoQuando: d.acaoPrazo,
+      }
+    : undefined;
+
+  // INDICADOR (KRI)
+  const kriAntigo = existente?.kris[0];
+  const kri: IndicadorKri | undefined = d.nomeKri
+    ? {
+        ...(kriAntigo ?? {
+          id: '', formulaCalculo: 'A definir pela unidade', fonteDados: 'A definir', periodicidade: 'Trimestral' as const,
+          metaAlvo: 'A definir', limiteAlerta: 'A definir', responsavelMedicao: d.responsavel || 'Unidade', medicoes: [],
+        }),
+        nomeIndicador: d.nomeKri,
+      }
+    : undefined;
+
+  /** Junta o 1º item (editado ou removido) com os demais, intactos. */
+  const lista = <T>(primeiro: T | undefined, antigos: T[] | undefined): T[] =>
+    [...(primeiro ? [primeiro] : []), ...(antigos ?? []).slice(1)];
+
+  return {
+    ...(existente ? { id: existente.id } : { objetoId: d.objetoId, statusFluxo: 'rascunho' as const }),
+    responsavelRiscoNome: responsavel,
+    causas: d.causas,
+    eventoRisco: d.evento,
+    consequencias: d.consequencias,
+    objetivoAfetado: d.objetivo,
+    categoriaId: d.categoriaId ?? undefined,
+    subcategoriaIntegridade: ehIntegridade ? d.subcategoriaIntegridade : undefined,
+    testeIntegridadeAplicavel: d.decideSobreTerceiros,
+    justificativaNaoIntegridade: d.justificativaNaoIntegridade || undefined,
+    probabilidade: d.probabilidade ?? undefined,
+    impacto: d.impacto ?? undefined,
+    possuiEvidenciaControle: d.possuiEvidencia,
+    nivelEficaciaControle: d.eficacia,
+    estrategiaPrincipal: d.estrategia,
+    controlesExistentes: lista(controle, existente?.controlesExistentes),
+    respostasTratamento: lista(resposta, existente?.respostasTratamento),
+    kris: lista(kri, existente?.kris),
+  };
 }

@@ -9,22 +9,18 @@
  *
  *   Resumo · Bow Tie · Controles · Monitoramento · Histórico
  *
- * No topo: código, nome, selos (nível, criticidade, situação) e a AÇÃO
- * principal do momento, que depende da situação no fluxo:
- *   - rascunho / devolvido / preliminar → "Enviar para validação"
- *   - aguardando validação              → "Validar risco"   (chefias que validam, ver acessoPorPerfil.ts)
- *   - aguardando homologação            → "Homologar risco" (chefias que homologam, ver acessoPorPerfil.ts)
+ * No topo: código, nome, selos (nível, criticidade, situação) e os BOTÕES
+ * DE FLUXO (`AcoesDoRisco`): só aparece o que o banco libera para a pessoa
+ * logada (enviar, assumir, validar, homologar, devolver, excluir).
  *
  * Se o código na URL não existir, a página diz isso (antes mostrava o
  * primeiro risco da lista sem avisar — dava para confundir uma ficha com outra).
  *
  * A aba aberta fica na URL (`/riscos/risco-x?aba=bowtie`).
  */
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
-import { useAuthStore } from '../stores/authStore';
-import { useToast } from '../composables/useToast';
 import type { FichaRisco } from '../types/radar.types';
 import { ROTULOS_CRITICIDADE, ROTULOS_STATUS_FLUXO, formatarDataHora } from '../utils/rotulosInterface';
 import { dataCurta, descreverEventoFluxo } from '../utils/painelResumo';
@@ -32,15 +28,14 @@ import RiskBadge from '../components/ui/RiskBadge.vue';
 import Chip from '../components/ui/Chip.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
 import BrTabs from '../components/govbr/BrTabs.vue';
-import BrButton from '../components/govbr/BrButton.vue';
+import EstadoCarregamento from '../components/ui/EstadoCarregamento.vue';
+import AcoesDoRisco from '../components/radar/AcoesDoRisco.vue';
 import MemoriaCalculoBar from '../components/radar/MemoriaCalculoBar.vue';
 import BowTieDiagram from '../components/radar/BowTieDiagram.vue';
 
 const route = useRoute();
 const router = useRouter();
 const riscosStore = useRiscosStore();
-const authStore = useAuthStore();
-const { mostrar } = useToast();
 
 const risco = computed<FichaRisco | undefined>(() => riscosStore.obterRiscoPorId(String(route.params.id ?? '')));
 
@@ -61,30 +56,31 @@ const abas = computed(() => [
 ]);
 
 // ---------------------------------------------------------------------------
-// AÇÃO PRINCIPAL CONFORME A SITUAÇÃO
+// AÇÕES DO FLUXO
 // ---------------------------------------------------------------------------
-const acao = computed(() => {
-  const r = risco.value;
-  if (!r) return null;
-  if (['rascunho', 'devolvido', 'preliminar_cgov'].includes(r.statusFluxo)) {
-    return { rotulo: 'Enviar para validação', icone: 'fa-solid fa-paper-plane', pode: true, executar: () => riscosStore.submeterParaValidacaoCg(r.id), aviso: 'enviado para validação da Coordenação-Geral' };
-  }
-  if (r.statusFluxo === 'em_validacao_cg') {
-    return { rotulo: 'Validar risco', icone: 'fa-solid fa-check', pode: authStore.podeAprovarCg, executar: () => riscosStore.aprovarEmUmCliqueCg(r.id), aviso: 'validado' };
-  }
-  if (r.statusFluxo === 'em_homologacao_dir') {
-    return { rotulo: 'Homologar risco', icone: 'fa-solid fa-stamp', pode: authStore.podeHomologarDiretoria, executar: () => riscosStore.homologarEmUmCliqueDiretoria(r.id), aviso: 'homologado e incluído no Plano' };
-  }
-  return null; // aprovado: nada a fazer aqui
-});
+// Quem decide quais botões aparecem é o banco (`acoes_no_fluxo`), via
+// `riscosStore.acoes`. O componente `AcoesDoRisco` só desenha o resultado.
+/** Carteira ainda sendo lida (e o risco ainda não está na memória): mostra o esqueleto. */
+const carregando = computed(() => !risco.value && riscosStore.estado !== 'pronto' && riscosStore.estado !== 'erro');
+const comErro = computed(() => !risco.value && riscosStore.estado === 'erro');
 
-function executarAcao(): void {
-  const r = risco.value;
-  const a = acao.value;
-  if (!r || !a) return;
-  a.executar();
-  mostrar({ tom: 'sucesso', mensagem: `${r.codigoRadar} ${a.aviso}. Situação: ${ROTULOS_STATUS_FLUXO[r.statusFluxo].rotulo}.` });
+/**
+ * Depois de excluir, a ficha deixa de existir. A store tira o risco da memória
+ * ANTES de o componente de botões retomar, então não dá para depender de um evento
+ * de "concluído": observamos o risco sumir. Só voltamos à lista se a exclusão
+ * partiu desta página (senão, "Risco não encontrado" continua valendo).
+ */
+let excluiuDaqui = false;
+function marcarExclusaoDaqui(): void {
+  excluiuDaqui = true;
 }
+/** Exclusão recusada: o risco continua existindo; se sumir por outro motivo, não navega. */
+function desmarcarExclusaoDaqui(): void {
+  excluiuDaqui = false;
+}
+watch(risco, (novo, antigo) => {
+  if (!novo && antigo && excluiuDaqui) void router.push({ name: 'riscos-lista' });
+});
 
 /** Leitura mais recente de um indicador. */
 const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
@@ -108,10 +104,7 @@ const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
           </Chip>
         </div>
       </div>
-      <div v-if="acao" class="ficha__acao">
-        <BrButton variant="primary" :icon="acao.icone" :disabled="!acao.pode" @click="executarAcao">{{ acao.rotulo }}</BrButton>
-        <span v-if="!acao.pode" class="texto-apoio">Seu perfil não pode fazer esta etapa.</span>
-      </div>
+      <AcoesDoRisco class="ficha__acao" :risco="risco" :acoes="riscosStore.acoes[risco.id]" mostrar-edicao @excluindo="marcarExclusaoDaqui" @exclusao-falhou="desmarcarExclusaoDaqui" />
     </header>
 
     <section class="cartao">
@@ -223,7 +216,17 @@ const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
     </section>
   </div>
 
-  <!-- CÓDIGO INEXISTENTE -->
+  <!-- CARREGANDO OU FALHA AO LER A CARTEIRA -->
+  <div v-else-if="carregando || comErro" class="ficha">
+    <h1 class="radar-so-leitor">Ficha do risco</h1>
+    <EstadoCarregamento
+      :estado="comErro ? 'erro' : 'carregando'"
+      :erro="riscosStore.erro"
+      @tentar-de-novo="riscosStore.tentarDeNovo()"
+    />
+  </div>
+
+  <!-- CÓDIGO INEXISTENTE (excluído ou fora do alcance: mesma mensagem, sem texto técnico) -->
   <div v-else class="ficha">
     <h1 class="ficha__titulo">Risco não encontrado</h1>
     <EmptyState

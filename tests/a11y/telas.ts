@@ -6,7 +6,8 @@
  *   - Nova largura de tela ou novo tema? Acrescente em `LARGURAS` ou `TEMAS`.
  *
  * O total de testes é a multiplicação das três listas:
- *   16 telas × 4 larguras × 3 temas = 192 combinações.
+ *   (16 + 4) telas × 4 larguras × 3 temas = 240 combinações.
+ *   As 4 telas a mais são os estados "carregando" e "erro" do Painel e de Riscos (Etapa B3).
  */
 
 /** Os 3 temas do menu "Aparência". Precisam ser iguais a `TemaInterface` (usePreferenciasInterface.ts). */
@@ -32,6 +33,12 @@ export interface Tela {
    * É gravado no navegador ANTES da página abrir, como o tema. Ex.: "/usuarios" só abre para `cgov`.
    */
   perfil?: PapelGovernanca;
+  /**
+   * Estado simulado da camada de dados (opcional, só na demonstração). Com `'carregando'` a tela
+   * fica no esqueleto de carregamento; com `'erro'`, na página de erro. É gravado no navegador
+   * ANTES da página abrir (como o perfil), na chave `CHAVE_ESTADO_DEMO`.
+   */
+  estadoDemo?: 'carregando' | 'erro';
 }
 
 /**
@@ -55,6 +62,12 @@ export type PapelGovernanca =
  * Igual a `CHAVE_PERFIL_DEMO` em `src/stores/authStore.ts` (mudou lá? mude aqui).
  */
 export const CHAVE_PERFIL_DEMO = 'radar.perfil-demo.v1';
+
+/**
+ * Chave onde o modo demonstração guarda o estado simulado ("carregando" ou "erro").
+ * Igual a `CHAVE_ESTADO_DEMO` em `src/services/dados/index.ts` (mudou lá? mude aqui).
+ */
+export const CHAVE_ESTADO_DEMO = 'radar.demo-estado.v1';
 
 /** Nome do risco de demonstração usado na Ficha (Caso de Controle do Anexo II, `dadosSementeAnexoII.ts`). */
 const RISCO_DEMONSTRACAO = 'Gestão e Execução de Processos Críticos da Unidade (Caso de Controle Anexo II)';
@@ -80,6 +93,11 @@ export const TELAS: Tela[] = [
   { nome: 'acesso-nao-liberado', rota: '/acesso-nao-liberado?exemplo=inativo', titulo: 'Acesso não liberado' },
   // Só a CGOV abre "Usuários e perfis".
   { nome: 'usuarios', rota: '/usuarios', titulo: 'Usuários e perfis', perfil: 'cgov' },
+  // Estados de carregamento e de erro (Etapa B3). Em erro, o <h1> é o da página de erro.
+  { nome: 'painel-carregando', rota: '/', titulo: 'Painel', estadoDemo: 'carregando' },
+  { nome: 'painel-erro', rota: '/', titulo: 'Não foi possível carregar os riscos', estadoDemo: 'erro' },
+  { nome: 'riscos-carregando', rota: '/riscos', titulo: 'Riscos', estadoDemo: 'carregando' },
+  { nome: 'riscos-erro', rota: '/riscos', titulo: 'Não foi possível carregar os riscos', estadoDemo: 'erro' },
 ];
 
 /** Larguras em pixels: celular pequeno, tablet, notebook e monitor grande. */
