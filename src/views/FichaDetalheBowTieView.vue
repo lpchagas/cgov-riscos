@@ -18,7 +18,7 @@
  *
  * A aba aberta fica na URL (`/riscos/risco-x?aba=bowtie`).
  */
-import { computed } from 'vue';
+import { computed, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import type { FichaRisco } from '../types/radar.types';
@@ -64,10 +64,19 @@ const abas = computed(() => [
 const carregando = computed(() => !risco.value && riscosStore.estado !== 'pronto' && riscosStore.estado !== 'erro');
 const comErro = computed(() => !risco.value && riscosStore.estado === 'erro');
 
-/** Depois de excluir, a ficha deixa de existir: volta para a lista. */
-function aoExcluir(): void {
-  router.push({ name: 'riscos-lista' });
+/**
+ * Depois de excluir, a ficha deixa de existir. A store tira o risco da memória
+ * ANTES de o componente de botões retomar, então não dá para depender do evento
+ * `excluido`: observamos o risco sumir. Só voltamos à lista se a exclusão
+ * partiu desta página (senão, "Risco não encontrado" continua valendo).
+ */
+let excluiuDaqui = false;
+function marcarExclusaoDaqui(): void {
+  excluiuDaqui = true;
 }
+watch(risco, (novo, antigo) => {
+  if (!novo && antigo && excluiuDaqui) void router.push({ name: 'riscos-lista' });
+});
 
 /** Leitura mais recente de um indicador. */
 const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
@@ -91,7 +100,7 @@ const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
           </Chip>
         </div>
       </div>
-      <AcoesDoRisco class="ficha__acao" :risco="risco" :acoes="riscosStore.acoes[risco.id]" @excluido="aoExcluir" />
+      <AcoesDoRisco class="ficha__acao" :risco="risco" :acoes="riscosStore.acoes[risco.id]" @excluindo="marcarExclusaoDaqui" />
     </header>
 
     <section class="cartao">

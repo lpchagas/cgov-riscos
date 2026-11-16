@@ -19,7 +19,7 @@
  *   3. Clique numa linha → PAINEL LATERAL com o resumo e a memória de cálculo,
  *      sem perder o lugar na lista. "Ver ficha completa" abre a Ficha do risco.
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter, type LocationQueryRaw } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useToast } from '../composables/useToast';
@@ -136,6 +136,15 @@ const colunas: ColunaTabela<FichaRisco>[] = [
 // PAINEL LATERAL DE RESUMO
 // ---------------------------------------------------------------------------
 const riscoEmResumo = ref<FichaRisco | null>(null);
+
+// Se o risco aberto no painel sair da memória (ex.: acabou de ser excluído),
+// fecha o painel em vez de deixar um risco que já não existe.
+watch(
+  () => riscoEmResumo.value !== null && !riscosStore.riscos.some((r) => r.id === riscoEmResumo.value!.id),
+  (sumiu) => {
+    if (sumiu) riscoEmResumo.value = null;
+  }
+);
 
 // ---------------------------------------------------------------------------
 // AÇÕES DO FLUXO (botões em `AcoesDoRisco`; aqui fica só a reavaliação)
@@ -388,7 +397,7 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
           class="resumo__acoes"
           :risco="riscoEmResumo"
           :acoes="riscosStore.acoes[riscoEmResumo.id]"
-          @excluido="riscoEmResumo = null"
+          
         />
 
         <h3 class="resumo__subtitulo">Descrição padronizada</h3>

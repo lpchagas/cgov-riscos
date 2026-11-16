@@ -129,7 +129,7 @@ describe('AcoesDoRisco', () => {
     await w.find('button').trigger('click');
     await flushPromises();
     expect(noCorpo('[role="alertdialog"]')).not.toBeNull();
-    botaoDoDialogo('Excluir risco').click();
+    botaoDoDialogo('Confirmar exclusão').click();
     await flushPromises();
     expect(excluir).not.toHaveBeenCalled();
     expect(noCorpo('.dialogo [role="alert"]')?.textContent).toContain(risco.codigoRadar);
@@ -137,7 +137,7 @@ describe('AcoesDoRisco', () => {
     const campo = noCorpo('.dialogo input') as HTMLInputElement;
     campo.value = risco.codigoRadar;
     campo.dispatchEvent(new Event('input'));
-    botaoDoDialogo('Excluir risco').click();
+    botaoDoDialogo('Confirmar exclusão').click();
     await flushPromises();
     expect(excluir).toHaveBeenCalledWith(risco.id);
     expect(w.emitted('excluido')).toHaveLength(1);

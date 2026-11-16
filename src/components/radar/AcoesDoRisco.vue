@@ -54,8 +54,14 @@ const props = withDefaults(
   { mostrarEdicao: false }
 );
 
-/** Avisa a tela que o risco foi excluído (a tela fecha o painel ou volta à lista). */
-const emit = defineEmits<{ (e: 'excluido'): void }>();
+/**
+ * - `excluindo`: emitido ANTES de gravar a exclusão. Quando a store relê, o risco
+ *   some da memória e a tela pode desmontar este componente na hora (emits de
+ *   componente desmontado são ignorados). Por isso a tela guarda "excluí daqui"
+ *   neste aviso e reage ao risco que desaparece.
+ * - `excluido`: emitido depois, se o componente ainda estiver na tela.
+ */
+const emit = defineEmits<{ (e: 'excluindo'): void; (e: 'excluido'): void }>();
 
 const store = useRiscosStore();
 const { mostrar } = useToast();
@@ -131,6 +137,7 @@ function abrirDevolver(): void {
 }
 
 async function confirmarDevolucao(): Promise<void> {
+  if (ocupado.value) return; // Enter repetido durante a gravação não faz nada
   const texto = motivo.value.trim();
   if (!texto) {
     erroMotivo.value = 'Informe o motivo da devolução.';
@@ -160,6 +167,7 @@ function abrirExcluir(): void {
 }
 
 async function confirmarExclusao(): Promise<void> {
+  if (ocupado.value) return;
   // Ex.: o risco é RADAR-2026-004; só confirma se a pessoa digitar exatamente isso.
   if (codigoDigitado.value.trim() !== props.risco.codigoRadar) {
     erroCodigo.value = `Digite ${props.risco.codigoRadar} para confirmar a exclusão.`;
@@ -167,6 +175,7 @@ async function confirmarExclusao(): Promise<void> {
   }
   erroCodigo.value = '';
   const codigo = props.risco.codigoRadar;
+  emit('excluindo');
   const ok = await rodar(() => store.excluirRisco(props.risco.id), () => `${codigo} excluído.`);
   excluindo.value = false;
   if (ok) emit('excluido');
@@ -215,7 +224,7 @@ async function confirmarExclusao(): Promise<void> {
       </form>
       <template #acoes>
         <BrButton variant="secondary" @click="excluindo = false">Cancelar</BrButton>
-        <BrButton variant="danger" :disabled="ocupado" @click="confirmarExclusao">Excluir risco</BrButton>
+        <BrButton variant="danger" :disabled="ocupado" @click="confirmarExclusao">Confirmar exclusão</BrButton>
       </template>
     </Dialog>
   </div>

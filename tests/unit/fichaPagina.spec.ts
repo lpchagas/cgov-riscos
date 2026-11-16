@@ -28,7 +28,7 @@ async function montar(caminho: string) {
   });
   router.push(caminho);
   await router.isReady();
-  const w = mount(FichaDetalheBowTieView, { global: { plugins: [router] } });
+  const w = mount(FichaDetalheBowTieView, { global: { plugins: [router] }, attachTo: document.body });
   await flushPromises();
   return { w, router };
 }
@@ -93,5 +93,24 @@ describe('Ficha do risco', () => {
     await w.findAll('[role="tab"]').find((t) => t.text().startsWith('Histórico'))!.trigger('click');
     await flushPromises();
     expect(router.currentRoute.value.query.aba).toBe('historico');
+  });
+
+  it('excluir (store REAL, fonte de demonstração): volta para a lista de riscos', async () => {
+    const store = useRiscosStore();
+    // A carteira de demonstração não traz rascunho: criamos um (rascunho é excluível).
+    const criado = await store.salvarOuAtualizarRisco({ objetoId: store.objetosContexto[0].id, probabilidade: 2, impacto: 3 });
+    const alvo = store.obterRiscoPorId(criado.id)!;
+    expect(store.acoes[alvo.id]?.podeExcluir).toBe(true);
+    const { w, router } = await montar(`/riscos/${alvo.id}`);
+    const botao = w.findAll('button').find((b) => b.text() === 'Excluir risco')!;
+    await botao.trigger('click');
+    const campo = document.body.querySelector('.dialogo input') as HTMLInputElement;
+    campo.value = alvo.codigoRadar;
+    campo.dispatchEvent(new Event('input'));
+    Array.from(document.body.querySelectorAll<HTMLButtonElement>('.dialogo button'))
+      .find((b) => b.textContent?.trim() === 'Confirmar exclusão')!.click();
+    await flushPromises();
+    expect(store.obterRiscoPorId(alvo.id)).toBeUndefined();
+    expect(router.currentRoute.value.name).toBe('riscos-lista');
   });
 });
