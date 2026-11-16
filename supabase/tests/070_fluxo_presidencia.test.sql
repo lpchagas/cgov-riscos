@@ -169,8 +169,8 @@ select is((select status_fluxo from public.validar_risco(:'p_nc', 'Ok.')), 'apro
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('presidente@radar.test');
 select throws_like(format($$select public.enviar_para_validacao(%L)$$, :'p_cr'),
-                   'RADAR:%homologação%',
-                   'crítico enviado pelo Presidente: o envio é recusado com mensagem RADAR (ninguém acima para homologar)');
+                   'RADAR:%homologação%titular da unidade que o homologaria%outro servidor%',
+                   'crítico enviado pelo Presidente: o envio é recusado com a mensagem do titular (ninguém acima para homologar)');
 select is(pg_temp.estado(:'p_cr'), 'rascunho', 'o risco recusado continua rascunho (não fica preso em validação)');
 
 -- 5b. Rede de segurança: a DAR muda enquanto o risco do Presidente espera validação.

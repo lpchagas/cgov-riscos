@@ -137,6 +137,13 @@ Design: [[2026-11-15-etapa-b1-1-regras-banco-design]] · Plano: [[2026-11-15-eta
   - Importador `sync:estrutura` ignora o vínculo com CT de outra GR e avisa no relatório.
   - Testes pgTAP `070` a `073`; documentação em [[decisoes-tecnicas-b1]], [[guia-supabase-local]] e [[modelo-dados-mer]] (3.6).
 - **Pendências novas** (detalhe em [[decisoes-tecnicas-b1]], "Pendências novas"): cargo vago trava o fluxo; ramo "validador sem ator efetivo" sem teste; tipo TS do histórico sem `reaberto_mudanca_dar` (B3); `atualizado_em` muda em aprovados não alterados (B3); TOCTOU assumir × escrita da CGOV (nota); errata dos comentários das migrações `004` e `005`; IDs fixos `10.0000`, `10.0001` e `10.0002` que o `sync:estrutura` precisa manter.
+- **Notas para a B3:**
+  - Os seletores de unidade escondem unidades inativas.
+  - O campo "supervisor" do objeto é somente leitura/oculto para quem não é CGOV (o valor é ignorado quando há processo).
+  - Mover objeto de unidade inativa usa a RPC `reatribuir_objeto`.
+  - O tipo TS `HistoricoFluxoItem.acao` precisa de `reaberto_mudanca_dar`.
+  - `atualizado_em` muda em todos os riscos aprovados da categoria quando a DAR muda (não significa "ficha editada").
+  - Risco reaberto pela DAR sem homologador efetivo recebe recusa genérica em `homologar_risco`; a tela deve oferecer "devolver" à CGOV.
 - **Verificação final da B1.1 (2026-11-15, nesta ordem):**
   - `npm test`: **35 arquivos, 349 testes passando**.
   - `npm run build`: ok (`vue-tsc` + `vite build`).

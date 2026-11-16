@@ -18,8 +18,9 @@
 --          recebe erro `RADAR:` (escolha de projeto: recusar é mais honesto do
 --          que ignorar sem avisar).
 --      Se o objeto SAI do processo (processo_id vira nulo), o supervisor herdado
---      do processo é limpo automaticamente. Se a CGOV (ou a estrutura) trocar o
---      supervisor do processo, os objetos ligados a ele são atualizados
+--      do processo é limpo automaticamente. Se o supervisor do processo mudar (só o
+--      importador sync:estrutura ou um administrador do banco escrevem em
+--      processos_cadeia_valor; a CGOV não altera pela aplicação), os objetos ligados a ele são atualizados
 --      (gatilho em processos_cadeia_valor, seção 4).
 --   4. Conexões sem usuário (auth.uid() nulo: semente, importador service_role,
 --      migrações) não passam pela regra "só a CGOV", pois não são pessoas; as
@@ -146,7 +147,7 @@ BEGIN
       USING ERRCODE = 'insufficient_privilege';
   END IF;
 
-  SELECT o.* INTO v_obj FROM public.objetos_contexto AS o WHERE o.id = objeto;
+  SELECT o.* INTO v_obj FROM public.objetos_contexto AS o WHERE o.id = objeto FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'RADAR: objeto não encontrado' USING ERRCODE = 'no_data_found';
   END IF;

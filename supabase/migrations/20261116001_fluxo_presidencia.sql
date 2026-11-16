@@ -192,9 +192,15 @@ BEGIN
   v_risco := public.fn_fluxo_mudar_estado(v_risco.id, v_risco.status_fluxo);
   IF (v_risco.is_critico OR v_risco.status_critico = 'pendente_dar')
      AND public.fn_fluxo_homologador_efetivo(v_unidade, auth.uid()) IS NULL THEN
-    RAISE EXCEPTION 'RADAR: o risco % exige homologação e quem envia é o titular da unidade que o homologaria (ex.: o Presidente não homologa o próprio risco). Peça a outro servidor da unidade que envie a ficha.',
-      v_risco.codigo_radar
-      USING ERRCODE = 'object_not_in_prerequisite_state';
+    IF public.homologador_de(v_unidade) IS NULL THEN
+      RAISE EXCEPTION 'RADAR: o risco % exige homologação, mas a unidade não tem Gerência Regional, Diretoria ou Presidência acima dela. Procure a CGOV.',
+        v_risco.codigo_radar
+        USING ERRCODE = 'object_not_in_prerequisite_state';
+    ELSE
+      RAISE EXCEPTION 'RADAR: o risco % exige homologação e quem envia é o titular da unidade que o homologaria (ex.: o Presidente não homologa o próprio risco). Peça a outro servidor da unidade que envie a ficha.',
+        v_risco.codigo_radar
+        USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
   END IF;
 
   v_risco := public.fn_fluxo_mudar_estado(v_risco.id, 'em_validacao_cg');
