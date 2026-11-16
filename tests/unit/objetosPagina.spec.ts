@@ -196,6 +196,31 @@ describe('Página Objetos de gestão', () => {
       w.unmount();
     });
 
+    it('o erro "Escolha a unidade" some ao escolher uma unidade no seletor', async () => {
+      desativarUnidadeDoPrimeiroObjeto();
+      const w = await montar();
+      await w.findAll('button').find((b) => b.text().includes('Reatribuir objeto'))!.trigger('click');
+      await flushPromises();
+      const dialogo = document.body.querySelector('[role="dialog"]') as HTMLElement;
+      [...dialogo.querySelectorAll('button')].find((b) => b.textContent?.includes('Confirmar'))!.click();
+      await flushPromises();
+      expect(dialogo.querySelector('[role="alert"]')).not.toBeNull();
+      const seletor = dialogo.querySelector('select') as HTMLSelectElement;
+      seletor.value = [...seletor.querySelectorAll('option')].find((o) => o.value)!.value;
+      seletor.dispatchEvent(new Event('change'));
+      await flushPromises();
+      expect(dialogo.querySelector('[role="alert"]')).toBeNull();
+      w.unmount();
+    });
+
+    it('a coluna "Ações" (Reatribuir objeto) não é escondida no celular', async () => {
+      desativarUnidadeDoPrimeiroObjeto();
+      const w = await montar();
+      const botao = w.findAll('button').find((b) => b.text().includes('Reatribuir objeto'))!;
+      expect(botao.element.closest('[role="cell"]')!.classList.contains('ocultar-celular')).toBe(false);
+      w.unmount();
+    });
+
     it('recusa do banco na reatribuição aparece traduzida e o painel continua aberto', async () => {
       const store = useRiscosStore();
       desativarUnidadeDoPrimeiroObjeto();

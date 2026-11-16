@@ -66,13 +66,17 @@ const comErro = computed(() => !risco.value && riscosStore.estado === 'erro');
 
 /**
  * Depois de excluir, a ficha deixa de existir. A store tira o risco da memória
- * ANTES de o componente de botões retomar, então não dá para depender do evento
- * `excluido`: observamos o risco sumir. Só voltamos à lista se a exclusão
+ * ANTES de o componente de botões retomar, então não dá para depender de um evento
+ * de "concluído": observamos o risco sumir. Só voltamos à lista se a exclusão
  * partiu desta página (senão, "Risco não encontrado" continua valendo).
  */
 let excluiuDaqui = false;
 function marcarExclusaoDaqui(): void {
   excluiuDaqui = true;
+}
+/** Exclusão recusada: o risco continua existindo; se sumir por outro motivo, não navega. */
+function desmarcarExclusaoDaqui(): void {
+  excluiuDaqui = false;
 }
 watch(risco, (novo, antigo) => {
   if (!novo && antigo && excluiuDaqui) void router.push({ name: 'riscos-lista' });
@@ -100,7 +104,7 @@ const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
           </Chip>
         </div>
       </div>
-      <AcoesDoRisco class="ficha__acao" :risco="risco" :acoes="riscosStore.acoes[risco.id]" mostrar-edicao @excluindo="marcarExclusaoDaqui" />
+      <AcoesDoRisco class="ficha__acao" :risco="risco" :acoes="riscosStore.acoes[risco.id]" mostrar-edicao @excluindo="marcarExclusaoDaqui" @exclusao-falhou="desmarcarExclusaoDaqui" />
     </header>
 
     <section class="cartao">

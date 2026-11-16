@@ -27,7 +27,7 @@
  * refletir a situação real.
  *
  * Exemplo:
- *   <AcoesDoRisco :risco="risco" :acoes="riscosStore.acoes[risco.id]" @excluido="voltarParaLista" />
+ *   <AcoesDoRisco :risco="risco" :acoes="riscosStore.acoes[risco.id]" @excluindo="marcarExclusao" @exclusao-falhou="desmarcarExclusao" />
  */
 import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
@@ -60,9 +60,9 @@ const props = withDefaults(
  *   some da memória e a tela pode desmontar este componente na hora (emits de
  *   componente desmontado são ignorados). Por isso a tela guarda "excluí daqui"
  *   neste aviso e reage ao risco que desaparece.
- * - `excluido`: emitido depois, se o componente ainda estiver na tela.
+ * - `exclusao-falhou`: emitido quando a exclusão FALHA (para a tela pai desistir de voltar à lista).
  */
-const emit = defineEmits<{ (e: 'excluindo'): void; (e: 'excluido'): void }>();
+const emit = defineEmits<{ (e: 'excluindo'): void; (e: 'exclusao-falhou'): void }>();
 
 const store = useRiscosStore();
 const { mostrar } = useToast();
@@ -132,7 +132,8 @@ const motivo = ref('');
 const erroMotivo = ref('');
 
 function abrirDevolver(): void {
-  motivo.value = '';
+  // O motivo digitado NÃO é apagado aqui: se a tentativa anterior falhou, a pessoa
+  // reabre o diálogo e o texto continua lá. Só é limpo depois de uma devolução com sucesso.
   erroMotivo.value = '';
   devolvendo.value = true;
 }
@@ -179,7 +180,7 @@ async function confirmarExclusao(): Promise<void> {
   emit('excluindo');
   const ok = await rodar(() => store.excluirRisco(props.risco.id), () => `${codigo} excluído.`);
   excluindo.value = false;
-  if (ok) emit('excluido');
+  if (!ok) emit('exclusao-falhou');
 }
 </script>
 

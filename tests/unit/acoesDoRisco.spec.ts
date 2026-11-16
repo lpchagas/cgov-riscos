@@ -140,7 +140,45 @@ describe('AcoesDoRisco', () => {
     botaoDoDialogo('Confirmar exclusão').click();
     await flushPromises();
     expect(excluir).toHaveBeenCalledWith(risco.id);
-    expect(w.emitted('excluido')).toHaveLength(1);
+    expect(w.emitted('exclusao-falhou')).toBeUndefined(); // deu certo: nada de "falhou"
+  });
+
+  it('exclusão recusada: avisa a tela pai com "exclusao-falhou" (para ela não navegar)', async () => {
+    const store = useRiscosStore();
+    vi.spyOn(store, 'excluirRisco').mockRejectedValue(new ErroRadar('Risco já está no Plano de Gestão de Riscos.', 'estado'));
+    vi.spyOn(store, 'relerRiscos').mockResolvedValue();
+    const w = await montar({ podeExcluir: true });
+    await w.find('button').trigger('click');
+    await flushPromises();
+    const campo = noCorpo('.dialogo input') as HTMLInputElement;
+    campo.value = risco.codigoRadar;
+    campo.dispatchEvent(new Event('input'));
+    botaoDoDialogo('Confirmar exclusão').click();
+    await flushPromises();
+    expect(w.emitted('excluindo')).toHaveLength(1);
+    expect(w.emitted('exclusao-falhou')).toHaveLength(1);
+  });
+
+  it('"Devolver" que falhou mantém o motivo digitado ao reabrir; após sucesso, limpa', async () => {
+    const store = useRiscosStore();
+    const devolver = vi.spyOn(store, 'devolverRisco').mockRejectedValueOnce(new ErroRadar('Sem conexão.', 'rede'));
+    vi.spyOn(store, 'relerRiscos').mockResolvedValue();
+    const w = await montar({ podeDevolver: true });
+    const abrir = async () => { await w.find('button').trigger('click'); await flushPromises(); };
+    await abrir();
+    const campo = () => noCorpo('.dialogo textarea') as HTMLTextAreaElement;
+    campo().value = 'Faltou evidência do controle.';
+    campo().dispatchEvent(new Event('input'));
+    botaoDoDialogo('Devolver').click();
+    await flushPromises();
+    expect(devolver).toHaveBeenCalledTimes(1);
+    await abrir(); // falhou: o texto continua
+    expect(campo().value).toBe('Faltou evidência do controle.');
+    devolver.mockResolvedValueOnce();
+    botaoDoDialogo('Devolver').click();
+    await flushPromises();
+    await abrir(); // deu certo: começa vazio
+    expect(campo().value).toBe('');
   });
 
   it('erro de estado (55000): toast com a mensagem traduzida e releitura do risco', async () => {

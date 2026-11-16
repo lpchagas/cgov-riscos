@@ -169,6 +169,8 @@ describe('Página Monitoramento', () => {
       const { useToast } = await import('../../src/composables/useToast');
       const ultimo = useToast().toasts.value.at(-1)!;
       expect(ultimo.mensagem).toContain('Só quem responde pela ação');
+      // O seletor volta ao valor anterior (a tela não fica mostrando uma situação que não foi gravada).
+      expect((w.find('select.situacao').element as HTMLSelectElement).value).toBe(antes);
       w.unmount();
     });
   });

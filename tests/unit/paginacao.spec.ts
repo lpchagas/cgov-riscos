@@ -34,6 +34,8 @@ describe('tamanho inválido', () => {
   it('recusa tamanho zero ou negativo com mensagem clara', async () => {
     await expect(lerTodasAsPaginas(bancoFalso(1), 0)).rejects.toThrow('maior que zero');
     await expect(emLotes([1], -1, async (l) => l)).rejects.toThrow('maior que zero');
+    await expect(lerTodasAsPaginas(bancoFalso(1), NaN)).rejects.toThrow('maior que zero');
+    await expect(emLotes([1], NaN, async (l) => l)).rejects.toThrow('maior que zero');
   });
 });
 

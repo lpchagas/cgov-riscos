@@ -9,11 +9,12 @@
  *   - o Bow Tie é uma lista ORDENADA de 5 passos e o evento mostra o nível;
  *   - a aba aberta fica na URL.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { useRiscosStore } from '../../src/stores/riscosStore';
+import { ErroRadar } from '../../src/services/dados/errosBanco';
 import { useAuthStore } from '../../src/stores/authStore';
 import FichaDetalheBowTieView from '../../src/views/FichaDetalheBowTieView.vue';
 
@@ -116,6 +117,27 @@ describe('Ficha do risco', () => {
     await flushPromises();
     expect(store.obterRiscoPorId(alvo.id)).toBeUndefined();
     expect(router.currentRoute.value.name).toBe('riscos-lista');
+  });
+
+  it('excluir recusado pelo banco: continua na ficha e, se o risco sumir depois por outro motivo, não navega', async () => {
+    const store = useRiscosStore();
+    const criado = await store.salvarOuAtualizarRisco({ objetoId: store.objetosContexto[0].id, probabilidade: 2, impacto: 3 });
+    const alvo = store.obterRiscoPorId(criado.id)!;
+    vi.spyOn(store, 'excluirRisco').mockRejectedValue(new ErroRadar('Exclusão recusada.', 'estado'));
+    vi.spyOn(store, 'relerRiscos').mockResolvedValue();
+    const { w, router } = await montar(`/riscos/${alvo.id}`);
+    await w.findAll('button').find((b) => b.text() === 'Excluir risco')!.trigger('click');
+    const campo = document.body.querySelector('.dialogo input') as HTMLInputElement;
+    campo.value = alvo.codigoRadar;
+    campo.dispatchEvent(new Event('input'));
+    Array.from(document.body.querySelectorAll<HTMLButtonElement>('.dialogo button'))
+      .find((b) => b.textContent?.trim() === 'Confirmar exclusão')!.click();
+    await flushPromises();
+    expect(router.currentRoute.value.name).not.toBe('riscos-lista');
+    // Outra pessoa exclui o risco: a ficha mostra "não encontrado" em vez de voltar à lista.
+    store.riscos = store.riscos.filter((r) => r.id !== alvo.id);
+    await flushPromises();
+    expect(router.currentRoute.value.name).not.toBe('riscos-lista');
   });
 
   it('"Editar ficha" aparece quando o RADAR libera a edição (e leva ao formulário em modo edição)', async () => {

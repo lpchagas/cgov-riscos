@@ -15,25 +15,14 @@ import { useRiscosStore, definirFonteParaTeste } from '../../src/stores/riscosSt
 import { criarFonteDemonstracao } from '../../src/services/dados';
 import type { EventoAuditoria, FiltrosAuditoria, FonteDados } from '../../src/services/dados/tipos';
 import { createRouter, createMemoryHistory } from 'vue-router';
-import { eventosParaCsv, eventosAuditoriaParaCsv } from '../../src/utils/auditoriaCsv';
+import { eventosAuditoriaParaCsv, campo } from '../../src/utils/auditoriaCsv';
 import TrilhaAuditoriaGovernancaView from '../../src/views/TrilhaAuditoriaGovernancaView.vue';
 
-describe('eventosParaCsv', () => {
-  const evento = {
-    criadoEm: '2026-11-07T16:45:00Z', codigoRadar: 'RADAR-2026-003', nomeObjeto: 'Autorização "direta"',
-    categoriaNome: 'Socioambiental', nivelResidual: 8.4, classificacaoResidual: 'Médio',
-    etapa: 'homologacao_diretoria', acao: 'aprovado_1_clique', usuarioNome: 'Diretor(a)', usuarioPapel: 'diretor',
-    despachoTexto: 'Homologado; ok',
-  };
-
-  it('BOM + ponto e vírgula + aspas dobradas + vírgula decimal', () => {
-    const csv = eventosParaCsv([evento]);
-    expect(csv.startsWith('﻿"Data e hora";"Risco"')).toBe(true);
-    const linha = csv.split('\r\n')[1];
-    expect(linha).toContain('"Autorização ""direta"""');
-    expect(linha).toContain('"8,4"');
-    expect(linha).toContain('"homologado pela Diretoria e incluído no Plano"');
-    expect(linha).toContain('"Homologado; ok"'); // ; dentro de aspas não quebra a coluna
+describe('campo (proteção contra fórmulas de planilha)', () => {
+  it('textos que começam com = + - @ tab ou CR ganham apóstrofo; aspas continuam dobradas', () => {
+    expect(campo('=HYPERLINK("x")')).toBe('"\'=HYPERLINK(""x"")"');
+    for (const ini of ['+1', '-1', '@soma', '\tabc', '\rabc']) expect(campo(ini)).toBe(`"'${ini}"`);
+    expect(campo('Texto normal = ok')).toBe('"Texto normal = ok"');
   });
 });
 

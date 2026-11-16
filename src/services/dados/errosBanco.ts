@@ -95,6 +95,13 @@ const DICIONARIO: Entrada[] = [
   ['a unidade de destino não existe ou está inativa', 'A unidade de destino não existe ou está inativa. Escolha outra.', 'validacao'],
   ['não pode ser alterado diretamente', 'A situação do risco só muda pelas ações do fluxo (enviar, validar, homologar, devolver).', 'estado'],
   ['objeto não encontrado', 'Objeto não encontrado. Atualize a página.', 'nao_encontrado'],
+  // --- Leitura de ações e gravação da ficha (20261117001) ---
+  // Estas mensagens usam o código 22023, que no plano B significa "Informe o motivo."
+  // (errado para elas). Por isso precisam estar AQUI, antes do plano B por código.
+  ['não pertence ao risco', 'A ficha mudou enquanto você editava (um controle, resposta ou KRI foi removido). Atualize a página e refaça a alteração.', 'estado'],
+  ['deve ser um objeto JSON', 'Não foi possível enviar a ficha por um erro interno do RADAR. Tente de novo; se persistir, procure a CGOV.', 'desconhecido'],
+  ['deve ser uma lista', 'Não foi possível enviar a ficha por um erro interno do RADAR. Tente de novo; se persistir, procure a CGOV.', 'desconhecido'],
+  ['no máximo 1000 riscos', 'A consulta pediu riscos demais de uma vez (máximo de 1.000). Filtre a lista e tente de novo.', 'validacao'],
   ['não encontrado', 'Risco não encontrado.', 'nao_encontrado'], // "risco ... não encontrado"
 ];
 

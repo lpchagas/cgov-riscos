@@ -130,3 +130,22 @@ describe('traduzirErroBanco', () => {
     expect(genericas.size).toBeGreaterThan(20);
   });
 });
+
+describe('mensagens 22023 da migração 20261117001 (ficha e ações)', () => {
+  // Cópia das partes fixas de cada RAISE EXCEPTION 'RADAR:...' que usa 22023.
+  const mensagens = [
+    'RADAR: no máximo 1000 riscos por consulta de ações.',
+    'RADAR: a ficha do risco deve ser um objeto JSON.',
+    'RADAR: "controles" da ficha deve ser uma lista.',
+    'RADAR: a ficha traz um controle, resposta ou KRI que não pertence ao risco RADAR-DEMO-CT.',
+  ];
+  it.each(mensagens)('%s não vira "Informe o motivo." nem a frase genérica', (message) => {
+    const e = traduzirErroBanco({ code: '22023', message });
+    expect(e.message).not.toBe('Informe o motivo.');
+    expect(e.message).not.toBe('Não foi possível concluir a operação agora. Tente de novo; se persistir, procure a CGOV.');
+    expect(e.message).not.toMatch(/JSON|RADAR:/);
+  });
+  it('controle removido durante a edição é erro de estado', () => {
+    expect(traduzirErroBanco({ code: '22023', message: mensagens[3] }).tipo).toBe('estado');
+  });
+});

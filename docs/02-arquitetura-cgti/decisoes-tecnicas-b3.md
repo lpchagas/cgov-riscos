@@ -38,6 +38,13 @@
 | **B3-16** | **Erros do banco passam por `traduzirErroBanco`:** só texto que começa por `RADAR:` aparece; o resto vira mensagem genérica (rede, permissão, estado, validação, não encontrado, desconhecido). | Nunca mostrar texto técnico do PostgreSQL. | Uma mensagem nova do banco precisa de linha no dicionário (`errosBanco.ts`). |
 | **B3-17** | **Estados de carregamento e erro** têm componentes próprios (`EstadoCarregamento`, `ErroPagina`, `AvisoAtualizacao`) e entram na varredura de acessibilidade pela chave `radar.demo-estado.v1` (`carregando` ou `erro`). Total da varredura: (16 + 4) telas × 4 larguras × 3 temas. | O estado de erro precisa de teste de acessibilidade tanto quanto a tela normal. | 48 combinações a mais na varredura. |
 
+### 2.1 Julgamentos da revisão final (custo zero)
+
+- **Varredura `acoes_no_fluxo` ⇔ regra de negócio:** o teste percorre TODAS as pessoas de `perfis_usuarios` da semente, inclusive `inativo@` (todas as ações falsas) e excluindo `sem-perfil@` (não tem perfil). O número "18" do plano era aproximado; vale a lista real da semente.
+- **Aprovações e Painel:** ficaram listando por `statusFluxo` até as Tarefas 9 e 12 trocarem por `acoes_no_fluxo`. Resolvido: hoje as filas vêm das ações liberadas pelo banco.
+- **Tradução dos erros 22023:** as mensagens novas da migração `20261117001` (ficha fora do formato, controle/resposta/KRI que não pertence ao risco, mais de 1000 riscos) usam o código `22023`, que o plano B por código traduzia como "Informe o motivo.". Entradas no dicionário de `errosBanco.ts` (antes do plano B) corrigem isso, com teste que passa todas as mensagens da migração.
+- **Corrigidos na revisão final** (antes adiados): coluna "Ações" visível no celular em Objetos; erro de destino some ao trocar a unidade; CSV da auditoria com guarda contra fórmula (`'` antes de `=`, `+`, `-`, `@`, tab, CR).
+
 ## 3. Pendências
 
 ### 3.1 Que dependem da CGOV ou ainda estão abertas desde a B1.1
@@ -51,7 +58,6 @@
 - **Criticidade gravada** (B3-7): botão pode divergir da ação em risco não aprovado e não editado depois de mudança da DAR.
 - **Formulário edita só o 1º controle/ação/KRI** (B3-11): os demais são preservados, mas não editáveis ali.
 - **Salvar sem mudança em risco travado** dá a recusa `55000` (o `UPDATE` sempre roda). Mensagem traduzida.
-- **Coluna "Ações" oculta no celular** na tela Objetos impede reatribuir; **erro de destino obsoleto** no diálogo de reatribuir; **CSV da auditoria sem guarda contra fórmula** (valor começando por `=`, `+`, `-`, `@`).
 - **"Carregando mais" preso** após trocar o filtro da auditoria; aviso da DAR não some sozinho.
 - **Texto "0 de 1"** na nova tentativa do Importar; reenvio usa o objeto selecionado no momento.
 - Ao carregar, a tela troca tudo pelo esqueleto (sem manter o conteúdo antigo enquanto relê).

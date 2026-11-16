@@ -21,7 +21,7 @@
  *   - todos os campos têm rótulo ligado (FormField) e o nome é obrigatório;
  *   - "Ver riscos" abre a lista de Riscos já filtrada por aquele objeto.
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useAuthStore } from '../stores/authStore';
@@ -70,7 +70,8 @@ const colunas: ColunaTabela<ObjetoContexto>[] = [
   { chave: 'unidadeId', rotulo: 'Unidade (1ª Linha)', ordenavel: true, valorOrdenacao: (o) => sigla(o.unidadeId) },
   { chave: 'macroprocessoSupervisorId', rotulo: 'Supervisão', ocultarNoCelular: true },
   { chave: 'id', rotulo: 'Riscos', alinhamento: 'direita', ordenavel: true, valorOrdenacao: (o) => quantidadeRiscos(o.id) },
-  { chave: 'acoes', rotulo: 'Ações', ocultarNoCelular: true },
+  // Sem ocultarNoCelular: a CGOV precisa conseguir reatribuir o objeto também no celular.
+  { chave: 'acoes', rotulo: 'Ações' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -161,6 +162,8 @@ async function salvar(): Promise<void> {
 const objetoAReatribuir = ref<ObjetoContexto | null>(null);
 const unidadeDestino = ref('');
 const erroDestino = ref<string | undefined>();
+// Ao escolher outra unidade, o erro da tentativa anterior deixa de valer e some.
+watch(unidadeDestino, () => { erroDestino.value = undefined; });
 const reatribuindo = ref(false);
 
 const podeReatribuir = (o: ObjetoContexto) => ehCgov.value && o.unidadeAtiva === false;

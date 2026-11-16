@@ -282,6 +282,38 @@ describe('Página Novo risco', () => {
       w.unmount();
     });
 
+    it('aprovado que continua aprovado após a releitura: NÃO diz que voltou para validação', async () => {
+      const base = criarFonteDemonstracao('normal');
+      // Fonte que grava mas não reabre a validação (nada mudou de verdade).
+      definirFonteParaTeste({ ...base, salvarFicha: async (f) => ({ id: f.id ?? '', codigoRadar: 'RADAR-2026-003' }) });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      const { w } = await montar(`/riscos/novo?editar=${idAprovado}`);
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      const { toasts } = useToast();
+      const ultima = toasts.value[toasts.value.length - 1].mensagem;
+      expect(ultima).toContain('salvo');
+      expect(ultima).not.toContain('voltou para validação');
+      w.unmount();
+    });
+
+    it('recusa de tipo "estado" ao salvar relê o risco (podeEditar/motivo se atualizam)', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const relerRisco = vi.fn((id: string) => base.relerRisco(id));
+      const salvarFicha: FonteDados['salvarFicha'] = async () => { throw new ErroRadar('A ficha mudou enquanto você editava.', 'estado'); };
+      definirFonteParaTeste({ ...base, salvarFicha, relerRisco });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      const { w } = await montar(`/riscos/novo?editar=${idAprovado}`);
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(relerRisco).toHaveBeenCalledWith(idAprovado);
+      w.unmount();
+    });
+
     it('rascunho: "Salvar e enviar" aparece na etapa 4', async () => {
       const store = useRiscosStore();
       const novo = await store.salvarOuAtualizarRisco({

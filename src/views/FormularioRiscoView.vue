@@ -362,6 +362,9 @@ async function salvar(enviar: boolean): Promise<void> {
       ficha = await riscosStore.salvarOuAtualizarRisco(dadosDaFicha);
     } catch (e) {
       mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+      // Erro de "estado" (ficha travada, controle removido por outra pessoa...):
+      // relemos o risco para `podeEditar` e o motivo refletirem a situação atual.
+      if ((e as { tipo?: string }).tipo === 'estado' && idEdicao.value) void riscosStore.relerRiscos([idEdicao.value]);
       return;
     }
 
@@ -382,7 +385,9 @@ async function salvar(enviar: boolean): Promise<void> {
     let mensagem: string;
     if (enviar) mensagem = `${ficha.codigoRadar} enviado para validação da Coordenação-Geral.`;
     else if (!modoEdicao.value) mensagem = `${ficha.codigoRadar} salvo como rascunho.`;
-    else if (status === 'aprovado') mensagem = `${ficha.codigoRadar} salvo. O risco voltou para validação da chefia.`;
+    // Só avisa da reabertura se, DEPOIS da releitura, o risco deixou mesmo de estar aprovado
+    // (salvar sem mudar nada não reabre a validação).
+    else if (status === 'aprovado' && ficha.statusFluxo !== 'aprovado') mensagem = `${ficha.codigoRadar} salvo. O risco voltou para validação da chefia.`;
     else mensagem = `${ficha.codigoRadar} salvo.`;
     mostrar({ tom: 'sucesso', mensagem });
     router.push({ name: 'ficha-bowtie-detalhe', params: { id: ficha.id } });
