@@ -26,3 +26,25 @@ Este repositório contém o código-fonte (Vue.js 3 + TypeScript + `@govbr-ds/co
 - **Commits automáticos:** faça um commit sempre que concluir uma alteração relevante (uma tarefa de plano revisada, uma correção, uma etapa de documentação), sem esperar pedido. Revoga a regra anterior de "um único commit no fim da etapa".
 - Mensagem em português, no padrão `tipo(escopo): resumo` (ex.: `feat(b2): ...`, `fix(importador): ...`, `docs(estado): ...`), terminando com a linha `Co-Authored-By` indicada pela ferramenta.
 - Nunca faça commit de `_temp/`, `.env` ou de qualquer dado pessoal. Push, merge e abertura de PR continuam dependendo de pedido explícito.
+
+## Regras do Figma — biblioteca de componentes "RADAR — Painel" (decisão do responsável, 2026-11-16)
+
+Arquivo: `RADAR — Painel` (fileKey `T1AuuL9jEfqkP7uoAPTUFF`, equipe Figma "cgov"). O Code Connect é ligado **à mão** pelo responsável, no Dev Mode (o plano não permite `add_code_connect_map` pelo MCP: não chame essa ferramenta).
+
+**Sempre que criar, alterar, renomear, mover ou mudar variantes/propriedades de um componente da biblioteca**, termine a resposta com o bloco **"O que você precisa fazer no Figma"**, neste formato:
+
+1. **Republicar a biblioteca** (*Assets → Libraries → Publish changes*). Diga quais componentes novos e quais mudanças vão aparecer. Antes, confirme com `search_design_system` se o componente já está publicado, e diga o resultado.
+2. **No *Connect components*** (Dev Mode), **ligar** os componentes novos com a tabela abaixo.
+3. **Atualizar a linha** dos componentes que já estavam ligados e mudaram (props, variantes ou nome).
+
+Depois, a tabela, com **exatamente** estas 4 colunas e só com os componentes novos ou alterados:
+
+| Componente no Figma | Arquivo no código | Component name | Add instructions for MCP |
+| --- | --- | --- | --- |
+
+Como preencher:
+- **Arquivo no código:** caminho real, conferido no repositório antes de escrever (ex.: `src/components/ui/SegmentedControl.vue`).
+- **Component name:** nome do arquivo `.vue` sem extensão (ex.: `MatrizCelula` no Figma → `MatrizCalorAssimetrica`), nunca o nome do Figma.
+- **Add instructions for MCP:** texto curto, em português do Brasil, que explique (a) o que cada variante do Figma significa e a qual propriedade do código corresponde (ex.: `selecionada` ↔ `v-model`), (b) o que o componente faz de acessibilidade/comportamento, (c) o que **não** fazer ("não recrie com botões soltos"), e (d) as regras de negócio quando se aplicarem (Quadro 7 sem P × I; Quadro 8 sem arredondar; "Crítico" = fora da DAR e nunca o nível 18 a 25; nunca "PGR" para Plano de Gestão de Riscos).
+- O conjunto **`Icone`** fica sem ligação (*Skip connection*): no código os ícones são Font Awesome.
+- Continua valendo o fluxo de cópia: a tela **Original** fica travada e as mudanças vão na cópia **Trabalho** (ver [[manual-fluxo-figma-vscode]]).
