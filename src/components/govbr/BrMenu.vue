@@ -49,12 +49,16 @@ interface ItemMenu {
 }
 
 /**
- * Quantos riscos aguardam decisão do PERFIL ATUAL. As filas da store já vêm
- * das `acoes` (o que ESTA pessoa pode validar ou homologar), então não é
- * preciso conferir o perfil aqui.
+ * Quantos riscos aguardam decisão do PERFIL ATUAL = para validar + para
+ * homologar + sem quem decida (a CGOV devolve à unidade). As três filas da
+ * store vêm das `acoes` (o que ESTA pessoa pode fazer), então não é preciso
+ * conferir o perfil aqui. Ex.: 2 + 1 + 0 → o menu mostra "3".
  */
 const pendentesDoPerfil = computed(
-  () => riscosStore.filaValidacaoCg.length + riscosStore.filaHomologacaoDiretoria.length
+  () =>
+    riscosStore.filaValidacaoCg.length +
+    riscosStore.filaHomologacaoDiretoria.length +
+    riscosStore.filaSemDecisor.length
 );
 
 /**

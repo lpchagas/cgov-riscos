@@ -156,7 +156,7 @@ function listaCodigos(riscos: FichaRisco[]): string {
  * - **Gestor (1ª Linha):** indicadores em alerta, riscos devolvidos e prazos.
  * - **Coordenação-Geral (2º degrau):** riscos aguardando a SUA validação, indicadores e prazos.
  * - **Diretoria (3º degrau):** riscos aguardando a SUA homologação e prazos dos riscos Críticos.
- * - **CGOV (2ª Linha):** visão de supervisão — tudo o que está parado no fluxo.
+ * - **CGOV (2ª Linha):** só vê filas se o banco liberar ação a ela (ex.: devolução).
  *
  * QUEM PODE O QUÊ vem de `acoes` (a resposta do banco: `podeValidar`,
  * `podeHomologar`, `podeEnviar`), e não mais do perfil. Ex.: um risco em validação
@@ -176,37 +176,33 @@ export function itensDeAtencao(
   const itens: ItemAtencao[] = [];
 
   // (a) Filas do fluxo de aprovação
-  const aguardandoCg = riscos.filter((r) => r.statusFluxo === 'em_validacao_cg');
-  // Quem valida vê a SUA fila; a CGOV vê a mesma fila só como informação.
-  const podeValidar = aguardandoCg.some((r) => acoes[r.id]?.podeValidar);
-  if (aguardandoCg.length && (podeValidar || papel === 'cgov')) {
-    const daPessoa = podeValidar;
+  // REGRA: contamos e listamos SÓ os riscos que ESTA pessoa pode decidir agora
+  // (`acoes[id].podeValidar` / `podeHomologar`, resposta do banco). Um risco
+  // aguardando validação que não é da sua alçada não entra na contagem.
+  // Ex.: 2 riscos em validação, só o RADAR-2026-001 com `podeValidar` → "1 risco
+  // aguardando a sua validação" e só ele no detalhe.
+  const aguardandoCg = riscos.filter((r) => r.statusFluxo === 'em_validacao_cg' && acoes[r.id]?.podeValidar);
+  if (aguardandoCg.length) {
     itens.push({
       id: 'fila-cg',
       tipo: 'validacao',
       tom: 'info',
-      titulo: daPessoa
-        ? `${plural(aguardandoCg.length, 'risco aguardando', 'riscos aguardando')} a sua validação`
-        : `${plural(aguardandoCg.length, 'risco aguardando', 'riscos aguardando')} validação da Coordenação-Geral`,
+      titulo: `${plural(aguardandoCg.length, 'risco aguardando', 'riscos aguardando')} a sua validação`,
       detalhe: listaCodigos(aguardandoCg),
-      acao: daPessoa ? 'Validar agora' : 'Abrir aprovações',
+      acao: 'Validar agora',
       destino: { name: 'validacao-um-clique' },
     });
   }
 
-  const aguardandoDiretoria = riscos.filter((r) => r.statusFluxo === 'em_homologacao_dir');
-  const podeHomologar = aguardandoDiretoria.some((r) => acoes[r.id]?.podeHomologar);
-  if (aguardandoDiretoria.length && (podeHomologar || papel === 'cgov')) {
-    const daPessoa = podeHomologar;
+  const aguardandoDiretoria = riscos.filter((r) => r.statusFluxo === 'em_homologacao_dir' && acoes[r.id]?.podeHomologar);
+  if (aguardandoDiretoria.length) {
     itens.push({
       id: 'fila-diretoria',
       tipo: 'homologacao',
       tom: 'aviso',
-      titulo: daPessoa
-        ? `${plural(aguardandoDiretoria.length, 'risco aguardando', 'riscos aguardando')} a sua homologação`
-        : `${plural(aguardandoDiretoria.length, 'risco aguardando', 'riscos aguardando')} homologação da Diretoria`,
+      titulo: `${plural(aguardandoDiretoria.length, 'risco aguardando', 'riscos aguardando')} a sua homologação`,
       detalhe: listaCodigos(aguardandoDiretoria),
-      acao: daPessoa ? 'Homologar agora' : 'Abrir aprovações',
+      acao: 'Homologar agora',
       destino: { name: 'validacao-um-clique' },
     });
   }

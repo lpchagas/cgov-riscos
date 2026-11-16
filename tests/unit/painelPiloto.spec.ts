@@ -20,7 +20,7 @@ import type { FonteDados } from '../../src/services/dados/tipos';
 import { ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
 import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
 import { createRouter, createMemoryHistory } from 'vue-router';
-import type { FichaRisco } from '../../src/types/radar.types';
+import type { AcoesFluxo, FichaRisco } from '../../src/types/radar.types';
 import { RISCOS_SEMENTE_ANEXO_II } from '../../src/services/dadosSementeAnexoII';
 import {
   contarRiscosPorCelula,
@@ -78,8 +78,8 @@ describe('painelResumo', () => {
         (i) => i.tipo
       );
 
-    // CGOV supervisiona tudo o que está parado no fluxo.
-    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'prazo', 'prazo']);
+    // CGOV supervisiona (KRI e prazos), mas não decide validação/homologação: sem `podeValidar`, nada de fila.
+    expect(await tipos('cgov')).toEqual(['kri', 'prazo', 'prazo']);
     // A Coordenação-Geral vê a SUA fila de validação, não a da Diretoria.
     expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'prazo', 'prazo']);
     // A Diretoria vê a SUA homologação (e também valida, spec B1 7.1) e não recebe alertas de KRI.
@@ -93,6 +93,20 @@ describe('painelResumo', () => {
     const [primeiro] = itensDeAtencao(lista, 'coordenador_geral', HOJE, await acoesDoPerfil('coordenador_geral', lista));
     expect(primeiro.titulo).toBe('1 risco aguardando a sua validação');
     expect(primeiro.acao).toBe('Validar agora');
+  });
+
+  it('conta e lista só os riscos que a pessoa pode decidir (um acionável, outro não)', () => {
+    const [a, b] = semente().filter((r) => r.statusFluxo === 'em_validacao_cg' || r.statusFluxo === 'em_homologacao_dir');
+    // Os dois aguardam decisão, mas o banco só libera o primeiro para esta pessoa.
+    const dois = [
+      { ...a, statusFluxo: 'em_validacao_cg' as const },
+      { ...b, statusFluxo: 'em_validacao_cg' as const },
+    ];
+    const acoes = { [dois[0].id]: { podeValidar: true } as AcoesFluxo, [dois[1].id]: { podeValidar: false } as AcoesFluxo };
+    const fila = itensDeAtencao(dois, 'coordenador_geral', HOJE, acoes).find((i) => i.tipo === 'validacao')!;
+    expect(fila.titulo).toBe('1 risco aguardando a sua validação');
+    expect(fila.detalhe).toBe(dois[0].codigoRadar);
+    expect(fila.detalhe).not.toContain(dois[1].codigoRadar);
   });
 
   it('prazos: mostra dias restantes, a mais urgente primeiro, e marca atrasos', () => {
@@ -195,7 +209,8 @@ describe('Painel (página)', () => {
 
   it('trocar o perfil no seletor "Ver como" muda "Precisa da sua atenção"', async () => {
     const w = await montarPainel();
-    expect(w.text()).toContain('aguardando validação da Coordenação-Geral');
+    // A CGOV (perfil padrão) não decide a validação: a fila não aparece em "Precisa da sua atenção".
+    expect(w.text()).not.toContain('aguardando a sua validação');
 
     await w.find('select#painel-ver-como').setValue('diretor');
     // No sistema, o App recarrega a carteira ao trocar de perfil (as `acoes` mudam); aqui fazemos o mesmo.
