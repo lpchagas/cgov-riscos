@@ -18,6 +18,8 @@ import type {
   ClasseRisco,
   StatusCriticidadeDAR,
   StatusFluxoRisco,
+  TipoUnidade,
+  HistoricoFluxoItem,
 } from '../types/radar.types';
 
 /** Tom visual de uma etiqueta; corresponde às variantes do componente `Chip`. */
@@ -131,3 +133,36 @@ export function formatarDataHora(iso: string): string {
   if (Number.isNaN(data.getTime())) return iso;
   return data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
+
+/** Nome por extenso de cada tipo de unidade (CHECK de `unidades.tipo` no banco). */
+export const ROTULOS_TIPO_UNIDADE: Record<TipoUnidade, string> = {
+  presidencia: 'Presidência',
+  diretoria: 'Diretoria',
+  'coordenacao-geral': 'Coordenação-Geral',
+  'gerencia-regional': 'Gerência Regional',
+  coordenacao: 'Coordenação',
+  'centro-pesquisa': 'Centro de Pesquisa',
+  ngi: 'Núcleo de Gestão Integrada',
+  uc: 'Unidade de Conservação',
+  'coordenacao-territorial': 'Coordenação Territorial',
+  'coordenacao-assessoramento': 'Coordenação de Assessoramento',
+  'orgao-assistencia': 'Órgão de Assistência',
+  gabinete: 'Gabinete',
+  divisao: 'Divisão',
+  servico: 'Serviço',
+  setor: 'Setor',
+  'base-avancada': 'Base Avançada',
+};
+
+/** Texto de cada ação registrada no histórico do fluxo de uma ficha. */
+export const ROTULOS_ACAO_HISTORICO: Record<HistoricoFluxoItem['acao'], string> = {
+  submetido: 'Enviado para validação',
+  assumido: 'Risco preliminar assumido pela unidade',
+  validado: 'Validado pela chefia',
+  validado_e_homologado: 'Validado e homologado',
+  homologado: 'Homologado',
+  devolvido_ajuste: 'Devolvido para ajuste',
+  reaberto_mudanca_nota: 'Reaberto por alteração na ficha',
+  reaberto_mudanca_dar: 'Reaberto por mudança na DAR',
+  aprovado_1_clique: 'Aprovado em 1 clique',
+};

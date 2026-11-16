@@ -208,6 +208,12 @@ export const useRiscosStore = defineStore('riscos', () => {
         parcial.codigoRadar ??
         `RADAR-2026-${String(riscos.value.length + 1).padStart(3, '0')}`,
       objetoId: parcial.objetoId ?? objetosContexto.value[0].id,
+      // Unidade dona = a do objeto escolhido (no modo demonstração).
+      unidadeId:
+        parcial.unidadeId ??
+        (objetosContexto.value.find((o) => o.id === (parcial.objetoId ?? objetosContexto.value[0].id))?.unidadeId ??
+          objetosContexto.value[0].unidadeId),
+      atualizadoEm: null,
       nomeObjetoCache:
         parcial.nomeObjetoCache ?? objetosContexto.value[0].nomeObjeto,
       responsavelRiscoNome:
@@ -615,6 +621,10 @@ export const useRiscosStore = defineStore('riscos', () => {
       entregasPrincipais: parcial.entregasPrincipais ?? 'Atos técnicos e relatórios',
       partesInteressadas: parcial.partesInteressadas ?? 'Unidades do ICMBio e sociedade',
       cicloAno: parcial.cicloAno ?? 2026,
+      processoId: parcial.processoId ?? null,
+      processoNome: parcial.processoNome ?? null,
+      processoAtivo: parcial.processoAtivo ?? null,
+      unidadeAtiva: parcial.unidadeAtiva ?? true,
     };
     objetosContexto.value.unshift(novoObj);
     return novoObj;

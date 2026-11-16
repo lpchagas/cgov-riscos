@@ -125,7 +125,7 @@ function salvar(): void {
       </template>
       <template #celula-unidadeId="{ linha }">{{ sigla(linha.unidadeId) }}</template>
       <template #celula-macroprocessoSupervisorId="{ linha }">
-        <span class="texto-apoio">{{ sigla(linha.macroprocessoSupervisorId) }} → {{ sigla(linha.diretoriaId) }}</span>
+        <span class="texto-apoio">{{ linha.macroprocessoSupervisorId ? sigla(linha.macroprocessoSupervisorId) : "—" }} → {{ linha.diretoriaId ? sigla(linha.diretoriaId) : "—" }}</span>
       </template>
       <template #celula-id="{ linha }">
         <RouterLink
