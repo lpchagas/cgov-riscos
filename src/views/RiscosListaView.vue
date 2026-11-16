@@ -41,6 +41,7 @@ import ErroPagina from '../components/ui/ErroPagina.vue';
 import SideSheet from '../components/ui/SideSheet.vue';
 import FormField from '../components/ui/FormField.vue';
 import BrButton from '../components/govbr/BrButton.vue';
+import AcoesDoRisco from '../components/radar/AcoesDoRisco.vue';
 import MemoriaCalculoBar from '../components/radar/MemoriaCalculoBar.vue';
 
 const route = useRoute();
@@ -137,26 +138,11 @@ const colunas: ColunaTabela<FichaRisco>[] = [
 const riscoEmResumo = ref<FichaRisco | null>(null);
 
 // ---------------------------------------------------------------------------
-// AÇÕES DO FLUXO (vieram do Painel antigo, que mostrava a carteira inteira)
+// AÇÕES DO FLUXO (botões em `AcoesDoRisco`; aqui fica só a reavaliação)
 // ---------------------------------------------------------------------------
 // O `riscoEmResumo` aponta para o MESMO objeto da store; por isso, quando a
 // store muda o status, o painel lateral se atualiza sozinho.
 const { mostrar } = useToast();
-
-/** Situações em que a 1ª Linha ainda pode enviar o risco à Coordenação-Geral. */
-const STATUS_QUE_PODEM_SER_ENVIADOS: StatusFluxoRisco[] = ['rascunho', 'preliminar_cgov', 'devolvido'];
-
-// As ações da store agora são assíncronas (vão à fonte de dados): esperamos
-// terminar e, se a fonte recusar, mostramos a mensagem já traduzida.
-async function enviarParaValidacao(risco: FichaRisco): Promise<void> {
-  try {
-    await riscosStore.submeterParaValidacaoCg(risco.id);
-  } catch (e) {
-    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
-    return;
-  }
-  mostrar({ tom: 'sucesso', mensagem: `${risco.codigoRadar} enviado para validação da Coordenação-Geral.` });
-}
 
 /**
  * DEMONSTRAÇÃO da regra de reabertura: mudar a avaliação de um risco já
@@ -397,6 +383,14 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
           </div>
         </dl>
 
+        <!-- Botões de fluxo: só os que o banco libera para esta pessoa -->
+        <AcoesDoRisco
+          class="resumo__acoes"
+          :risco="riscoEmResumo"
+          :acoes="riscosStore.acoes[riscoEmResumo.id]"
+          @excluido="riscoEmResumo = null"
+        />
+
         <h3 class="resumo__subtitulo">Descrição padronizada</h3>
         <p class="resumo__descricao">{{ riscoEmResumo.descricaoPadrao }}</p>
 
@@ -418,14 +412,7 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
       <template #acoes>
         <BrButton variant="secondary" @click="riscoEmResumo = null">Fechar</BrButton>
         <BrButton
-          v-if="riscoEmResumo && STATUS_QUE_PODEM_SER_ENVIADOS.includes(riscoEmResumo.statusFluxo)"
-          variant="secondary"
-          @click="enviarParaValidacao(riscoEmResumo)"
-        >
-          Enviar para validação
-        </BrButton>
-        <BrButton
-          v-if="riscoEmResumo && riscoEmResumo.statusFluxo === 'aprovado'"
+          v-if="riscoEmResumo && riscoEmResumo.statusFluxo === 'aprovado' && riscosStore.acoes[riscoEmResumo.id]?.podeEditar"
           variant="secondary"
           @click="reavaliarControleDemonstracao(riscoEmResumo)"
         >
@@ -535,6 +522,10 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: var(--texto-secundario);
+}
+
+.resumo__acoes {
+  margin-bottom: var(--esp-4);
 }
 
 .resumo__etiquetas {

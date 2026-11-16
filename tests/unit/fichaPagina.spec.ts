@@ -14,6 +14,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { useRiscosStore } from '../../src/stores/riscosStore';
+import { useAuthStore } from '../../src/stores/authStore';
 import FichaDetalheBowTieView from '../../src/views/FichaDetalheBowTieView.vue';
 
 async function montar(caminho: string) {
@@ -37,6 +38,7 @@ const idDe = (codigo: string) => useRiscosStore().riscos.find((r) => r.codigoRad
 describe('Ficha do risco', () => {
   beforeEach(async () => {
     setActivePinia(createPinia());
+    useAuthStore().alternarPerfilDemo('coordenador_territorial');
     // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
     await useRiscosStore().carregar();
   });
@@ -44,6 +46,20 @@ describe('Ficha do risco', () => {
   it('endereço inexistente avisa "Risco não encontrado"', async () => {
     const { w } = await montar('/riscos/nao-existe');
     expect(w.find('h1').text()).toBe('Risco não encontrado');
+  });
+
+  it('risco excluído ou fora do alcance (id de verdade, mas ausente): mesmo título, sem texto técnico', async () => {
+    const { w } = await montar('/riscos/00000000-0000-4000-8000-000000000000');
+    expect(w.find('h1').text()).toBe('Risco não encontrado');
+    expect(w.text()).not.toMatch(/PostgreSQL|PostgREST|RADAR:|row-level/i);
+    expect(w.find('.ficha__acao').exists()).toBe(false);
+  });
+
+  it('enquanto a carteira carrega, mostra o esqueleto e não "não encontrado"', async () => {
+    setActivePinia(createPinia()); // store nova: estado 'ocioso'
+    const { w } = await montar('/riscos/qualquer');
+    expect(w.text()).not.toContain('Risco não encontrado');
+    expect(w.find('[role="status"]').text()).toContain('Carregando');
   });
 
   it('um único h1 com o nome do objeto; selos com nível escrito', async () => {
@@ -55,7 +71,11 @@ describe('Ficha do risco', () => {
 
   it('a ação do topo segue a situação no fluxo', async () => {
     const valida = await montar(`/riscos/${idDe('RADAR-2026-001')}`);
+    // Demonstração: a chefia da Coordenação Territorial vê "Validar risco" no risco em validação.
     expect(valida.w.find('.ficha__acao').text()).toContain('Validar risco');
+    // As ações são lidas por perfil: ao trocar de perfil, a carteira é relida.
+    useAuthStore().alternarPerfilDemo('diretor');
+    await useRiscosStore().carregar();
     const homologa = await montar(`/riscos/${idDe('RADAR-2026-002')}`);
     expect(homologa.w.find('.ficha__acao').text()).toContain('Homologar risco');
     const aprovado = await montar(`/riscos/${idDe('RADAR-2026-003')}`);
