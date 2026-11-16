@@ -87,6 +87,8 @@ const router = createRouter({
         descricao: 'Cadastre um risco em 4 etapas: contexto, categoria, análise e tratamento.',
         fundamento: 'Seções 4.1 a 4.5 da Metodologia; Quadros 2 a 8 (Minuta SEI 024421455).',
         migalhaPai: { rotulo: 'Riscos', nome: 'riscos-lista' },
+        // A página desenha o próprio cabeçalho: na edição o título vira "Editar risco RADAR-2026-003".
+        cabecalhoProprio: true,
       },
     },
     {

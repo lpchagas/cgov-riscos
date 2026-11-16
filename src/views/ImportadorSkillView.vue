@@ -13,20 +13,27 @@
  *   2. ver a PRÉVIA: cada linha já recalculada pelo motor oficial (Quadros 6,
  *      7 e 8), com os ERROS (ex.: categoria mista proibida) e AVISOS
  *      (ex.: a skill escreveu 17 mas o Quadro 7 dá 14);
- *   3. CONFIRMAR: as fichas entram como "Preliminar CGOV" (Passo 0) e vão
- *      para a 1ª Linha completar e enviar.
+ *   3. escolher o OBJETO DE DESTINO (obrigatório; só objetos de unidades ativas);
+ *   4. CONFIRMAR: as fichas entram como "Preliminar CGOV" (Passo 0) e vão
+ *      para a 1ª Linha completar e enviar. O código da skill (ex.: RSC-IN-01)
+ *      é DESCARTADO: quem dá o código é o RADAR (ex.: RADAR-2026-004).
  *
- * Nada é gravado antes do passo 3 — a prévia usa a função pura
+ * Nada é gravado antes do passo 4 — a prévia usa a função pura
  * `importarTabelaMarkdownSkill`, a mesma que a store usa ao importar.
+ *
+ * IMPORTAÇÃO PARCIAL: cada linha é gravada separadamente. Se o RADAR recusar
+ * uma (ex.: a 3ª de 5), as outras entram normalmente e a tela mostra
+ * "4 de 5 importados" + a linha recusada com o motivo em português claro.
  */
 import { computed, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useToast } from '../composables/useToast';
 import { importarTabelaMarkdownSkill, type LinhaImportadaSkill } from '../utils/importadorSkillMarkdown';
 import { avaliarCriticidadeDAR } from '../utils/calculadoraRiscoRadar';
 import { ROTULOS_CRITICIDADE, formatarNivel } from '../utils/rotulosInterface';
 import FormField from '../components/ui/FormField.vue';
+import BrMessage from '../components/govbr/BrMessage.vue';
 import DataTable from '../components/ui/DataTable.vue';
 import type { ColunaTabela } from '../components/ui/tipos';
 import RiskBadge from '../components/ui/RiskBadge.vue';
@@ -92,32 +99,57 @@ function criticidade(f: LinhaImportadaSkill) {
 }
 
 const colunas: ColunaTabela<LinhaImportadaSkill>[] = [
-  { chave: 'codigoRadar', rotulo: 'Código' },
+  { chave: 'codigoRadar', rotulo: 'Código da skill' },
   { chave: 'nomeObjeto', rotulo: 'Objeto e categoria' },
   { chave: 'nivelInerente', rotulo: 'P × I → Inerente', ocultarNoCelular: true },
   { chave: 'nivelResidual', rotulo: 'Residual' },
   { chave: 'statusCritico', rotulo: 'DAR' },
 ];
 
-const podeImportar = computed(() => !!previa.value && previa.value.fichas.length > 0 && previa.value.erros.length === 0);
+// ---------------------------------------------------------------------------
+// PASSO 3: objeto de destino (obrigatório)
+// ---------------------------------------------------------------------------
+/** A CGOV importa para qualquer objeto de unidade ATIVA (spec B3 §5.3). */
+const objetosDestino = computed(() => riscosStore.objetosContexto.filter((o) => o.unidadeAtiva));
+const objetoDestino = ref('');
+/** Mensagem de campo: aparece quando já há prévia e falta escolher o destino. */
+const erroObjeto = computed(() =>
+  previa.value && !objetoDestino.value ? 'Escolha o objeto de destino para importar.' : undefined
+);
+
+const podeImportar = computed(
+  () => !!previa.value && previa.value.fichas.length > 0 && previa.value.erros.length === 0 && !!objetoDestino.value
+);
 
 // ---------------------------------------------------------------------------
-// PASSO 3: confirmar
+// PASSO 4: confirmar
 // ---------------------------------------------------------------------------
+/** true durante a gravação: o botão desliga e ganha aria-busy (sem duplo envio). */
+const importando = ref(false);
+/** Resultado de uma importação PARCIAL (alguma linha recusada), mostrado na página. */
+const resultado = ref<{ importados: number; total: number; erros: string[] } | null>(null);
+
 async function importar(): Promise<void> {
-  // Até a tela ganhar o seletor de objeto (redesenho da Importação), os riscos
-  // vão para o primeiro objeto da lista, como antes.
-  const objetoId = riscosStore.objetosContexto[0]?.id ?? '';
-  const res = await riscosStore.importarMarkdownDaSkill(texto.value, objetoId);
-  if (res.erros.length && res.importados === 0) {
-    mostrar({ tom: 'perigo', mensagem: `Nenhum risco importado. ${res.erros[0]}` });
-    return;
+  if (importando.value || !podeImportar.value) return;
+  importando.value = true;
+  resultado.value = null;
+  try {
+    const res = await riscosStore.importarMarkdownDaSkill(texto.value, objetoDestino.value);
+    if (res.erros.length) {
+      // Alguma linha (ou todas) foi recusada: ficamos aqui, mostrando o que faltou.
+      // Ex.: { importados: 4, total: 5, erros: ['Linha 3 (RSC-T-03): Você não tem permissão para esta ação.'] }
+      resultado.value = { importados: res.importados, total: res.total, erros: res.erros };
+      mostrar({
+        tom: res.importados ? 'aviso' : 'perigo',
+        mensagem: `${res.importados} de ${res.total} importados.`,
+      });
+      return;
+    }
+    mostrar({ tom: 'sucesso', mensagem: `${res.importados} ${res.importados === 1 ? 'risco importado' : 'riscos importados'} como Preliminar CGOV.` });
+    router.push({ name: 'riscos-lista', query: { status: 'preliminar_cgov' } });
+  } finally {
+    importando.value = false;
   }
-  if (res.erros.length) {
-    mostrar({ tom: 'aviso', mensagem: `${res.importados} de ${res.total} riscos importados. ${res.erros[0]}` });
-  }
-  mostrar({ tom: 'sucesso', mensagem: `${res.importados} ${res.importados === 1 ? 'risco importado' : 'riscos importados'} como Preliminar CGOV.` });
-  router.push({ name: 'riscos-lista', query: { status: 'preliminar_cgov' } });
 }
 </script>
 
@@ -162,6 +194,10 @@ async function importar(): Promise<void> {
         <strong>{{ previa.avisos.length }}</strong> {{ previa.avisos.length === 1 ? 'aviso' : 'avisos' }}
       </p>
 
+      <BrMessage v-if="previa.fichas.length" state="info">
+        O código da skill será substituído pelo código do RADAR ao importar (ex.: RADAR-2026-004).
+      </BrMessage>
+
       <div v-if="previa.erros.length" class="mensagens mensagens--erro" role="alert">
         <p class="mensagens__titulo"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> Corrija antes de importar</p>
         <ul><li v-for="(e, i) in previa.erros" :key="i">{{ e }}</li></ul>
@@ -194,12 +230,45 @@ async function importar(): Promise<void> {
     </section>
 
     <!-- PASSO 3 -->
-    <section v-if="previa" class="cartao confirmar" aria-labelledby="passo-3">
-      <h2 id="passo-3" class="passo"><span class="passo__numero" aria-hidden="true">3</span> Importe</h2>
+    <section v-if="previa" class="cartao" aria-labelledby="passo-3">
+      <h2 id="passo-3" class="passo"><span class="passo__numero" aria-hidden="true">3</span> Objeto de destino</h2>
+      <p class="texto-apoio">Os riscos importados ficam neste objeto de gestão (só aparecem objetos de unidades ativas).</p>
+      <FormField rotulo="Objeto de destino" :erro="erroObjeto" obrigatorio v-slot="{ attrs }">
+        <select v-bind="attrs" v-model="objetoDestino">
+          <option value="" disabled>Escolha…</option>
+          <option v-for="o in objetosDestino" :key="o.id" :value="o.id">{{ o.nomeObjeto }}</option>
+        </select>
+      </FormField>
+    </section>
+
+    <!-- PASSO 4 -->
+    <section v-if="previa" class="cartao confirmar" aria-labelledby="passo-4">
+      <h2 id="passo-4" class="passo"><span class="passo__numero" aria-hidden="true">4</span> Importe</h2>
       <p class="texto-apoio">As fichas entram como <strong>Preliminar CGOV</strong> e a 1ª Linha completa e envia para validação.</p>
-      <BrButton variant="primary" icon="fa-solid fa-file-import" :disabled="!podeImportar" @click="importar">
+      <BrButton
+        variant="primary"
+        icon="fa-solid fa-file-import"
+        :disabled="!podeImportar || importando"
+        :aria-busy="importando"
+        @click="importar"
+      >
         Importar {{ previa.fichas.length }} {{ previa.fichas.length === 1 ? 'risco' : 'riscos' }}
       </BrButton>
+
+      <!-- Importação parcial: quantos entraram e quais foram recusados (motivo já traduzido). -->
+      <div v-if="resultado" class="resultado">
+        <BrMessage :state="resultado.importados ? 'warning' : 'danger'" :titulo="`${resultado.importados} de ${resultado.total} importados`">
+          <p class="resultado__texto">{{ resultado.erros.length === 1 ? 'Esta linha foi recusada:' : 'Estas linhas foram recusadas:' }}</p>
+          <ul class="resultado__lista">
+            <li v-for="(e, i) in resultado.erros" :key="i">{{ e }}</li>
+          </ul>
+        </BrMessage>
+        <RouterLink
+          v-if="resultado.importados"
+          :to="{ name: 'riscos-lista', query: { status: 'preliminar_cgov' } }"
+          class="br-button secondary"
+        >Ver os riscos importados</RouterLink>
+      </div>
     </section>
   </div>
 </template>
@@ -349,6 +418,28 @@ summary.mensagens__titulo {
 
 .confirmar {
   align-items: flex-start;
+}
+
+.resultado {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--esp-2);
+  width: 100%;
+}
+
+.resultado :deep(.mensagem) {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.resultado__texto {
+  margin: 0;
+}
+
+.resultado__lista {
+  margin: var(--esp-1) 0 0;
+  padding-left: var(--esp-5);
 }
 
 @media (max-width: 639.98px) {

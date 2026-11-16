@@ -527,15 +527,18 @@ export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
     possuiEvidenciaControle: r.possuiEvidenciaControle,
     nivelEficaciaControle: r.nivelEficaciaControle,
     estrategiaPrincipal: r.estrategiaPrincipal,
-    controles: r.controlesExistentes.map((c) => ({ ...c })),
+    // Filho com id VAZIO ('') é filho NOVO (criado na edição da ficha): vai
+    // sem id, e a fonte cria um. Ex.: { id: '', descricaoControle: 'X' } → { descricaoControle: 'X' }.
+    controles: r.controlesExistentes.map((c) => ({ ...c, id: c.id || undefined })),
     respostas: r.respostasTratamento.map((x) => ({
       ...x,
+      id: x.id || undefined,
       justificativaPorQue: vazioViraNulo(x.justificativaPorQue),
       localOnde: vazioViraNulo(x.localOnde),
       custoQuanto: vazioViraNulo(x.custoQuanto),
     })),
     // Tira as medições: elas não passam pela gravação da ficha.
-    kris: r.kris.map(({ medicoes: _medicoes, ...k }) => ({ ...k })),
+    kris: r.kris.map(({ medicoes: _medicoes, ...k }) => ({ ...k, id: k.id || undefined })),
   };
 }
 

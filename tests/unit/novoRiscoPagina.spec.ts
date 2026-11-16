@@ -7,7 +7,11 @@
  *   - regras por etapa (incluindo o Teste de Integridade do Integra+);
  *   - "Continuar" não avança com erro e põe o foco no primeiro campo inválido;
  *   - a prévia mostra a trava de evidência (controle "Forte" sem evidência → Fraco 0,9);
- *   - o fluxo completo cria o risco e o envia para validação da Coordenação-Geral.
+ *   - o fluxo completo cria o risco e o envia para validação da Coordenação-Geral;
+ *   - (B3) o seletor de objeto só mostra os objetos em que a pessoa grava;
+ *   - (B3) duplo clique em "Salvar" grava UMA vez (botões ocupados com aria-busy);
+ *   - (B3) "Editar ficha": `/riscos/novo?editar=<id>` carrega a ficha, grava com o id
+ *     e respeita o `podeEditar` vindo do RADAR.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
@@ -28,9 +32,9 @@ const idCategoria = (nome: string) => CATEGORIAS.find((c) => c.nome === nome)!.i
 describe('validarEtapa', () => {
   it('etapa 1 exige os 4 elementos do Bow Tie e o objeto', () => {
     expect(Object.keys(validarEtapa(1, dadosVazios(), CATEGORIAS)).sort()).toEqual(
-      ['causas', 'consequencias', 'evento', 'nomeObjeto', 'objetivo']
+      ['causas', 'consequencias', 'evento', 'objetivo', 'objetoId']
     );
-    expect(validarEtapa(1, dadosExemplo(), CATEGORIAS)).toEqual({});
+    expect(validarEtapa(1, dadosExemplo('obj-anexo-ii'), CATEGORIAS)).toEqual({});
   });
 
   it('Integridade exige uma das 6 subcategorias do Quadro 3', () => {
@@ -59,15 +63,16 @@ describe('Página Novo risco', () => {
     document.body.innerHTML = '';
   });
 
-  async function montar() {
+  async function montar(caminho = '/riscos/novo') {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [
+        { path: '/riscos', name: 'riscos-lista', component: { template: '<div />' } },
         { path: '/riscos/novo', name: 'novo-risco', component: FormularioRiscoView },
         { path: '/riscos/:id', name: 'ficha-bowtie-detalhe', component: { template: '<div />' } },
       ],
     });
-    router.push('/riscos/novo');
+    router.push(caminho);
     await router.isReady();
     const w = mount(FormularioRiscoView, { global: { plugins: [router] }, attachTo: document.body });
     await flushPromises();
@@ -140,6 +145,159 @@ describe('Página Novo risco', () => {
       expect(toasts.value[toasts.value.length - 1].mensagem).toBe(
         `Rascunho salvo (${novo.codigoRadar}), mas não foi enviado: ${recusa.message}`
       );
+      w.unmount();
+    });
+  });
+
+  describe('Objeto de gestão e gravação (B3)', () => {
+    afterEach(() => definirFonteParaTeste(null));
+
+    /** Troca a fonte por uma "espiã" (mesmos dados da demonstração) e recarrega a store. */
+    async function comFonte(trocas: Partial<FonteDados>) {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha, ...trocas });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      return { store, salvarFicha };
+    }
+
+    it('o seletor só mostra os objetos de objetosOndeGravo()', async () => {
+      await comFonte({ objetosOndeGravo: vi.fn().mockResolvedValue(['obj-fiscalizacao-autos']) });
+      const { w } = await montar();
+      const seletor = w.find('select');
+      const valores = seletor.findAll('option').map((o) => o.attributes('value')).filter((v) => v);
+      expect(valores).toEqual(['obj-fiscalizacao-autos']);
+      expect(seletor.text()).not.toContain('Autorização Direta');
+      w.unmount();
+    });
+
+    it('sem objeto em que possa gravar: estado vazio explicando o que fazer', async () => {
+      await comFonte({ objetosOndeGravo: vi.fn().mockResolvedValue([]) });
+      const { w } = await montar();
+      expect(w.text()).toContain('Você ainda não tem objeto de gestão em que possa criar riscos. Procure a CGOV.');
+      expect(w.find('form').exists()).toBe(false);
+      w.unmount();
+    });
+
+    it('a prévia avisa que o valor oficial é calculado pelo RADAR', async () => {
+      const { w } = await montar();
+      expect(w.find('.previa').text()).toContain('Prévia — o valor oficial é calculado pelo RADAR ao salvar');
+      w.unmount();
+    });
+
+    it('duplo clique em "Salvar rascunho" grava UMA vez (botão ocupado com aria-busy)', async () => {
+      const { salvarFicha } = await comFonte({});
+      const { w } = await montar();
+      await botao(w, 'Preencher com exemplo').trigger('click');
+      const salvarBtn = botao(w, 'Salvar rascunho');
+      salvarBtn.trigger('click');
+      salvarBtn.trigger('click');
+      await w.vm.$nextTick();
+      expect(salvarBtn.attributes('aria-busy')).toBe('true');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      w.unmount();
+    });
+  });
+
+  describe('"Editar ficha" (/riscos/novo?editar=<id>)', () => {
+    afterEach(() => definirFonteParaTeste(null));
+    const idAprovado = 'risco-socio-03'; // RADAR-2026-003, aprovado na semente
+
+    it('carrega a ficha nas 4 etapas, com o título "Editar risco <código>"', async () => {
+      const store = useRiscosStore();
+      const risco = store.obterRiscoPorId(idAprovado)!;
+      const { w } = await montar(`/riscos/novo?editar=${idAprovado}`);
+      expect(w.find('h1').text()).toBe(`Editar risco ${risco.codigoRadar}`);
+      const textareas = () => w.findAll('textarea').map((t) => (t.element as HTMLTextAreaElement).value);
+      expect(textareas()).toContain(risco.causas);
+      // Etapa 3: P, I e o controle existente vêm da ficha.
+      for (let i = 0; i < 2; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.find('[aria-current="step"]').text()).toContain('Análise');
+      const selects = w.findAll('select').map((s) => (s.element as HTMLSelectElement).value);
+      expect(selects).toContain(String(risco.probabilidade));
+      expect(selects).toContain(String(risco.impacto));
+      expect(textareas()).toContain(risco.controlesExistentes[0].descricaoControle);
+      // Etapa 4: ação e KRI.
+      await w.find('form').trigger('submit'); await flushPromises();
+      expect(textareas()).toContain(risco.respostasTratamento[0].acaoOQue);
+      const inputs = w.findAll('input[type="text"]').map((i) => (i.element as HTMLInputElement).value);
+      expect(inputs).toContain(risco.kris[0].nomeIndicador);
+      w.unmount();
+    });
+
+    it('risco aprovado: avisa que volta para validação, grava UMA vez com o id e não oferece "Salvar e enviar"', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      const { w, router } = await montar(`/riscos/novo?editar=${idAprovado}`);
+      expect(w.text()).toContain('Ao salvar, o risco volta para validação da chefia.');
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.findAll('button').some((b) => b.text().includes('Salvar e enviar'))).toBe(false);
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      expect(salvarFicha.mock.calls[0][0].id).toBe(idAprovado);
+      // Nenhum filho foi perdido nem duplicado.
+      const antes = criarFonteDemonstracao('normal');
+      const original = (await antes.carregarCarteira()).riscos.find((r) => r.id === idAprovado)!;
+      expect(salvarFicha.mock.calls[0][0].controles).toHaveLength(original.controlesExistentes.length);
+      expect(salvarFicha.mock.calls[0][0].kris).toHaveLength(original.kris.length);
+      expect(store.obterRiscoPorId(idAprovado)!.statusFluxo).toBe('em_validacao_cg');
+      expect(router.currentRoute.value.name).toBe('ficha-bowtie-detalhe');
+      w.unmount();
+    });
+
+    it('rascunho: "Salvar e enviar" aparece na etapa 4', async () => {
+      const store = useRiscosStore();
+      const novo = await store.salvarOuAtualizarRisco({
+        objetoId: 'obj-anexo-ii', causas: 'causa', eventoRisco: 'evento', consequencias: 'consequência', objetivoAfetado: 'objetivo',
+        categoriaId: 2, probabilidade: 3, impacto: 4, estrategiaPrincipal: 'Aceitar', statusFluxo: 'rascunho',
+      });
+      const { w } = await montar(`/riscos/novo?editar=${novo.id}`);
+      expect(w.text()).not.toContain('Ao salvar, o risco volta para validação da chefia.');
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.find('[aria-current="step"]').text()).toContain('Tratamento');
+      expect(botao(w, 'Salvar e enviar').exists()).toBe(true);
+      w.unmount();
+    });
+
+    it('podeEditar = false: mostra o motivo e desliga a gravação', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      const acoesNoFluxo: FonteDados['acoesNoFluxo'] = async (ids) =>
+        (await base.acoesNoFluxo(ids)).map((a) => ({ ...a, podeEditar: false, motivo: 'Este risco está em homologação.' }));
+      definirFonteParaTeste({ ...base, salvarFicha, acoesNoFluxo });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      const { w } = await montar(`/riscos/novo?editar=${idAprovado}`);
+      expect(w.text()).toContain('Este risco está em homologação.');
+      const salvarBtn = botao(w, 'Salvar alterações');
+      expect(salvarBtn.attributes('disabled')).toBeDefined();
+      await salvarBtn.trigger('click');
+      await flushPromises();
+      expect(salvarFicha).not.toHaveBeenCalled();
+      w.unmount();
+    });
+
+    it('id desconhecido ou fora do alcance: "Risco não encontrado" com link para a lista', async () => {
+      const { w } = await montar('/riscos/novo?editar=nao-existe');
+      expect(w.find('h1').text()).toBe('Risco não encontrado');
+      expect(w.find('a[href="/riscos"]').exists()).toBe(true);
+      expect(w.find('form').exists()).toBe(false);
+      w.unmount();
+    });
+
+    it('enquanto a carteira carrega, não diz "não encontrado"', async () => {
+      setActivePinia(createPinia()); // store nova: 'ocioso'
+      const { w } = await montar(`/riscos/novo?editar=${idAprovado}`);
+      expect(w.text()).not.toContain('Risco não encontrado');
+      expect(w.find('[role="status"]').text()).toContain('Carregando');
       w.unmount();
     });
   });
