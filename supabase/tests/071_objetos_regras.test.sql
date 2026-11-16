@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(19);
+select plan(29);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -58,16 +58,43 @@ select ok(not public.pode_criar_objeto_em(:'base'), 'pode_criar_objeto_em: false
 select ok(public.pode_criar_objeto_em(:'uc'), 'pode_criar_objeto_em: continua true para a CGOV em unidade ativa');
 select is((select count(*)::int from public.objetos_contexto where id = '00000000-0000-4000-b000-000000000003'), 1,
           'objeto antigo em unidade inativa continua legível');
+-- UPDATE direto da CGOV em objeto de unidade inativa: a RLS da B1 barra (0 linhas).
 select is(pg_temp.linhas_afetadas(format(
   $q$update public.objetos_contexto set unidade_id = %L where id = '00000000-0000-4000-b000-000000000003'$q$, :'uc')),
-  1, 'CGOV reatribui o objeto de unidade inativa a uma unidade ativa');
+  0, 'UPDATE direto da CGOV em objeto de unidade inativa continua barrado pela RLS');
+-- Só pela função reatribuir_objeto.
+select throws_ok(
+  format($q$select public.reatribuir_objeto('00000000-0000-4000-b000-000000000172', %L)$q$, :'uc'),
+  '55000', null, 'reatribuir_objeto recusa objeto que NÃO está em unidade inativa');
+select throws_ok(
+  format($q$select public.reatribuir_objeto('00000000-0000-4000-b000-000000000003', %L)$q$, :'base'),
+  '55000', null, 'reatribuir_objeto recusa destino inativo');
+select lives_ok(
+  format($q$select public.reatribuir_objeto('00000000-0000-4000-b000-000000000003', %L)$q$, :'uc'),
+  'CGOV reatribui o objeto de unidade inativa a uma unidade ativa (função)');
 select is((select unidade_id from public.objetos_contexto where id = '00000000-0000-4000-b000-000000000003'),
           :'uc'::uuid, 'o objeto passou para a unidade ativa');
--- (como administrador, para o gatilho ser a única trava testada; a RLS nem deixaria a CGOV chegar lá)
+select is((select nome_objeto from public.objetos_contexto where id = '00000000-0000-4000-b000-000000000003'),
+          'Demo — Base Avançada Belterra', 'só a unidade mudou (nome intacto)');
+select is((select count(*)::int from public.auditoria_log
+            where tabela_afetada = 'objetos_contexto' and operacao = 'UPDATE'
+              and registro_id = '00000000-0000-4000-b000-000000000003'
+              and usuario_id = auth.uid()),
+          1, 'a trilha registra a reatribuição com a CGOV como autora');
+-- (como administrador, para o gatilho ser a única trava testada)
 select pg_temp.sair();
 select throws_ok(
   format($q$update public.objetos_contexto set unidade_id = %L where id = '00000000-0000-4000-b000-000000000172'$q$, :'base'),
-  '55000', null, 'reatribuir PARA unidade inativa é recusado');
+  '55000', null, 'trocar PARA unidade inativa é recusado pelo gatilho');
+-- Gestor não empurra o próprio objeto para outra unidade ativa (RLS da B1).
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(
+  format($q$update public.objetos_contexto set unidade_id = %L where id = '00000000-0000-4000-b000-000000000172'$q$,
+         (select id from public.unidades where icmbio_id = '21.0123')),
+  '42501', null, 'gestor não move o próprio objeto para outra unidade ativa');
+select throws_ok(
+  format($q$select public.reatribuir_objeto('00000000-0000-4000-b000-000000000003', %L)$q$, :'uc'),
+  '42501', null, 'quem não é da CGOV não chama reatribuir_objeto');
 
 -- ----------------------------------------------------------------------------
 -- 2. P-B1-3 e P-B1-6 — processo e supervisor (como gestor da UC)
@@ -142,6 +169,23 @@ select is((select count(*)::int from public.objetos_contexto where id = '0000000
           1, 'o Coordenador-Geral continua lendo o objeto do processo inativo');
 select is((select count(*)::int from public.riscos where codigo_radar = 'RADAR-T071'),
           1, 'e continua lendo o risco dele');
+
+-- ----------------------------------------------------------------------------
+-- 5. Supervisor do processo mudou / objeto saiu do processo
+-- ----------------------------------------------------------------------------
+select pg_temp.sair();
+update public.processos_cadeia_valor set unidade_supervisora_id = :'cgge'
+ where id = '00000000-0000-4000-c000-000000000071';
+select is((select macroprocesso_supervisor_id from public.objetos_contexto
+            where id = '00000000-0000-4000-b000-000000000171'),
+          :'cgge'::uuid, 'troca do supervisor do processo atualiza os objetos ligados');
+select is((select macroprocesso_supervisor_id from public.objetos_contexto
+            where id = '00000000-0000-4000-b000-000000000173'),
+          :'cgge'::uuid, '... inclusive o de outro gestor');
+update public.objetos_contexto set processo_id = null where id = '00000000-0000-4000-b000-000000000173';
+select is((select macroprocesso_supervisor_id from public.objetos_contexto
+            where id = '00000000-0000-4000-b000-000000000173'),
+          null, 'objeto que sai do processo perde o supervisor herdado');
 
 select * from finish();
 rollback;
