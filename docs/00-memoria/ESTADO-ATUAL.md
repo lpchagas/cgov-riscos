@@ -163,7 +163,7 @@ Design: [[2026-11-16-etapa-b3-telas-banco-design]] · Plano: [[2026-11-16-etapa-
   - Documentação: [[decisoes-tecnicas-b3]] (B3-1 a B3-17 e pendências), [[06-camada-de-dados-e-async]], [[modelo-dados-mer]] (3.7), [[guia-supabase-local]] (seção 10) e [[design-system]] (seção 10).
 - **Pendências principais** (detalhe em [[decisoes-tecnicas-b3]], seção 3): criticidade gravada em `acoes_no_fluxo` pode divergir após mudança da DAR em risco não aprovado e não editado; formulário edita só o 1º controle/ação/KRI; reimportar a tabela inteira após nova prévia duplica (deliberado); cargo vago da B1.1 segue aberto; ajustes pequenos de interface (coluna Ações no celular, CSV da auditoria sem guarda contra fórmula).
 - **Verificação final da B3 (2026-11-16, nesta ordem):**
-  - `npm test`: **45 arquivos, 502 testes passando**.
+  - `npm test`: **45 arquivos, 514 testes passando** (após a rodada de correções da revisão final, commit `937b17d`; reverificado em 2026-11-16).
   - `npm run build`: ok (`vue-tsc` + `vite build`).
   - `npm run test:a11y`: **245 passaram, 0 violações** ((16 + 4) telas × 4 larguras × 3 temas = 240 + 4 autoverificações + 1 teste de menu), em 6,8 min.
   - `npm run test:integracao` (com `db:start` e `db:funcoes`): **5 arquivos, 29 testes passando**.
