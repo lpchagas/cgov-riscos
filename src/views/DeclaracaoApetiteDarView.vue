@@ -32,11 +32,13 @@ import StatCard from '../components/ui/StatCard.vue';
 import SegmentedControl from '../components/ui/SegmentedControl.vue';
 import type { ColunaTabela, OpcaoSegmento } from '../components/ui/tipos';
 import FormField from '../components/ui/FormField.vue';
+import EstadoCarregamento from '../components/ui/EstadoCarregamento.vue';
 import Dialog from '../components/ui/Dialog.vue';
 import DataTable from '../components/ui/DataTable.vue';
 import RiskBadge from '../components/ui/RiskBadge.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
 import BrButton from '../components/govbr/BrButton.vue';
+import BrMessage from '../components/govbr/BrMessage.vue';
 
 const riscosStore = useRiscosStore();
 const authStore = useAuthStore();
@@ -75,6 +77,19 @@ interface PedidoMudanca {
 }
 const pedido = ref<PedidoMudanca | null>(null);
 
+/**
+ * Aviso FIXO (fica na página) exibido depois de salvar um apetite. No banco, mudar
+ * o apetite recalcula todos os riscos da categoria: os aprovados que passam a
+ * Crítico (fora do apetite) voltam para a homologação. A prévia do Dialog continua
+ * existindo (é só uma prévia); este aviso confirma o que o RADAR de fato fez.
+ */
+const avisoRecalculo = ref(false);
+
+/** Estado do bloco principal: a store 'ociosa' ainda vai carregar, então mostra o esqueleto. */
+const estadoBloco = computed(() =>
+  riscosStore.estado === 'erro' ? 'erro' : riscosStore.estado === 'pronto' ? 'pronto' : 'carregando'
+);
+
 function pedirMudanca(categoria: CategoriaRisco, para: ApetiteDeclarado): void {
   if (para === categoria.apetiteDeclarado) return;
   pedido.value = {
@@ -98,10 +113,16 @@ async function confirmarMudanca(): Promise<void> {
     avisarErro(e);
     return;
   }
+  avisoRecalculo.value = true;
   mostrar({
     tom: 'sucesso',
     mensagem: `Apetite de ${categoria.nome}: ${ROTULOS_APETITE[para].rotulo}.`,
-    acao: { rotulo: 'Desfazer', executar: () => riscosStore.alterarApetiteCategoriaDAR(categoria.id, de).catch(avisarErro) },
+    // "Desfazer" grava o apetite anterior pela MESMA via (o banco recalcula de novo).
+    acao: {
+      rotulo: 'Desfazer',
+      executar: () =>
+        riscosStore.alterarApetiteCategoriaDAR(categoria.id, de).then(() => { avisoRecalculo.value = true; }).catch(avisarErro),
+    },
   });
 }
 
@@ -141,6 +162,11 @@ const apetiteDaCategoria = (id: number) =>
       </p>
     </aside>
 
+    <BrMessage v-if="avisoRecalculo" state="info" titulo="Apetite salvo">
+      Os riscos aprovados da categoria foram recalculados pelo RADAR; os que passaram a Crítico voltaram para homologação.
+    </BrMessage>
+
+    <EstadoCarregamento :estado="estadoBloco" :erro="riscosStore.erro" formato="tabela" @tentar-de-novo="riscosStore.tentarDeNovo()">
     <section class="dar__kpis" aria-label="Resumo da DAR">
       <StatCard rotulo="Categorias" :valor="riscosStore.categorias.length" descricao="Quadro 2 (sem categoria mista)" />
       <StatCard rotulo="Apetite Baixo" :valor="contarApetite('baixo')" tom="sucesso" descricao="Aceitam residual até 5" />
@@ -269,6 +295,8 @@ const apetiteDaCategoria = (id: number) =>
         </template>
       </DataTable>
     </section>
+
+    </EstadoCarregamento>
 
     <!-- PRÉVIA E CONFIRMAÇÃO -->
     <Dialog

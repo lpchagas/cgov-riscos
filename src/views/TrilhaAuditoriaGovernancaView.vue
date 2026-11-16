@@ -1,86 +1,144 @@
 <script setup lang="ts">
 /**
  * ============================================================================
- * AUDITORIA (`TrilhaAuditoriaGovernancaView.vue`) — Fase 3
+ * AUDITORIA (`TrilhaAuditoriaGovernancaView.vue`) — dados do banco
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Tudo o que aconteceu no fluxo de governança, do mais recente para o mais
- * antigo: envios da 1ª Linha, validações da Coordenação-Geral, homologações da
- * Diretoria, devoluções e reaberturas. Serve à CGOV, ao CTGRIC, ao CIG e à
- * Auditoria Interna.
+ * Tudo o que foi alterado no RADAR (riscos, controles, DAR, objetos, KRI,
+ * perfis e o fluxo de aprovação), do mais recente para o mais antigo. Serve à
+ * CGOV, ao CTGRIC, ao CIG e à Auditoria Interna.
  *
- * O que mudou na reformulação:
- *   - LINHA DO TEMPO agrupada por dia (antes: tabela larga que estourava no celular);
- *   - filtros por tipo de evento, por quem agiu (papel) e por período;
- *   - "Exportar CSV" baixa exatamente o que está filtrado (`utils/auditoriaCsv.ts`).
+ * Como a lista é lida:
+ *   - o banco entrega 50 eventos por vez; "Carregar mais" pede os 50 seguintes
+ *     usando o CURSOR (data e id do último evento já mostrado) — assim não
+ *     repete nem pula nada, mesmo que apareçam eventos novos no meio;
+ *   - mudar um filtro (período ou tabela) RECOMEÇA a lista do zero;
+ *   - cada linha crua vira uma frase legível por `utils/auditoriaLegivel.ts`
+ *     ("Controle do risco RADAR-2026-003 alterado" + "Causas: antes → depois");
+ *   - "Exportar CSV" baixa os eventos que já estão carregados na tela.
  */
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useToast } from '../composables/useToast';
-import { descreverEventoFluxo } from '../utils/painelResumo';
-import { ROTULOS_PAPEL, eventosParaCsv } from '../utils/auditoriaCsv';
+import { ROTULOS_PAPEL, eventosAuditoriaParaCsv } from '../utils/auditoriaCsv';
+import { descreverEvento, quemFez, ROTULOS_TABELA } from '../utils/auditoriaLegivel';
+import type { EventoAuditoria, FiltrosAuditoria } from '../services/dados/tipos';
+import type { ErroRadar } from '../services/dados/errosBanco';
 import FormField from '../components/ui/FormField.vue';
-import RiskBadge from '../components/ui/RiskBadge.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
+import EstadoCarregamento from '../components/ui/EstadoCarregamento.vue';
 import BrButton from '../components/govbr/BrButton.vue';
 
 const riscosStore = useRiscosStore();
 const { mostrar } = useToast();
 
+/** Tamanho da página do banco (o servidor devolve no máximo 50 por vez). */
+const TAMANHO_PAGINA = 50;
+
 // ---------------------------------------------------------------------------
 // FILTROS
 // ---------------------------------------------------------------------------
-const TIPOS = [
-  { valor: 'submissao_1a_linha', rotulo: 'Envio pela unidade' },
-  { valor: 'validacao_cg', rotulo: 'Validação da Coordenação-Geral' },
-  { valor: 'homologacao_diretoria', rotulo: 'Homologação da Diretoria' },
-  { valor: 'devolucao_ajuste', rotulo: 'Devolução para ajuste' },
-  { valor: 'reabertura_nota', rotulo: 'Reabertura por mudança na avaliação' },
-];
-const filtro = ref({ tipo: '', papel: '', de: '', ate: '' });
+const filtro = ref({ tabela: '', de: '', ate: '' });
 const temFiltro = computed(() => Object.values(filtro.value).some(Boolean));
 
-const eventos = computed(() =>
-  riscosStore.trilhaAuditoriaGlobal.filter((e) => {
-    const dia = e.criadoEm.slice(0, 10);
-    if (filtro.value.tipo && e.etapa !== filtro.value.tipo) return false;
-    if (filtro.value.papel && e.usuarioPapel !== filtro.value.papel) return false;
-    if (filtro.value.de && dia < filtro.value.de) return false;
-    if (filtro.value.ate && dia > filtro.value.ate) return false;
-    return true;
-  })
-);
+/** Datas do filtro (AAAA-MM-DD) → instantes: "de" começa à 0h; "até" vai até 23h59 do dia. */
+function filtrosDoBanco(): FiltrosAuditoria {
+  const f: FiltrosAuditoria = {};
+  if (filtro.value.tabela) f.tabela = filtro.value.tabela;
+  if (filtro.value.de) f.de = new Date(`${filtro.value.de}T00:00:00`).toISOString();
+  if (filtro.value.ate) f.ate = new Date(`${filtro.value.ate}T23:59:59.999`).toISOString();
+  return f;
+}
 
-/** Agrupa os eventos por dia ("09/11/2026") mantendo a ordem (mais recente primeiro). */
+// ---------------------------------------------------------------------------
+// LEITURA PAGINADA
+// ---------------------------------------------------------------------------
+const eventos = ref<EventoAuditoria[]>([]);
+const estadoLista = ref<'carregando' | 'erro' | 'pronto'>('carregando');
+const erroLista = ref<ErroRadar | null>(null);
+const temMais = ref(false);
+const carregandoMais = ref(false);
+/** Número da leitura mais recente: resposta de leitura antiga (filtro já trocado) é descartada. */
+let leitura = 0;
+
+/** Começa a lista do zero (primeira carga, troca de filtro, "Tentar de novo"). */
+async function recomecar(): Promise<void> {
+  const minha = ++leitura;
+  estadoLista.value = 'carregando';
+  erroLista.value = null;
+  try {
+    const pagina = await riscosStore.lerAuditoria(filtrosDoBanco());
+    if (minha !== leitura) return;
+    eventos.value = pagina;
+    temMais.value = pagina.length >= TAMANHO_PAGINA;
+    estadoLista.value = 'pronto';
+  } catch (e) {
+    if (minha !== leitura) return;
+    erroLista.value = e as ErroRadar;
+    estadoLista.value = 'erro';
+  }
+}
+
+/** Pede os próximos eventos a partir do último já mostrado (o "cursor"). */
+async function carregarMais(): Promise<void> {
+  const ultimo = eventos.value[eventos.value.length - 1];
+  if (!ultimo || carregandoMais.value) return;
+  const minha = leitura;
+  carregandoMais.value = true;
+  try {
+    const pagina = await riscosStore.lerAuditoria({ ...filtrosDoBanco(), antesDe: { em: ultimo.realizadoEm, id: ultimo.id } });
+    if (minha !== leitura) return;
+    // Proteção extra: nunca repete um evento que já está na tela.
+    const jaTem = new Set(eventos.value.map((e) => e.id));
+    eventos.value = [...eventos.value, ...pagina.filter((e) => !jaTem.has(e.id))];
+    temMais.value = pagina.length >= TAMANHO_PAGINA;
+  } catch (e) {
+    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
+  } finally {
+    carregandoMais.value = false;
+  }
+}
+
+onMounted(recomecar);
+watch(filtro, recomecar, { deep: true });
+
+// ---------------------------------------------------------------------------
+// APRESENTAÇÃO
+// ---------------------------------------------------------------------------
+/** Cada evento já traduzido para texto (título + mudanças). */
+const eventosLegiveis = computed(() => eventos.value.map((e) => ({ e, texto: descreverEvento(e) })));
+
+/** Agrupa por dia ("16 de novembro de 2026") mantendo a ordem (mais recente primeiro). */
 const porDia = computed(() => {
-  const grupos: { dia: string; eventos: typeof eventos.value }[] = [];
-  for (const e of eventos.value) {
-    const dia = new Date(e.criadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const grupos: { dia: string; itens: typeof eventosLegiveis.value }[] = [];
+  for (const item of eventosLegiveis.value) {
+    const dia = new Date(item.e.realizadoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     const ultimo = grupos[grupos.length - 1];
-    if (ultimo?.dia === dia) ultimo.eventos.push(e);
-    else grupos.push({ dia, eventos: [e] });
+    if (ultimo?.dia === dia) ultimo.itens.push(item);
+    else grupos.push({ dia, itens: [item] });
   }
   return grupos;
 });
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-/** Ícone por tipo de evento (sempre acompanhado do texto). */
-const ICONE: Record<string, string> = {
-  submissao_1a_linha: 'fa-solid fa-paper-plane',
-  validacao_cg: 'fa-solid fa-check',
-  homologacao_diretoria: 'fa-solid fa-stamp',
-  devolucao_ajuste: 'fa-solid fa-rotate-left',
-  reabertura_nota: 'fa-solid fa-arrows-rotate',
-};
+/** Id do risco (para o link) a partir do código RADAR; sem risco na carteira, sem link. */
+const riscoIdPorCodigo = (codigo: string | null) =>
+  codigo ? riscosStore.riscos.find((r) => r.codigoRadar === codigo)?.id : undefined;
+
+const ICONE_OPERACAO = {
+  INSERT: 'fa-solid fa-plus',
+  UPDATE: 'fa-solid fa-pen',
+  DELETE: 'fa-solid fa-trash',
+} as const;
 
 // ---------------------------------------------------------------------------
-// EXPORTAR CSV (o que está filtrado)
+// EXPORTAR CSV (os eventos já carregados)
 // ---------------------------------------------------------------------------
 function exportar(): void {
-  const csv = eventosParaCsv(eventos.value);
+  const csv = eventosAuditoriaParaCsv(eventos.value);
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const a = document.createElement('a');
   a.href = url;
@@ -94,16 +152,10 @@ function exportar(): void {
 <template>
   <div class="auditoria">
     <section class="filtros" aria-label="Filtros da auditoria">
-      <FormField rotulo="Tipo de evento" v-slot="{ attrs }">
-        <select v-bind="attrs" v-model="filtro.tipo">
-          <option value="">Todos</option>
-          <option v-for="t in TIPOS" :key="t.valor" :value="t.valor">{{ t.rotulo }}</option>
-        </select>
-      </FormField>
-      <FormField rotulo="Quem agiu" v-slot="{ attrs }">
-        <select v-bind="attrs" v-model="filtro.papel">
-          <option value="">Todos</option>
-          <option v-for="(rotulo, papel) in ROTULOS_PAPEL" :key="papel" :value="papel">{{ rotulo }}</option>
+      <FormField rotulo="Tabela" v-slot="{ attrs }">
+        <select v-bind="attrs" v-model="filtro.tabela">
+          <option value="">Todas</option>
+          <option v-for="(rotulo, tabela) in ROTULOS_TABELA" :key="tabela" :value="tabela">{{ rotulo }}</option>
         </select>
       </FormField>
       <FormField rotulo="De" v-slot="{ attrs }">
@@ -116,43 +168,61 @@ function exportar(): void {
 
     <div class="barra">
       <p class="barra__contagem" aria-live="polite">
-        <strong>{{ eventos.length }}</strong> {{ eventos.length === 1 ? 'evento' : 'eventos' }}{{ temFiltro ? ' com os filtros aplicados' : '' }}
+        <template v-if="estadoLista === 'pronto'">
+          <strong>{{ eventos.length }}</strong> {{ eventos.length === 1 ? 'evento' : 'eventos' }}{{ temMais ? ' carregados (há mais)' : '' }}{{ temFiltro ? ' com os filtros aplicados' : '' }}
+        </template>
       </p>
       <span class="barra__acoes">
-        <BrButton v-if="temFiltro" variant="secondary" @click="filtro = { tipo: '', papel: '', de: '', ate: '' }">Limpar filtros</BrButton>
+        <BrButton v-if="temFiltro" variant="secondary" @click="filtro = { tabela: '', de: '', ate: '' }">Limpar filtros</BrButton>
         <BrButton variant="secondary" icon="fa-solid fa-file-csv" :disabled="!eventos.length" @click="exportar">Exportar CSV</BrButton>
       </span>
     </div>
 
-    <section v-if="eventos.length" class="cartao" aria-label="Linha do tempo">
-      <div v-for="g in porDia" :key="g.dia" class="dia">
-        <h2 class="dia__titulo">{{ g.dia }}</h2>
-        <ol class="linha-tempo">
-          <li v-for="e in g.eventos" :key="e.id" class="evento">
-            <span class="evento__icone" aria-hidden="true"><i :class="ICONE[e.etapa] ?? 'fa-solid fa-circle'"></i></span>
-            <div class="evento__corpo">
-              <p class="evento__linha">
-                <time :datetime="e.criadoEm" class="evento__hora">{{ hora(e.criadoEm) }}</time>
-                <RouterLink :to="{ name: 'ficha-bowtie-detalhe', params: { id: e.riscoId } }" class="codigo">{{ e.codigoRadar }}</RouterLink>
-                <span>{{ descreverEventoFluxo(e) }}</span>
-              </p>
-              <p class="evento__quem">
-                {{ e.usuarioNome }} · {{ ROTULOS_PAPEL[e.usuarioPapel] ?? e.usuarioPapel }}
-                <RiskBadge :classe="e.classificacaoResidual" :valor="e.nivelResidual" tamanho="sm" />
-              </p>
-              <p v-if="e.despachoTexto" class="evento__despacho">"{{ e.despachoTexto }}"</p>
-            </div>
-          </li>
-        </ol>
-      </div>
-    </section>
-    <EmptyState
-      v-else
-      class="cartao"
-      titulo="Nenhum evento encontrado"
-      :descricao="temFiltro ? 'Nenhum evento atende aos filtros. Tente ampliar o período.' : 'Ainda não há tramitação registrada.'"
-      icone="fa-solid fa-clock-rotate-left"
-    />
+    <EstadoCarregamento :estado="estadoLista" :erro="erroLista" formato="tabela" @tentar-de-novo="recomecar">
+      <section v-if="eventos.length" class="cartao" aria-label="Linha do tempo">
+        <div v-for="g in porDia" :key="g.dia" class="dia">
+          <h2 class="dia__titulo">{{ g.dia }}</h2>
+          <ol class="linha-tempo">
+            <li v-for="{ e, texto } in g.itens" :key="e.id" class="evento">
+              <span class="evento__icone" aria-hidden="true"><i :class="ICONE_OPERACAO[e.operacao]"></i></span>
+              <div class="evento__corpo">
+                <p class="evento__linha">
+                  <time :datetime="e.realizadoEm" class="evento__hora">{{ hora(e.realizadoEm) }}</time>
+                  <span>{{ texto.titulo }}</span>
+                  <RouterLink
+                    v-if="riscoIdPorCodigo(e.codigoRadar)"
+                    :to="{ name: 'ficha-bowtie-detalhe', params: { id: riscoIdPorCodigo(e.codigoRadar) } }"
+                    class="codigo"
+                  >{{ e.codigoRadar }}</RouterLink>
+                </p>
+                <p class="evento__quem">
+                  {{ quemFez(e) }}<template v-if="e.quemPapel"> · {{ ROTULOS_PAPEL[e.quemPapel] ?? e.quemPapel }}</template>
+                  · {{ ROTULOS_TABELA[e.tabela] ?? e.tabela }}
+                </p>
+                <p v-if="texto.recalculadoPelaDar" class="evento__nota">
+                  Recalculado automaticamente pelo RADAR depois de uma mudança na DAR; ninguém editou o risco.
+                </p>
+                <ul v-if="texto.mudancas.length" class="evento__mudancas">
+                  <li v-for="m in texto.mudancas" :key="m.campo">
+                    <strong>{{ m.campo }}:</strong> {{ m.antes }} → {{ m.depois }}
+                  </li>
+                </ul>
+              </div>
+            </li>
+          </ol>
+        </div>
+        <div v-if="temMais" class="mais">
+          <BrButton variant="secondary" :disabled="carregandoMais" @click="carregarMais">Carregar mais</BrButton>
+        </div>
+      </section>
+      <EmptyState
+        v-else
+        class="cartao"
+        titulo="Nenhum evento encontrado"
+        :descricao="temFiltro ? 'Nenhum evento atende aos filtros. Tente ampliar o período.' : 'Ainda não há alterações registradas.'"
+        icone="fa-solid fa-clock-rotate-left"
+      />
+    </EstadoCarregamento>
   </div>
 </template>
 
@@ -279,13 +349,25 @@ function exportar(): void {
   color: var(--texto-secundario);
 }
 
-.evento__despacho {
+.evento__nota {
   margin: var(--esp-2) 0 0;
   padding: var(--esp-2) var(--esp-3);
   border-left: 3px solid var(--borda-forte);
   background: var(--superficie-container);
   font-size: var(--texto-sm);
-  font-style: italic;
+}
+
+.evento__mudancas {
+  margin: var(--esp-2) 0 0;
+  padding-left: var(--esp-4);
+  font-size: var(--texto-sm);
+  overflow-wrap: anywhere;
+}
+
+.mais {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--esp-4);
 }
 
 @media (max-width: 639.98px) {

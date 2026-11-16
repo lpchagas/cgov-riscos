@@ -115,6 +115,9 @@ describe('Página Apetite (DAR)', () => {
     expect(store.categorias.find((c) => c.id === SOCIOAMBIENTAL)!.apetiteDeclarado).toBe('moderado');
     expect(store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!.statusCritico).toBe('nao');
 
+    // Aviso fixo: os riscos aprovados da categoria foram recalculados (e relidos).
+    expect(w.text()).toContain('Os riscos aprovados da categoria foram recalculados pelo RADAR; os que passaram a Crítico voltaram para homologação.');
+
     // Desfazer pelo aviso
     const { toasts } = useToast();
     const aviso = toasts.value[toasts.value.length - 1];

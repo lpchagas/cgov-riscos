@@ -13,6 +13,8 @@
  */
 import { formatarDataHora, formatarNivel } from './rotulosInterface';
 import { descreverEventoFluxo } from './painelResumo';
+import { descreverEvento, quemFez, ROTULOS_TABELA } from './auditoriaLegivel';
+import type { EventoAuditoria as EventoAuditoriaBanco } from '../services/dados/tipos';
 
 export interface EventoAuditoria {
   criadoEm: string;
@@ -64,5 +66,29 @@ export function eventosParaCsv(eventos: EventoAuditoria[]): string {
       .map(campo)
       .join(';')
   );
+  return '﻿' + [cabecalho.map(campo).join(';'), ...linhas].join('\r\n');
+}
+
+/**
+ * CSV da Auditoria "de verdade": uma linha por evento carregado na tela, com
+ * as mesmas colunas legíveis que a pessoa vê (título e mudanças em texto).
+ * Ex.: "Risco RADAR-2026-003 criado" · "Causas: A → B".
+ */
+export function eventosAuditoriaParaCsv(eventos: EventoAuditoriaBanco[]): string {
+  const cabecalho = ['Data e hora', 'Tabela', 'Risco', 'O que aconteceu', 'Mudanças', 'Quem', 'Papel'];
+  const linhas = eventos.map((e) => {
+    const { titulo, mudancas } = descreverEvento(e);
+    return [
+      formatarDataHora(e.realizadoEm),
+      ROTULOS_TABELA[e.tabela] ?? e.tabela,
+      e.codigoRadar ?? '',
+      titulo,
+      mudancas.map((m) => `${m.campo}: ${m.antes} → ${m.depois}`).join(' | '),
+      quemFez(e),
+      e.quemPapel ? (ROTULOS_PAPEL[e.quemPapel] ?? e.quemPapel) : '',
+    ]
+      .map(campo)
+      .join(';');
+  });
   return '﻿' + [cabecalho.map(campo).join(';'), ...linhas].join('\r\n');
 }
