@@ -21,6 +21,7 @@ async function montar(caminho: string) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
+      { path: '/riscos/novo', name: 'novo-risco', component: { template: '<div />' } },
       { path: '/riscos/:id', name: 'ficha-bowtie-detalhe', component: FichaDetalheBowTieView },
       { path: '/riscos', name: 'riscos-lista', component: { template: '<div />' } },
       { path: '/monitoramento', name: 'monitoramento-kris', component: { template: '<div />' } },
@@ -79,7 +80,10 @@ describe('Ficha do risco', () => {
     const homologa = await montar(`/riscos/${idDe('RADAR-2026-002')}`);
     expect(homologa.w.find('.ficha__acao').text()).toContain('Homologar risco');
     const aprovado = await montar(`/riscos/${idDe('RADAR-2026-003')}`);
-    expect(aprovado.w.find('.ficha__acao').exists()).toBe(false);
+    // Aprovado: nenhuma decisão de fluxo; só "Editar ficha" (B3: editar reabre a validação).
+    const acaoAprovado = aprovado.w.find('.ficha__acao');
+    expect(acaoAprovado.findAll('button').map((b) => b.text())).toEqual([]);
+    expect(acaoAprovado.text()).toBe('Editar ficha');
   });
 
   it('Bow Tie: lista ordenada de 5 blocos; aba guardada na URL', async () => {
@@ -112,5 +116,22 @@ describe('Ficha do risco', () => {
     await flushPromises();
     expect(store.obterRiscoPorId(alvo.id)).toBeUndefined();
     expect(router.currentRoute.value.name).toBe('riscos-lista');
+  });
+
+  it('"Editar ficha" aparece quando o RADAR libera a edição (e leva ao formulário em modo edição)', async () => {
+    const id = idDe('RADAR-2026-003'); // aprovado: editável na demonstração
+    expect(useRiscosStore().acoes[id]?.podeEditar).toBe(true);
+    const { w } = await montar(`/riscos/${id}`);
+    const link = w.findAll('a').find((a) => a.text().includes('Editar ficha'));
+    expect(link?.attributes('href')).toBe(`/riscos/novo?editar=${id}`);
+    w.unmount();
+  });
+
+  it('"Editar ficha" NÃO aparece quando a ficha está travada (em validação)', async () => {
+    const id = idDe('RADAR-2026-001');
+    expect(useRiscosStore().acoes[id]?.podeEditar).toBe(false);
+    const { w } = await montar(`/riscos/${id}`);
+    expect(w.findAll('a').some((a) => a.text().includes('Editar ficha'))).toBe(false);
+    w.unmount();
   });
 });

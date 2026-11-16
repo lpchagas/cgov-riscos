@@ -60,4 +60,29 @@ describe('Lista de Riscos: excluir pelo painel lateral', () => {
     expect(document.body.textContent).not.toContain('Ver ficha completa');
     w.unmount();
   });
+
+  it('o painel oferece "Editar ficha" (e não mais "Reavaliar controle (demonstração)")', async () => {
+    const store = useRiscosStore();
+    await store.carregar();
+    const alvo = store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!; // aprovado e editável
+    expect(store.acoes[alvo.id]?.podeEditar).toBe(true);
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/riscos', name: 'riscos-lista', component: RiscosListaView, meta: { titulo: 'Riscos' } },
+        { path: '/riscos/novo', name: 'novo-risco', component: { template: '<div />' } },
+        { path: '/riscos/:id', name: 'ficha-bowtie-detalhe', component: { template: '<div />' } },
+      ],
+    });
+    router.push('/riscos');
+    await router.isReady();
+    const w = mount(RiscosListaView, { global: { plugins: [router] }, attachTo: document.body });
+    await flushPromises();
+    await w.findAll('button.codigo-botao').find((b) => b.text() === alvo.codigoRadar)!.trigger('click');
+    await flushPromises();
+    const link = Array.from(document.body.querySelectorAll('a')).find((a) => a.textContent?.trim() === 'Editar ficha');
+    expect(link?.getAttribute('href')).toBe(`/riscos/novo?editar=${alvo.id}`);
+    expect(document.body.textContent).not.toContain('Reavaliar controle');
+    w.unmount();
+  });
 });

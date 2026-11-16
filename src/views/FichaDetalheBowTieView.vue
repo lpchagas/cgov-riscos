@@ -100,7 +100,7 @@ const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
           </Chip>
         </div>
       </div>
-      <AcoesDoRisco class="ficha__acao" :risco="risco" :acoes="riscosStore.acoes[risco.id]" @excluindo="marcarExclusaoDaqui" />
+      <AcoesDoRisco class="ficha__acao" :risco="risco" :acoes="riscosStore.acoes[risco.id]" mostrar-edicao @excluindo="marcarExclusaoDaqui" />
     </header>
 
     <section class="cartao">

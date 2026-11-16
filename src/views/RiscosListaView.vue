@@ -22,7 +22,6 @@
 import { computed, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter, type LocationQueryRaw } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
-import { useToast } from '../composables/useToast';
 import type { ClasseRisco, FichaRisco, StatusFluxoRisco } from '../types/radar.types';
 import { filtrarRiscos, lerFiltrosDaQuery } from '../utils/filtrosRiscos';
 import {
@@ -147,32 +146,10 @@ watch(
 );
 
 // ---------------------------------------------------------------------------
-// AÇÕES DO FLUXO (botões em `AcoesDoRisco`; aqui fica só a reavaliação)
+// AÇÕES DO FLUXO: todas em `AcoesDoRisco` (inclusive "Editar ficha", que abre
+// o formulário em modo edição — `/riscos/novo?editar=<id>`). Editar um risco
+// aprovado o devolve para validação da chefia; quem decide é o RADAR.
 // ---------------------------------------------------------------------------
-// O `riscoEmResumo` aponta para o MESMO objeto da store; por isso, quando a
-// store muda o status, o painel lateral se atualiza sozinho.
-const { mostrar } = useToast();
-
-/**
- * DEMONSTRAÇÃO da regra de reabertura: mudar a avaliação de um risco já
- * aprovado (aqui, o controle passa a "Satisfatório", fator 0,6) devolve o
- * risco para nova validação da Coordenação-Geral. O cálculo é feito pela
- * store, com a calculadora oficial — a tela não calcula nada.
- */
-async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
-  try {
-    await riscosStore.reavaliarPontuacaoRiscoAprovado(risco.id, {
-      probabilidade: risco.probabilidade,
-      impacto: risco.impacto,
-      nivelEficaciaControle: 'Satisfatório',
-      possuiEvidenciaControle: true,
-    });
-  } catch (e) {
-    mostrar({ tom: 'perigo', mensagem: (e as Error).message });
-    return;
-  }
-  mostrar({ tom: 'aviso', mensagem: `${risco.codigoRadar} foi reavaliado e voltou para validação da Coordenação-Geral.` });
-}
 </script>
 
 <template>
@@ -397,7 +374,7 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
           class="resumo__acoes"
           :risco="riscoEmResumo"
           :acoes="riscosStore.acoes[riscoEmResumo.id]"
-          
+          mostrar-edicao
         />
 
         <h3 class="resumo__subtitulo">Descrição padronizada</h3>
@@ -420,13 +397,6 @@ async function reavaliarControleDemonstracao(risco: FichaRisco): Promise<void> {
 
       <template #acoes>
         <BrButton variant="secondary" @click="riscoEmResumo = null">Fechar</BrButton>
-        <BrButton
-          v-if="riscoEmResumo && riscoEmResumo.statusFluxo === 'aprovado' && riscosStore.acoes[riscoEmResumo.id]?.podeEditar"
-          variant="secondary"
-          @click="reavaliarControleDemonstracao(riscoEmResumo)"
-        >
-          Reavaliar controle (demonstração)
-        </BrButton>
         <RouterLink
           v-if="riscoEmResumo"
           :to="{ name: 'ficha-bowtie-detalhe', params: { id: riscoEmResumo.id } }"

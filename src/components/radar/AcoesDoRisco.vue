@@ -46,8 +46,9 @@ const props = withDefaults(
     risco: FichaRisco;
     acoes: AcoesFluxo | undefined;
     /**
-     * Mostra o link "Editar ficha" (`/riscos/novo?editar=<id>`). Fica desligado
-     * por padrão enquanto o formulário não tem o modo de edição.
+     * Mostra o link "Editar ficha" (`/riscos/novo?editar=<id>`, o formulário em
+     * modo edição). A Ficha e o painel lateral da lista ligam; telas de fila
+     * (ex.: Aprovações) deixam desligado para não misturar decidir com editar.
      */
     mostrarEdicao?: boolean;
   }>(),
