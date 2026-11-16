@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-15  
-> **Fase atual:** Etapa B1 (banco, alcance e RLS) mesclada na `main` pelo PR #4. Etapa **B2** (login por link de e-mail e perfis) **concluída, aguardando commit** na branch `feat/b2-login-perfis`; depois, B3. Reformulação da UI (Fases 0 a 4) e varredura de acessibilidade já mescladas na `main`. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
+> **Fase atual:** Etapa B1 (banco, alcance e RLS) na `main` (PR #4). Etapa **B2 (login e perfis)** registrada em commit na branch `feat/b2-login-perfis` e etapa **B1.1 (regras do banco)** na branch `feat/b1-1-regras-banco` (criada a partir da B2); as duas aguardam push e PR. Próxima: **B3** (telas lendo e gravando no banco). Reformulação da UI (Fases 0 a 4) e varredura de acessibilidade já mescladas. Pendente: decisão da CGOV sobre encurtar o Painel no celular (meta de 3.500 px).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -124,4 +124,29 @@ Design: [[2026-11-15-etapa-b2-login-perfis-design]] · Plano: [[2026-11-15-etapa
   - `npm run test:integracao` (com `db:start` e `db:funcoes`): **3 arquivos, 13 testes passando**.
   - `npm run db:reset && npm run test:db`: **10 arquivos, 475 testes, `Result: PASS`**.
   - `git status --porcelain | grep -i '_temp'`: vazio. `git diff --stat main -- supabase/migrations`: vazio. `grep -rn "service_role\|SERVICE_ROLE" src/`: só **1 comentário** em `src/services/supabase.ts` linha 36 ("a chave `service_role` NUNCA vai para o front"); nenhum uso de código.
-- **Próxima etapa:** pedir o commit da B2; depois **B1.1** (regras do banco decididas em 2026-11-15, com migrações, spec, plano e revisão próprios) e então **B3** (telas lendo e gravando no banco, `TipoUnidade` com os 16 valores, `Skeleton`), C (Painel no celular) e D (homologação na CGTI, limites e SMTP de produção).
+- **Próxima etapa:** B2 registrada em commit (`8eebbe8`); a **B1.1** foi feita em seguida (ver a seção da B1.1). Depois: **B3** (telas lendo e gravando no banco, `TipoUnidade` com os 16 valores, `Skeleton`), C (Painel no celular) e D (homologação na CGTI, limites e SMTP de produção).
+
+## Etapa B1.1 — regras do banco (2026-11-15, branch `feat/b1-1-regras-banco`)
+Design: [[2026-11-15-etapa-b1-1-regras-banco-design]] · Plano: [[2026-11-15-etapa-b1-1-regras-banco-plan]] · Decisões: [[decisoes-tecnicas-b1]] seção 5 (B11-1 a B11-9)
+- **Situação: etapa B1.1 concluída** (commits automáticos na branch). Implementa as pendências P-B1-1 a P-B1-6 e P-B1-8.
+- **Entregas:**
+  - `20261116001_fluxo_presidencia.sql`: o GABIN valida e o Presidente homologa os riscos da Presidência; recusa no envio e na reabertura quando não há homologador efetivo.
+  - `20261116002_objetos_regras.sql`: objeto só em unidade e processo ativos; supervisor preenchido pelo banco, propagado e limpo ao sair do processo; RPC `reatribuir_objeto` (só CGOV).
+  - `20261116003_preliminar_cgov.sql`: a CGOV grava controles, respostas, KRIs e medições e apaga o risco enquanto `preliminar_cgov`.
+  - `20261116004_dar_reavalia_aprovados.sql`: DAR alterada recalcula os aprovados da categoria; quem vira Crítico volta à homologação (`reaberto_mudanca_dar`); `devolver_risco` aceita a CGOV quando não há ator efetivo.
+  - Importador `sync:estrutura` ignora o vínculo com CT de outra GR e avisa no relatório.
+  - Testes pgTAP `070` a `073`; documentação em [[decisoes-tecnicas-b1]], [[guia-supabase-local]] e [[modelo-dados-mer]] (3.6).
+- **Pendências novas** (detalhe em [[decisoes-tecnicas-b1]], "Pendências novas"): cargo vago trava o fluxo; ramo "validador sem ator efetivo" sem teste; tipo TS do histórico sem `reaberto_mudanca_dar` (B3); `atualizado_em` muda em aprovados não alterados (B3); TOCTOU assumir × escrita da CGOV (nota); errata dos comentários das migrações `004` e `005`; IDs fixos `10.0000`, `10.0001` e `10.0002` que o `sync:estrutura` precisa manter.
+- **Notas para a B3:**
+  - Os seletores de unidade escondem unidades inativas.
+  - O campo "supervisor" do objeto é somente leitura/oculto para quem não é CGOV (o valor é ignorado quando há processo).
+  - Mover objeto de unidade inativa usa a RPC `reatribuir_objeto`.
+  - O tipo TS `HistoricoFluxoItem.acao` precisa de `reaberto_mudanca_dar`.
+  - `atualizado_em` muda em todos os riscos aprovados da categoria quando a DAR muda (não significa "ficha editada").
+  - Risco reaberto pela DAR sem homologador efetivo recebe recusa genérica em `homologar_risco`; a tela deve oferecer "devolver" à CGOV.
+- **Verificação final da B1.1 (2026-11-15, nesta ordem):**
+  - `npm test`: **35 arquivos, 349 testes passando**.
+  - `npm run build`: ok (`vue-tsc` + `vite build`).
+  - `npm run test:a11y`: **197 passaram, 0 violações** (3,9 min).
+  - `npm run test:integracao` (com `db:funcoes`): **3 arquivos, 13 testes passando**.
+  - `npm run db:reset && npm run test:db`: **14 arquivos (`000` a `073`), 630 testes, `Result: PASS`**.

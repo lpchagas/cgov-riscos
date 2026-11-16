@@ -65,7 +65,7 @@ INSERT INTO _demo_usuarios VALUES
   (13, 'auditor@radar.test',         'Auditor Fictício',              'Auditor',                   'auditoria',               '10.0034', false, true),
   (14, 'cgov@radar.test',            'Servidor Fictício CGOV',        'Servidor da CGOV',          'cgov',                    '10.0008', false, true),
   (15, 'cgge@radar.test',            'Coordenador-Geral Fictício CGGE','Coordenador-Geral',        'cgge',                    '10.0007', true,  true),
-  (16, 'gabin@radar.test',           'Servidor Fictício GABIN',       'Servidor do Gabinete',      'gabin',                   '10.0002', false, true),
+  (16, 'gabin@radar.test',           'Titular Fictício do GABIN',     'Chefe de Gabinete',         'gabin',                   '10.0002', true,  true),
   (17, 'sem-perfil@radar.test',      'Usuário Fictício sem Perfil',   NULL,                        NULL,                      NULL,      false, true),
   (18, 'inativo@radar.test',         'Gestor Fictício Inativo',       'Chefe da UC',               'gestor',                  '21.0070', false, false),
   (19, 'gr1@radar.test',             'Gerente Fictício GR1',          'Gerente Regional',          'gerente_regional',        '23.1000', true,  true);

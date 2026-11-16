@@ -35,7 +35,7 @@ $$, $$ values
   ('ct@radar.test',               'coordenador_territorial', '23.5005', true,  true),
   ('diretor.dibio@radar.test',    'diretor',                 '10.4000', true,  true),
   ('diretor.diman@radar.test',    'diretor',                 '10.2000', true,  true),
-  ('gabin@radar.test',            'gabin',                   '10.0002', false, true),
+  ('gabin@radar.test',            'gabin',                   '10.0002', true,  true),
   ('gestor.base@radar.test',      'gestor',                  '26.0112', true,  true),
   ('gestor.uc-sem-ct@radar.test', 'gestor',                  '21.0123', true,  true),
   ('gestor.uc@radar.test',        'gestor',                  '21.0078', true,  true),

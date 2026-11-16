@@ -380,6 +380,23 @@ function normalizarNome(texto: string): string {
 }
 
 /**
+ * Sobe pela `id_mae` até o ancestral mais próximo do tipo gerencia-regional
+ * (a própria unidade conta, se for uma GR). Devolve null se não houver.
+ * Exemplo: UC → NGI → GR9 devolve a GR9. (Ciclos já foram recusados no passo 3.)
+ */
+function gerenciaRegionalDe(
+  unidade: UnidadeImportada,
+  unidadePorId: Map<string, UnidadeImportada>
+): UnidadeImportada | null {
+  let atual: UnidadeImportada | undefined = unidade;
+  while (atual) {
+    if (atual.tipo === 'gerencia-regional') return atual;
+    atual = atual.id_mae ? unidadePorId.get(atual.id_mae) : undefined;
+  }
+  return null;
+}
+
+/**
  * Preenche `coordenacao_territorial_icmbio_id` de cada unidade a partir do
  * microgrupo e devolve os avisos.
  *
@@ -408,6 +425,8 @@ function vincularCoordenacoesTerritoriais(
   }
 
   // Contagem das unidades que ficaram sem vínculo, por texto do microgrupo.
+  const unidadePorId = new Map(unidades.map((u) => [u.icmbio_id, u]));
+  const avisosCtOutraGr: string[] = [];
   const semCorrespondente = new Map<string, number>();
   const ambiguos = new Map<string, number>();
   const somar = (mapa: Map<string, number>, chave: string) => mapa.set(chave, (mapa.get(chave) ?? 0) + 1);
@@ -418,7 +437,20 @@ function vincularCoordenacoesTerritoriais(
     const candidatas = ctsPorNome.get(normalizarNome(microgrupo)) ?? [];
     if (candidatas.length === 1) {
       const ct = candidatas[0];
-      if (ct.icmbio_id !== unidade.icmbio_id) unidade.coordenacao_territorial_icmbio_id = ct.icmbio_id;
+      if (ct.icmbio_id === unidade.icmbio_id) continue;
+      // P-B1-4: a CT precisa ser da MESMA Gerência Regional da unidade. Só
+      // descartamos quando as DUAS GRs são conhecidas e diferentes; se um dos
+      // lados não tem GR ancestral (ex.: unidade ligada direto à Presidência),
+      // não dá para afirmar que é "outra GR" e o vínculo segue como antes.
+      const grUnidade = gerenciaRegionalDe(unidade, unidadePorId);
+      const grCt = gerenciaRegionalDe(ct, unidadePorId);
+      if (grUnidade && grCt && grUnidade.icmbio_id !== grCt.icmbio_id) {
+        avisosCtOutraGr.push(
+          `vínculo com CT de outra GR ignorado: ${unidade.icmbio_id} "${unidade.nome}" (GR ${grUnidade.icmbio_id}) → CT ${ct.icmbio_id} "${ct.nome}" (GR ${grCt.icmbio_id})`
+        );
+        continue;
+      }
+      unidade.coordenacao_territorial_icmbio_id = ct.icmbio_id;
       continue;
     }
     // Nenhuma CT (ou mais de uma) com esse nome: fica sem vínculo.
@@ -426,6 +458,7 @@ function vincularCoordenacoesTerritoriais(
   }
 
   return [
+    ...avisosCtOutraGr,
     ...[...semCorrespondente].map(
       ([grupo, n]) => `microgrupo '${grupo}' sem CT correspondente: ${n} unidades sem vínculo`
     ),

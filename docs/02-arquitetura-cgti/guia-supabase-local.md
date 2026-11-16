@@ -91,7 +91,7 @@ Regra de ouro: se um teste de regressão falha, primeiro descubra por que o cál
 o teste se a regra normativa (Metodologia SEI 024421455) tiver mudado de fato.
 
 
-## 6. Os testes do banco (arquivos `000` a `060`)
+## 6. Os testes do banco (arquivos `000` a `073`)
 
 `npm run test:db` roda, em ordem, os arquivos de `supabase/tests/`. Rode antes `npm run db:reset`,
 porque vários testes usam a semente de demonstração.
@@ -107,6 +107,10 @@ porque vários testes usam a semente de demonstração.
 | `040_rls_leitura` / `041_rls_escrita` | A segurança por linha: leitura e escrita por perfil. |
 | `050_fluxo` | O fluxo de 3 degraus, a trava, a reabertura (inclusive por categoria e objeto), a segregação "sobe um nível" (D1) e a exclusão de risco (D2). |
 | `060_auditoria` | A trilha de auditoria (inclusive perfis/titularidade e DAR). |
+| `070_fluxo_presidencia` | A Presidência: o GABIN valida e o Presidente homologa; recusa no envio quando não há homologador efetivo (inclusive na reabertura). |
+| `071_objetos_regras` | Objeto só em unidade e processo ativos; supervisor preenchido pelo banco e propagado; RPC `reatribuir_objeto` (só CGOV, só unidade inativa). |
+| `072_preliminar_cgov` | A CGOV grava controles, respostas, KRIs e medições e apaga o risco enquanto `preliminar_cgov`; perde isso ao ser assumido. |
+| `073_dar_reavalia` | DAR alterada recalcula os aprovados da categoria; quem vira Crítico volta à homologação (`reaberto_mudanca_dar`); a CGOV devolve risco sem ator efetivo. |
 
 Resultado esperado: `All tests successful` e `Result: PASS`.
 

@@ -448,13 +448,16 @@ select is((select status_fluxo from public.validar_risco(:'r_bav', 'ok')), 'apro
           'D1 (b): gr1 (nível acima) valida → aprovado');
 
 -- (c) Sem nível acima: presidente@ cria um risco no COMET (Setor interno da
---     Presidência). A chefia é a Presidência (ele mesmo) e não há nada acima.
+--     Presidência). A chefia é a Presidência (ele mesmo); ANTES da B1.1 não
+--     havia nada acima e o envio era recusado. Desde a P-B1-1 a chefia da
+--     Presidência é o GABIN, então o D1 "sobe um nível" acha o titular do GABIN
+--     para validar (a homologação de risco crítico continua sem ninguém acima).
 select pg_temp.entrar_como('presidente@radar.test');
 insert into public.objetos_contexto (id, tipo_objeto, nome_objeto, unidade_id, objetivo_estrategico_associado)
 values ('00000000-0000-4000-b000-000000000052', 'Unidade', 'Teste 050 — COMET', :'comet_pres', 'Objetivo de demonstração');
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000052', 'RADAR-T050-COMET', 2, 2);
-select throws_ok($$select public.enviar_para_validacao((select id from public.riscos where codigo_radar = 'RADAR-T050-COMET'))$$,
-                 '55000', null, 'D1 (c): sem nível acima de quem enviou, o envio é recusado (55000)');
+select is((select status_fluxo from public.enviar_para_validacao((select id from public.riscos where codigo_radar = 'RADAR-T050-COMET'))),
+          'em_validacao_cg', 'D1 (c): o Presidente envia; sobe-se ao titular do GABIN (P-B1-1), que valida');
 
 -- ----------------------------------------------------------------------------
 -- 9. Risco crítico da CGOV: cgge valida e presidente homologa
@@ -563,12 +566,13 @@ select is(pg_temp.linhas_afetadas($$update public.riscos set causas = 'nova revi
           0, 'depois de assumido, a cgov NÃO edita mais o risco');
 
 -- ----------------------------------------------------------------------------
--- 12. Presidência: sem chefia imediata, o envio é recusado
---     (ver docs/02-arquitetura-cgti/decisoes-tecnicas-b1.md, R18)
+-- 12. Presidência: desde a B1.1 (P-B1-1) quem valida é o titular do GABIN
+--     (antes, sem chefia imediata, o envio era recusado — R18). O fluxo
+--     completo da Presidência é testado em 070_fluxo_presidencia.test.sql.
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('presidente@radar.test');
-select throws_like($$select public.enviar_para_validacao((select id from public.riscos where codigo_radar = 'RADAR-T050-PRES'))$$,
-                   'RADAR:%chefia imediata%', 'risco da própria Presidência: não há chefia imediata para validar');
+select is((select status_fluxo from public.enviar_para_validacao((select id from public.riscos where codigo_radar = 'RADAR-T050-PRES'))),
+          'em_validacao_cg', 'risco da própria Presidência: o envio agora tem quem valide (o titular do GABIN)');
 
 -- ----------------------------------------------------------------------------
 -- 13. anon não executa as funções; ninguém chama o "atalho" interno
