@@ -29,8 +29,10 @@ const props = withDefaults(
     icone?: string;
     tom?: TomVisual;
     para?: RouteLocationRaw;
+    /** No celular, mostra só rótulo e número (descrição e "Ver lista" só p/ leitor de tela). */
+    compacto?: boolean;
   }>(),
-  { tom: 'neutro' }
+  { tom: 'neutro', compacto: false }
 );
 
 // Usa <RouterLink> quando há destino; senão, um <div> comum.
@@ -42,7 +44,7 @@ const componente = computed(() => (props.para ? RouterLink : 'div'));
     :is="componente"
     :to="para"
     class="stat-card"
-    :class="[`stat-card--${tom}`, { 'stat-card--link': para }]"
+    :class="[`stat-card--${tom}`, { 'stat-card--link': para, 'stat-card--compacto': compacto }]"
   >
     <div class="stat-card__topo">
       <span class="stat-card__rotulo">{{ rotulo }}</span>
@@ -118,5 +120,33 @@ const componente = computed(() => (props.para ? RouterLink : 'div'));
   font-size: var(--texto-sm);
   font-weight: var(--peso-semi);
   color: var(--texto-link);
+}
+
+/* ---------------------------------------------------------------------------
+   MODO COMPACTO (só no celular, < 640px). No computador nada muda.
+   A descrição e o "Ver lista" saem da tela, mas continuam no DOM, lidos pelo
+   leitor de tela (mesma técnica da classe global .radar-so-leitor, sem
+   duplicar o texto). O cartão inteiro tem no mínimo 44px de altura (alvo de toque).
+   --------------------------------------------------------------------------- */
+@media (max-width: 639.98px) {
+  .stat-card--compacto {
+    padding: var(--esp-3);
+    min-height: 44px;
+    /* Os textos ocultos (só para leitor de tela) ancoram aqui, sem vazar para a página. */
+    position: relative;
+  }
+
+  .stat-card--compacto .stat-card__descricao,
+  .stat-card--compacto .stat-card__ver {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 </style>

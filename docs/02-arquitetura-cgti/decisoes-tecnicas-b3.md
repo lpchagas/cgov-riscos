@@ -51,7 +51,8 @@
 
 - **Cargo vago trava o fluxo** (B1.1): sem titular na chefia, o risco não sobe. A tela mostra o `motivo`, mas a solução é completar a lista de atribuições.
 - Ramo "validador sem ator efetivo" ainda sem teste nomeado; errata dos comentários das migrações `004` e `005`; IDs fixos `10.0000`, `10.0001` e `10.0002` que o `sync:estrutura` precisa manter (ver [[decisoes-tecnicas-b1]]).
-- **Painel no celular** (etapa C) e **homologação na CGTI** (etapa D, SMTP e limites de produção).
+- ~~**Painel no celular**~~ — feito na etapa C (ver [[decisoes-tecnicas-c]]; a meta de 3.500 px não foi atingida, mediu 3.690 px).
+- **Homologação na CGTI** (etapa D, SMTP e limites de produção).
 
 ### 3.2 Adiadas na B3 (pequenas, mas que o usuário pode notar)
 

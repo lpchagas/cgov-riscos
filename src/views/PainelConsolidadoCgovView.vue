@@ -8,11 +8,19 @@
  * O Painel é uma tela de SÍNTESE, para responder em poucos segundos:
  *   "Como está o Plano de Gestão de Riscos e o que precisa de mim agora?"
  *
- * Ordem dos blocos (do mais importante para o menos importante):
+ * Ordem dos blocos NO COMPUTADOR (do mais importante para o menos importante):
  *   1. 4 indicadores (cada um abre a lista de Riscos já filtrada);
  *   2. Matriz 5×5 (Quadro 7) + "Precisa da sua atenção" (muda com o perfil);
  *   3. Maiores riscos residuais + distribuição por nível + resumo da DAR
  *      + atividade recente.
+ *
+ * NO CELULAR (largura até 639,98 px) o Painel fica mais curto:
+ *   - "Precisa da sua atenção" sobe para logo depois dos indicadores. Isso é só
+ *     visual (`order` no CSS): a ordem do HTML, lida por teclado e leitor de
+ *     tela, continua a mesma do computador;
+ *   - "Maiores riscos residuais" mostra só 3 linhas, com botão "Mostrar mais N";
+ *   - "Riscos por nível residual", "Apetite a riscos (DAR)" e "Atividade recente"
+ *     viram blocos recolhidos (componente `BlocoRecolhivel`).
  *
  * O QUE SAIU DAQUI (e para onde foi), na reformulação da Fase 2:
  *   - a carteira completa, com KRIs e planos dentro de cada card → página Riscos
@@ -25,6 +33,7 @@
  * valores que a calculadora oficial gravou nas fichas (ver `painelResumo.ts`).
  */
 import { computed, ref, watch } from 'vue';
+import { useCelular } from '../composables/useCelular';
 import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useAuthStore } from '../stores/authStore';
@@ -48,6 +57,7 @@ import {
 } from '../utils/painelResumo';
 import PageHeader from '../components/ui/PageHeader.vue';
 import StatCard from '../components/ui/StatCard.vue';
+import BlocoRecolhivel from '../components/ui/BlocoRecolhivel.vue';
 import type { ColunaTabela } from '../components/ui/tipos';
 import DataTable from '../components/ui/DataTable.vue';
 import RiskBadge from '../components/ui/RiskBadge.vue';
@@ -62,6 +72,8 @@ import MatrizCalorAssimetrica from '../components/radar/MatrizCalorAssimetrica.v
 const route = useRoute();
 const riscosStore = useRiscosStore();
 const authStore = useAuthStore();
+/** `true` quando a janela é de celular (mesma largura do CSS: até 639,98 px). */
+const celular = useCelular();
 
 // ---------------------------------------------------------------------------
 // PERFIL (demonstração): o mesmo simulador do menu do usuário, aqui à mão
@@ -150,6 +162,17 @@ const ICONE_ATENCAO: Record<TipoItemAtencao, string> = {
 // ---------------------------------------------------------------------------
 const maiores = computed(() => maioresRiscosResiduais(riscos.value, 5));
 
+/**
+ * No CELULAR a tabela de maiores riscos mostra só os 3 primeiros (já vêm do
+ * maior para o menor residual). Se houver mais de 3, aparece o botão
+ * "Mostrar mais N". No computador a lista é sempre inteira (até 5).
+ */
+const LIMITE_MAIORES_CELULAR = 3;
+const verTodosMaiores = ref(false);
+const maioresVisiveis = computed(() =>
+  celular.value && !verTodosMaiores.value ? maiores.value.slice(0, LIMITE_MAIORES_CELULAR) : maiores.value
+);
+
 const colunasMaiores: ColunaTabela<FichaRisco>[] = [
   { chave: 'codigoRadar', rotulo: 'Código' },
   { chave: 'nomeObjetoCache', rotulo: 'Objeto de gestão' },
@@ -236,6 +259,7 @@ watch(
         :valor="riscos.length"
         :descricao="`${noPlano} já ${noPlano === 1 ? 'integrado' : 'integrados'} ao Plano de Gestão de Riscos`"
         :para="{ name: 'riscos-lista' }"
+        compacto
       />
       <StatCard
         rotulo="Críticos"
@@ -243,6 +267,7 @@ watch(
         tom="perigo"
         descricao="Residual acima do apetite da DAR"
         :para="{ name: 'riscos-lista', query: { critico: 'sim' } }"
+        compacto
       />
       <StatCard
         rotulo="Aguardando validação"
@@ -250,6 +275,7 @@ watch(
         tom="info"
         descricao="Com a Coordenação-Geral (2º degrau)"
         :para="{ name: 'riscos-lista', query: { status: 'em_validacao_cg' } }"
+        compacto
       />
       <StatCard
         rotulo="Aguardando homologação"
@@ -257,6 +283,7 @@ watch(
         tom="aviso"
         descricao="Com a Diretoria (3º degrau)"
         :para="{ name: 'riscos-lista', query: { status: 'em_homologacao_dir' } }"
+        compacto
       />
     </section>
 
@@ -320,7 +347,7 @@ watch(
         </div>
       </section>
 
-      <section class="cartao painel__lateral" aria-labelledby="titulo-atencao">
+      <section class="cartao painel__lateral painel__atencao" aria-labelledby="titulo-atencao">
         <div class="cartao__cabecalho">
           <h2 id="titulo-atencao" class="cartao__titulo">Precisa da sua atenção</h2>
           <Chip v-if="atencao.length" tom="info">
@@ -380,9 +407,11 @@ watch(
           </RouterLink>
         </div>
 
+        <!-- O `id` é o alvo do `aria-controls` do botão "Mostrar mais" -->
+        <div id="tabela-maiores">
         <DataTable
           :colunas="colunasMaiores"
-          :linhas="maiores"
+          :linhas="maioresVisiveis"
           chave-linha="id"
           legenda="Os riscos com maior nível residual"
           :tamanho-pagina="5"
@@ -412,11 +441,31 @@ watch(
             <EmptyState titulo="Nenhum risco cadastrado" descricao="Comece pelo botão Novo risco, no menu." />
           </template>
         </DataTable>
+        </div>
+
+        <!-- Só no celular, e só se houver mais de 3 riscos para mostrar -->
+        <button
+          v-if="celular && maiores.length > LIMITE_MAIORES_CELULAR"
+          type="button"
+          class="painel__maiores-mais"
+          aria-controls="tabela-maiores"
+          :aria-expanded="verTodosMaiores"
+          @click="verTodosMaiores = !verTodosMaiores"
+        >
+          <i :class="verTodosMaiores ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down'" aria-hidden="true"></i>
+          {{ verTodosMaiores ? 'Mostrar menos' : `Mostrar mais ${maiores.length - LIMITE_MAIORES_CELULAR}` }}
+        </button>
       </section>
 
       <div class="painel__lateral painel__pilha">
-        <section class="cartao" aria-labelledby="titulo-distribuicao">
-          <h2 id="titulo-distribuicao" class="cartao__titulo cartao__titulo--sozinho">Riscos por nível residual</h2>
+        <!-- No celular os três blocos abaixo começam recolhidos (ver BlocoRecolhivel). -->
+        <BlocoRecolhivel id="bloco-nivel" titulo="Riscos por nível residual" class="cartao">
+          <!--
+            O espaço sob o título fica num <div> à parte, e não na própria <ul class="barras">:
+            `.barras { margin: 0 }` tem a mesma especificidade de `.painel__corpo-bloco` e vem
+            DEPOIS no CSS, então venceria e zeraria o espaço (em CSS, empatou, vale a última regra).
+          -->
+          <div class="painel__corpo-bloco">
           <ul class="barras">
             <li v-for="faixa in distribuicao" :key="faixa.classe" class="barras__linha">
               <span class="barras__rotulo">
@@ -433,14 +482,14 @@ watch(
               <strong class="barras__numero radar-numero">{{ faixa.quantidade }}</strong>
             </li>
           </ul>
-        </section>
-
-        <section class="cartao" aria-labelledby="titulo-dar">
-          <div class="cartao__cabecalho">
-            <h2 id="titulo-dar" class="cartao__titulo">Apetite a riscos (DAR)</h2>
-            <RouterLink :to="{ name: 'dar-apetite' }" class="link-acao">Abrir DAR</RouterLink>
           </div>
-          <p class="painel__texto">
+        </BlocoRecolhivel>
+
+        <BlocoRecolhivel id="bloco-dar" titulo="Apetite a riscos (DAR)" class="cartao">
+          <template #acao>
+            <RouterLink :to="{ name: 'dar-apetite' }" class="link-acao">Abrir DAR</RouterLink>
+          </template>
+          <p class="painel__texto painel__corpo-bloco">
             {{ dar.totalCategorias }} categorias ·
             <strong>{{ dar.baixo }}</strong> com apetite <strong>Baixo</strong> (até 5) ·
             <strong>{{ dar.moderado }}</strong> <strong>Moderado</strong> (até 10) ·
@@ -449,13 +498,14 @@ watch(
           <p class="painel__dica">
             A calibragem do apetite fica na página da DAR, com prévia do impacto antes de confirmar.
           </p>
-        </section>
+        </BlocoRecolhivel>
 
-        <section class="cartao" aria-labelledby="titulo-atividade">
-          <div class="cartao__cabecalho">
-            <h2 id="titulo-atividade" class="cartao__titulo">Atividade recente</h2>
+        <!-- A atividade é lida mesmo com o bloco recolhido (o `watch` acima não depende dele). -->
+        <BlocoRecolhivel id="bloco-atividade" titulo="Atividade recente" class="cartao">
+          <template #acao>
             <RouterLink :to="{ name: 'trilha-auditoria' }" class="link-acao">Auditoria</RouterLink>
-          </div>
+          </template>
+          <div class="painel__corpo-bloco">
           <EstadoCarregamento
             :estado="estadoAtividade"
             :erro="erroAtividade"
@@ -475,7 +525,8 @@ watch(
           </ol>
           <p v-else class="painel__dica">Nenhuma movimentação registrada ainda.</p>
           </EstadoCarregamento>
-        </section>
+          </div>
+        </BlocoRecolhivel>
       </div>
     </div>
     </template>
@@ -720,6 +771,33 @@ watch(
   background: var(--superficie-alta);
 }
 
+/* Botão "Mostrar mais" dos Maiores riscos: igual ao da Atenção, só no celular. */
+.painel__maiores-mais {
+  display: none;
+  align-items: center;
+  gap: var(--esp-2);
+  min-height: var(--alvo-minimo);
+  margin-top: var(--esp-3);
+  padding: 0 var(--esp-3);
+  border: 1px solid var(--borda-forte);
+  border-radius: var(--raio-pilula);
+  background: transparent;
+  color: var(--texto-link);
+  font: inherit;
+  font-size: var(--texto-sm);
+  font-weight: var(--peso-semi);
+  cursor: pointer;
+}
+
+.painel__maiores-mais:hover {
+  background: var(--superficie-alta);
+}
+
+/* Espaço entre o título do bloco recolhível e o seu conteúdo (era o `cartao__cabecalho`). */
+.painel__corpo-bloco {
+  margin-top: var(--esp-4);
+}
+
 /* --- Tabela: nome do objeto + categoria -------------------------------- */
 .objeto {
   display: flex;
@@ -855,16 +933,24 @@ watch(
   }
 
   /*
-   * PAINEL MAIS CURTO NO CELULAR (Fase 4 — meta: página < 3.500 px):
+   * PAINEL MAIS CURTO NO CELULAR (etapa C):
+   * - "Precisa da sua atenção" sobe para antes da Matriz, logo depois dos
+   *   indicadores (`order: -1` dentro da grade `.painel__dupla`). É só visual:
+   *   o HTML não muda de ordem;
+   * - "Maiores riscos": só 3 linhas (o corte é feito no script, `maioresVisiveis`);
    * - "Precisa da sua atenção": só os 3 primeiros itens até a pessoa tocar em
    *   "Mostrar mais" (o 4 de `n + 4` = LIMITE_ATENCAO_CELULAR + 1);
    * - "Atividade recente": só os 2 eventos mais novos — o histórico inteiro
    *   está a um toque, no link "Auditoria" do cabeçalho do cartão.
    */
+  .painel__atencao {
+    order: -1;
+  }
   .atencao:not(.atencao--aberta) .atencao__item:nth-child(n + 4) {
     display: none;
   }
-  .atencao__mais {
+  .atencao__mais,
+  .painel__maiores-mais {
     display: inline-flex;
   }
   .linha-tempo li:nth-child(n + 3) {
@@ -872,6 +958,30 @@ watch(
   }
   .linha-tempo li:nth-child(2)::after {
     display: none;
+  }
+
+  /*
+   * ALVOS DE TOQUE DE 44 px (WCAG 2.5.5 / diretriz de toque de celulares):
+   * dedo é bem mais largo que o ponteiro do mouse. Links, botões e o seletor
+   * "Ver como" ganham altura (e largura) mínima de 44 px. O texto fica
+   * centralizado na vertical com `inline-flex` + `align-items: center`.
+   * EXCEÇÃO deliberada: links dentro de frase (`.painel__dica a`) ficam como
+   * estão — a WCAG 2.5.8 isenta links em texto corrido.
+   */
+  .painel {
+    --alvo-toque: 44px;
+  }
+  .link-acao,
+  .codigo,
+  .atencao__mais,
+  .painel__maiores-mais,
+  .painel__perfil-select {
+    min-height: var(--alvo-toque);
+    min-width: var(--alvo-toque);
+  }
+  .codigo {
+    display: inline-flex;
+    align-items: center;
   }
 }
 </style>
