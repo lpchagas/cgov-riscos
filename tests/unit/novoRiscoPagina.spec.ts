@@ -23,7 +23,9 @@ import type { FonteDados } from '../../src/services/dados/tipos';
 import { ErroRadar } from '../../src/services/dados/errosBanco';
 import { useToast } from '../../src/composables/useToast';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
-import { dadosExemplo, dadosVazios, validarEtapa } from '../../src/utils/formularioRisco';
+import { dadosDeRisco, dadosExemplo, dadosParaFicha, dadosVazios, validarEtapa } from '../../src/utils/formularioRisco';
+import type { FichaRisco } from '../../src/types/radar.types';
+import BrBreadcrumb from '../../src/components/govbr/BrBreadcrumb.vue';
 import FormularioRiscoView from '../../src/views/FormularioRiscoView.vue';
 
 const CATEGORIAS = CATEGORIAS_QUADRO_2_SEMENTE;
@@ -52,6 +54,33 @@ describe('validarEtapa', () => {
   it('evidência marcada exige dizer onde ela está', () => {
     const d = { ...dadosExemplo(), eficacia: 'Forte' as const, descricaoControle: 'Dupla checagem', possuiEvidencia: true };
     expect(validarEtapa(3, d, CATEGORIAS).evidenciaControle).toBeDefined();
+  });
+});
+
+describe('dadosParaFicha (edição)', () => {
+  it('2 controles: o 1º recebe a edição (mesmo id); o 2º vai intacto, com o seu id', () => {
+    const c1 = { id: 'c1', descricaoControle: 'Dupla checagem', evidenciaFuncionamento: 'SEI 1', possuiEvidenciaComprovada: true, desenhoAdequado: true, operacaoComprovada: false };
+    const c2 = { id: 'c2', descricaoControle: 'Checklist', evidenciaFuncionamento: 'SEI 2', possuiEvidenciaComprovada: false, desenhoAdequado: false, operacaoComprovada: false };
+    const existente = {
+      id: 'r1', objetoId: 'o1', controlesExistentes: [c1, c2], respostasTratamento: [], kris: [],
+      causas: 'a', eventoRisco: 'b', consequencias: 'c', objetivoAfetado: 'd', categoriaId: 2,
+      probabilidade: 3, impacto: 4, nivelEficaciaControle: 'Mediano', possuiEvidenciaControle: true, estrategiaPrincipal: 'Aceitar',
+    } as unknown as FichaRisco;
+    const d = { ...dadosDeRisco(existente), descricaoControle: 'Dupla checagem com assinatura' };
+    const parcial = dadosParaFicha(d, { ehIntegridade: false, existente });
+    expect(parcial.id).toBe('r1');
+    expect(parcial.controlesExistentes).toEqual([
+      { ...c1, descricaoControle: 'Dupla checagem com assinatura' }, // id c1, desenho/operação preservados
+      c2,
+    ]);
+  });
+
+  it('risco novo: filhos sem id (vazio) e objeto escolhido', () => {
+    const parcial = dadosParaFicha({ ...dadosExemplo('obj-1'), descricaoControle: 'X' }, { ehIntegridade: false });
+    expect(parcial.objetoId).toBe('obj-1');
+    expect(parcial.controlesExistentes![0].id).toBe('');
+    expect(parcial.respostasTratamento![0].id).toBe('');
+    expect(parcial.kris![0].id).toBe('');
   });
 });
 
@@ -300,5 +329,59 @@ describe('Página Novo risco', () => {
       expect(w.find('[role="status"]').text()).toContain('Carregando');
       w.unmount();
     });
+  });
+
+  describe('Edição: KRI com medições', () => {
+    afterEach(() => definirFonteParaTeste(null));
+
+    it('apagar o nome do KRI com medições exige confirmação antes de salvar', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      const id = 'risco-socio-03';
+      const n = store.obterRiscoPorId(id)!.kris[0].medicoes.length;
+      expect(n).toBeGreaterThan(0);
+
+      const { w } = await montar(`/riscos/novo?editar=${id}`);
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      const kri = w.findAll('input[type="text"]').find((i) => (i.element as HTMLInputElement).value === store.obterRiscoPorId(id)!.kris[0].nomeIndicador)!;
+      await kri.setValue('');
+      const medicoes = n === 1 ? '1 medição registrada' : `${n} medições registradas`;
+      expect(w.text()).toContain(`Este KRI tem ${medicoes}; ao salvar sem ele, o histórico será apagado.`);
+
+      // Sem confirmar: não grava.
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).not.toHaveBeenCalled();
+
+      // Confirmando: grava sem o KRI.
+      await w.find('#confirma-apagar-medicoes').setValue(true);
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      expect(salvarFicha.mock.calls[0][0].kris).toHaveLength(0); // a semente tem 1 KRI neste risco
+      w.unmount();
+    });
+  });
+
+  it('a trilha (breadcrumb) diz "Editar risco" no modo edição', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', name: 'painel-cgov', component: { template: '<div />' } },
+        { path: '/riscos', name: 'riscos-lista', component: { template: '<div />' } },
+        { path: '/riscos/novo', name: 'novo-risco', component: { template: '<div />' }, meta: { titulo: 'Novo risco', migalhaPai: { rotulo: 'Riscos', nome: 'riscos-lista' } } },
+      ],
+    });
+    router.push('/riscos/novo?editar=risco-socio-03');
+    await router.isReady();
+    const w = mount(BrBreadcrumb, { global: { plugins: [router] } });
+    expect(w.find('[aria-current="page"]').text()).toBe('Editar risco');
+    await router.push('/riscos/novo');
+    await flushPromises();
+    expect(w.find('[aria-current="page"]').text()).toBe('Novo risco');
   });
 });

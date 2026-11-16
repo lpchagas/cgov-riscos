@@ -18,6 +18,7 @@ import { createRouter, createMemoryHistory } from 'vue-router';
 import { definirFonteParaTeste, useRiscosStore } from '../../src/stores/riscosStore';
 import { criarFonteDemonstracao } from '../../src/services/dados';
 import type { FonteDados } from '../../src/services/dados/tipos';
+import { useToast } from '../../src/composables/useToast';
 import ImportadorSkillView from '../../src/views/ImportadorSkillView.vue';
 
 async function montar() {
@@ -110,15 +111,37 @@ describe('Página Importar riscos', () => {
     expect(valores.sort()).toEqual(store.objetosContexto.filter((o) => o.unidadeAtiva).map((o) => o.id).sort());
   });
 
-  it('sem objeto escolhido, "Importar" fica bloqueado com mensagem de campo', async () => {
+  it('sem objeto escolhido, "Importar" não grava e mostra a mensagem de campo (só depois da tentativa)', async () => {
+    const store = useRiscosStore();
+    const antes = store.riscos.length;
     const { w } = await montar();
     await botao(w, 'Usar tabela de exemplo').trigger('click');
     await botao(w, 'Ver prévia').trigger('click');
-    expect(botao(w, 'Importar 2 riscos').attributes('disabled')).toBeDefined();
+    // Antes de tentar: nenhum erro de campo.
+    expect(w.text()).not.toContain('Escolha o objeto de destino');
+    await botao(w, 'Importar 2 riscos').trigger('click');
+    await flushPromises();
+    expect(store.riscos.length).toBe(antes);
     expect(w.find('select').attributes('aria-invalid')).toBe('true');
-    expect(w.text()).toContain('Escolha o objeto de destino');
+    expect(w.text()).toContain('Escolha o objeto de destino para importar.');
     await escolherObjeto(w);
-    expect(botao(w, 'Importar 2 riscos').attributes('disabled')).toBeUndefined();
+    expect(w.text()).not.toContain('Escolha o objeto de destino para importar.');
+  });
+
+  it('falha inesperada na importação mostra a mensagem traduzida (sem texto técnico)', async () => {
+    const store = useRiscosStore();
+    store.importarMarkdownDaSkill = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const { w } = await montar();
+    await botao(w, 'Usar tabela de exemplo').trigger('click');
+    await botao(w, 'Ver prévia').trigger('click');
+    await escolherObjeto(w);
+    await botao(w, 'Importar 2 riscos').trigger('click');
+    await flushPromises();
+    const { toasts } = useToast();
+    const ultima = toasts.value[toasts.value.length - 1];
+    expect(ultima.tom).toBe('perigo');
+    expect(ultima.mensagem).not.toContain('Failed to fetch');
+    expect(ultima.mensagem.length).toBeGreaterThan(0);
   });
 
   describe('importação parcial', () => {
@@ -157,6 +180,51 @@ describe('Página Importar riscos', () => {
       expect(resultado.text()).not.toMatch(/row-level|security policy/);
       // Fica na página para a CGOV ver o que faltou.
       expect(router.currentRoute.value.name).toBe('importar-skill');
+
+      // Importar TUDO de novo duplicaria as 4 que entraram: o botão fica desligado.
+      expect(botao(w, 'Importar 5 riscos').attributes('disabled')).toBeDefined();
+      // Nova tentativa SÓ da recusada (agora a fonte aceita).
+      const tentar = botao(w, 'Importar de novo só as recusadas (1)');
+      await tentar.trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(6);
+      expect(salvarFicha.mock.calls[5][0].causas).toContain('causa 3');
+      expect(store.riscos.length).toBe(antes + 5);
+      expect(router.currentRoute.value.name).toBe('riscos-lista');
+    });
+
+    it('mudar o texto depois de uma importação parcial descarta o resultado', async () => {
+      const base = criarFonteDemonstracao('normal');
+      let chamada = 0;
+      const salvarFicha = vi.fn(async (f: Parameters<FonteDados['salvarFicha']>[0]) => {
+        chamada++;
+        if (chamada % 3 === 2) throw { code: '42501', message: 'rls' }; // recusa a 2ª linha de cada tentativa
+        return base.salvarFicha(f);
+      });
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+
+      const { w } = await montar();
+      await w.find('textarea').setValue(tabelaCom(3));
+      await botao(w, 'Ver prévia').trigger('click');
+      await escolherObjeto(w);
+      await botao(w, 'Importar 3 riscos').trigger('click');
+      await flushPromises();
+      expect(w.find('.resultado').exists()).toBe(true);
+
+      // Ver a prévia de novo: resultado some e o botão de importar tudo volta.
+      await botao(w, 'Ver prévia').trigger('click');
+      expect(w.find('.resultado').exists()).toBe(false);
+      expect(botao(w, 'Importar 3 riscos').attributes('disabled')).toBeUndefined();
+
+      // Mudar o texto: a prévia (e o resultado) somem.
+      await botao(w, 'Importar 3 riscos').trigger('click');
+      await flushPromises();
+      expect(w.find('.resultado').exists()).toBe(true);
+      await w.find('textarea').setValue(tabelaCom(2));
+      expect(w.find('.resultado').exists()).toBe(false);
+      expect(w.findAll('button').some((b) => b.text().includes('recusadas'))).toBe(false);
     });
   });
 });

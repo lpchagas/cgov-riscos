@@ -578,31 +578,42 @@ export const useRiscosStore = defineStore('riscos', () => {
    * Lê a tabela Markdown da skill `cgov-gestao-riscos-v4` e grava cada linha
    * como risco PRELIMINAR da CGOV no objeto escolhido. Uma linha recusada não
    * impede as outras: o motivo vai para `erros`.
-   * Ex.: { importados: 2, total: 3, avisos: [], erros: ['Linha 3 (RADAR-2026-009): Você não tem permissão…'] }
+   * Ex.: { importados: 2, total: 3, avisos: [], erros: ['Linha 3 (RADAR-2026-009): Você não tem permissão…'], recusadas: [2] }
+   *
+   * `recusadas` são as posições (0 = 1ª linha) das linhas que o RADAR recusou.
+   * Para tentar de novo SÓ essas (sem duplicar as que já entraram), a tela
+   * chama outra vez passando `somenteLinhas`:
+   *   await importarMarkdownDaSkill(md, 'obj-1', [2]);  // grava só a 3ª linha
+   * Nesse caso `total` é o número de linhas tentadas (ex.: 1).
    */
   async function importarMarkdownDaSkill(
     markdown: string,
-    objetoId: string
-  ): Promise<{ importados: number; total: number; avisos: string[]; erros: string[] }> {
+    objetoId: string,
+    somenteLinhas?: number[]
+  ): Promise<{ importados: number; total: number; avisos: string[]; erros: string[]; recusadas: number[] }> {
     const lido = importarTabelaMarkdownSkill(markdown);
     if (lido.erros.length > 0) {
-      return { importados: 0, total: lido.fichas.length, avisos: lido.avisos, erros: lido.erros };
+      return { importados: 0, total: lido.fichas.length, avisos: lido.avisos, erros: lido.erros, recusadas: [] };
     }
 
+    // Quais linhas gravar: todas, ou só as pedidas (nova tentativa das recusadas).
+    const alvo = [...lido.fichas.entries()].filter(([i]) => !somenteLinhas || somenteLinhas.includes(i));
     const erros: string[] = [];
+    const recusadas: number[] = [];
     const novos: string[] = [];
-    for (const [i, item] of lido.fichas.entries()) {
+    for (const [i, item] of alvo) {
       try {
         const { id } = await fonte().salvarFicha(fichaDaSkillParaSalvar(item, categorias.value, objetoId));
         novos.push(id);
       } catch (e) {
         erros.push(`Linha ${i + 1} (${item.codigoRadar}): ${comoErroRadar(e).message}`);
+        recusadas.push(i);
       }
     }
     // Relê na ordem inversa: o primeiro da tabela fica no topo da lista.
     // (Releitura que falha não desfaz a importação: vira `avisoAtualizacao`.)
     await relerDepoisDaAcao([...novos].reverse());
-    return { importados: novos.length, total: lido.fichas.length, avisos: lido.avisos, erros };
+    return { importados: novos.length, total: alvo.length, avisos: lido.avisos, erros, recusadas };
   }
 
   // ---------------------------------------------------------------------------

@@ -172,6 +172,23 @@ describe('fichaParaJson', () => {
     expect(resposta.acao_o_que).toBe(fixture.respostas[0].acao_o_que);
   });
 
+  it('filho com id vazio (criado na edição da ficha) vai SEM id: a fonte cria um novo', () => {
+    // Situação real: na edição, a pessoa escreve um controle onde não havia nenhum.
+    // O formulário não inventa id (um id provisório quebraria o ::uuid do banco).
+    const ficha = fichaDaFixture();
+    ficha.controlesExistentes = [{ ...ficha.controlesExistentes[0], id: '' }];
+    ficha.respostasTratamento = [{ ...ficha.respostasTratamento[0], id: '' }];
+    ficha.kris = [{ ...ficha.kris[0], id: '' }];
+    const pacote = fichaParaSalvarDeRisco(ficha);
+    expect(pacote.controles![0].id).toBeUndefined();
+    expect(pacote.respostas![0].id).toBeUndefined();
+    expect(pacote.kris![0].id).toBeUndefined();
+    const json = fichaParaJson(pacote);
+    for (const grupo of ['controles', 'respostas', 'kris']) {
+      expect((json[grupo] as Array<Record<string, unknown>>)[0]).not.toHaveProperty('id');
+    }
+  });
+
   it('omite grupo de filhos ausente (= não mexer) e manda lista vazia quando pedida', () => {
     const json = fichaParaJson({ objetoId: 'obj-1', causas: 'x', controles: [] });
     expect(json).toEqual({ objeto_id: 'obj-1', causas: 'x', controles: [] });

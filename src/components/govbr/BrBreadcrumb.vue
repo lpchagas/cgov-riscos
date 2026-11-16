@@ -22,12 +22,17 @@ const riscosStore = useRiscosStore();
 
 const ehPaginaInicial = computed(() => route.name === 'painel-cgov');
 
-/** Último elo: na ficha, usa o código do risco; nas demais, o título da página. */
+/**
+ * Último elo: na ficha, usa o código do risco; no formulário em modo edição,
+ * "Editar risco"; nas demais, o título da página.
+ */
 const tituloAtual = computed(() => {
   if (route.name === 'ficha-bowtie-detalhe') {
     const risco = riscosStore.riscos.find((r) => r.id === route.params.id);
     if (risco) return risco.codigoRadar;
   }
+  // O formulário de "Novo risco" também edita (`/riscos/novo?editar=<id>`).
+  if (route.name === 'novo-risco' && route.query.editar) return 'Editar risco';
   return route.meta.titulo ?? '';
 });
 </script>

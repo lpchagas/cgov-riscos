@@ -97,6 +97,25 @@ const SITUACOES_ENVIAVEIS: StatusFluxoRisco[] = ['rascunho', 'devolvido'];
 const oferecerEnvio = computed(() => !modoEdicao.value || (!!riscoEditado.value && SITUACOES_ENVIAVEIS.includes(riscoEditado.value.statusFluxo)));
 const editandoAprovado = computed(() => riscoEditado.value?.statusFluxo === 'aprovado');
 
+/**
+ * Apagar o nome do 1º KRI tira o KRI da ficha — e, no banco, as MEDIÇÕES dele
+ * vão junto (exclusão em cascata). Se houver medições, a pessoa precisa
+ * confirmar antes de salvar.
+ * Ex.: KRI com 3 medições e campo "Indicador" vazio → medicoesQueSeraoApagadas = 3.
+ */
+const medicoesQueSeraoApagadas = computed(() => {
+  const kri = riscoEditado.value?.kris[0];
+  if (!modoEdicao.value || !kri || d.value.nomeKri.trim()) return 0;
+  return kri.medicoes.length;
+});
+const confirmaApagarMedicoes = ref(false);
+const avisoMedicoes = computed(() => {
+  const n = medicoesQueSeraoApagadas.value;
+  return `Este KRI tem ${n} ${n === 1 ? 'medição registrada' : 'medições registradas'}; ao salvar sem ele, o histórico será apagado.`;
+});
+// Voltou a preencher o nome: a confirmação antiga não vale mais.
+watch(medicoesQueSeraoApagadas, (n) => { if (!n) confirmaApagarMedicoes.value = false; });
+
 /** Nome do objeto (na edição o objeto não muda: aparece só para leitura). */
 const nomeObjetoEditado = computed(() => {
   const r = riscoEditado.value;
@@ -321,6 +340,15 @@ async function salvar(enviar: boolean): Promise<void> {
     }
   }
 
+  // KRI com medições sendo retirado: só com confirmação explícita.
+  if (medicoesQueSeraoApagadas.value > 0 && !confirmaApagarMedicoes.value) {
+    etapa.value = 4;
+    await nextTick();
+    formulario.value?.querySelector<HTMLElement>('#confirma-apagar-medicoes')?.focus();
+    mostrar({ tom: 'perigo', mensagem: 'Confirme que o histórico de medições do KRI pode ser apagado, ou preencha o nome do indicador.' });
+    return;
+  }
+
   // A partir daqui a tela está "ocupada": os botões desligam na hora
   // (antes de qualquer `await`), então o 2º clique cai no `return` acima.
   salvando.value = true;
@@ -534,6 +562,14 @@ async function salvar(enviar: boolean): Promise<void> {
               <FormField rotulo="Indicador de acompanhamento (KRI)" ajuda="Opcional. Ex.: % de processos com checklist assinado." v-slot="{ attrs }">
                 <input v-bind="attrs" v-model="d.nomeKri" type="text" />
               </FormField>
+              <!-- Edição: tirar o KRI apaga as medições dele (aviso + confirmação obrigatória). -->
+              <template v-if="medicoesQueSeraoApagadas > 0">
+                <BrMessage state="warning" titulo="Histórico do KRI">{{ avisoMedicoes }}</BrMessage>
+                <label class="marcar">
+                  <input id="confirma-apagar-medicoes" v-model="confirmaApagarMedicoes" type="checkbox" />
+                  <span>Entendo que as medições serão apagadas e quero salvar sem este KRI.</span>
+                </label>
+              </template>
             </fieldset>
 
             <!-- AÇÕES -->
