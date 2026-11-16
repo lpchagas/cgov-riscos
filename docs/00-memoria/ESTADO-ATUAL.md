@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
 > **Última atualização:** 2026-11-16  
-> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** está concluída na branch `feat/c-painel-celular` (aberta no PR #8, ainda não mesclada). Próxima: D (homologação na CGTI).
+> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** foi mesclada na `main` pelo **PR #8** (merge `a127b08`, 2026-11-16). Próxima: D (homologação na CGTI).
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -71,7 +71,7 @@ Design: [[2026-11-15-varredura-a11y-design]] · Plano: [[2026-11-15-varredura-a1
 - [x] Defeito encontrado e corrigido: progresso do **Plano de ação** usava `aria-label` em `<p>` (ignorado por leitores de tela). O axe-core 4.10.3 acusa o caso; o script antigo (4.10.2) não acusava.
 - [x] Vitest restrito a `tests/unit/`. **107 testes**.
 - Só local, sem GitHub Actions. Quem vai manter: equipe técnica da CGOV.
-- **Próximas opções:** B (Supabase de verdade), C (Painel no celular, decisão da CGOV), D (homologação na CGTI).
+- **Próximas opções:** B (Supabase de verdade), D (homologação na CGTI).
 
 ## Preparação da etapa B — acesso por perfil (2026-11-15)
 - [x] Conexão com o Supabase verificada: projeto `cgov-riscos-v2.1` ativo (São Paulo, plano gratuito). O banco remoto tem 14 tabelas **vazias** de uma versão antiga, incompatíveis com as migrações do repositório, que nunca foram aplicadas. Zerar e aplicar as migrações depende de autorização.
@@ -173,7 +173,7 @@ Design: [[2026-11-16-etapa-b3-telas-banco-design]] · Plano: [[2026-11-16-etapa-
 
 ## Etapa C — Painel no celular (2026-11-16, branch `feat/c-painel-celular`)
 Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etapa-c-painel-celular-plan]] · Decisões: [[decisoes-tecnicas-c]] · Design system: [[design-system]] (seção 11)
-- **Situação: etapa C concluída na branch, ainda não mesclada na `main`.** Sem migração, sem mudança de cálculo, alcance ou RLS.
+- **Situação: etapa C concluída e mesclada na `main` (PR #8, merge `a127b08`, 2026-11-16).** Sem migração, sem mudança de cálculo, alcance ou RLS.
 - **Decisões da CGOV:** D-C1 recolher sem remover; D-C2 "Precisa da sua atenção" antes da Matriz no celular; D-C3 indicadores compactos 2×2 sem descrição.
 - **Entregas:** `useCelular` (breakpoint 639,98 px); `BlocoRecolhivel` (três resumos fechados no celular, abertos no computador); `StatCard` com `compacto`; Painel reordenado só por CSS; "Maiores riscos" com até 3 cartões e "Mostrar mais N"; alvos de toque de 44 px (inclusive o "Fundamento" do `PageHeader` compartilhado); teste de navegador `painelCelular.a11y.ts`; 390 px na varredura; Figma atualizado (quadro Trabalho do celular e componente `BlocoRecolhivel`).
 - **Altura medida do Painel em 390 px (demonstração, blocos fechados):** CGOV **3.690 px** (antes 4.104) e Gestor **3.771 px** (antes 4.185). **A meta de 3.500 px NÃO foi atingida:** ficou 190 px e 271 px acima. Sem os alvos de 44 px seria 3.537 / 3.618 px (os alvos custaram cerca de 150 px). Alvos com lado menor que 44 px: 0 (antes 14 de 49). Sem rolagem lateral.
