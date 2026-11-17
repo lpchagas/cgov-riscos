@@ -63,22 +63,34 @@ contêiner Docker descartável com a imagem `postgres:17`. Na primeira vez, o Do
 
 Faça isto **uma vez**, no computador institucional.
 
-```bash
-age-keygen -o ~/radar-chave-privada.txt    # cria o par de chaves; imprime a chave PÚBLICA (age1...)
-```
-
-1. Copie a linha `Public key: age1...` — ela vai para o `config.env` (seção 4).
-2. Abra `~/radar-chave-privada.txt`, copie o conteúdo inteiro (a linha `AGE-SECRET-KEY-...`) para o
-   **gerenciador de senhas** (ou mídia separada guardada com você). **Sem ela, nenhuma cópia pode ser
-   aberta.** Se ela se perder, todas as cópias viram lixo.
-3. Apague o arquivo do computador:
+> **Por que em `/dev/shm`?** `/dev/shm` é uma pasta que fica só na memória RAM: o que é gravado ali
+> nunca chega ao disco e some ao desligar. Na pasta de usuário (`~`), o WSL grava num disco virtual
+> com "diário" (*journaling*), e aí nem o `shred` garante que a chave privada some de verdade.
 
 ```bash
-shred -u ~/radar-chave-privada.txt         # sobrescreve e apaga o arquivo da chave privada
+age-keygen -o /dev/shm/radar-chave-privada.txt   # cria o par de chaves NA MEMÓRIA; imprime a chave PÚBLICA (age1...)
 ```
 
-Na hora de restaurar, você recria o arquivo a partir do gerenciador de senhas (seção 6) e apaga de
-novo no fim.
+1. Copie a linha `Public key: age1...` — ela vai para o `config.env` (seção 4). A chave pública não é
+   segredo.
+2. Mostre a chave privada na tela e copie a linha `AGE-SECRET-KEY-...` inteira para o **gerenciador de
+   senhas** (ou mídia separada guardada com você). **Sem ela, nenhuma cópia pode ser aberta.** Se ela
+   se perder, todas as cópias viram lixo.
+
+```bash
+cat /dev/shm/radar-chave-privada.txt             # mostra a chave privada (copie a linha AGE-SECRET-KEY-...)
+clear                                            # limpa a tela depois de copiar
+```
+
+3. Apague o arquivo da memória:
+
+```bash
+rm -f /dev/shm/radar-chave-privada.txt           # apaga a chave privada (estava só na RAM)
+```
+
+**Nunca** salve a chave privada na pasta de usuário (`~`), no repositório ou na área de trabalho do
+Windows. Na hora de restaurar, você recria o arquivo **em `/dev/shm`** a partir do gerenciador de
+senhas (seção 6) e apaga de novo no fim.
 
 ## 4. Configuração (`config.env` com permissão 600)
 
@@ -137,7 +149,7 @@ nano /dev/shm/chave.txt                    # (3) cola a chave PRIVADA do gerenci
 chmod 600 /dev/shm/chave.txt               #     só você lê
 npm run copia:restaurar -- ~/radar-copias/radar-AAAA-MM-DD.tar.age --identidade /dev/shm/chave.txt
                                            # (4) decifra em /dev/shm, restaura auth e depois public
-shred -u /dev/shm/chave.txt                # (5) apaga a chave privada
+rm -f /dev/shm/chave.txt                   # (5) apaga a chave privada (estava só na memória)
 ```
 
 O que o `copia:restaurar` faz por dentro:
@@ -215,7 +227,7 @@ Limpeza:
 
 ```bash
 rm -rf ~/radar-copias-teste                               # apaga a pasta de teste
-shred -u /dev/shm/chave-teste.txt; rm -f /dev/shm/antes.txt /dev/shm/depois.txt
+rm -f /dev/shm/chave-teste.txt /dev/shm/antes.txt /dev/shm/depois.txt   # apaga a chave de teste e as contagens (memória)
 rm ~/.config/radar-copias/config.env                      # depois crie o definitivo (seção 4)
 npm run db:reset                                          # banco local volta à demonstração
 ```
