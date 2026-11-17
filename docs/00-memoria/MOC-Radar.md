@@ -20,6 +20,8 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[decisoes-tecnicas-b2]] — Decisões técnicas da etapa B2 (B2-1 a B2-9 da CGOV e T1 a T11 da execução: link com `token_hash`, dois modos, Edge Function, importador de atribuições) e achados para a CGOV (CT Cuiabá, unidades sem titular).
 - [[decisoes-tecnicas-b3]] — Decisões técnicas da etapa B3 (B3-1 a B3-17: camada de dados, `acoes_no_fluxo`, `salvar_ficha_risco`, estados de tela) e pendências.
 - [[decisoes-tecnicas-c]] — Decisões técnicas da etapa C (Painel no celular: D-C1 a D-C3 da CGOV, calls C-1 a C-8, medição final e tabela do Code Connect) e pendências.
+- [[decisoes-tecnicas-d]] — Decisões técnicas da etapa D (piloto da Sede: D0-1 a D0-16 e decisões da execução da D1); spec: [[2026-11-17-etapa-d0-d1-piloto-sede-design]].
+- [[registro-decisao-piloto-sede]] — Modelo do Registro de Decisão do piloto (para assinatura da CGOV no SEI) e dos dois avisos (encarregado de dados e CGTI).
 - [[2026-11-16-etapa-c-painel-celular-design]] — Design da etapa C (Painel no celular); plano: [[2026-11-16-etapa-c-painel-celular-plan]].
 - [[2026-11-16-etapa-b3-telas-banco-design]] — Design da etapa B3 (telas lendo e gravando no banco); plano: [[2026-11-16-etapa-b3-telas-banco-plan]].
 - [[guia-computador-de-trabalho]] — Montar o computador de trabalho (Windows + WSL + Docker Engine) e a rotina de trocar entre o computador institucional e o de casa (etapa D1).
