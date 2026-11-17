@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "description": "Sistema Web de Gestão de Riscos do ICMBio — RADAR (Rede de Avaliação, Diagnóstico e Ação em Riscos)",
   "scripts": {
     "dev": "vite",
@@ -17,7 +20,8 @@
     "db:reset": "supabase db reset && npm run sync:estrutura -- --sim && docker exec -i supabase_db_cgov-riscos psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/seed-demonstracao.sql",
     "test:db": "supabase test db",
     "sync:estrutura": "vite-node scripts/sync-estrutura/index.ts",
-    "sync:atribuicoes": "vite-node scripts/sync-atribuicoes/index.ts"
+    "sync:atribuicoes": "vite-node scripts/sync-atribuicoes/index.ts",
+    "verificar:ambiente": "vite-node scripts/verificar-ambiente/index.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.6.0",
