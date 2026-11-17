@@ -57,8 +57,14 @@ RUN npm run conferir:dist
 # ------------------------------------------------------------------------------
 FROM nginx:1.27-alpine AS servidor-producao
 
-# Copia a configuração customizada do Nginx para Single-Page Application (Vue Router):
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Configuração do Nginx para Single-Page Application (Vue Router), como TEMPLATE:
+# ao iniciar, a imagem oficial troca ${RADAR_SUPABASE_ORIGEM} pelo valor do ambiente
+# (envsubst) e gera /etc/nginx/conf.d/default.conf com os cabeçalhos de segurança (CSP).
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+
+# Endereço do Supabase liberado na CSP (connect-src). Vazio = modo demonstração.
+# Em modo real, informe ao rodar: docker run -e RADAR_SUPABASE_ORIGEM=https://xxx.supabase.co ...
+ENV RADAR_SUPABASE_ORIGEM=""
 
 # Copia apenas os arquivos estáticos prontos da Etapa 1 para a pasta pública do Nginx:
 COPY --from=construtor /app/dist /usr/share/nginx/html

@@ -22,7 +22,8 @@
     "sync:estrutura": "vite-node scripts/sync-estrutura/index.ts",
     "sync:atribuicoes": "vite-node scripts/sync-atribuicoes/index.ts",
     "verificar:ambiente": "vite-node scripts/verificar-ambiente/index.ts",
-    "conferir:dist": "vite-node scripts/conferir-dist/index.ts"
+    "conferir:dist": "vite-node scripts/conferir-dist/index.ts",
+    "conferir:csp": "vite-node scripts/conferir-csp/index.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.6.0",
