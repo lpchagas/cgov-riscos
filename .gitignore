@@ -31,3 +31,6 @@ _temp/
 
 # Variáveis do perfil real-local do container (contém a chave anon local; nunca versionar)
 .env.conteiner-local
+
+# Pacote de publicação gerado localmente (Power Pages)
+publicacao/
