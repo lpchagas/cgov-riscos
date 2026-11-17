@@ -68,6 +68,15 @@ PS> wsl --shutdown
 
 Desliga o WSL por completo para que a configuração valha. Abra o Ubuntu de novo em seguida.
 
+5. Confira se o `systemd` está ativo:
+
+```bash
+ps -p 1 -o comm=
+```
+
+Mostra o nome do primeiro programa que o Linux iniciou. Deve imprimir `systemd`; se imprimir outra
+coisa (como `init`), refaça o passo 3 e o `wsl --shutdown`.
+
 ## 3. Docker Engine no WSL
 
 > **Por que não o Docker Desktop (decisão D0-14).** O Docker Desktop exige assinatura paga em
@@ -110,25 +119,36 @@ sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin d
 Instala o Docker Engine, a linha de comando, o Buildx e o Compose.
 
 ```bash
-sudo usermod -aG docker $USER
-```
-
-Permite que o seu usuário use o Docker sem `sudo`. Feche e abra o Ubuntu para valer.
-
-```bash
 sudo systemctl enable --now docker
 ```
 
 Liga o Docker agora e faz com que ele inicie sozinho nas próximas vezes.
 
 ```bash
+sudo usermod -aG docker $USER
+```
+
+Permite que o seu usuário use o Docker sem `sudo`. Essa permissão só vale em uma nova sessão.
+
+**Passo obrigatório:** feche o Ubuntu, rode `wsl --shutdown` no PowerShell (desliga o WSL por
+completo, igual à seção 2) e abra o Ubuntu de novo. Alternativa rápida: rodar `newgrp docker` no
+terminal atual.
+
+```bash
 docker run hello-world
 ```
 
-Teste final: baixa uma imagem minúscula e imprime "Hello from Docker!". Se aparecer, o Docker
-funciona.
+Teste final, **sem `sudo`**: baixa uma imagem minúscula e imprime "Hello from Docker!". Se aparecer,
+o Docker funciona. Se aparecer "permission denied ... docker.sock", o passo de fechar e reabrir o
+Ubuntu foi pulado: faça-o e tente de novo.
 
 ## 4. Node, Git e GitHub
+
+```bash
+sudo apt install -y git curl
+```
+
+Garante que o Git e o `curl` (baixador de arquivos) estão instalados.
 
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
@@ -153,11 +173,24 @@ git config --global user.email "SEU-EMAIL-AQUI"
 
 Gravam quem assina os seus commits (as "fotografias" do código).
 
+Instale o `gh` (ferramenta de linha de comando do GitHub) pelo repositório oficial, pois o pacote
+do Ubuntu costuma ser antigo.
+
 ```bash
+sudo mkdir -p -m 755 /etc/apt/keyrings
+sudo curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg
+sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+```
+
+Cria a pasta de chaves e baixa a chave que prova que os pacotes do GitHub CLI são autênticos.
+
+```bash
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+sudo apt update
 sudo apt install -y gh
 ```
 
-Instala o `gh`, a ferramenta de linha de comando do GitHub.
+Registra o repositório oficial do GitHub CLI, atualiza a lista de programas e instala o `gh`.
 
 ```bash
 gh auth login
