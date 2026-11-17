@@ -25,7 +25,26 @@ Este repositório contém o código-fonte (Vue.js 3 + TypeScript + `@govbr-ds/co
 
 - **Commits automáticos:** faça um commit sempre que concluir uma alteração relevante (uma tarefa de plano revisada, uma correção, uma etapa de documentação), sem esperar pedido. Revoga a regra anterior de "um único commit no fim da etapa".
 - Mensagem em português, no padrão `tipo(escopo): resumo` (ex.: `feat(b2): ...`, `fix(importador): ...`, `docs(estado): ...`), terminando com a linha `Co-Authored-By` indicada pela ferramenta.
-- Nunca faça commit de `_temp/`, `.env` ou de qualquer dado pessoal. Push, merge e abertura de PR continuam dependendo de pedido explícito.
+- Nunca faça commit de `_temp/`, `.env` ou de qualquer dado pessoal. Merge, abertura de PR e push na `main` continuam dependendo de pedido explícito.
+- **Dois computadores (decisão de 2026-11-17):** o responsável trabalha ora no computador de casa, ora no desktop institucional. **No início de cada sessão**, rode `git pull --ff-only` na branch de trabalho (e `npm ci` se o `package-lock.json` mudou). **No fim de cada sessão** (ou quando o responsável disser que vai trocar de computador), faça o commit do que estiver pronto e **o push da branch de trabalho** (nunca da `main`): essa autorização é permanente. Se o pull não for "fast-forward", pare e pergunte.
+
+## Regras do piloto da Sede (etapa D, decisões de 2026-11-17)
+
+Desenho: `docs/superpowers/specs/2026-11-17-etapa-d0-d1-piloto-sede-design.md`.
+
+- Nunca abra, liste nem leia a pasta `_temp/` (dados pessoais).
+- Dados reais só existem no ambiente do piloto (nuvem), nas cópias cifradas fora do repositório e em `_temp/` quando for preciso importar: nunca no repositório, nos testes, nas capturas, no Figma nem nos documentos. Testes, desenvolvimento e varredura continuam com dados de demonstração (`@radar.test`). Até o encerramento da D5, os dados reais podem existir nos dois computadores do responsável; depois, só no desktop institucional.
+- Nenhum e-mail do sistema a servidores do ICMBio antes da aprovação da CGTI. Em desenvolvimento, só o Mailpit (porta 54324). Envio real só para o responsável, com o aval dele.
+- Na nuvem, nada sem autorização explícita **a cada passo**: aplicar no banco, publicar Edge Function ou front, criar contas, mudar plano, Auth ou segredos. Nos planos, esses passos vêm marcados com **[AUTORIZAÇÃO]**: pare neles e peça.
+- Não altere cálculo (Quadros 6, 7 e 8; `calculadoraRiscoRadar.ts`; trigger do banco), alcance, RLS ou fluxo sem perguntar. Migração nova só se o plano da etapa a autorizar.
+- Registro de Decisão da CGOV assinado antes da primeira carga de dados reais; retenção máxima de 6 meses.
+
+## Forma de trabalhar com o responsável
+
+- O responsável é iniciante em programação: explique em linguagem simples e comente o código de forma didática.
+- Decisões que cabem a ele: perguntas de múltipla escolha (ferramenta de perguntas interativas), com a opção recomendada em primeiro lugar e marcada "(Recomendado)".
+- Base normativa dos fluxos: as minutas da Política (SEI `024241420`) e da Metodologia (SEI `024421455`) até a publicação; depois, revisão sistêmica das regras.
+- No fim de cada conversa, proponha um prompt curto para continuar o trabalho (neste chat ou num novo).
 
 ## Regras do Figma — biblioteca de componentes "RADAR — Painel" (decisão do responsável, 2026-11-16)
 

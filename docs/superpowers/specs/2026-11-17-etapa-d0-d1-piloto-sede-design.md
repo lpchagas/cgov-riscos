@@ -38,7 +38,7 @@ computador local, com cópia e **restauração testadas**.
 | D0-7 | Sucesso do piloto | **Cobertura ampla da Sede em 2 a 3 meses:** riscos homologados nas 5 áreas (Presidência, DIPLAN, DIMAN, DISAT e DIBIO), com metas de tempo por degrau e de taxa de recusa no Importar. Os números entram no Registro de Decisão como proposta e são confirmados pelo responsável (ver §9). |
 | D0-8 | Onde fica a tela (front) do piloto | **Power Pages (SPA code site), se o teste do responsável mostrar que ele consegue criar um site num ambiente da Power Platform com upload de `.js` liberado; senão, Cloudflare Pages.** Em qualquer caso, o endereço fica também numa aba "Site" do Teams da Sede. Hospedar o front não expõe dados: o navegador fala direto com o Supabase. |
 | D0-9 | Ensaio no computador local | **Supabase CLI** (o mesmo `npm run db:start` de hoje) **+ container do front**. O Supabase auto-hospedado (compose oficial) fica para a D6. |
-| D0-10 | Onde ficam as cópias | Na **máquina institucional do ICMBio** do responsável (a mesma do ensaio local, WSL + Docker). Nunca em computador pessoal. |
+| D0-10 | Onde ficam as cópias | A **cópia agendada** fica só na **máquina institucional do ICMBio** do responsável (a mesma do ensaio local, WSL + Docker). Ver também D0-13. |
 | D0-11 | Conta do Cloudflare (caminho B) | **Conta do responsável**, criada com o e-mail institucional, endereço `*.pages.dev`. O Registro de Decisão e o aviso à CGTI mencionam isso. Um domínio do ICMBio fica para a D6. |
 
 ### 3.1 Análise das licenças Microsoft (registro, 2026-11-17)
@@ -235,7 +235,20 @@ Nova seção "Regras do piloto da Sede (etapa D)":
 - Proposta dos números de D0-7 (tempo por degrau e taxa de recusa) no modelo do Registro de Decisão, marcados
   como "a confirmar pelo responsável".
 
-## 10. Abordagens consideradas
+## 10. Dois computadores de trabalho (decisões de 2026-11-17, após a aprovação do desenho)
+
+O responsável recebeu um **desktop institucional** e quer trabalhar ora nele, ora no computador de casa
+(pessoal, onde o projeto foi feito até agora), sem ordem fixa.
+
+| # | Tema | Decisão |
+|---|------|---------|
+| D0-12 | Sincronização | Pelo **GitHub**. **Autorização permanente**: `git pull` no início de cada sessão e **push da branch de trabalho** (nunca a `main`) no fim. Merge, PR e push na `main` continuam só a pedido. |
+| D0-13 | Dados reais nos dois computadores | Permitidos **nos dois até o encerramento da D5** (piloto assistido). Depois, só no institucional; o responsável apaga os do computador de casa. O Registro de Decisão menciona o equipamento pessoal até essa data. A cópia agendada fica só no institucional (D0-10). |
+| D0-14 | Docker no institucional | *(minha decisão)* **Docker Engine dentro do WSL (Ubuntu)**, gratuito, em vez do Docker Desktop, cuja licença é paga para organizações do porte do ICMBio. O computador de casa continua como está. |
+| D0-15 | Ordem | *(minha decisão)* A preparação do desktop é a **Fase 0 da D1**, com plano próprio. Ela só bloqueia as tarefas da D1 que precisam da máquina institucional (cópia agendada, restauração, ensaio); as demais podem andar em qualquer computador. |
+| D0-16 | Memória do agente | A memória do Claude Code fica em cada computador e **não** vai pelo GitHub. As regras dela que valem para o projeto passam para o `AGENTS.md` (sem dados pessoais), e assim chegam aos dois computadores. |
+
+## 11. Abordagens consideradas
 
 **Plano e cópia:** (a) Pro + cópia própria: sem pausa e com backup do provedor, mas com custo e a questão de
 quem paga; (b) **gratuito + cópia diária própria (escolhida)**: custo zero, mas a restauração é manual e depende
