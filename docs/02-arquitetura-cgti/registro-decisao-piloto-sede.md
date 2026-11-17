@@ -55,9 +55,9 @@ exportação para a CGOV e **exclusão do projeto em nuvem**; as cópias cifrada
 | --- | --- |
 | Pausa do projeto por inatividade (plano gratuito) | A cópia diária acessa o banco; se não bastar, consulta leve agendada (D0-3) |
 | Ausência de backup restaurável do provedor | Cópia lógica diária **cifrada**, com **restauração testada** e repetida todo mês (D0-2) |
-| Dia com o computador desligado = dia sem cópia | Aviso quando a última cópia passar de 36 horas |
-| Dados reais em equipamento pessoal até a D5 | Disco protegido, uso restrito ao responsável técnico, apagamento ao fim da D5 |
-| Acesso indevido às fichas | RLS no banco, senha forte e bloqueio por tentativas (D2), conta de administração só do responsável |
+| Dia com o computador desligado = dia sem cópia | Risco aceito; se o agendamento for pelo `cron` do WSL (alternativa ao Agendador de Tarefas), há aviso quando a última cópia passar de 36 horas |
+| Dados reais em equipamento pessoal até a D5 | Risco aceito até o encerramento da D5; depois, o responsável técnico apaga os dados desse equipamento (D0-13) |
+| Acesso indevido às fichas | RLS no banco e conta de administração só do responsável; política de senha e bloqueio por tentativas a implantar na D2, antes da primeira carga de dados reais |
 | Envio de e-mail a servidores | **Nenhum e-mail** do sistema é enviado a servidores do ICMBio durante o piloto |
 
 ## 8. Critérios de sucesso do piloto
