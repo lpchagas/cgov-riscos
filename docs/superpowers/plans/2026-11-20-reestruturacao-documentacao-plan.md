@@ -85,7 +85,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 **Interfaces:**
 - Produces: as fontes ficam em `docs/01-normativos/revisao-2026/` com os nomes originais, e os fluxos em `docs/01-normativos/revisao-2026/fluxos-origem/`. As tarefas 4 a 7 dependem disso.
 
-- [ ] **Step 1: Responsável pelo projeto copia as fontes para o repositório.** Ou anexa o computador à sessão pelo Remote Control. Arquivos: `NT_ESTADO.md`, `contexto-revisao-politica-metodologia.md`, `Modelagem_F4_v2_e_F3_v3_2026-11-20.md`, os 3 relatórios `Saneamento_Legistica_*` e os fluxos (BPMN/imagens/PDF) da pasta `SEI_02070.001696_2026-31_gestao-riscos`.
+- [ ] **Step 1: Listar as fontes na pasta adicional do Drive** (acesso configurado na extensão do Claude Code no VS Code, decisão de 2026-11-20; a pasta do Drive é **somente leitura** para o agente) e copiá-las para o repositório depois do Step 2. Arquivos: `NT_ESTADO.md`, `contexto-revisao-politica-metodologia.md`, `Modelagem_F4_v2_e_F3_v3_2026-11-20.md`, os 3 relatórios `Saneamento_Legistica_*` e os fluxos (BPMN/imagens/PDF) da pasta `SEI_02070.001696_2026-31_gestao-riscos`.
 - [ ] **Step 2: Conferir dados pessoais antes do commit.** Rode `grep -rniE "cpf|matr[ií]cula|@icmbio\.gov\.br" docs/01-normativos/revisao-2026/`. O resultado esperado é só `planejamento@icmbio.gov.br`. Qualquer outro e-mail ou CPF deve ser removido ou o arquivo vai para `_temp/`.
 - [ ] **Step 3: Escrever o `README.md` da pasta.** Ele deve ter uma tabela `Arquivo | Origem | Data | Versão | Substitui`.
 - [ ] **Step 4: Corrigir o `ESTADO-ATUAL.md`.** Registrar que a etapa C foi mesclada pelo PR #8 (`a127b08`) e que a fase atual é "reestruturação da documentação + 4ª rodada normativa". Anunciar que a etapa D fica suspensa até a Tarefa 18.
@@ -120,7 +120,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 ### Tarefa 3: Quadro Kanban e políticas
 
 **Files:**
-- Create: `docs/90-kanban/quadro.md`, `docs/90-kanban/politicas.md`, `docs/adr/0002-gerir-trabalho-em-kanban-no-obsidian.md` (status `Proposed` até o responsável aprovar)
+- Create: `docs/90-kanban/quadro.md`, `docs/90-kanban/politicas.md`, `docs/adr/0002-gerir-trabalho-em-kanban-no-obsidian.md` (status `Accepted`: decisão do responsável em 2026-11-20, Markdown no Obsidian com o plugin Kanban)
 
 **Interfaces:**
 - Produces: as colunas abaixo, exatamente nesta grafia. As tarefas 17 e 18 criam cartões nelas.
@@ -477,6 +477,6 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 
 ## Decisões que dependem do responsável pelo projeto
 
-1. **Acesso às fontes da Tarefa 1:** copiar para o repositório ou anexar o computador à sessão (Remote Control).
-2. **Onde fica o quadro Kanban:** Markdown no Obsidian (proposto no ADR-0002) ou GitHub Projects com issues. O Markdown mantém tudo no cofre; o GitHub dá automação, mas exige conta e permissões.
+1. ~~Acesso às fontes da Tarefa 1~~ — **decidido (2026-11-20):** pasta do Drive adicionada à sessão local na extensão do Claude Code no VS Code.
+2. ~~Onde fica o quadro Kanban~~ — **decidido (2026-11-20):** Markdown no Obsidian com o plugin Kanban (ADR-0002).
 3. **Etapa D antes ou depois das lacunas normativas** (Tarefa 19, Step 2).
