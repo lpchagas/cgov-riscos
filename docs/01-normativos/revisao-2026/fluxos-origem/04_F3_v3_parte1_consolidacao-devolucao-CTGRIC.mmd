@@ -1,0 +1,25 @@
+---
+title: F3 v3, parte 1 – Consolidação, devolução e manifestação do CTGRIC
+---
+graph TD
+GAT(["Gatilho: calendário anual proposto pela CGOV ou fato que demande atualização"])
+GES["GES: comunicam os riscos críticos"]
+CGOV1["CGOV: verifica completude e consistência e consolida a DAR e o Plano único, sem prejuízo do mérito"]
+D1{"Completo e consistente?"}
+DEV["CGOV: devolve ao gestor com as pendências"]
+D2{"Gestor sanou em 10 dias úteis?"}
+RESS["CGOV: consolida com ressalva de incompletude, dá ciência à chefia e informa o CTGRIC"]
+CTG["CTGRIC: manifesta-se sobre a DAR e o Plano. AUDIT se abstém; CGOV se abstém no Plano"]
+RES["CGOV: incorpora as ressalvas. Desfavorável à integralidade segue com parecer"]
+T1(["⚠️ F5-11: prazo do Presidente para publicar não previsto. CGOV: 10 dias úteis por passo"])
+OUT(["Segue para a parte 2: deliberação do CIG"])
+GAT --> GES --> CGOV1 --> D1
+D1 -->|Sim| CTG
+D1 -->|Não| DEV --> D2
+D2 -->|Sim| CGOV1
+D2 -->|Não| RESS --> CTG
+CTG --> RES --> OUT
+CGOV1 -.-> T1
+
+classDef lacuna fill:#fff3cd,stroke:#b58900,color:#000
+class T1 lacuna

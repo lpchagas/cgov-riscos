@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
-> **Última atualização:** 2026-11-16  
-> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** foi mesclada na `main` pelo **PR #8** (merge `a127b08`, 2026-11-16). Próxima: D (homologação na CGTI).
+> **Última atualização:** 2026-11-20  
+> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** foi mesclada na `main` pelo **PR #8** (merge `a127b08`, 2026-11-16). Próxima: D (homologação na CGTI). A **D1 (piloto da Sede)** foi trazida para esta branch (merge `66f974a`) e corre em paralelo à **reestruturação da documentação em 5 níveis + 4ª rodada normativa** (plano [[2026-11-20-reestruturacao-documentacao-plan]], diagnóstico [[2026-11-20-diagnostico-documentacao-radar]]). A etapa D **não é suspensa** (diagnóstico §5.3); as lacunas normativas entram no Kanban como `#normativo`.
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -185,3 +185,7 @@ Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etap
   - `npm run test:integracao` (com `db:start` e `db:funcoes`): **5 arquivos, 29 testes passando**.
   - `npm run db:reset && npm run test:db`: **17 arquivos (`000` a `082`), 840 testes, `Result: PASS`**.
   - `git status --porcelain | grep -i '_temp'`: vazio. `git diff --stat main -- supabase/migrations`: vazio. `grep -rn "service_role\|SERVICE_ROLE" src/`: só o comentário em `src/services/supabase.ts` linha 36.
+
+## Reestruturação da documentação (2026-11-20)
+- As fontes da 4ª rodada normativa estão em `docs/01-normativos/revisao-2026/` (ver o `README.md` da pasta: cópias fiéis, somente leitura; o `NT_ESTADO.md` prevalece em conflito).
+- A revisão do diagnóstico está no §5 de [[2026-11-20-diagnostico-documentacao-radar]] (11 lacunas normativas). Plano: [[2026-11-20-reestruturacao-documentacao-plan]].

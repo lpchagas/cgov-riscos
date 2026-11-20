@@ -1,0 +1,28 @@
+---
+title: F3 v3, parte 2 – Deliberação do CIG, publicação e reapresentação
+---
+graph TD
+IN(["Entrada: DAR e Plano com a manifestação do CTGRIC"])
+CIG1{"CIG aprova a DAR?"}
+CIG2{"CIG aprova o Plano?"}
+PRES["Presidente: publica a DAR por portaria e o ato de aprovação do Plano"]
+DIV["CGOV: divulga o Plano na intranet e em transparência ativa"]
+AUD("AUDIT: ciência e avaliação independente por PAINT, fora da aprovação")
+AJU["CGOV: ajusta conforme a deliberação e reapresenta em até 30 dias"]
+D3{"Mudança substancial, nos termos do item 4.6.9?"}
+CTG["CTGRIC: nova manifestação"]
+CIGN["CIG: delibera na primeira reunião, ordinária ou extraordinária"]
+SUSP["Plano não é votado: DAR e Plano voltam à CGOV e são reapresentados juntos"]
+FIM(["Fim: DAR e Plano vigentes, segue para o monitoramento no F4"])
+IN --> CIG1
+CIG1 -->|Sim| CIG2
+CIG1 -->|Não| SUSP --> AJU
+CIG2 -->|Sim| PRES --> DIV --> FIM
+PRES -.->|Ciência| AUD
+CIG2 -->|Não| AJU
+AJU --> D3
+D3 -->|Sim| CTG --> CIGN
+D3 -->|Não| CIGN
+CIGN --> CIG1
+
+classDef lacuna fill:#fff3cd,stroke:#b58900,color:#000

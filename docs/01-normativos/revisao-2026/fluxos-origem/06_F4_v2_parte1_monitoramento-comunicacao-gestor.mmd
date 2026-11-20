@@ -1,0 +1,22 @@
+---
+title: F4 v2, parte 1 – Monitoramento e comunicação pelo gestor
+---
+graph TD
+GAT(["Gatilho: Plano aprovado, com risco crítico, medida de tratamento e KRI"])
+G1["GES: define ao menos um KRI por risco crítico, com limite de alerta e responsável"]
+G2["GES: monitora de forma contínua riscos, controles, tratamento e KRI, e registra"]
+D1{"KRI no limite de alerta, fato do item 4.7.2 ou reavaliação anual vencida?"}
+G3["GES: reavalia o risco. Piso anual; período menor a critério do gestor"]
+D2{"Há fato do item 4.7.2, inclusive materialização de risco crítico, ou resultado de alerta a comunicar?"}
+G4["GES: comunica à CGOV em até 10 dias úteis da ciência do fato ou do alerta. A comunicação do alerta supre a do 4.7.2, I a III, quando coincidirem"]
+T1(["⚠️ F4-10: prazo para definir KRI de risco que passa a ser crítico não previsto"])
+OUT(["Segue para a parte 2: CGOV recebe a comunicação"])
+GAT --> G1 --> G2 --> D1
+D1 -->|Não| G2
+D1 -->|Sim| G3 --> D2
+D2 -->|Não| G2
+D2 -->|Sim| G4 --> OUT
+G1 -.-> T1
+
+classDef lacuna fill:#fff3cd,stroke:#b58900,color:#000
+class T1 lacuna

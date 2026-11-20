@@ -1,0 +1,22 @@
+---
+title: F4 v2, parte 3 – Relatórios, avaliação gerencial anual e avaliação independente
+---
+graph TD
+IN(["Entrada: informações consolidadas pela CGOV"])
+R1["CGOV: relatório trimestral ao CTGRIC e ao CIG com carteira de riscos críticos, controles e KRI. Sem a maturidade"]
+INST["CTGRIC supervisiona o monitoramento do Plano; CIG aprecia os reportes"]
+GA(["Gatilho: avaliação anual. ⚠️ F4-17: data-base não definida"])
+A1["CGOV: avaliação gerencial anual de efetividade, adequação e maturidade"]
+A2["CGOV: relatório gerencial com recomendações ao CTGRIC e ao CIG"]
+A3["CGOV: dá ciência da avaliação gerencial à AUDIT. ⚠️ Prazo não previsto"]
+AU1["AUDIT: prioriza a avaliação independente no PAINT"]
+AU2("AUDIT: avaliação independente da eficácia, na 3ª linha")
+T3(["⚠️ F4-18: destino da avaliação independente fora do fluxo"])
+FIM(["Fim do ciclo: o monitoramento continua"])
+IN --> R1 --> INST --> FIM
+GA --> A1 --> A2 --> INST
+A2 --> A3 --> AU1 --> AU2
+AU2 -.-> T3
+
+classDef lacuna fill:#fff3cd,stroke:#b58900,color:#000
+class T3 lacuna
