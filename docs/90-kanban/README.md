@@ -5,8 +5,8 @@ métricas de fluxo.
 
 ## Arquivos previstos no plano
 
-- `quadro.md` — o quadro e as colunas.
-- `politicas.md` — regras de entrada e saída de cada coluna e limites de trabalho em andamento.
+- [[quadro]] — o quadro e as colunas.
+- [[politicas]] — regras de entrada e saída de cada coluna e limites de trabalho em andamento.
 - `dor-dod.md` — Definition of Ready e Definition of Done.
 - `metricas-fluxo.md` — tempo de ciclo, vazão e itens parados.
 
