@@ -168,12 +168,12 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 
 **Interfaces:**
 - Consumes: as fontes da Tarefa 1.
-- Produces: uma tabela `ID | Alerta | Decisão da 4ª rodada | Dispositivo (Política art./Metodologia item) | Impacto no RADAR (tabela/tela/regra) | Situação`, com os IDs F4-10 a F4-18 e F5-11 a F5-17.
+- Produces: uma tabela `ID | Alerta | Rodada | Decisão | Dispositivo (Política art./Metodologia item) | Impacto no RADAR (tabela/tela/regra) | Situação`. Situação é uma de: `resolvido no texto saneado`, `decidido, não aplicado`, `aberto`, `fora das minutas`. IDs: F1-01 a F1-05, F2-01 a F2-05, F4-01 a F4-18, F5-01 a F5-17 (com F5-01b, F5-03b, F5-08b e F5-09b) e as lacunas sistêmicas LS-01 a LS-06 da auditoria de competências (diagnóstico §5.1, A3).
 
-- [ ] **Step 1: Transcrever os 16 alertas e as decisões da 4ª rodada** de `Modelagem_F4_v2_e_F3_v3_2026-11-20.md`.
-- [ ] **Step 2: Preencher, para cada alerta, a coluna "Impacto no RADAR".** Indicar as migrações, as telas e os testes afetados, ou "nenhum", com justificativa.
-- [ ] **Step 3: Completar `matriz-regras-regime-b.md`** com os Quadros 1 a 5 e o Anexo III, a partir da Metodologia saneada. Corrigir a descrição no MOC ("Quadros 1 a 8" passa a ser verdadeira).
-- [ ] **Step 4: Validar.** Rode `grep -c "^| F[45]-" docs/01-normativos/revisao-2026/registro-alertas-f4-f5.md`. Esperado: `16`.
+- [ ] **Step 1: Transcrever os alertas e as decisões das 5 rodadas** de `Modelagem_Fluxos_Gestao_Riscos_2026-11-20.md` (F1, F2, F4-01 a F4-07), `Modelagem_F4_v2_e_F3_v3_2026-11-20.md` (F4-10 a F4-18, F5-11 a F5-17 e §11), `Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20.md` e `NT_ESTADO.md` (F5-01 a F5-10, F4-08 e F4-09) e `Auditoria_Competencias_*` (LS-01 a LS-06). Acrescentar uma seção "Para levar à PFE" com os itens do `NT_ESTADO.md` e do contexto (inclusive "supervisionar" no art. 3º, III, da Portaria 4.529/2025).
+- [ ] **Step 2: Preencher, para cada alerta, a coluna "Impacto no RADAR".** Indicar as migrações, as telas e os testes afetados, ou "nenhum", com justificativa. Atenção aos que tocam o cálculo: F2-01 (o RADAR já compara o residual), F2-02 (apetite `baixo`/`moderado`/`pendente_dar`), F2-03 (`classificar_nivel_q8` classifica abaixo de 1 como Baixo) e F2-04/LS-01 (trava de evidência sem base literal).
+- [ ] **Step 3: Completar `matriz-regras-regime-b.md`** com os Quadros 1 a 5 e o Anexo III, a partir da minuta de 15/09 (o saneamento não alterou os Quadros), e registrar os erros materiais: Anexo II "faixa 18 a 25" × Quadro 8 "> 17"; "Tabela 6/8" no lugar de Quadro; Anexo III com "Comitê Gestor" (deve ser CIG). Corrigir a descrição no MOC ("Quadros 1 a 8" passa a ser verdadeira).
+- [ ] **Step 4: Validar.** Contar os IDs nas fontes e no registro: `grep -oE "\b(F[1245]-[0-9]{2}b?|LS-0[1-6])\b" <fontes> | sort -u | wc -l` deve ser igual a `grep -cE "^\| (F[1245]-|LS-)" docs/01-normativos/revisao-2026/registro-alertas-f4-f5.md`.
 - [ ] **Step 5: Commit** `docs(normativos): alertas F4/F5 da 4ª rodada e matriz de regras completa`
 
 ### Tarefa 5: Visão de produto
@@ -195,16 +195,16 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 ### Tarefa 6: Mapa de processos e fluxos em Mermaid
 
 **Files:**
-- Create: `docs/10-nivel1-negocio/mapa-processos.md`, `docs/10-nivel1-negocio/fluxos/F-01-ciclo-gestao-riscos.md`, `F-02-validacao-aprovacao-risco.md`, `F-03-consolidacao-plano-gestao-riscos.md`, `F-04-monitoramento-relato.md`, `F-05-declaracao-apetite.md`, `F-06-avaliacao-gestao-riscos.md`
+- Create: `docs/10-nivel1-negocio/mapa-processos.md`, `docs/10-nivel1-negocio/fluxos/F1-ciclo-gestao-riscos.md`, `F2-avaliacao-tratamento.md`, `F3-aprovacao-dar-plano.md`, `F4-monitoramento-relato-avaliacao.md`, `FS-01-validacao-interna-risco.md`
 
 **Interfaces:**
 - Consumes: `fluxos-origem/` (Tarefa 1).
-- Produces: os IDs de fluxo `F-01`…`F-06`. Cada atividade recebe o ID `F-NN.AA` (ex.: `F-02.03`), que os casos de uso citam como origem.
+- Produces: os IDs **oficiais** de fluxo (diagnóstico §5.2): `F1` (v2), `F2`, `F3` (v3, partes 1 e 2; a DAR tramita com o Plano), `F4` (v2, partes 1 a 3; inclui a avaliação anual) e `FS-01` (fluxo interno do RADAR, de 3 degraus, sem base nas minutas). Cada atividade recebe o ID `Fn.NN`, com **ponto**, igual ao número do passo na tabela oficial (ex.: `F3.07` = CGOV encaminha ao CTGRIC). O hífen fica reservado aos alertas (`F4-10`). Os casos de uso citam `Fn.NN` como origem.
 
-- [ ] **Step 1: Para cada fluxo modelado, transcrever em Mermaid `flowchart TD`.** Usar um `subgraph` por raia (unidade/papel) e numerar as atividades `F-NN.AA` no rótulo. Abaixo do diagrama, montar a tabela `Atividade | Executor | Entrada | Saída | Regra (Política art./Metodologia item)`. Se o fluxo de origem não existir para algum dos 6, derivar da Metodologia saneada e marcar `> Origem: derivado do texto, sem modelagem oficial`.
+- [ ] **Step 1: Para cada fluxo oficial, copiar o diagrama do `.mmd` de `fluxos-origem/`** (não redesenhar) e montar abaixo a tabela `Atividade (Fn.NN) | Executor | Entrada | Saída | Regra (Política art./Metodologia item) | Prazo`, a partir da tabela de passos da modelagem (F3 v3 §7 e F4 v2 §2). O F1 e o F2 não têm tabela numerada: numerar pelos nós do diagrama e marcar `> Numeração atribuída nesta documentação`. O `FS-01` é derivado das migrações `20261115004`, `20261116001` e `20261116003` e da matriz P1–P8, marcado `> Origem: decisão da CGOV, sem base nas minutas (LAC-11)`.
 - [ ] **Step 2: Validar cada diagrama** com `Mermaid_Chart validate_and_render_mermaid_diagram`. Esperado: renderiza sem erro.
-- [ ] **Step 3: Escrever o `mapa-processos.md`.** Ele posiciona os 6 fluxos na Cadeia de Valor (`supabase/referencia/20261115_cadeia-valor.csv`) e no ciclo da Metodologia (itens 4.1 a 5).
-- [ ] **Step 4: Commit** `docs(nivel1): mapa de processos e fluxos F-01 a F-06 em Mermaid`
+- [ ] **Step 3: Escrever o `mapa-processos.md`.** Ele posiciona os 5 fluxos na Cadeia de Valor (`supabase/referencia/20261115_cadeia-valor.csv`) e no ciclo da Metodologia (itens 4.1 a 5), e mostra onde o `FS-01` se encaixa (antes da comunicação do 4.6.1).
+- [ ] **Step 4: Commit** `docs(nivel1): mapa de processos e fluxos oficiais F1 a F4 e FS-01`
 
 ### Tarefa 7: Lacunas entre a norma e o sistema
 
@@ -214,15 +214,20 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 **Interfaces:**
 - Produces: a tabela `LAC-NN | Dispositivo | O que a norma exige | O que o RADAR faz hoje (arquivo:linha ou "nada") | Severidade (bloqueia homologação / importante / melhoria)`.
 
-- [ ] **Step 1: Registrar no mínimo as lacunas do diagnóstico B3**, confirmadas contra o texto saneado:
-  - LAC-01: Plano de Gestão de Riscos único consolidado pela CGOV;
-  - LAC-02: aprovação pelo CIG;
-  - LAC-03: KRI com fonte, periodicidade, limites e responsável;
-  - LAC-04: comunicação tempestiva dos 5 eventos;
-  - LAC-05: relatórios periódicos ao CTGRIC/CIG;
-  - LAC-06: avaliação de maturidade (item 5).
+- [ ] **Step 1: Registrar no mínimo as 11 lacunas do diagnóstico §5.4**, já confrontadas com o texto saneado:
+  - LAC-01: Plano de Gestão de Riscos único (carteira, consolidação, devolução em 10 du, ressalva de incompletude, versões, calendário);
+  - LAC-02: manifestação do CTGRIC e deliberação do CIG (DAR antes do Plano), publicação e reapresentação;
+  - LAC-03: KRI obrigatório para risco crítico, por grupo de riscos correlatos, com consequência do alerta (a tabela `indicadores_kri` **já tem** fonte, periodicidade, limite e responsável);
+  - LAC-04: comunicação das **6** hipóteses do 4.7.2 em 10 du (a hipótese I pode ser detectada pelo `is_critico`);
+  - LAC-05: relatórios trimestrais ao CTGRIC e ao CIG (sem a maturidade);
+  - LAC-06: avaliação gerencial anual (registro e dados; atividade fora do sistema);
+  - LAC-07: revisão do Plano (decisão da CGOV em 10 du; substancial × ordinária);
+  - LAC-08: rito da DAR (hoje a CGOV altera o apetite direto em `/dar`);
+  - LAC-09: acompanhamento da carteira crítica e cobrança de pendências pela CGOV;
+  - LAC-10: reavaliação anual de todo risco registrado;
+  - LAC-11: fluxo interno de 3 degraus sem base nas minutas (decisão da CGOV).
   
-  Acrescentar as lacunas que vierem dos alertas F4/F5 (Tarefa 4) e dos fluxos (Tarefa 6).
+  Acrescentar as lacunas que vierem dos alertas (Tarefa 4) e dos fluxos (Tarefa 6).
 - [ ] **Step 2: Criar um cartão no Backlog para cada LAC**, com classe `#normativo`.
 - [ ] **Step 3: Commit** `docs(nivel1): lacunas entre a norma saneada e o sistema`
 
