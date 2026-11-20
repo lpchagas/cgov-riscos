@@ -33,16 +33,38 @@ RUN npm ci
 # Copia todo o restante do código-fonte do projeto RADAR:
 COPY . .
 
+# ---- Modo de operação (demonstração ou real) ----
+# O Vite "grava" VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY dentro do JavaScript
+# NA HORA DO BUILD. Por isso elas chegam como argumentos de build:
+#   docker build --build-arg VITE_SUPABASE_URL=... --build-arg VITE_SUPABASE_ANON_KEY=... .
+# Sem os argumentos (vazios), o app sobe em MODO DEMONSTRAÇÃO, sem banco.
+# ATENÇÃO: aqui só entra a chave "anon" (pública). NUNCA passe a service_role.
+ARG VITE_SUPABASE_URL=""
+ARG VITE_SUPABASE_ANON_KEY=""
+# ENV só existe neste estágio (`construtor`); o estágio final do Nginx não os recebe.
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+
 # Compila o TypeScript e gera o pacote de produção na pasta /app/dist:
 RUN npm run build
+
+# Trava de segurança: se o pacote contiver chave de administrador ou senha de
+# banco, o build FALHA aqui e a imagem não é criada.
+RUN npm run conferir:dist
 
 # ------------------------------------------------------------------------------
 # ETAPA 2: SERVIDOR WEB LEVE DE PRODUÇÃO (Nginx 1.27 Alpine)
 # ------------------------------------------------------------------------------
 FROM nginx:1.27-alpine AS servidor-producao
 
-# Copia a configuração customizada do Nginx para Single-Page Application (Vue Router):
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Configuração do Nginx para Single-Page Application (Vue Router), como TEMPLATE:
+# ao iniciar, a imagem oficial troca ${RADAR_SUPABASE_ORIGEM} pelo valor do ambiente
+# (envsubst) e gera /etc/nginx/conf.d/default.conf com os cabeçalhos de segurança (CSP).
+COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
+
+# Endereço do Supabase liberado na CSP (connect-src). Vazio = modo demonstração.
+# Em modo real, informe ao rodar: docker run -e RADAR_SUPABASE_ORIGEM=https://xxx.supabase.co ...
+ENV RADAR_SUPABASE_ORIGEM=""
 
 # Copia apenas os arquivos estáticos prontos da Etapa 1 para a pasta pública do Nginx:
 COPY --from=construtor /app/dist /usr/share/nginx/html

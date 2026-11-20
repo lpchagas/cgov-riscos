@@ -1,0 +1,19 @@
+# Arquivos que NÃO vão para dentro da imagem Docker (o `COPY . .` do Dockerfile
+# respeita esta lista). Sem ela, tudo seria enviado ao build.
+
+# A `_temp/` tem dados pessoais e o `.env` seria gravado no pacote pelo Vite
+# (o Vite embute no JavaScript as variáveis VITE_* que encontra no .env).
+.env
+.env.*
+_temp
+
+# Coisas que o próprio build recria ou que são só de desenvolvimento:
+node_modules
+dist
+playwright-report
+test-results
+supabase/.temp
+.git
+.superpowers
+.obsidian
+.claude

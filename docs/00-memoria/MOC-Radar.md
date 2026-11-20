@@ -4,6 +4,7 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 
 ## 📌 1. Memória Ativa do Projeto
 - [[ESTADO-ATUAL]] — O que já foi construído, status dos testes e próximos passos.
+- [[prompt-etapa-d-piloto-sede]] — Prompt de partida da etapa D (nova): piloto com dados reais só na Sede, dois ambientes e login por senha temporária; depois homologação da CGTI.
 - [[GLOSSARIO-ACESSIVEL]] — Explicação sem jargões dos termos de programação e das siglas oficiais da CGOV.
 
 ## 📜 2. Base Normativa e Regras de Cálculo (Regime B)
@@ -19,8 +20,13 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[decisoes-tecnicas-b2]] — Decisões técnicas da etapa B2 (B2-1 a B2-9 da CGOV e T1 a T11 da execução: link com `token_hash`, dois modos, Edge Function, importador de atribuições) e achados para a CGOV (CT Cuiabá, unidades sem titular).
 - [[decisoes-tecnicas-b3]] — Decisões técnicas da etapa B3 (B3-1 a B3-17: camada de dados, `acoes_no_fluxo`, `salvar_ficha_risco`, estados de tela) e pendências.
 - [[decisoes-tecnicas-c]] — Decisões técnicas da etapa C (Painel no celular: D-C1 a D-C3 da CGOV, calls C-1 a C-8, medição final e tabela do Code Connect) e pendências.
+- [[decisoes-tecnicas-d]] — Decisões técnicas da etapa D (piloto da Sede: D0-1 a D0-16 e decisões da execução da D1); spec: [[2026-11-17-etapa-d0-d1-piloto-sede-design]].
+- [[registro-decisao-piloto-sede]] — Modelo do Registro de Decisão do piloto (para assinatura da CGOV no SEI) e dos dois avisos (encarregado de dados e CGTI).
 - [[2026-11-16-etapa-c-painel-celular-design]] — Design da etapa C (Painel no celular); plano: [[2026-11-16-etapa-c-painel-celular-plan]].
 - [[2026-11-16-etapa-b3-telas-banco-design]] — Design da etapa B3 (telas lendo e gravando no banco); plano: [[2026-11-16-etapa-b3-telas-banco-plan]].
+- [[guia-supabase-nuvem]] — Levar o banco para o Supabase na nuvem (projeto `cgov-riscos-v3.0`): painel, CLI (`login`, `link`, `db push`), regras do piloto, histórico dos passos e como subir mudanças futuras (etapa D1, guia vivo).
+- [[guia-copia-restauracao]] — Cópia cifrada diária (`age`) e restauração no Supabase local (etapa D1); a primeira prova completa com o `age` ainda está pendente.
+- [[guia-computador-de-trabalho]] — Montar o computador de trabalho (Windows + WSL + Docker Engine) e a rotina de trocar entre o computador institucional e o de casa (etapa D1).
 - [[guia-supabase-local]] — Como rodar o banco local, testar com pgTAP, importar a estrutura do SharePoint e resolver os erros comuns (etapa B1); seções novas da B2: entrar localmente pelo Mailpit, Edge Function `gerenciar-acesso` e `sync:atribuicoes`.
 - [[2026-11-15-etapa-b2-login-perfis-design]] — Design da etapa B2 (login por link de e-mail e perfis); plano: [[2026-11-15-etapa-b2-login-perfis-plan]].
 - [[2026-11-15-etapa-b1-1-regras-banco-design]] — Design da etapa B1.1 (regras do banco: Presidência, objetos, preliminar da CGOV, DAR); plano: [[2026-11-15-etapa-b1-1-regras-banco-plan]]; decisões B11-1 a B11-9 em [[decisoes-tecnicas-b1]] seção 5.

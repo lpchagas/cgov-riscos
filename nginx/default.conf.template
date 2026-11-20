@@ -1,0 +1,46 @@
+# ==============================================================================
+# CONFIGURAÇÃO DO SERVIDOR WEB NGINX PARA VUE 3 SINGLE-PAGE APPLICATION (SPA)
+# ==============================================================================
+# EXPLICAÇÃO DIDÁTICA:
+# 1) Como o Vue Router controla as rotas no navegador (/novo-risco, /importar-skill),
+#    a diretiva `try_files $uri $uri/ /index.html;` garante que se o usuário
+#    atualizar a página (F5) em qualquer rota interna, o Nginx entregue o index.html
+#    sem dar erro 404!
+#
+# 2) ESTE ARQUIVO É UM "TEMPLATE" (modelo). A imagem oficial do Nginx, ao iniciar,
+#    lê tudo que está em /etc/nginx/templates/*.template, troca as variáveis de
+#    ambiente do tipo ${NOME} pelos valores reais (programa `envsubst`) e grava o
+#    resultado em /etc/nginx/conf.d/. Só são trocadas as variáveis que existem no
+#    ambiente do container; por isso o `$uri` do próprio Nginx continua intacto.
+#    Aqui usamos ${RADAR_SUPABASE_ORIGEM}: o endereço do Supabase que o navegador
+#    pode chamar (vazio = modo demonstração, sem banco).
+#
+# 3) ATENÇÃO: os `add_header` ficam TODOS aqui no nível `server`, com `always`.
+#    No Nginx, se um `location` declarar qualquer add_header próprio, ele
+#    DESCARTA os do `server`. Por isso não coloque add_header dentro de location.
+#
+# 4) O texto da CSP deve ser idêntico ao de scripts/compartilhado/csp.ts
+#    (o teste tests/unit/deployConfig.spec.ts confere).
+# ==============================================================================
+
+server {
+    listen 80;
+    server_name localhost;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Compressão Gzip para carregamento rápido em conexões remotas (ex.: Unidades de Conservação)
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cabeçalhos de segurança recomendados para avaliação da CGTI
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # Política de Segurança de Conteúdo (CSP): de onde o navegador pode carregar recursos.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdngovbr-ds.estaleiro.serpro.gov.br; font-src 'self' data: https://cdngovbr-ds.estaleiro.serpro.gov.br; img-src 'self' data:; connect-src 'self' ${RADAR_SUPABASE_ORIGEM}; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+}
