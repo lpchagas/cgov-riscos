@@ -46,6 +46,21 @@ Desenho: `docs/superpowers/specs/2026-11-17-etapa-d0-d1-piloto-sede-design.md`.
 - Base normativa dos fluxos: as minutas da Política (SEI `024241420`) e da Metodologia (SEI `024421455`) até a publicação; depois, revisão sistêmica das regras.
 - No fim de cada conversa, proponha um prompt curto para continuar o trabalho (neste chat ou num novo).
 
+## Documentação em níveis
+
+| Nível | Pasta | Conteúdo |
+| --- | --- | --- |
+| 1 | `docs/10-nivel1-negocio/` | visão, processos, fluxos F1 a F4 e FS-01, lacunas |
+| 2 | `docs/20-nivel2-requisitos/` | ERS, RN, RF, RNF, casos de uso, rastreabilidade |
+| 3 | `docs/30-nivel3-interface/` (hoje `docs/04-ux/`) | telas, design system, Figma |
+| 4 | `docs/40-nivel4-dados/` | MER, DER, normalização, dicionário |
+| 5 | `docs/50-nivel5-software/` | diagramas UML em Mermaid |
+| - | `docs/adr/`, `docs/90-kanban/` | decisões de arquitetura; fluxo de trabalho |
+
+- Identificadores: `RN-NNN`, `RF-NNN`, `RNF-NNN`, `UC-NN`, `ADR-NNNN`, `LAC-NN` e atividades `Fn.NN`.
+- ADR com status `Accepted` é imutável: só o Status muda, quando outro ADR o substitui.
+- O teste `tests/unit/documentacao.spec.ts` protege a estrutura (sequência dos ADRs, seções, IDs, siglas); rode `npm test` depois de mexer em `docs/`.
+
 ## Regras do Figma — biblioteca de componentes "RADAR — Painel" (decisão do responsável, 2026-11-16)
 
 Arquivo: `RADAR — Painel` (fileKey `T1AuuL9jEfqkP7uoAPTUFF`, equipe Figma "cgov"). O Code Connect é ligado **à mão** pelo responsável, no Dev Mode (o plano não permite `add_code_connect_map` pelo MCP: não chame essa ferramenta).

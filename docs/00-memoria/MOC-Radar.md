@@ -1,21 +1,53 @@
 # 🧠 Mapa Central do Projeto RADAR (MOC — Map of Content)
 
-Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arquivo conecta toda a documentação de negócio, arquitetura e aprendizado do sistema web **RADAR (Rede de Avaliação, Diagnóstico e Ação em Riscos)** do ICMBio.
+Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arquivo conecta toda a documentação do sistema web **RADAR (Rede de Avaliação, Diagnóstico e Ação em Riscos)** do ICMBio, organizada em **níveis**: do negócio (nível 1) ao software (nível 5). Os documentos mais antigos continuam nas seções 0, 2 e 3 e serão migrados aos níveis nas tarefas do plano de reestruturação.
 
-## 📌 1. Memória Ativa do Projeto
+## 0. Memória e normativos
+
 - [[ESTADO-ATUAL]] — O que já foi construído, status dos testes e próximos passos.
 - [[prompt-etapa-d-piloto-sede]] — Prompt de partida da etapa D (nova): piloto com dados reais só na Sede, dois ambientes e login por senha temporária; depois homologação da CGTI.
 - [[GLOSSARIO-ACESSIVEL]] — Explicação sem jargões dos termos de programação e das siglas oficiais da CGOV.
 
-## 📜 2. Base Normativa e Regras de Cálculo (Regime B)
 - [[matriz-regras-regime-b]] — Tabelas oficiais dos Quadros 1 a 8 da Metodologia (SEI `024421455`), Política RADAR (SEI `024241420`) e Tabela de Apoio 25×5 da skill `cgov-gestao-riscos-v4`.
 - [[20171122_Decreto 9203_Política de Governança APF]] — Decreto nº 9.203/2017, norma que ancora o projeto (comitê interno de governança, alta administração e gestão de riscos, arts. 15-A a 19).
 - [[matriz-acesso-responsabilidades]] — Quem vê e quem faz o quê: árvore de unidades do Regimento Interno, matriz RACI, tabela de acesso por tela e decisões pendentes da CGOV (base do login e da RLS).
+
+Fontes da 4ª rodada de revisão (cópias fiéis, não editar): pasta `docs/01-normativos/revisao-2026/` (ver o `README.md` dela).
+
+## 1. Nível 1 — Negócio
+
+Pasta `docs/10-nivel1-negocio/` (ver o `README.md` dela): visão do produto, mapa de processos, fluxos F1 a F4 e FS-01 e lacunas norma × sistema (LAC-01 a LAC-11). Os arquivos entram nas próximas tarefas.
+
+Desenho e plano originais do projeto (histórico):
+
 - [[2026-11-09-cgov-riscos-radar-design]] — Documento completo de Design e Arquitetura (Versão 2.0).
 - [[2026-11-09-cgov-riscos-radar-plan]] — Plano de Implementação em 8 tarefas.
 
-## 🏛️ 3. Arquitetura e Entrega para a CGTI/ICMBio
+## 2. Nível 2 — Requisitos
+
+Pasta `docs/20-nivel2-requisitos/` (ver o `README.md` dela): ERS, regras de negócio (RN), requisitos funcionais (RF) e não funcionais (RNF), casos de uso (UC-01 a UC-26) e rastreabilidade. Os arquivos entram nas próximas tarefas.
+
+## 3. Nível 3 — Interface (Reformulação 2026-11)
+
+Hoje em `docs/04-ux/`; a Tarefa 18 do plano renomeia a pasta para `docs/30-nivel3-interface/` e acrescenta o mapa tela ↔ caso de uso ↔ Figma.
+
+- [[design-system]] — Tokens, componentes e resultados medidos das Fases 1 a 4.
+- [[diagnostico-ui-2026-11]] — Diagnóstico inicial (heurísticas, WCAG e microcopy).
+- [[manual-fluxo-figma-vscode]] — Como editar no Figma e levar a mudança para o código.
+- [[varredura-acessibilidade]] — `npm run test:a11y`: como rodar, ler o relatório e incluir telas na varredura axe-core.
+
+## 4. Nível 4 — Dados
+
+Pasta `docs/40-nivel4-dados/` (ver o `README.md` dela): MER conceitual, DER pé-de-galinha, normalização e dicionário de dados. Por ora, o documento do banco é:
+
 - [[modelo-dados-mer]] — Planta baixa do Banco de Dados PostgreSQL/Supabase (11 tabelas de negócio, inclusive `processos_cadeia_valor`, + a trilha `auditoria_log`; seção 3: unidades reais, perfis, funções de alcance, fluxo de 3 degraus e trilha).
+
+## 5. Nível 5 — Software
+
+Pasta `docs/50-nivel5-software/` (ver o `README.md` dela): diagramas UML em Mermaid (casos de uso, atividades, classes, sequência e estados). Os arquivos entram nas próximas tarefas.
+
+### Arquitetura e entrega para a CGTI/ICMBio (guias e decisões, em `docs/02-arquitetura-cgti/`)
+
 - [[decisoes-tecnicas-b1]] — Decisões técnicas da etapa B1 (R1 a R23) e decisões da CGOV na revisão final (D1 segregação "sobe um nível", D2 exclusão de risco, D3 alcance do gestor), com motivo, custo e as pendências para a CGOV.
 - [[decisoes-tecnicas-b2]] — Decisões técnicas da etapa B2 (B2-1 a B2-9 da CGOV e T1 a T11 da execução: link com `token_hash`, dois modos, Edge Function, importador de atribuições) e achados para a CGOV (CT Cuiabá, unidades sem titular).
 - [[decisoes-tecnicas-b3]] — Decisões técnicas da etapa B3 (B3-1 a B3-17: camada de dados, `acoes_no_fluxo`, `salvar_ficha_risco`, estados de tela) e pendências.
@@ -33,16 +65,21 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[2026-11-15-etapa-b1-banco-rls-design]] — Design da etapa B1 (banco, alcance e RLS); plano: [[2026-11-15-etapa-b1-banco-rls-plan]].
 - [[guia-docker-cgti]] — Dossiê executivo e instruções de implantação via Container Docker para a CGTI.
 
-## 🎓 4. Caderno de Aprendizado (Do Zero ao Deploy)
+## ADR — Registros de decisão
+
+- [[adr/README]] — Índice dos ADRs (`docs/adr/`), modelo de Nygard, imutáveis.
+- [[0000-modelo]] — Modelo para novos ADRs.
+- [[0001-registrar-decisoes-em-adr-nygard]] — Por que registramos decisões em ADRs; os arquivos `decisoes-tecnicas-*` ficam congelados como histórico.
+
+## Kanban
+
+Pasta `docs/90-kanban/` (ver o `README.md` dela): quadro, políticas, DoR/DoD e métricas de fluxo. Os arquivos entram nas próximas tarefas.
+
+## Caderno de Aprendizado (Do Zero ao Deploy)
+
 - [[01-como-funciona-o-vue3]] — Aula 1: O que são Componentes, Estado Reativo (`ref`, `computed`) e Pinia no Vue.js 3.
 - [[02-entendendo-o-supabase-sql]] — Aula 2: Como funcionam Tabelas Relacionais, Chaves Estrangeiras (`FK`) e Segurança por Linha (`RLS`), com a seção nova sobre função de alcance e testes com pgTAP.
 - [[03-empacotando-com-docker]] — Aula 3: Como o `Dockerfile` empacota o Vue.js com o servidor Nginx para rodar em qualquer máquina.
 - [[04-design-tokens-e-componentes]] — Aula 4: Tokens de design, componentes, telas responsivas (modo cartão das tabelas) e acessibilidade.
 - [[05-login-sessao-e-guardas]] — Aula 5: link mágico, sessão e renovação, por que o menu não é segurança (a RLS é) e os dois modos (demonstração e real).
 - [[06-camada-de-dados-e-async]] — Aula 6: camada de dados com duas fontes, `async/await`, estados de carregamento e erro, paginação de 1.000 linhas e por que a ficha é gravada por uma função.
-
-## 🎨 5. Interface (Reformulação 2026-11)
-- [[design-system]] — Tokens, componentes e resultados medidos das Fases 1 a 4.
-- [[diagnostico-ui-2026-11]] — Diagnóstico inicial (heurísticas, WCAG e microcopy).
-- [[manual-fluxo-figma-vscode]] — Como editar no Figma e levar a mudança para o código.
-- [[varredura-acessibilidade]] — `npm run test:a11y`: como rodar, ler o relatório e incluir telas na varredura axe-core.
