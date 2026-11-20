@@ -24,6 +24,7 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[registro-decisao-piloto-sede]] — Modelo do Registro de Decisão do piloto (para assinatura da CGOV no SEI) e dos dois avisos (encarregado de dados e CGTI).
 - [[2026-11-16-etapa-c-painel-celular-design]] — Design da etapa C (Painel no celular); plano: [[2026-11-16-etapa-c-painel-celular-plan]].
 - [[2026-11-16-etapa-b3-telas-banco-design]] — Design da etapa B3 (telas lendo e gravando no banco); plano: [[2026-11-16-etapa-b3-telas-banco-plan]].
+- [[guia-supabase-nuvem]] — Levar o banco para o Supabase na nuvem (projeto `cgov-riscos-v3.0`): painel, CLI (`login`, `link`, `db push`), regras do piloto, histórico dos passos e como subir mudanças futuras (etapa D1, guia vivo).
 - [[guia-copia-restauracao]] — Cópia cifrada diária (`age`) e restauração no Supabase local (etapa D1); a primeira prova completa com o `age` ainda está pendente.
 - [[guia-computador-de-trabalho]] — Montar o computador de trabalho (Windows + WSL + Docker Engine) e a rotina de trocar entre o computador institucional e o de casa (etapa D1).
 - [[guia-supabase-local]] — Como rodar o banco local, testar com pgTAP, importar a estrutura do SharePoint e resolver os erros comuns (etapa B1); seções novas da B2: entrar localmente pelo Mailpit, Edge Function `gerenciar-acesso` e `sync:atribuicoes`.
