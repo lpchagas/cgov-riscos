@@ -1,6 +1,6 @@
 # Guia de Migração e Integração com o Supabase na Nuvem (etapa D1)
 
-> Este guia ensina, passo a passo, a levar o banco do RADAR do **computador local** para o **Supabase na
+> Este guia orienta, passo a passo, a levar o banco do RADAR do **computador local** para o **Supabase na
 > nuvem**, onde vai rodar o piloto da Sede. Foi escrito para quem está começando: cada comando vem com uma
 > frase dizendo o que faz e o que deve aparecer na tela. É um **guia vivo**: a cada passo feito, ele é
 > atualizado com o que aconteceu de verdade.
@@ -37,7 +37,7 @@
 | Comando | Onde age |
 | --- | --- |
 | `npm run db:start`, `npm run db:reset`, `npm run test:db` | Só no **computador** (Docker). |
-| `npx supabase db push` | Na **nuvem** (projeto ligado pelo `link`). |
+| `npx supabase db push --linked` | Na **nuvem** (projeto ligado pelo `link`). Escreva sempre `--linked`: a CLI avisa que, na próxima versão principal, o padrão do `db push` passará a ser o banco **local**. |
 | `npx supabase db reset` | No **computador** (padrão `--local`). **Nunca** use `--linked`: apagaria a nuvem. |
 
 > [!tip] Regra de ouro
@@ -93,7 +93,10 @@
 | 2026-11-20 | Zerar o banco antigo | Feito pelo responsável no SQL Editor (comando na seção 5.1). Conferido depois: `public` sem tabelas, `auth.users` = 0. |
 | 2026-11-20 | Renomear | `cgov-riscos-v3.0`. O ref não mudou. |
 | 2026-11-20 | Senha do banco | Redefinida pelo responsável e guardada no gerenciador de senhas. |
-| *(próximo)* | Login da CLI, link, prévia e `db push` | Seção 6. |
+| 2026-11-20 | Login da CLI (computador de casa) | Ok: token criado com o nome `cli_<usuário>@<computador>_<número>`. |
+| 2026-11-20 | `link` com o ref `bekqcwaolpbhpxzcdyhx` | Ok (`Finished supabase link.`); **não pediu a senha**. |
+| 2026-11-20 | Prévia (`db push --dry-run`) | Ok: as 12 migrações listadas, na ordem; nada aplicado. |
+| *(próximo)* | `db push --linked` | Seção 6.4. |
 
 > [!note] Proteção da própria Supabase
 > O projeto tem um gatilho da plataforma chamado `ensure_rls` (função `rls_auto_enable`) que **liga a RLS
@@ -155,9 +158,14 @@ Abra o terminal do VS Code (**Terminal → New Terminal**) e confira que a linha
 ```bash
 npx supabase login
 ```
-- Abre o navegador (no WSL, pode só mostrar um link: copie e abra no navegador). Siga as instruções; se
-  aparecer um código de verificação, cole no terminal.
-- Esperado: mensagem de que você entrou (`You are now logged in`).
+- A CLI diz `Press Enter to open browser and login automatically`: tecle **Enter**. Se o navegador não
+  abrir (comum no WSL), ela mostra `Here is your login link...`: copie o link e abra no navegador.
+- No navegador, entre na conta Supabase e autorize. A página mostra um **código de verificação** curto
+  (8 caracteres): copie e cole no terminal em `Enter your verification code`.
+- Esperado: `Token cli_... created successfully.` e `You are now logged in. Happy coding!`
+- O código de verificação vale **uma vez só**; depois de usado, não serve para mais nada.
+- Para ver ou apagar os tokens criados: `https://supabase.com/dashboard/account/tokens` (apague o token
+  de um computador que você não usa mais).
 - O aviso "A new version of Supabase CLI is available" pode ser ignorado: o projeto fixa a 2.122.0 e
   atualizar é uma decisão separada.
 
@@ -166,23 +174,30 @@ npx supabase login
 ```bash
 npx supabase link --project-ref bekqcwaolpbhpxzcdyhx
 ```
-- Pede `Enter your database password`: digite a senha (nada aparece enquanto digita; é normal).
 - Esperado: `Finished supabase link.`
+- Na CLI 2.122.0 (2026-11-20), o `link` **não pediu a senha do banco**: a CLI usou o token do passo 6.1
+  (a linha `Initialising login role...` aparece no comando seguinte). A documentação ainda fala que a
+  senha pode ser pedida; se pedir, digite a senha (nada aparece enquanto digita; é normal). A senha
+  continua necessária para a cópia cifrada ([[guia-copia-restauracao]]).
 - Se mostrar diferenças de configuração ou fizer perguntas, **não aceite**: copie a mensagem e peça ajuda.
 
 ### 6.3 Prévia (não muda nada)
 
 ```bash
-npx supabase db push --dry-run
+npx supabase db push --linked --dry-run
 ```
-- Esperado: a lista das **12 migrações**, de `20261109001_schema_radar.sql` a
+- `--dry-run` = "ensaio": mostra o que **seria** aplicado, sem aplicar. `--linked` = no projeto ligado.
+- Esperado: `DRY RUN: migrations will *not* be pushed to the database.`, depois `Would push these
+  migrations:` com a lista das **12 migrações**, de `20261109001_schema_radar.sql` a
   `20261117001_leitura_acoes_e_gravacao_ficha.sql`.
 - Confira a lista antes de seguir.
+- Sem `--linked`, a CLI 2.122.0 avisa: `supabase db push will target the local database by default in the
+  next major version`. Por isso escrevemos o alvo.
 
 ### 6.4 Aplicar **[AUTORIZAÇÃO]**
 
 ```bash
-npx supabase db push
+npx supabase db push --linked
 ```
 - Pergunta `Do you want to push these migrations to the remote database? [Y/n]`: responda `Y`.
 - Na primeira vez, a CLI cria a tabela `supabase_migrations.schema_migrations`, que guarda **quais
@@ -215,8 +230,8 @@ Exemplo: a revisão da interface pede um **campo novo** numa tabela.
    didáticos.
 3. Testar **no local**: `npm run db:reset && npm run test:db` e `npm test`.
 4. Commit na branch de trabalho.
-5. Na nuvem **[AUTORIZAÇÃO]**: `npx supabase db push --dry-run` (deve listar **só** a migração nova) e
-   depois `npx supabase db push`.
+5. Na nuvem **[AUTORIZAÇÃO]**: `npx supabase db push --linked --dry-run` (deve listar **só** a migração
+   nova) e depois `npx supabase db push --linked`.
 
 > [!warning] Antes e depois dos dados reais
 > Enquanto a nuvem está **vazia** (até a carga da D3), uma migração nova é só mais um `db push`. Depois que
