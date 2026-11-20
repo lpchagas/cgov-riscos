@@ -16,17 +16,19 @@ Todos de 20/11/2026 (origem: pasta `trabalho/` do processo no Drive, salvo indic
 
 | Arquivo | Origem | Data | Versão | Substitui |
 | --- | --- | --- | --- | --- |
-| `NT_ESTADO.md` | Drive, `trabalho/` | 20/11/2026 | — | Triagem de 05/08/2026 (refeita) |
-| `contexto-revisao-politica-metodologia.md` | Colado pelo responsável (Projeto Claude) | 20/11/2026 | — | — |
-| `Modelagem_Fluxos_Gestao_Riscos_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | Análise inicial | — |
-| `Modelagem_Fluxo_Aprovacao_Plano_DAR_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | 2 (histórico) | F3 v1 |
-| `Modelagem_F4_v2_e_F3_v3_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | F4 v2 e F3 v3 | F4 (seção 6 da Modelagem de Fluxos) e F3 v2 |
-| `Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | — | — |
-| `Saneamento_Legistica_Metodologia_4-7_e_5_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | 5ª rodada (em parte superado) | — |
-| `Saneamento_Legistica_F4-05_a_F4-09_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | 3ª rodada (vigente) | Texto de 4.7 a 5 do relatório anterior |
-| `Auditoria_Competencias_Gestao_Riscos_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | — | — |
-| `Auditoria_Competencias_F4-05_F4-06_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | — | Continua a auditoria anterior |
-| `fluxos-origem/` (8 fluxos, cada um em `.mmd`, `.md` e `.png`) | Drive, `trabalho/fluxos/` | 20/11/2026 | F1, F2, F3 (atual e v3) e F4 v2 | Ver `fluxos-origem/_INDICE.md` |
+| `NT_ESTADO.md` | Drive, `trabalho/` | 20/11/2026 | vigente | Triagem de 05/08/2026 |
+| `contexto-revisao-politica-metodologia.md` | Colado pelo responsável (Projeto Claude) | 20/11/2026 | vigente | — |
+| `Modelagem_Fluxos_Gestao_Riscos_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | análise inicial | — |
+| `Modelagem_Fluxo_Aprovacao_Plano_DAR_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | histórico | F3 v1 |
+| `Modelagem_F4_v2_e_F3_v3_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | vigente | F4 da seção 6 de Modelagem_Fluxos e F3 v2 |
+| `Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | vigente | — |
+| `Saneamento_Legistica_Metodologia_4-7_e_5_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | em parte superado (4.7 a 5 vigente no F4-05_a_F4-09) | — |
+| `Saneamento_Legistica_F4-05_a_F4-09_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | vigente | texto de 4.7 a 5 de Saneamento_Legistica_Metodologia_4-7_e_5 |
+| `Auditoria_Competencias_Gestao_Riscos_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | vigente | — |
+| `Auditoria_Competencias_F4-05_F4-06_2026-11-20.md` | Drive, `trabalho/` | 20/11/2026 | vigente | — |
+| `fluxos-origem/` (8 fluxos, cada um em `.mmd`, `.md` e `.png`) | Drive, `trabalho/fluxos/` | 20/11/2026 | vigente (ver `fluxos-origem/_INDICE.md`) | — |
+
+Todos os documentos passaram por várias rodadas em 20/11/2026; a última rodada aplicada está no `NT_ESTADO.md`. A coluna Versão indica a situação do documento, e a coluna Substitui traz só o nome curto do que ele substitui.
 
 ## O que não foi copiado
 
