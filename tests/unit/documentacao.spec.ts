@@ -56,6 +56,27 @@ function secoes(texto: string): string[] {
 // ---------------------------------------------------------------------------
 
 /**
+ * Confere o cabeçalho de um catálogo em texto Markdown. Devolve a lista de problemas
+ * (vazia = tudo certo). Exige uma tabela cujas duas primeiras colunas sejam `ID` e `Enunciado`
+ * e que tenha uma coluna `Origem`. Assim, um catálogo com cabeçalho errado REPROVA em vez de
+ * ser lido como "vazio".
+ */
+export function problemasDoCabecalho(texto: string): string[] {
+  const cabecalhos = texto
+    .split('\n')
+    .filter((l) => l.trim().startsWith('|'))
+    .map((l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim()));
+  const alvo = cabecalhos.find((c) => c[0] === 'ID' && c[1] === 'Enunciado');
+  if (!alvo) return ['sem tabela cujas duas primeiras colunas sejam "ID" e "Enunciado"'];
+  return alvo.includes('Origem') ? [] : ['a tabela não tem a coluna "Origem"'];
+}
+
+/** Um nome de arquivo de ADR é válido se for `NNNN-slug-em-kebab-case.md`. */
+export function nomeAdrValido(nome: string): boolean {
+  return /^\d{4}-[a-z0-9]+(-[a-z0-9]+)*\.md$/.test(nome);
+}
+
+/**
  * Lê um catálogo (RN, RF ou RNF): uma tabela Markdown cujas duas primeiras colunas são
  * `ID` e `Enunciado` e que tem uma coluna `Origem` (localizada pelo nome no cabeçalho).
  * Devolve [] se o arquivo não existir.
@@ -116,6 +137,21 @@ export function lerCasosDeUso(): { id: string; secoes: string[] }[] {
 
 describe('ADRs (modelo de Nygard)', () => {
   const adrs = lerAdrs();
+
+  it('todo arquivo de docs/adr/ segue NNNN-slug-em-kebab-case.md (exceto README.md e 0000-modelo.md)', () => {
+    const pasta = join(DOCS, 'adr');
+    if (!existsSync(pasta)) return;
+    const fora = readdirSync(pasta).filter(
+      (n) => n !== 'README.md' && n !== '0000-modelo.md' && !nomeAdrValido(n));
+    expect(fora, `nomes fora do padrão em docs/adr/: ${fora.join(', ')}`).toEqual([]);
+  });
+
+  it('nomeAdrValido rejeita nomes fora do padrão (teste em memória)', () => {
+    expect(nomeAdrValido('0002-usar-mermaid.md')).toBe(true);
+    for (const ruim of ['2-usar-mermaid.md', '0002_usar_mermaid.md', '0002-Usar-Mermaid.md', '0002-x.txt', 'notas.md']) {
+      expect(nomeAdrValido(ruim), ruim).toBe(false);
+    }
+  });
 
   it('existe ao menos o ADR-0001', () => {
     expect(adrs.some((a) => a.numero === 1)).toBe(true);
@@ -203,6 +239,21 @@ const CATALOGOS: [string, string, RegExp][] = [
 ];
 
 describe('catálogos RN/RF/RNF', () => {
+  it('problemasDoCabecalho reprova cabeçalho sem ID/Enunciado ou sem Origem (teste em memória)', () => {
+    expect(problemasDoCabecalho('| ID | Enunciado | Origem |\n|---|---|---|\n| RN-001 | x | y |')).toEqual([]);
+    expect(problemasDoCabecalho('| Código | Texto | Origem |\n|---|---|---|')).not.toEqual([]);
+    expect(problemasDoCabecalho('| ID | Enunciado | Fonte |\n|---|---|---|')).toEqual(['a tabela não tem a coluna "Origem"']);
+    expect(problemasDoCabecalho('sem tabela nenhuma')).not.toEqual([]);
+  });
+
+  it('todo catálogo existente tem cabeçalho ID | Enunciado | ... | Origem', () => {
+    for (const [nome, caminho] of CATALOGOS) {
+      if (!existsSync(caminho)) continue; // só a ausência do ARQUIVO faz passar
+      const problemas = problemasDoCabecalho(readFileSync(caminho, 'utf8'));
+      expect(problemas, `${nome} (${rel(caminho)}): ${problemas.join('; ')}`).toEqual([]);
+    }
+  });
+
   it('toda linha tem ID único no formato e Origem não vazia', () => {
     // Arquivos criados nas tarefas 7 a 9; ausentes => lista vazia => passa.
     for (const [nome, caminho, formato] of CATALOGOS) {
