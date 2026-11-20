@@ -8,18 +8,24 @@
 
 ## 0. Limite desta análise (ler antes)
 
-As fontes da **quarta rodada de revisão normativa** não estão no repositório e não puderam ser lidas nesta sessão (a sessão roda na nuvem; a pasta do Google Drive sincronizada no computador não está acessível e a busca no conector do Drive não retornou arquivos):
+A primeira versão deste diagnóstico foi escrita numa sessão na nuvem, sem acesso às fontes da **quarta rodada de revisão normativa**. Os achados que dependiam delas foram marcados com **⚠ depende da Fase 0**.
 
-| Fonte pedida | Onde está | Situação nesta sessão |
+**Revisão de 2026-11-20 (sessão local, com a pasta do Drive):** as fontes foram lidas e cada achado marcado foi confrontado com elas. O resultado está na **seção 5** (confirmado / alterado / descartado / novo), e os achados abaixo já trazem a marca **✔ revisado (§5)**. As fontes reais são:
+
+| Fonte | Onde está | O que cobre |
 |---|---|---|
-| `NT_ESTADO.md` | pasta `trabalho` (computador) | **não lida** |
-| `contexto-revisao-politica-metodologia.md` | documento do Projeto Claude | **não lida** |
-| `Modelagem_F4_v2_e_F3_v3_2026-11-20.md` (alertas F4-10 a F4-18, F5-11 a F5-17, decisões da 4ª rodada) | pasta `trabalho` | **não lida** |
-| 3 relatórios `Saneamento_Legistica` (Política arts. 3, 9, 12 a 15; Metodologia itens 4.6 a 5) | pasta `trabalho` | **não lidos** |
-| Fluxos modelados do processo (Nível 1) | `My Drive\10_Institucional\CGOV\01_processos\SEI_02070.001696_2026-31_gestao-riscos` | **não lidos** |
-| Minutas transcritas (SEI 024241420 e 024421455) | `docs/01-normativos/` | lidas (versão de 15/09/2026, revisada em 21/10/2026) |
+| `NT_ESTADO.md` | `trabalho/` | estado da NT e das 5 rodadas de escolhas (fonte principal; em conflito, vale ela) |
+| `contexto-revisao-politica-metodologia.md` | Projeto Claude (não está no Drive); conteúdo colado pelo responsável | resumo do `NT_ESTADO.md`, um pouco atrás dele (L-40 e L-41 ainda como abertos) |
+| `Modelagem_F4_v2_e_F3_v3_2026-11-20.md` | `trabalho/` | F4 v2 e F3 v3 (TO-BE), alertas F4-10 a F4-18 e F5-11 a F5-17, decisões da 4ª rodada (§11) |
+| `Modelagem_Fluxos_Gestao_Riscos_2026-11-20.md` | `trabalho/` | F1, F2, F3 da minuta atual; alertas F1-01 a F1-05, F2-01 a F2-05, F4-01 a F4-07; conferência com as regras do RADAR |
+| `Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20.md` | `trabalho/` | texto limpo da Política (arts. 3º, 9, 12 a 15) e da Metodologia (4.6.1 a 4.6.11, Anexo III) |
+| `Saneamento_Legistica_F4-05_a_F4-09_2026-11-20.md` | `trabalho/` | texto limpo **vigente** da Política (art. 3º, art. 15, IX e X, art. 17, IV) e da Metodologia (4.7 a 5) |
+| `Saneamento_Legistica_Metodologia_4-7_e_5_2026-11-20.md` | `trabalho/` | texto limpo de 4.7 e 5, **em parte superado** pelo relatório anterior |
+| 2 `Auditoria_Competencias_*` | `trabalho/` | conflitos C-01 a C-11, lacunas sistêmicas LS-01 a LS-06, RACI |
+| Fluxos (`.mmd`, `.md`, `.png`) | `trabalho/fluxos/` (índice em `_INDICE.md`) | F1 v2, F2, F3 minuta atual, F3 v3 (partes 1 e 2), F4 v2 (partes 1 a 3) |
+| Minutas transcritas (SEI 024241420 e 024421455) | `trabalho/` e `docs/01-normativos/` | **idênticas** (conferido com `diff`); versão de 15/09/2026, revisada em 21/10/2026 |
 
-Consequência: o diagnóstico abaixo é **completo para o repositório** e **parcial para a revisão normativa**. Os achados que dependem dessas fontes estão marcados com **⚠ depende da Fase 0**. A Tarefa 1 do plano é justamente trazer essas fontes para o repositório.
+**Atenção:** o "texto saneado" **não é uma minuta consolidada**. São trechos, dispositivo por dispositivo, espalhados em dois relatórios. Além disso, as decisões da 4ª rodada (F4-14, F4-15, F5-11, F5-13 e F5-15) foram tomadas, mas **ainda não foram aplicadas** ao texto limpo (Modelagem F4 v2/F3 v3, §11).
 
 ---
 
@@ -47,8 +53,8 @@ O **código está bem à frente da documentação de engenharia**: há regras, R
 | # | Achado | Evidência | Efeito |
 |---|---|---|---|
 | A1 | **`ESTADO-ATUAL.md` está desatualizado.** Diz que a etapa C "ainda não foi mesclada", mas a `main` contém o merge do PR #8 (`a127b08`). Última atualização: 16/11. Não menciona a revisão normativa (4ª rodada, alertas F4/F5). | linhas 3–4 e 176 | quem abre o cofre parte de um estado falso |
-| A2 | **A base normativa do repositório é anterior ao saneamento.** As minutas são de 15/09 (revisadas 21/10). O texto limpo dos arts. 3, 9, 12–15 da Política e dos itens 4.6–5 da Metodologia ainda não entrou. ⚠ depende da Fase 0 | cabeçalho YAML das minutas | regras do código podem estar presas a texto que vai mudar |
-| A3 | **Os alertas F4-10 a F4-18 e F5-11 a F5-17 não têm registro no repositório**, nem o seu impacto em tabelas, telas e regras. ⚠ depende da Fase 0 | `grep` sem resultado | decisões normativas sem rastreio até o sistema |
+| A2 | **A base normativa do repositório é anterior ao saneamento.** As minutas são de 15/09 (revisadas 21/10). O texto limpo dos arts. 3, 9, 12–15 da Política e dos itens 4.6–5 da Metodologia ainda não entrou. ✔ revisado (§5) | cabeçalho YAML das minutas | regras do código podem estar presas a texto que vai mudar |
+| A3 | **Os alertas F4-10 a F4-18 e F5-11 a F5-17 não têm registro no repositório**, nem o seu impacto em tabelas, telas e regras. ✔ revisado (§5) | `grep` sem resultado | decisões normativas sem rastreio até o sistema |
 | A4 | **`matriz-regras-regime-b.md` cobre só os Quadros 6, 7 e 8**, embora o MOC diga "Quadros 1 a 8". Faltam Quadros 1–5 (contexto, categorias, subcategorias de integridade, escalas de P e I) e o Anexo III (DAR). | arquivo com 31 linhas | regras de negócio incompletas e índice impreciso |
 
 ### B. Nível 1 — Descoberta de produto e processos de negócio
@@ -56,8 +62,8 @@ O **código está bem à frente da documentação de engenharia**: há regras, R
 | # | Achado | Efeito |
 |---|---|---|
 | B1 | **Não há visão de produto** (problema, partes interessadas, objetivos, não-objetivos e métricas de sucesso). O mais próximo é a seção 1–3 do design v2.0 de 09/11, misturada com arquitetura e código. | falta a "âncora" para priorizar o Kanban |
-| B2 | **Os fluxos modelados do processo não estão no repositório** (estão só no Drive). O fluxo implementado (rascunho → validação → homologação → aprovado/devolvido) foi derivado da matriz de acesso, não dos fluxos oficiais. ⚠ depende da Fase 0 | risco de o sistema divergir do processo oficial |
-| B3 | **Lacunas entre a Metodologia (4.6 a 5) e o sistema**, já visíveis na minuta atual: (i) o sistema aprova **risco a risco**, mas a Metodologia 4.6 prevê a CGOV consolidar os riscos críticos em um **Plano de Gestão de Riscos único** submetido ao **Comitê Interno de Governança**; não há entidade "Plano de Gestão de Riscos" nem "ciclo"; (ii) 4.7.1 exige no KRI **fonte dos dados, periodicidade, limites de alerta e responsável**; (iii) 4.7.2 exige **comunicação tempestiva à CGOV** de 5 tipos de evento e **relatórios periódicos** ao CTGRIC e ao CIG; (iv) o item 5 prevê **avaliação de maturidade** periódica. Nenhum desses tem tela, tabela ou teste. ⚠ o texto saneado pode alterar | escopo funcional do próximo ciclo |
+| B2 | **Os fluxos modelados do processo não estão no repositório** (estão só no Drive). O fluxo implementado (rascunho → validação → homologação → aprovado/devolvido) foi derivado da matriz de acesso, não dos fluxos oficiais. ✔ revisado (§5) | risco de o sistema divergir do processo oficial |
+| B3 | **Lacunas entre a Metodologia (4.6 a 5) e o sistema**, já visíveis na minuta atual: (i) o sistema aprova **risco a risco**, mas a Metodologia 4.6 prevê a CGOV consolidar os riscos críticos em um **Plano de Gestão de Riscos único** submetido ao **Comitê Interno de Governança**; não há entidade "Plano de Gestão de Riscos" nem "ciclo"; (ii) 4.7.1 exige no KRI **fonte dos dados, periodicidade, limites de alerta e responsável**; (iii) 4.7.2 exige **comunicação tempestiva à CGOV** de 5 tipos de evento e **relatórios periódicos** ao CTGRIC e ao CIG; (iv) o item 5 prevê **avaliação de maturidade** periódica. Nenhum desses tem tela, tabela ou teste. ✔ revisado (§5): parte deste achado foi alterada | escopo funcional do próximo ciclo |
 
 ### C. Nível 2 — Engenharia de requisitos
 
