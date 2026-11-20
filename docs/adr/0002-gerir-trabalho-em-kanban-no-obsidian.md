@@ -15,8 +15,8 @@ vive no cofre Obsidian, versionada no Git. O responsável é iniciante e quer um
 
 ## Decisão
 
-Decisão do responsável pelo projeto: nós vamos gerir o trabalho do RADAR em Kanban, num quadro Markdown
-no Obsidian com o plugin Kanban, em `docs/90-kanban/`. O quadro é `quadro.md` e as regras (colunas,
+Nós vamos gerir o trabalho do RADAR em Kanban, num quadro Markdown no Obsidian com o plugin Kanban,
+em `docs/90-kanban/`. Foi decisão do responsável pelo projeto em 2026-11-20. O quadro é `quadro.md` e as regras (colunas,
 limites de WIP, classes de serviço, DoR e DoD) estão em `politicas.md`.
 
 ## Consequências

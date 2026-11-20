@@ -37,7 +37,7 @@ Coluna cheia: ninguém puxa cartão novo para ela. Primeiro se termina (ou destr
 | `#normativo` | Lacuna de norma: passa à frente quando a portaria é publicada. |
 | `#data-fixa` | Tem prazo externo que não muda. |
 | `#padrao` | Trabalho comum, na ordem de chegada. |
-| `#divida` | Dívida técnica: arrumar a casa, sem mudar o que o usuário vê. |
+| `#divida` | Dívida técnica: arrumar a casa, sem mudar o que o usuário vê. Vale também para errata de documentação e de comentários. |
 
 ## Definição de Pronto (DoR)
 

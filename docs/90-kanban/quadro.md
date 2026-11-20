@@ -15,9 +15,8 @@ kanban-plugin: basic
 - [ ] [figma] Republicar a biblioteca "RADAR — Painel" no Figma (Assets → Libraries → Publish changes) · origem: ESTADO-ATUAL (reformulação da interface) e decisoes-tecnicas-c §5 · IDs: — · #padrao
 - [ ] [figma] Ligar no Code Connect, à mão, os 4 componentes BrTabs, BrStep, BrMessage e BowTieDiagram · origem: ESTADO-ATUAL (reformulação da interface) · IDs: — · #padrao
 - [ ] [figma] Criar na biblioteca a variante `compacto` do `StatCard` · origem: decisoes-tecnicas-c §5 e ESTADO-ATUAL (etapa C) · IDs: — · #padrao
-- [ ] [figma] Fazer os quadros de computador da cópia "Trabalho" das telas migradas · origem: decisoes-tecnicas-c §5 e ESTADO-ATUAL (etapa C) · IDs: — · #padrao
+- [ ] [figma] Fazer os quadros de computador da cópia "Trabalho" do Painel da etapa C (a conferir no Figma: o ESTADO-ATUAL:54 diz que as 8 páginas migradas já têm quadro de computador, então o cartão se refere só à cópia Trabalho do Painel, ver decisoes-tecnicas-c §5) · origem: decisoes-tecnicas-c §5 e ESTADO-ATUAL (etapa C) · IDs: — · #padrao
 - [ ] [documentação] Errata dos comentários das migrações `20261115004` e `20261115005` (migração aplicada não se edita: registrar a correção só na documentação) · origem: decisoes-tecnicas-b1 (Pendências novas, item 6) · IDs: — · #divida
-- [ ] [dívida] CSV da auditoria sem guarda contra injeção de fórmula (células que começam com `=`, `+`, `-` ou `@`) · origem: ESTADO-ATUAL (etapa B3, pendências principais) e decisoes-tecnicas-b3 §3.2 · IDs: — · #divida
 - [ ] [interface] Pendências de interface do piloto da Sede (etapa D): a lista própria, com classes Agora/Depois, fica no arquivo apontado; não copiar item a item · origem: docs/00-memoria/pendencias-ui-piloto.md · IDs: — · #padrao
 
 
