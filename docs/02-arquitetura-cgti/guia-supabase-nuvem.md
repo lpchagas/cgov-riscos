@@ -97,7 +97,10 @@
 | 2026-11-20 | `link` com o ref `bekqcwaolpbhpxzcdyhx` | Ok (`Finished supabase link.`); **não pediu a senha**. |
 | 2026-11-20 | Prévia (`db push --dry-run`) | Ok: as 12 migrações listadas, na ordem; nada aplicado. |
 | 2026-11-20 | `db push --linked` | Ok: 12 migrações aplicadas (`Finished supabase db push.`). Conferido pelo MCP: histórico com as 12, na ordem; 12 tabelas no `public`, todas com RLS ligada e com políticas; 0 linhas em todas e em `auth.users`. |
-| *(próximo)* | Dados de referência (`seed.sql`) | Seção 7. |
+| 2026-11-20 | Dados de referência (`seed.sql`) | Ok, aplicado pelo Claude via MCP (`execute_sql`, numa transação), com autorização. 8 categorias (ids 1 a 8; Integridade com 6 subcategorias); contador em 8; `auditoria_log` = 8 (a trilha registra as inclusões da DAR, como no local). |
+| 2026-11-20 | Auth | Cadastro avulso **desligado** pelo responsável (estava ligado); login anônimo já estava desligado. Conferido pelo endereço público `/auth/v1/settings` (seção 7.4). Detalhe: a mudança só vale depois de clicar em **Save changes**. |
+| 2026-11-20 | Conferência final (Task 6) | Ok. Nuvem igual ao local: 12 tabelas com as mesmas colunas, 49 políticas de RLS; 1 função a mais (`rls_auto_enable`, da Supabase). *Advisors*: nenhuma tabela sem RLS; avisos registrados na seção 7.5. |
+| *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
 
 > [!note] Proteção da própria Supabase
 > O projeto tem um gatilho da plataforma chamado `ensure_rls` (função `rls_auto_enable`) que **liga a RLS
@@ -210,15 +213,65 @@ Resultado real (2026-11-20): a pergunta apareceu com a lista das 12 migrações;
 
 ---
 
-## 7. Próximos passos da Task 6 *(a detalhar quando forem feitos)*
+## 7. Completar o banco: referência, Auth e conferência
 
-1. **Dados de referência [AUTORIZAÇÃO]:** aplicar **só** o `supabase/seed.sql` (8 categorias e apetite
-   padrão da DAR).
-2. **Auth [AUTORIZAÇÃO]:** no painel, desligar o cadastro avulso e o login anônimo. O "Site URL" fica para
-   a Task 7 (publicação do front).
-3. **Conferência (só leitura):** lista de migrações igual à do repositório; tabelas do `public` iguais às
-   do local; contagens `categorias_risco` = 8 e `perfis`, `riscos`, `unidades`, `auth.users` = 0; avisos
-   de segurança e desempenho (*Advisors*) sem RLS desligada.
+### 7.1 Dados de referência **[AUTORIZAÇÃO]**
+
+Aplicar **só** o `supabase/seed.sql`: as 8 categorias do Quadro 2 (Integridade com as 6 subcategorias do
+Quadro 3), o apetite padrão da DAR e o acerto do contador (`setval`, para a próxima categoria ser a 9).
+Em 2026-11-20 foi aplicado pelo Claude via MCP, numa transação (`begin ... commit`); também pode ser
+colado no SQL Editor (seção 5.1).
+
+- Esperado: `setval` = 8; 8 linhas em `categorias_risco`; **8 linhas em `auditoria_log`** (a trilha de
+  auditoria registra as inclusões da DAR; no local acontece o mesmo).
+- O comentário no topo do `seed.sql` fala em "unidades" e "caso Anexo II", mas o arquivo só tem as
+  categorias (comentário desatualizado, a corrigir).
+
+### 7.2 Desligar o cadastro avulso **[AUTORIZAÇÃO]**
+
+1. Abra `https://supabase.com/dashboard/project/bekqcwaolpbhpxzcdyhx/auth/providers`
+   (*Authentication → Sign In / Providers*, aba **Supabase Auth**).
+2. No quadro **User Signups**: desligue **Allow new users to sign up**; confira que **Allow anonymous
+   sign-ins** está desligada. Não mexa em **Allow manual linking** (desligada) nem em **Confirm email**
+   (ligada).
+3. Clique em **Save changes**. **Sem isso, nada muda** (aconteceu em 2026-11-20: a chave aparecia
+   desligada na tela, mas o servidor continuava com o cadastro ligado até o clique).
+
+Por que: só contas criadas pela CGOV podem existir (D0-6). Desligar o cadastro **não impede** a criação
+de contas pelo servidor na D2.
+
+### 7.3 Site URL e URLs de retorno
+
+Ficam para a Task 7, quando o front tiver endereço (*Authentication → URL Configuration*).
+
+### 7.4 Como conferir o Auth sem entrar no painel (só leitura)
+
+O Auth tem um endereço público que **informa** a configuração e não muda nada. Precisa da chave
+publicável (`sb_publishable_...`, que pode ser pública; veja em *Project Settings → API Keys*):
+
+```bash
+curl -s https://bekqcwaolpbhpxzcdyhx.supabase.co/auth/v1/settings -H "apikey: <chave publicável>"
+```
+
+- `"disable_signup": true` → cadastro avulso **desligado** (o que queremos).
+- `"anonymous_users": false` (dentro de `external`) → login anônimo **desligado**.
+
+### 7.5 Conferência final e avisos do *Advisors*
+
+*Advisors* é o "verificador" da Supabase (menu **Advisors**, ou `get_advisors` pelo MCP): aponta riscos
+de segurança e de desempenho. Resultado em 2026-11-20:
+
+| Aviso | Quantos | Leitura |
+| --- | --- | --- |
+| Tabela sem RLS | **0** | ✅ O critério da Task 6. |
+| SECURITY DEFINER executável por usuário logado | 21 | **Esperado.** São as funções do fluxo e do alcance (`validar_risco`, `homologar_risco`, `unidades_visiveis`...), que conferem quem chama por dentro. Decisão das etapas B1 e B3. |
+| SECURITY DEFINER executável sem login (`anon`) | 1 | É a `rls_auto_enable`, **da própria Supabase** (não é nossa). Pendência D1-P1 em [[decisoes-tecnicas-d]]. |
+| *search_path* mutável | 3 | `calcular_nivel_inerente_q7`, `classificar_nivel_q8`, `trigger_calcular_risco_radar`: funções do **cálculo**. Corrigir exige migração e autorização (pendência D1-P2). |
+| Chave estrangeira sem índice / índice não usado | 11 / 7 | Informativos; o banco está vazio. Rever com dados reais (pendência D1-P3). |
+| Várias políticas permissivas na mesma ação | 13 | **Esperado** pelo desenho (ex.: "CGOV grava no preliminar" + "a unidade grava no próprio"). |
+
+Comparação com o local (contagem de colunas por tabela, políticas e funções): **igual**, com uma função a
+mais na nuvem (`rls_auto_enable`).
 
 ---
 

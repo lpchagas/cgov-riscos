@@ -47,5 +47,18 @@ A análise das licenças Microsoft que sustenta a D0-8 está na spec, §3.1.
 | D1-2 | CSP única | A política de segurança de conteúdo (CSP) fica num só lugar, `scripts/compartilhado/csp.ts`, e é usada no Nginx (modelo com `envsubst`), no `_headers` do Cloudflare e na configuração do Power Pages. |
 | D1-3 | Hash do Vite | O hash é detectado como 8 caracteres `[A-Za-z0-9_-]` no fim do nome do arquivo (podem conter `-`), com recuo para o último segmento. |
 | D1-4 | Perfil `real-local` | O perfil `real-local` do compose usa a porta 8081 e sobe com `docker compose --env-file .env.conteiner-local --profile real-local up`. |
+| D1-5 | Projeto do piloto | Decisão do responsável (2026-11-20): **reaproveitar** o `cgov-riscos-v2.1` (ref `bekqcwaolpbhpxzcdyhx`), zerado e renomeado `cgov-riscos-v3.0`, em vez de criar `radar-piloto-sede`. A spec §6.1 previa a troca. Antes de apagar, conferiu-se que as 14 tabelas antigas estavam vazias. Passo a passo e histórico: [[guia-supabase-nuvem]]. |
+| D1-6 | `db push --linked` | Os comandos na nuvem levam o alvo escrito (`--linked`): a CLI 2.122.0 avisa que o padrão do `db push` vai mudar para o banco local. |
+| D1-7 | Semente na nuvem | Só o `supabase/seed.sql` (8 categorias + apetite padrão da DAR), aplicado via MCP numa transação; nunca `seed-demonstracao.sql`. |
+| D1-8 | Auth na nuvem | Cadastro avulso e login anônimo desligados; "Site URL" fica para a Task 7. |
+
+### Pendências da Task 6 (banco na nuvem)
+
+| # | Pendência | Proposta |
+| --- | --- | --- |
+| D1-P1 | O *Advisors* aponta que a função `rls_auto_enable` (da Supabase, `SECURITY DEFINER`) pode ser chamada sem login por `/rest/v1/rpc/rls_auto_enable`. | Revogar `EXECUTE` de `anon` e `authenticated` nessa função (migração com `if exists`, porque o local não a tem), na D2. Depende de autorização. |
+| D1-P2 | `search_path` mutável em `calcular_nivel_inerente_q7`, `classificar_nivel_q8` e `trigger_calcular_risco_radar`. | Fixar `search_path` por migração, sem mudar a lógica. Toca funções do cálculo: **perguntar antes** (AGENTS.md). |
+| D1-P3 | 11 chaves estrangeiras sem índice e 7 índices não usados (banco vazio). | Rever com dados reais (D3/D4). |
+| D1-P4 | Comentário do topo de `supabase/seed.sql` desatualizado ("unidades", "caso Anexo II"). | Corrigir o comentário. |
 
 *(as próximas tarefas da D1 acrescentam linhas aqui)*
