@@ -8,7 +8,8 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 - [[prompt-etapa-d-piloto-sede]] — Prompt de partida da etapa D (nova): piloto com dados reais só na Sede, dois ambientes e login por senha temporária; depois homologação da CGTI.
 - [[GLOSSARIO-ACESSIVEL]] — Explicação sem jargões dos termos de programação e das siglas oficiais da CGOV.
 
-- [[matriz-regras-regime-b]] — Tabelas oficiais dos Quadros 1 a 8 da Metodologia (SEI `024421455`), Política RADAR (SEI `024241420`) e Tabela de Apoio 25×5 da skill `cgov-gestao-riscos-v4`.
+- [[matriz-regras-regime-b]] — Tabelas oficiais dos Quadros 1 a 8 e do Anexo III da Metodologia (SEI `024421455`), regras do sistema sem base literal nas minutas, erros materiais da minuta, Política RADAR (SEI `024241420`) e Tabela de Apoio 25×5 da skill `cgov-gestao-riscos-v4`.
+- [[registro-alertas-f4-f5]] — Registro dos alertas da revisão normativa (F1 a F5 e LS-01 a LS-06): decisão, dispositivo, impacto no RADAR e situação de cada um, mais os itens para levar à PFE.
 - [[20171122_Decreto 9203_Política de Governança APF]] — Decreto nº 9.203/2017, norma que ancora o projeto (comitê interno de governança, alta administração e gestão de riscos, arts. 15-A a 19).
 - [[matriz-acesso-responsabilidades]] — Quem vê e quem faz o quê: árvore de unidades do Regimento Interno, matriz RACI, tabela de acesso por tela e decisões pendentes da CGOV (base do login e da RLS).
 

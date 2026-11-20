@@ -7,6 +7,8 @@ formato: "transcrição em Markdown"
 revisado_em: "2026-10-21"
 ---
 
+> **Nota do projeto (20/11/2026).** Esta é a transcrição do texto original da minuta e não foi alterada. O texto saneado em 20/11/2026 e as fontes da 4ª rodada de revisão estão em [`revisao-2026/README.md`](revisao-2026/README.md); a situação de cada alerta (resolvido no texto saneado, decidido e não aplicado, aberto ou fora das minutas) está no [[registro-alertas-f4-f5]] (`revisao-2026/registro-alertas-f4-f5.md`). Os Quadros 1 a 8, o Anexo III e os erros materiais estão na [[matriz-regras-regime-b]].
+
 > **Nota editorial.** Este Markdown transcreve o conteúdo visível das páginas 18 a 24 (numeração SEI) do PDF de origem, correspondentes à minuta SEI 024241420. Preservam-se grafia, numeração, pontuação e erros materiais aparentes do original, entre eles os marcadores de data e número não preenchidos e a data da Portaria nº 975 escrita sem a preposição "de" ("10 dezembro de 2021"). Foram corrigidas apenas falhas atribuíveis à extração. A marca d'água "MINUTA" sobreposta ao cabeçalho não é texto do ato e não foi transcrita. Os marcadores `<!-- pg. N -->` indicam a página SEI e não fazem parte do ato.
 
 <!-- pg. 18 -->
