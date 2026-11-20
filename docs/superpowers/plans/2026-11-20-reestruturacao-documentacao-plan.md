@@ -28,7 +28,7 @@
 
 ## Review Focus
 
-1. **Fonte normativa defasada:** o requisito ou a regra cita o texto de 15/09 quando o texto saneado diz outra coisa. Cada RN deve citar a versão da fonte (`Metodologia saneada 4.6` × `Minuta 024421455 4.6`); o revisor confere 100% das RN dos itens 4.6 a 5 e dos arts. 3, 9, 12 a 15.
+1. **Fonte normativa defasada:** o requisito ou a regra cita o texto de 15/09 quando o texto saneado diz outra coisa. O texto saneado **não é uma minuta consolidada** (são trechos em dois relatórios) e as decisões da 4ª rodada ainda não foram aplicadas a ele. Por isso, toda RN cita a origem com um de três rótulos: `Minuta 15/09 (dispositivo)`, `Texto saneado 20/11 (relatório §, dispositivo)` ou `Decisão 20/11 não aplicada (alerta)`. Regras do sistema sem base literal nas minutas (trava de evidência, subcategorias do Teste de Integridade, residual abaixo de 1) usam `Regra do sistema (AGENTS.md / decisão)` e citam o alerta (F2-03, F2-04). O revisor confere 100% das RN dos itens 4.6 a 5 e dos arts. 3º, 9, 12 a 15 e 17 contra o diagnóstico §5.
 2. **Requisito inventado:** o RF/UC descreve comportamento que nem a norma, nem as decisões da CGOV, nem o código sustentam. Toda linha do catálogo tem coluna `Origem` preenchida; o teste reprova se estiver vazia.
 3. **Caso de uso sem exceções reais:** os fluxos de exceção devem incluir os casos já tratados no banco: cargo vago/unidade sem titular, autoaprovação ("sobe um nível"), mudança da DAR reabrindo o risco, controle sem evidência acima de Fraco e importação com categoria proibida. O revisor confere contra `supabase/tests/050`, `070` e `073`.
 4. **DER divergente do banco real:** o DER é escrito a partir das migrações (estado final após `20261117001`), não do design v2.0. O teste compara a lista de tabelas do DER com os `CREATE TABLE` das migrações.
@@ -85,10 +85,15 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 **Interfaces:**
 - Produces: as fontes ficam em `docs/01-normativos/revisao-2026/` com os nomes originais, e os fluxos em `docs/01-normativos/revisao-2026/fluxos-origem/`. As tarefas 4 a 7 dependem disso.
 
-- [ ] **Step 1: Listar as fontes na pasta adicional do Drive** (acesso configurado na extensão do Claude Code no VS Code, decisão de 2026-11-20; a pasta do Drive é **somente leitura** para o agente) e copiá-las para o repositório depois do Step 2. Arquivos: `NT_ESTADO.md`, `contexto-revisao-politica-metodologia.md`, `Modelagem_F4_v2_e_F3_v3_2026-11-20.md`, os 3 relatórios `Saneamento_Legistica_*` e os fluxos (BPMN/imagens/PDF) da pasta `SEI_02070.001696_2026-31_gestao-riscos`.
-- [ ] **Step 2: Conferir dados pessoais antes do commit.** Rode `grep -rniE "cpf|matr[ií]cula|@icmbio\.gov\.br" docs/01-normativos/revisao-2026/`. O resultado esperado é só `planejamento@icmbio.gov.br`. Qualquer outro e-mail ou CPF deve ser removido ou o arquivo vai para `_temp/`.
-- [ ] **Step 3: Escrever o `README.md` da pasta.** Ele deve ter uma tabela `Arquivo | Origem | Data | Versão | Substitui`.
-- [ ] **Step 4: Corrigir o `ESTADO-ATUAL.md`.** Registrar que a etapa C foi mesclada pelo PR #8 (`a127b08`) e que a fase atual é "reestruturação da documentação + 4ª rodada normativa". Anunciar que a etapa D fica suspensa até a Tarefa 18.
+- [ ] **Step 1: Listar as fontes na pasta adicional do Drive** (acesso configurado na extensão do Claude Code no VS Code, decisão de 2026-11-20; a pasta do Drive é **somente leitura** para o agente) e copiá-las para o repositório depois do Step 2. Fontes (nomes reais, conferidos em 2026-11-20; ver o §0 do diagnóstico):
+  - de `trabalho/`: `NT_ESTADO.md`, `Modelagem_F4_v2_e_F3_v3_2026-11-20.md`, `Modelagem_Fluxos_Gestao_Riscos_2026-11-20.md`, `Modelagem_Fluxo_Aprovacao_Plano_DAR_2026-11-20.md` (superado, mantido como histórico), os 3 relatórios `Saneamento_Legistica_*_2026-11-20.md` e os 2 `Auditoria_Competencias_*_2026-11-20.md`;
+  - de `trabalho/fluxos/`: os `.mmd`, `.md` e `.png` dos 8 fluxos e o `_INDICE.md`, para `fluxos-origem/`;
+  - `contexto-revisao-politica-metodologia.md`: não está no Drive; o responsável colou o conteúdo em 2026-11-20 (cópia preparada no scratchpad da sessão, sem a sigla proibida).
+  
+  **Não copiar:** os PDFs (`documentos-sei/` e `trabalho/*.pdf`), porque trazem assinaturas e nomes; as minutas transcritas (já estão em `docs/01-normativos/` e são idênticas); o `PROCESSO.md` (ficha do acervo da CGOV, não fonte normativa).
+- [ ] **Step 2: Conferir dados pessoais antes do commit.** Rode o grep sobre as cópias numa pasta temporária, **antes** de colocá-las em `docs/`: `grep -rniE "cpf|matr[ií]cula|siape|[a-z0-9._-]+@[a-z0-9.-]+\.[a-z]+" <pasta>`. Mostrar o resultado ao responsável antes de copiar. O esperado é só `planejamento@icmbio.gov.br`. Qualquer outro e-mail, CPF ou matrícula deve ser removido, ou o arquivo vai para `_temp/`.
+- [ ] **Step 3: Escrever o `README.md` da pasta.** Ele deve ter uma tabela `Arquivo | Origem | Data | Versão | Substitui`. Deve dizer que o `NT_ESTADO.md` prevalece em caso de conflito e que o texto saneado vigente de 4.7 a 5 é o de `Saneamento_Legistica_F4-05_a_F4-09` (o de `Metodologia_4-7_e_5` está em parte superado).
+- [ ] **Step 4: Corrigir o `ESTADO-ATUAL.md`.** Registrar que a etapa C foi mesclada pelo PR #8 (`a127b08`), que a D1 (piloto da Sede) foi trazida para esta branch (merge `66f974a`) e que corre em paralelo a "reestruturação da documentação + 4ª rodada normativa". **A etapa D não é suspensa** (diagnóstico §5.3, G2): as lacunas normativas entram no Kanban como `#normativo`.
 - [ ] **Step 5: Commit** `docs(estado): fontes da 4ª rodada e estado corrigido após o PR #8`
 
 ### Tarefa 2: Esqueleto dos níveis, teste da documentação e ADR-0001
@@ -108,7 +113,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
   - `toda linha dos catálogos RN/RF/RNF tem ID único no formato e Origem não vazia`.
   - `todo ID citado em rastreabilidade.md existe no catálogo correspondente`.
   - `RNF cobre as 9 características da ISO/IEC 25010:2023`.
-  - `nenhum documento fora de AGENTS.md, CLAUDE.md e superpowers/ contém a palavra PGR`.
+  - `nenhum documento fora de AGENTS.md, CLAUDE.md, superpowers/ e 01-normativos/revisao-2026/ contém a palavra PGR` (a pasta `revisao-2026/` guarda cópias fiéis das fontes, que citam a sigla na regra que a proíbe).
   - `nenhum documento dos níveis 10–50 usa "Operacional com interface de Integridade"`.
   - `nenhum documento dos níveis chama de "Crítico" a faixa 18–25`: a expressão regular `/(nível|faixa)\s+Crítico/i` não pode aparecer.
 - [ ] **Step 2: Rodar `npx vitest run tests/unit/documentacao.spec.ts`.** Esperado: FAIL no teste do ADR-0001 (ainda não existe).
