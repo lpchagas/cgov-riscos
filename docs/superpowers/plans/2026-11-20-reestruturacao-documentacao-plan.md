@@ -264,11 +264,12 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
   - RN-001: Inerente pelo Quadro 7;
   - RN-002: faixas do Quadro 8 sem arredondamento;
   - RN-003: Residual = Inerente × Fator;
-  - RN-004: trava de evidência;
+  - RN-004: trava de evidência (origem `Regra do sistema (AGENTS.md)` + alerta F2-04/LS-01: **não está escrita nas minutas**);
   - RN-005: Risco Crítico = residual fora da DAR;
-  - RN-006: Teste de Integridade e categoria proibida.
+  - RN-006: Teste de Integridade e categoria proibida (origem `Regra do sistema (AGENTS.md)`: a Metodologia só remete ao Integra+, sem as 6 subcategorias);
+  - RN-007: residual abaixo de 1 classificado como Baixo (origem `Regra do sistema (classificar_nivel_q8)` + alerta F2-03).
   
-  Seguir com alcance, segregação "sobe um nível", exclusão, DAR que reabre aprovados, etc.
+  Seguir com alcance, segregação "sobe um nível", exclusão, DAR que reabre aprovados, etc. Depois, as regras do texto saneado: prazos de 10 du (devolução, comunicação, alerta do KRI, cobrança, decisões da CGOV), 30 dias da reapresentação, "mudança substancial" (4.6.9, I a III), DAR antes do Plano (F5-13), abstenções no CTGRIC, reavaliação ao menos anual, KRI só para risco crítico e as 6 hipóteses do 4.7.2. As regras da 4ª rodada ainda não aplicadas ao texto levam o rótulo `Decisão 20/11 não aplicada (alerta)`.
 - [ ] **Step 2: Para cada RN implementada, apontar a função** (ex.: `calcular_nivel_inerente_q7`, `calculadoraRiscoRadar.ts`) e o teste (ex.: `supabase/tests/000_regressao_calculo.test.sql`). Se não houver implementação, escrever "—" e ligar a uma LAC.
 - [ ] **Step 3: Rodar `npx vitest run tests/unit/documentacao.spec.ts`.** Esperado: PASS (IDs únicos, Origem preenchida).
 - [ ] **Step 4: Commit** `docs(nivel2): catálogo de regras de negócio`
@@ -279,9 +280,9 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 - Create: `docs/20-nivel2-requisitos/requisitos-funcionais.md`
 
 **Interfaces:**
-- Produces: a tabela `ID | Enunciado ("O sistema deve…") | Prioridade (MoSCoW) | RN relacionadas | Origem (F-NN.AA / LAC / decisão) | Situação (implementado / parcial / não iniciado) | Verificação (I/A/D/T)`, agrupada pelos módulos: Acesso, Estrutura, Objetos, Riscos, Fluxo, DAR, Monitoramento/KRI, Plano de Gestão de Riscos, Relato, Auditoria e Importação.
+- Produces: a tabela `ID | Enunciado ("O sistema deve…") | Prioridade (MoSCoW) | RN relacionadas | Origem (Fn.NN / LAC / decisão) | Situação (implementado / parcial / não iniciado) | Verificação (I/A/D/T)`, agrupada pelos módulos: Acesso, Estrutura, Objetos, Riscos, Fluxo interno (FS-01), DAR, Monitoramento/KRI, Reavaliação, Comunicação de fatos, Plano de Gestão de Riscos (consolidação, colegiados, publicação, revisão), Acompanhamento pela CGOV, Relatórios e avaliação, Auditoria e Importação.
 
-- [ ] **Step 1: Derivar um RF de cada atividade sistêmica dos fluxos F-01 a F-06**, de cada linha "faz" da tabela tela × perfil e de cada LAC. Cada RF deve ser singular, ou seja, um "deve" por linha (29148, §5.2.5).
+- [ ] **Step 1: Derivar um RF de cada atividade sistêmica dos fluxos F1 a F4 e FS-01**, de cada linha "faz" da tabela tela × perfil e de cada LAC. Cada RF deve ser singular, ou seja, um "deve" por linha (29148, §5.2.5).
 - [ ] **Step 2: Marcar a Situação conferindo o código.** "Implementado" exige um teste citado.
 - [ ] **Step 3: Rodar o teste da documentação.** Esperado: PASS.
 - [ ] **Step 4: Commit** `docs(nivel2): catálogo de requisitos funcionais`
@@ -315,36 +316,47 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 - Create: `docs/20-nivel2-requisitos/casos-de-uso/UC-NN-*.md` (um por caso), `casos-de-uso/README.md` (índice por ator)
 
 **Interfaces:**
-- Consumes: os RF (Tarefa 10), as RN (Tarefa 9) e os fluxos F-NN.AA (Tarefa 6).
-- Produces: os IDs abaixo. A lista é preliminar: confirme-a contra os fluxos oficiais e una ou divida casos no Step 1, registrando o motivo no `README.md`.
+- Consumes: os RF (Tarefa 10), as RN (Tarefa 9) e as atividades Fn.NN dos fluxos (Tarefa 6).
+- Produces: os IDs abaixo, revisados contra os fluxos oficiais em 2026-11-20 (diagnóstico §5). Os colegiados (CTGRIC e CIG) e o Presidente **não usam o sistema**: o que eles decidem é registrado pela CGOV, que é a Secretaria-Executiva do CTGRIC. Se, ao escrever, for preciso unir ou dividir casos, registrar o motivo no `README.md`.
 
-| UC | Título | Ator principal |
-|---|---|---|
-| UC-01 | Entrar no RADAR por link de e-mail | Servidor convidado |
-| UC-02 | Gerenciar usuários e perfis | CGOV |
-| UC-03 | Sincronizar estrutura organizacional e Cadeia de Valor | CGOV (técnico) |
-| UC-04 | Cadastrar objeto de gestão de riscos | Gestor de riscos |
-| UC-05 | Identificar e registrar risco (com Teste de Integridade) | Gestor de riscos |
-| UC-06 | Analisar risco e avaliar controles existentes | Gestor de riscos |
-| UC-07 | Definir tratamento e plano de ação | Gestor de riscos |
-| UC-08 | Enviar risco para validação | Gestor de riscos |
-| UC-09 | Validar risco | Chefia imediata / Coordenador-Geral |
-| UC-10 | Homologar risco | Diretor / Presidente |
-| UC-11 | Devolver risco para ajuste | Validador ou homologador |
-| UC-12 | Elaborar ficha preliminar de risco | CGOV |
-| UC-13 | Importar riscos da tabela da skill | Gestor de riscos / CGOV |
-| UC-14 | Declarar apetite a riscos por categoria | CGOV (proposta) / CIG (aprovação) |
-| UC-15 | Registrar medição de KRI e acompanhar plano de ação | Gestor de riscos |
-| UC-16 | Comunicar evento de risco à CGOV | Gestor de riscos |
-| UC-17 | Consolidar o Plano de Gestão de Riscos | CGOV |
-| UC-18 | Aprovar o Plano de Gestão de Riscos | Comitê Interno de Governança |
-| UC-19 | Emitir relatório gerencial de riscos | CGOV |
-| UC-20 | Consultar painel e trilha de auditoria | Qualquer perfil com acesso |
+| UC | Título | Ator principal | Origem | Situação |
+|---|---|---|---|---|
+| UC-01 | Entrar no RADAR por link de e-mail | Servidor convidado | ADR/b2 | implementado |
+| UC-02 | Gerenciar usuários e perfis | CGOV | b2 | implementado |
+| UC-03 | Sincronizar estrutura organizacional e Cadeia de Valor | CGOV (técnico) | b1 | implementado |
+| UC-04 | Cadastrar objeto de gestão de riscos | Gestor de riscos | F1; 4.1 | implementado |
+| UC-05 | Identificar e registrar risco (com Teste de Integridade) | Gestor de riscos | F1; 4.2 | implementado |
+| UC-06 | Analisar risco e avaliar controles existentes | Gestor de riscos | F1, F2; 4.3 | implementado |
+| UC-07 | Definir tratamento, plano de ação e KRI | Gestor de riscos | F2; 4.5, 4.7.1 | parcial (LAC-03) |
+| UC-08 | Enviar risco para validação | Gestor de riscos | **FS-01** (matriz P1–P8) | implementado; fluxo interno sem base nas minutas (LAC-11) |
+| UC-09 | Validar risco | Chefia imediata / Coordenador-Geral | **FS-01** (P1–P8, D1) | idem |
+| UC-10 | Homologar risco | Diretor / Presidente | **FS-01** (P1–P8, B11) | idem |
+| UC-11 | Devolver risco para ajuste | Validador ou homologador | **FS-01** | idem |
+| UC-12 | Elaborar ficha preliminar de risco | CGOV | b1.1 (`preliminar_cgov`) | implementado |
+| UC-13 | Importar riscos da tabela da skill | Gestor de riscos / CGOV | skill | implementado |
+| UC-14 | Propor a Declaração de Apetite a Riscos | CGOV | F3.03, F3.07; LS-02 | parcial (LAC-08: hoje a CGOV altera o apetite direto) |
+| UC-15 | Registrar medição de KRI e tratar alerta | Gestor de riscos | F4.02, F4.04; 4.7.1 (L-40) | parcial (LAC-03) |
+| UC-16 | Comunicar fato de risco à CGOV (6 hipóteses) | Gestor de riscos | F4.05; 4.7.2, I a VI | proposto (LAC-04) |
+| UC-17 | Verificar e consolidar o Plano de Gestão de Riscos | CGOV | F3.03 a F3.06; 4.6.2, 4.6.3 | proposto (LAC-01) |
+| UC-18 | Registrar a manifestação do CTGRIC e a deliberação do CIG sobre a DAR e o Plano | CGOV (secretaria) | F3.08 a F3.10, F3.13, F3.14; 4.6.4 a 4.6.9 | proposto (LAC-02) |
+| UC-19 | Emitir relatório trimestral ao CTGRIC e ao CIG | CGOV | F4.13; 4.7.2 | proposto (LAC-05) |
+| UC-20 | Consultar painel e trilha de auditoria | Qualquer perfil com acesso | b3 | implementado |
+| UC-21 | Comunicar risco crítico para composição do Plano | Gestor de riscos | F3.02; 4.6.1 | proposto (LAC-01) |
+| UC-22 | Acompanhar a carteira crítica e cobrar pendências | CGOV | F4.06 a F4.08; Política art. 15, IX | proposto (LAC-09) |
+| UC-23 | Revisar o Plano de Gestão de Riscos | CGOV | F4.10 a F4.12; Política art. 9º; 4.7.2 | proposto (LAC-07) |
+| UC-24 | Reavaliar risco (anual ou por fato) | Gestor de riscos | F4.03; 4.7 | proposto (LAC-10) |
+| UC-25 | Registrar a publicação da DAR e do Plano | CGOV | F3.11, F3.12; 4.6.7 | proposto (LAC-02) |
+| UC-26 | Registrar a avaliação gerencial anual | CGOV | F4.15, F4.16; item 5 | proposto (LAC-06) |
 
-- [ ] **Step 1: Escrever os UC a partir do `_modelo.md`**, com as 7 seções obrigatórias. Os passos do fluxo principal usam a forma "ator faz / sistema faz" (Cockburn), e cada passo que aplica uma regra cita o `RN-NNN`. Os fluxos de exceção do UC-08 ao UC-11 incluem obrigatoriamente: titular vago ou unidade sem titular; envio pelo próprio titular (segregação "sobe um nível"); risco reaberto por mudança da DAR sem homologador efetivo; e tentativa de eficácia acima de Fraco sem evidência (UC-06).
-- [ ] **Step 2: Marcar com `> Situação: proposto (LAC-NN)`** os UC-16 a UC-19, porque dependem das lacunas.
+- [ ] **Step 1: Escrever os UC a partir do `_modelo.md`**, com as 7 seções obrigatórias. Os passos do fluxo principal usam a forma "ator faz / sistema faz" (Cockburn), e cada passo que aplica uma regra cita o `RN-NNN`. Os fluxos de exceção obrigatórios:
+  - UC-08 a UC-11: titular vago ou unidade sem titular; envio pelo próprio titular (segregação "sobe um nível"); risco reaberto por mudança da DAR sem homologador efetivo;
+  - UC-06: tentativa de eficácia acima de Fraco sem evidência;
+  - UC-17: devolução com pendências (gestor sana em 10 du) e consolidação com ressalva de incompletude (sem sanar), com ciência à chefia e ao CTGRIC;
+  - UC-18: DAR reprovada (o Plano não é votado; os dois voltam juntos, F5-13); Plano reprovado (reapresentação em 30 dias; volta ao CTGRIC só se a mudança for substancial, 4.6.9); manifestação desfavorável à integralidade;
+  - UC-15/UC-16: alerta do KRI que coincide com as hipóteses I a III (uma comunicação supre a outra, L-40).
+- [ ] **Step 2: Marcar com `> Situação: proposto (LAC-NN)`** os UC de situação "proposto" na tabela. Nos UC-08 a UC-11, acrescentar `> Fluxo interno do RADAR, sem base nas minutas (LAC-11)`.
 - [ ] **Step 3: Rodar o teste da documentação.** Esperado: PASS (7 seções em ordem em todos os UC).
-- [ ] **Step 4: Commit** `docs(nivel2): casos de uso UC-01 a UC-20`
+- [ ] **Step 4: Commit** `docs(nivel2): casos de uso UC-01 a UC-26`
 
 ### Tarefa 13: Matriz de rastreabilidade
 
@@ -432,8 +444,8 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 **Files:**
 - Create: `docs/50-nivel5-software/uml-01-casos-de-uso.md`, `uml-02-atividades.md`, `uml-03-classes.md`, `uml-04-sequencia.md`, `uml-05-maquina-estados.md`
 
-- [ ] **Step 1: Casos de uso.** Um `flowchart LR` com os atores fora de um `subgraph RADAR`, os UC-01 a UC-20 dentro e as setas `-. «include» .->` / `-. «extend» .->`. Um diagrama geral e um por grupo de atores, se passar de 25 nós.
-- [ ] **Step 2: Atividades.** Um `flowchart TD` com raias (`subgraph`) para o ciclo F-01 (4.1 a 4.7) e para a consolidação F-03, com decisões em losango (`{}`) e barras de paralelismo como nó `fork`/`join`.
+- [ ] **Step 1: Casos de uso.** Um `flowchart LR` com os atores fora de um `subgraph RADAR`, os UC-01 a UC-26 dentro e as setas `-. «include» .->` / `-. «extend» .->`. Um diagrama geral e um por grupo de atores, se passar de 25 nós.
+- [ ] **Step 2: Atividades.** Um `flowchart TD` com raias (`subgraph`) para o ciclo F1 (4.1 a 5) e para a aprovação F3 (consolidação, CTGRIC, CIG), com decisões em losango (`{}`) e barras de paralelismo como nó `fork`/`join`.
 - [ ] **Step 3: Classes.** Um `classDiagram` do domínio com os tipos de `src/types/radar.types.ts`, as stores e os serviços de `src/services/dados/`. As operações levam o nome real das funções (ex.: `calcularRiscoResidual`).
 - [ ] **Step 4: Sequência.** Dois `sequenceDiagram`: (a) UC-08 → UC-09 → UC-10, passando pela tela, pela store, pela fonte Supabase, pela RPC, pela RLS, pelo gatilho e pela `auditoria_log`; (b) UC-13 Importar (prévia → recusas → gravação).
 - [ ] **Step 5: Máquina de estados.** Um `stateDiagram-v2` de `riscos.status_fluxo` com os 6 estados e todas as transições de `20261115004_fluxo_aprovacao.sql`, `20261116001_fluxo_presidencia.sql`, `20261116003_preliminar_cgov.sql` e `20261116004_dar_reavalia_aprovados.sql`, cada uma rotulada com a ação de `historico_fluxo.acao` (inclusive `reaberto_mudanca_dar`) e a guarda (`[sem homologador efetivo]`). Um segundo diagrama, marcado como **proposta LAC-01/02**, para o ciclo do Plano de Gestão de Riscos.
@@ -452,7 +464,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 - Modify: `docs/20-nivel2-requisitos/rastreabilidade.md` (coluna Tela), `docs/30-nivel3-interface/manual-fluxo-figma-vscode.md` (caminhos)
 
 - [ ] **Step 1: Mover a pasta e procurar caminhos quebrados.** Rode `grep -rn "04-ux/" --include=*.md --include=*.ts .`. Esperado: nenhum resultado depois de corrigir.
-- [ ] **Step 2: Montar o `mapa-telas.md`** com a tabela `Rota | View (.vue) | UC atendidos | Perfis (matriz §7) | Página Figma (Original/Trabalho) | Componentes Code Connect | Situação`. Linhas novas para as telas exigidas pelos UC-16 a UC-19 (Situação "a prototipar").
+- [ ] **Step 2: Montar o `mapa-telas.md`** com a tabela `Rota | View (.vue) | UC atendidos | Perfis (matriz §7) | Página Figma (Original/Trabalho) | Componentes Code Connect | Situação`. Linhas novas para as telas exigidas pelos UC de situação "proposto" (UC-14 a UC-19 e UC-21 a UC-26; Situação "a prototipar").
 - [ ] **Step 3: Criar um cartão "Modelagem" para cada tela a prototipar.** O cartão segue o fluxo de [[manual-fluxo-figma-vscode]] pelo MCP do Figma (skills `figma:figma-use` e `figma:figma-generate-design`).
 - [ ] **Step 4: Rodar `npm test` e `npm run build`.** Esperado: PASS (nenhum import aponta para `docs/`).
 - [ ] **Step 5: Commit** `docs(nivel3): UX como nível 3 e mapa de telas, casos de uso e Figma`
@@ -472,7 +484,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
   3. o restante.
   
   Mover para "Pronto para iniciar" no máximo 5 cartões que cumprem a DoR.
-- [ ] **Step 2: Decidir com a CGOV** se a etapa D (homologação CGTI) entra antes ou depois das LAC-01 a LAC-06. Registrar a decisão em ADR.
+- [ ] **Step 2: Decidir com a CGOV** se a etapa D (homologação CGTI) entra antes ou depois das LAC-01 a LAC-11. Registrar a decisão em ADR. Lembrar que o piloto da Sede (D0/D1) já está em curso e não foi suspenso (diagnóstico §5.3).
 - [ ] **Step 3: Atualizar o `ESTADO-ATUAL`.** Ele deixa de ser um diário de etapas: vira um "retrato" com a fase, os números da verificação e o link para o quadro. O histórico das etapas vai para `docs/00-memoria/historico-etapas.md`, movendo as seções existentes.
 - [ ] **Step 4: Atualizar o glossário** (RF, RNF, RN, UC, ADR, MER/DER, formas normais, WIP, DoR/DoD, em linguagem simples).
 - [ ] **Step 5: Verificação final, nesta ordem:**
@@ -489,4 +501,6 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 
 1. ~~Acesso às fontes da Tarefa 1~~ — **decidido (2026-11-20):** pasta do Drive adicionada à sessão local na extensão do Claude Code no VS Code.
 2. ~~Onde fica o quadro Kanban~~ — **decidido (2026-11-20):** Markdown no Obsidian com o plugin Kanban (ADR-0002).
-3. **Etapa D antes ou depois das lacunas normativas** (Tarefa 19, Step 2).
+3. **Etapa D antes ou depois das lacunas normativas** (Tarefa 19, Step 2). Até lá, a D segue (decidido em 2026-11-20: a etapa D não é suspensa; diagnóstico §5.3).
+4. ~~Base da branch~~ — **decidido (2026-11-20):** a `feat/d1-ambiente-piloto` foi mesclada nesta branch (`66f974a`).
+5. **Destino do fluxo interno de 3 degraus (LAC-11):** mantê-lo como etapa interna anterior à comunicação do 4.6.1 ou adaptá-lo ao rito das minutas. Decisão da CGOV, a tomar na Tarefa 7 ou na Tarefa 19.
