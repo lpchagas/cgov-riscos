@@ -96,7 +96,8 @@
 | 2026-11-20 | Login da CLI (computador de casa) | Ok: token criado com o nome `cli_<usuário>@<computador>_<número>`. |
 | 2026-11-20 | `link` com o ref `bekqcwaolpbhpxzcdyhx` | Ok (`Finished supabase link.`); **não pediu a senha**. |
 | 2026-11-20 | Prévia (`db push --dry-run`) | Ok: as 12 migrações listadas, na ordem; nada aplicado. |
-| *(próximo)* | `db push --linked` | Seção 6.4. |
+| 2026-11-20 | `db push --linked` | Ok: 12 migrações aplicadas (`Finished supabase db push.`). Conferido pelo MCP: histórico com as 12, na ordem; 12 tabelas no `public`, todas com RLS ligada e com políticas; 0 linhas em todas e em `auth.users`. |
+| *(próximo)* | Dados de referência (`seed.sql`) | Seção 7. |
 
 > [!note] Proteção da própria Supabase
 > O projeto tem um gatilho da plataforma chamado `ensure_rls` (função `rls_auto_enable`) que **liga a RLS
@@ -204,7 +205,8 @@ npx supabase db push --linked
   migrações já rodaram**. Por isso, nas próximas vezes, o `db push` aplica **só as novas**.
 - Esperado: uma linha `Applying migration ...` para cada uma das 12 e `Finished supabase db push.`
 
-*(Resultado real: a preencher quando o passo for feito.)*
+Resultado real (2026-11-20): a pergunta apareceu com a lista das 12 migrações; resposta `Yes`; uma linha
+`Applying migration ...` para cada uma; `Finished supabase db push.` Nenhum erro.
 
 ---
 
