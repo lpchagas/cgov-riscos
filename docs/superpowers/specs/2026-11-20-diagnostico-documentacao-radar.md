@@ -153,3 +153,60 @@ Notação: **Mermaid** para todos os diagramas (fluxos, ER pé-de-galinha, UML).
 7. **Fase 6 — Fechamento:** análise de lacunas código × requisitos → backlog do Kanban para retomar a implementação; MOC e `ESTADO-ATUAL` finais.
 
 O Nível 3 vai depois do 4 e do 5 de propósito: a interface já existe e está boa; o que falta é saber **quais telas novas** as lacunas normativas exigem, e isso só sai dos níveis 1, 2 e 4.
+
+---
+
+## 5. Revisão dos achados contra as fontes da 4ª rodada (2026-11-20, aprovada pelo responsável)
+
+Legenda: **Confirmado** (a fonte sustenta o achado), **Alterado** (o achado muda), **Descartado** (a fonte o desmente) e **Novo** (a fonte revela algo que o diagnóstico não tinha). Abreviações: "Aprov. Plano/DAR" = `Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20.md`; "Sanea. F4-05" = `Saneamento_Legistica_F4-05_a_F4-09_2026-11-20.md`; "Mod. F4v2/F3v3" = `Modelagem_F4_v2_e_F3_v3_2026-11-20.md`; "Mod. Fluxos" = `Modelagem_Fluxos_Gestao_Riscos_2026-11-20.md`; "du" = dias úteis.
+
+### 5.1 Memória e base normativa
+
+| Achado | Situação | Fonte | Ajuste |
+|---|---|---|---|
+| §0 (nomes das fontes) | **Alterado** | cabeçalhos dos 3 relatórios de saneamento | Corrigido no §0. |
+| A2 — base anterior ao saneamento | **Confirmado, com ressalva** | Aprov. Plano/DAR §3.1–3.2; Sanea. F4-05 §3.1–3.4; `diff` das minutas | O texto saneado são trechos; as decisões F4-14, F4-15, F5-11, F5-13 e F5-15 não foram aplicadas a ele. Toda RN cita a origem com um de três rótulos: `Minuta 15/09`, `Texto saneado 20/11 (relatório §)` ou `Decisão 20/11 não aplicada (alerta)`. |
+| A3 — alertas F4/F5 sem registro | **Confirmado e ampliado** | Mod. F4v2/F3v3 §3 e §8 (16 alertas) | Situação dos 16: F4-11 resolvido (L-40); F4-14, F4-15 e F5-13 decididos; F5-15 decidido sem o critério de urgência; F5-11 com o prazo da CGOV decidido e o do Presidente aberto. O registro também leva os alertas anteriores que afetam o RADAR: F1-01 a F1-05, F2-01 a F2-05, F4-01 a F4-09, F5-01 a F5-10, F5-08b, F5-09b e LS-01 a LS-06. |
+| A4 — Quadros 1 a 5 e Anexo III | **Confirmado** | Mod. Fluxos, "Conferência com as regras de negócio" | O saneamento não mexeu nos Quadros. Registrar também os erros materiais: Anexo II "faixa 18 a 25" × Quadro 8 "> 17"; "Tabela 6/8" no lugar de Quadro; Anexo III com "Comitê Gestor" (deve ser CIG). |
+| Regras sem base literal nas minutas | **Novo** | Mod. Fluxos F2-04 e "Conferência"; Auditoria LS-01 | A **trava de evidência** (no máximo Fraco) e as **6 subcategorias do Teste de Integridade** não estão escritas nas minutas. Origem das RN correspondentes: "regra do sistema (AGENTS.md)" + alerta F2-04, e não um Quadro da Metodologia. |
+| Residual abaixo de 1 | **Novo** | Mod. Fluxos F2-03; `classificar_nivel_q8` (`<= 5` → Baixo) | O banco já classifica 0,5 a 0,9 como Baixo. Vira RN com origem "decisão de sistema", sem mudança de código. |
+| Item novo para a PFE | **Novo** | `contexto-revisao-politica-metodologia.md`, "Para levar à PFE" | Uso de "supervisionar" no art. 3º, III, da Portaria 4.529/2025 frente às definições do art. 3º da Política. Não afeta o sistema; só entra no registro. |
+
+### 5.2 Nível 1 — fluxos e lacunas
+
+| Achado | Situação | Fonte | Ajuste |
+|---|---|---|---|
+| B2 — fluxos oficiais fora do repositório | **Confirmado e agravado** | Mod. F4v2/F3v3 §7 (F3 v3); F1 v2 | Nenhum fluxo oficial prevê validação pela chefia e homologação pelo diretor **risco a risco**. A norma: o gestor comunica os riscos críticos (4.6.1); a CGOV verifica, devolve (10 du) ou consolida com ressalva (4.6.2–4.6.3); o CTGRIC manifesta-se; o CIG delibera a DAR e depois o Plano; o Presidente publica (4.6.4–4.6.7). Os 3 degraus do RADAR vêm das decisões da CGOV (matriz P1–P8, D1). Vira lacuna própria, para a CGOV decidir se o fluxo interno fica como etapa anterior ao 4.6.1. |
+| Fluxos F-01 a F-06 do plano | **Alterado** | `trabalho/fluxos/_INDICE.md` | Numeração oficial: **F1** (v2), **F2**, **F3** (v3, partes 1 e 2) e **F4** (v2, partes 1 a 3), mais **FS-01** para o fluxo interno do sistema. **Sem F-05** (a DAR tramita com o Plano no F3 v3, F5-13) e **sem F-06** (a avaliação está no F4 v2, parte 3). Os `.mmd` são copiados, não transcritos. Atividade = `F3.07` (passo 7 da tabela oficial, com ponto); alerta = `F4-10` (com hífen). |
+| B3(i) — Plano único e ciclo | **Confirmado e ampliado** | Metodologia 4.6.2, 4.6.3, 4.6.9–4.6.11; Política art. 9º | Inclui carteira de riscos críticos, devolução com pendências (10 du), ressalva de incompletude, versões do Plano (vigente, reapresentada, revisão), "mudança substancial" (4.6.9, I a III) e calendário anual. **Lacuna nova: revisão do Plano** — a CGOV decide em 10 du e registra (F4-14); a substancial segue 4.6.4 a 4.6.9 (F4-15); a ordinária fica com a CGOV. |
+| B3 — aprovação pelo CIG | **Confirmado e ampliado** | Política arts. 12, XI, e 13, §§ 1º a 3º; Metodologia 4.6.4–4.6.8 | Manifestação prévia do CTGRIC, com abstenção da CGOV (Plano) e da AUDIT (DAR e Plano); o Plano só é votado se a DAR for aprovada (F5-13); reprovação → reapresentação em 30 dias; portaria do Presidente. **Lacuna nova: a DAR não tem rito no sistema** — hoje a CGOV altera o apetite direto em `/dar`, sem CTGRIC nem CIG. |
+| B3(ii) — KRI completo | **Alterado** | `indicadores_kri` em `20261109001_schema_radar.sql` (linhas 203–215); Metodologia 4.7.1 | "Nenhum tem tabela" está **errado** para o KRI: a tabela já tem fonte, periodicidade, limite de alerta e responsável. Lacunas reais: KRI obrigatório para risco crítico (F4-01) sem trava; KRI por **grupo de riscos correlatos** (hoje cada KRI pertence a um só risco); alerta sem consequência (reavaliar e comunicar em 10 du da ciência, L-40); prazo do KRI de risco que passa a ser crítico em aberto (F4-10). |
+| B3(iii) — comunicação de eventos | **Alterado** | Metodologia 4.7.2, I a VI; 4.7.1 (L-40) | São **6 hipóteses**, não 5, com prazo de 10 du da ciência do fato. A comunicação do alerta do KRI supre as hipóteses I a III. A hipótese I (passar a ser ou deixar de ser crítico) o sistema já calcula (`is_critico`) e pode detectar sozinho. |
+| B3(iii) — relatórios | **Confirmado e precisado** | Metodologia 4.7.2 | Relatórios **trimestrais** ao CTGRIC e ao CIG: carteira crítica, controles e KRIs, **sem** a maturidade (F4-06). |
+| B3(iv) — maturidade | **Alterado** | Metodologia item 5; Política art. 15, X | É a **avaliação gerencial anual** (efetividade, adequação, maturidade), com ciência à AUDIT para o PAINT; data-base aberta (F4-17). Atividade feita fora do sistema; o RADAR fornece os dados. Severidade: melhoria. |
+| Acompanhamento e cobrança pela CGOV | **Novo** | Política art. 15, IX; 4.7.2 (parágrafo novo); F4-12 | A CGOV acompanha a carteira crítica, cobra pendências e, após 10 du, dá ciência à chefia e informa o CTGRIC. O F4-12 diz que isso "é matéria do sistema": a CGOV só cobra o que vê. |
+| Reavaliação anual de todo risco | **Novo** | Metodologia 4.7; F4-08 e F4-13 | Todo risco registrado é reavaliado ao menos uma vez por ano; o gestor pode fixar período menor "no registro do risco". Hoje não há campo de data nem de periodicidade de reavaliação. |
+
+### 5.3 Gestão do trabalho e verificação
+
+| Achado | Situação | Fonte | Ajuste |
+|---|---|---|---|
+| G2 — etapa D só depois da base saneada | **Alterado** | `NT_ESTADO.md` (minuta na PFE, NT sem capítulos); branch `feat/d1-ambiente-piloto` | A publicação das portarias está longe e o piloto da Sede (D0/D1) já começou. A etapa D **não é suspensa**: segue com as regras atuais, e as lacunas normativas entram no Kanban como `#normativo`. A ordem entre a homologação na CGTI e as lacunas continua a decidir na Tarefa 19. |
+| Teste da documentação × cópias das fontes | **Novo** | `NT_ESTADO.md` cita a sigla proibida na regra que a proíbe | Os testes de sigla e de "Crítico" ignoram `docs/01-normativos/revisao-2026/` (cópias fiéis das fontes). |
+| Dados pessoais nas fontes | **Novo** | PDFs do SEI em `documentos-sei/` e `trabalho/` | Copiar só `.md`, `.mmd` e `.png`; **nunca os PDFs** (trazem assinaturas e nomes). As minutas transcritas já estão no repositório e não são copiadas de novo. |
+
+### 5.4 Lacunas consolidadas (base da Tarefa 7)
+
+| LAC | Lacuna | Origem |
+|---|---|---|
+| LAC-01 | Plano de Gestão de Riscos único: carteira, consolidação, devolução, ressalva, versões, calendário | 4.6.1–4.6.3, 4.6.10, 4.6.11 |
+| LAC-02 | Manifestação do CTGRIC e deliberação do CIG (DAR antes do Plano), publicação e reapresentação | Política arts. 12, XI, e 13; 4.6.4–4.6.9 |
+| LAC-03 | KRI: obrigatório para risco crítico, grupo de riscos correlatos, consequência do alerta | 4.7.1; F4-01, F4-10, L-40 |
+| LAC-04 | Comunicação das 6 hipóteses à CGOV em 10 du | 4.7.2, I a VI |
+| LAC-05 | Relatórios trimestrais ao CTGRIC e ao CIG | 4.7.2 |
+| LAC-06 | Avaliação gerencial anual (registro e dados) | item 5; Política art. 15, X |
+| LAC-07 | Revisão do Plano (decisão da CGOV em 10 du; substancial × ordinária) | Política art. 9º; 4.7.2; F4-14, F4-15 |
+| LAC-08 | Rito da DAR (proposta da CGOV, CTGRIC, CIG, portaria) | Política arts. 7º, IV, e 12, V; LS-02; F5-13 |
+| LAC-09 | Acompanhamento da carteira crítica e cobrança de pendências pela CGOV | Política art. 15, IX; 4.7.2; F4-12 |
+| LAC-10 | Reavaliação anual de todo risco registrado | 4.7; F4-08, F4-13 |
+| LAC-11 | Fluxo interno de 3 degraus sem base nas minutas (decisão da CGOV sobre mantê-lo antes do 4.6.1) | B2 desta revisão; matriz P1–P8 |
