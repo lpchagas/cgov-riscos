@@ -27,8 +27,9 @@ Os requisitos de qualidade (`RNF-NNN`, [[requisitos-nao-funcionais]]) ficam em t
   o item entre parênteses. "(parcial)" quer dizer que o teste cobre só o trecho já feito. "— (não iniciado,
   LAC-NN)" é requisito sem implementação, ligado à lacuna do [[lacunas-norma-sistema]].
 
-As colunas de dados (tabelas e funções) e de tela (rotas) ainda serão completadas pelas tarefas do Nível 3
-e do Nível 4 ([[MOC-Radar]]); o que está aqui foi conferido no código em 21/11/2026.
+As colunas **Tela (rota)** e **Tabela/função SQL** já foram conferidas no código em 2026-11-21 (router,
+views e migrações). A Tarefa 14 (dados) pode refiná-las com o DER e o dicionário de dados, e a Tarefa 18
+(interface) com o mapa de telas ([[MOC-Radar]]).
 
 ## Matriz por requisito funcional
 
@@ -112,7 +113,7 @@ e do Nível 4 ([[MOC-Radar]]); o que está aqui foi conferido no código em 21/1
 
 | Dispositivo normativo | RN | RF | UC | Tela (rota) | Tabela/função SQL | Teste |
 | --- | --- | --- | --- | --- | --- | --- |
-| Regra do sistema (decisões P-B1-5 e B11-9) | RN-048 | RF-056 | UC-12 | `/riscos/novo` | `salvar_ficha_risco`; `riscos` | pgTAP `050` bl. 11; pgTAP `081` (f) |
+| Regra do sistema (decisões P-B1-5 e B11-9) | RN-048 | RF-056 | UC-12 | `/importar` (nota 1) | `salvar_ficha_risco`; `riscos` | pgTAP `050` bl. 11; pgTAP `081` (f) |
 | Regra do sistema (decisões P-B1-5 e B11-9) | RN-048 | RF-191 | UC-12 | `/riscos/:id` | `cgov_grava_no_risco_preliminar` | pgTAP `072` bl. 1 |
 | Regra do sistema (decisões P-B1-5 e B11-9) / Regra do sistema (decisão D2, que cita o histórico do Plano) | RN-048, RN-050 | RF-057 | UC-12 | `/riscos/:id` | `riscos` | pgTAP `072` bl. 2 |
 | Regra do sistema (decisões P-B1-5 e B11-9) | RN-048 | RF-058 | UC-12 | `/riscos/:id` | `assumir_risco_preliminar` | pgTAP `050` bl. 11; pgTAP `072` bl. 6; `fonteDemonstracao.spec.ts` |
@@ -143,6 +144,8 @@ e do Nível 4 ([[MOC-Radar]]); o que está aqui foi conferido no código em 21/1
 | Regra do sistema (migração `20261115004`) | RN-052 | RF-083 | UC-08 | `/monitoramento` | `fn_trava_reabertura_risco` | pgTAP `050` bl. 7; `monitoramentoPagina.spec.ts`; `fluxoValidacao.spec.ts` |
 | Regra do sistema (decisões D1 e B11-8) | RN-053 | RF-084 | UC-08 | `/riscos/:id` | `fn_fluxo_exigir_validador_na_reabertura` | pgTAP `070` bl. 5d; pgTAP `080` bl. 3 |
 | Regra do sistema (decisões B2-5 e B2-9) | RN-032 | RF-085 | UC-09, UC-10, UC-11 | a prototipar | — | — (não iniciado) |
+
+Nota 1 (RF-056): o risco `preliminar_cgov` nasce hoje no importador (`/importar`). O formulário `/riscos/novo` só pede o objeto de gestão e grava na unidade de quem o preenche; não permite à CGOV criar risco em nome de outra unidade (conferido em `FormularioRiscoView.vue` em 21/11/2026).
 
 ### 6. DAR
 
@@ -369,7 +372,16 @@ arquivo de `supabase/tests/`.
 
 ## Cobertura
 
-Contagens feitas por script sobre os catálogos em 21/11/2026 (o script não é versionado).
+Contagens feitas em 21/11/2026 sobre os catálogos. Para recontar à mão ou com script próprio:
+
+1. **RF por situação:** em [[requisitos-funcionais]], leia a coluna `Situação` de cada linha `RF-NNN`: começa por
+   "implementado", "parcial" ou "não iniciado" (195 linhas).
+2. **RF com teste:** é o RF "implementado" ou "parcial" cuja `Situação` cita um teste (arquivo `*.spec.ts` ou
+   número pgTAP entre crases). Implementado sem nenhum teste citado deve dar 0.
+3. **RF sem UC:** reúna os RF da linha de metadados `> Origem · RF · RN · Situação` de cada arquivo de
+   `casos-de-uso/UC-*.md` (expanda "RF-A a RF-B") e liste os RF do catálogo que não aparecem.
+4. **RN sem RF:** liste os `RN-NNN` do [[regras-negocio]] que não aparecem na coluna `RN relacionadas` de nenhum RF.
+5. **UC sem RF:** UC cuja linha de metadados não cita nenhum RF.
 
 | Medida | Quantidade | IDs |
 | --- | --- | --- |
