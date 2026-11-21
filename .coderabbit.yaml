@@ -1,0 +1,135 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# =============================================================================
+# Configuração do CodeRabbit (revisor automático de Pull Requests com IA)
+# =============================================================================
+# O que é: um serviço externo que lê cada PR aberta no GitHub e comenta
+# possíveis erros, como um colega revisor. Ele só age depois que o aplicativo
+# "CodeRabbit" for instalado no GitHub (passo manual do responsável).
+#
+# Por que este arquivo existe: sem ele o CodeRabbit comenta em inglês e não
+# conhece as regras do Regime B. Aqui dizemos (1) a língua, (2) o que ignorar
+# e (3) o que vigiar em cada pasta.
+#
+# Documentação oficial: https://docs.coderabbit.ai/reference/configuration
+# Teste de experimentação aberto em 2026-11-21 (avaliação de custo-benefício).
+# =============================================================================
+
+# Comentários em português do Brasil.
+language: pt-BR
+
+# Tom: o responsável é iniciante. Explicações curtas e didáticas.
+tone_instructions: >-
+  Escreva em português do Brasil simples e didático, para um desenvolvedor
+  iniciante. Explique o porquê de cada sugestão e dê um exemplo curto.
+
+reviews:
+  # "chill" = só o que importa; "assertive" = mais comentários (mais ruído).
+  profile: chill
+  high_level_summary: true
+  poem: false
+  # Não pedir "Request changes": o revisor sugere, quem decide é o responsável.
+  request_changes_workflow: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    # Só revisa PRs que vão para a main.
+    base_branches:
+      - "^main$"
+
+  # O que NÃO revisar (economiza a cota e evita ruído).
+  path_filters:
+    - "!.obsidian/**"
+    - "!**/*.png"
+    - "!**/*.mmd"
+    - "!package-lock.json"
+    # Cópias fiéis das fontes da revisão: não se corrige o texto de origem.
+    - "!docs/01-normativos/revisao-2026/**"
+    # Minutas transcritas do SEI: são a fonte, não o produto.
+    - "!docs/01-normativos/Minuta_*.md"
+    - "!docs/01-normativos/*Decreto*.md"
+    # Pastas de ferramentas locais.
+    - "!.agents/**"
+    - "!.claude/**"
+    - "!.copilot/**"
+    - "!.opencode/**"
+    - "!copilot/**"
+
+  # Instruções por pasta. O CodeRabbit também lê o AGENTS.md sozinho
+  # (knowledge_base.code_guidelines), mas repetimos aqui o essencial.
+  path_instructions:
+    - path: "**/*"
+      instructions: |
+        Regras invioláveis do projeto RADAR (ICMBio, Regime B):
+        - Nunca usar a sigla "PGR" para Plano de Gestão de Riscos (PGR é o
+          Programa de Gestão para Resultados). Aponte qualquer ocorrência.
+        - "Crítico" não é nível de classificação: os níveis são Baixo, Médio,
+          Alto e Extremo. "Risco Crítico" = residual fora do apetite da DAR.
+        - Proibida a categoria "Operacional com interface de Integridade".
+        - Nenhum dado pessoal real (nome, CPF, matrícula, e-mail de servidor)
+          em código, testes ou docs; só contas de demonstração @radar.test.
+          Nada vindo de _temp/ nem de arquivos .env.
+        - Textos e comentários em português do Brasil, didáticos.
+    - path: "src/utils/calculadoraRiscoRadar.ts"
+      instructions: |
+        Cálculo oficial (Metodologia SEI 024421455). Verifique com rigor:
+        - Risco Inerente lido da tabela fixa de 25 células do Quadro 7
+          (Impacto pesa mais: P=1,I=5 -> 15; P=5,I=1 -> 11). É erro grave
+          multiplicar ou somar P x I.
+        - Residual = Inerente x Fator (Inexistente 1,0; Fraco 0,9;
+          Mediano 0,75; Satisfatório 0,6; Forte 0,5).
+        - Trava: controle sem evidência não passa de Fraco (0,9).
+        - Quadro 8 sobre o valor exato, sem arredondar: Baixo 1 a 5;
+          Médio >5 a 10; Alto >10 a 17; Extremo >17 a 25 (10,2 é Alto).
+        Qualquer mudança aqui precisa de teste correspondente em
+        tests/unit/calculadoraRiscoRadar.spec.ts.
+    - path: "supabase/migrations/**"
+      instructions: |
+        Migrações do banco (Postgres/Supabase). Verifique: RLS ligada em toda
+        tabela nova; políticas coerentes com o alcance por unidade e perfil;
+        o trigger de cálculo deve seguir as mesmas regras dos Quadros 6, 7 e 8
+        da calculadora em TypeScript; nunca expor a service_role; migrações
+        já aplicadas não devem ser editadas (crie uma nova).
+    - path: "supabase/functions/**"
+      instructions: |
+        Edge Functions. Nenhum segredo no código; nenhum envio de e-mail real
+        a servidores do ICMBio (em desenvolvimento, só Mailpit). Trate erros
+        sem vazar detalhes internos ao usuário.
+    - path: "src/**/*.vue"
+      instructions: |
+        Vue 3 + TypeScript + gov.br DS (@govbr-ds/core). Verifique
+        acessibilidade (WCAG 2.2 AA: rótulos, foco, contraste, teclado),
+        uso das classes do gov.br DS (não do Bootstrap) e textos de interface
+        em português claro.
+    - path: "tests/**"
+      instructions: |
+        Testes Vitest. Aponte testes que não verificam nada de fato, dados
+        pessoais reais em fixtures, e falta de casos de borda nas faixas do
+        Quadro 8 (ex.: 5, 5,01, 10, 10,01, 17, 17,01).
+    - path: "docs/adr/**"
+      instructions: |
+        ADRs no modelo de Nygard. ADR com status Accepted é imutável: só o
+        campo Status pode mudar. Aponte qualquer outra edição em ADR aceito.
+    - path: "docs/**/*.md"
+      instructions: |
+        Documentação em Obsidian (wikilinks [[...]] são válidos). Confira
+        coerência de IDs (RN-NNN, RF-NNN, RNF-NNN, UC-NN, ADR-NNNN, LAC-NN),
+        links quebrados e contradições com as regras do Regime B. Não sugira
+        mudanças de estilo Markdown sem impacto no conteúdo.
+
+  tools:
+    # Procura senhas e chaves vazadas: importante num repositório público.
+    gitleaks:
+      enabled: true
+    # Desligados para evitar ruído: a estrutura dos docs já é protegida por
+    # tests/unit/documentacao.spec.ts, e o LanguageTool erra muito em pt-BR
+    # técnico.
+    markdownlint:
+      enabled: false
+    languagetool:
+      enabled: false
+
+knowledge_base:
+  # Lê AGENTS.md e similares como diretrizes de código.
+  code_guidelines:
+    enabled: true
