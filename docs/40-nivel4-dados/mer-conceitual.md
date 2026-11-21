@@ -61,7 +61,7 @@ migração autorizada.
 
 ```mermaid
 erDiagram
-    UNIDADE ||--o{ UNIDADE : "subordina"
+    UNIDADE |o--o{ UNIDADE : "subordina"
     UNIDADE ||--o{ PESSOA : "lota"
     UNIDADE ||--o{ PROCESSO_CADEIA_VALOR : "lidera ou supervisiona"
     UNIDADE ||--o{ OBJETO_GESTAO : "é dona de"

@@ -58,7 +58,7 @@ as dependências **entre colunas que não são chave** (as que podem violar a 3F
 | `processos_cadeia_valor` | `proc_id → todas`; `macro_id → macroprocesso`. |
 | `objetos_contexto` | `processo_id → macroprocesso_supervisor_id` (quando há processo); `unidade_id → diretoria_id` (pela árvore). |
 | `categorias_risco` | `nome → todas`. |
-| `riscos` | `codigo_radar → todas`; `(causas, evento_risco, consequencias, objetivo_afetado) → descricao_padrao`; `(probabilidade, impacto) → nivel_inerente`; `nivel_inerente → classificacao_inerente`; `nivel_eficacia_controle → fator_controle` (Quadro 6, depois da trava); `(nivel_inerente, fator_controle) → nivel_residual`; `nivel_residual → classificacao_residual`; `(classificacao_residual, apetite da categoria) → status_critico`; `status_critico → is_critico`. Fora da tabela: a evidência dos controles (`controles_existentes`) determinaria `possui_evidencia_controle`. |
+| `riscos` | `codigo_radar → todas`; `(causas, evento_risco, consequencias, objetivo_afetado) → descricao_padrao`; `(probabilidade, impacto) → nivel_inerente`; `nivel_inerente → classificacao_inerente`; `(nivel_eficacia_controle, possui_evidencia_controle) → fator_controle` (Quadro 6, depois da trava); `(nivel_inerente, fator_controle) → nivel_residual`; `nivel_residual → classificacao_residual`; `(classificacao_residual, apetite da categoria) → status_critico`; `status_critico → is_critico`. Fora da tabela: a evidência dos controles (`controles_existentes`) determinaria `possui_evidencia_controle`. |
 | `historico_fluxo` | `sequencia → todas`. |
 | demais | nenhuma. |
 
@@ -127,7 +127,11 @@ aprovados da categoria (`20261116004`, RN-054).
 **O furo.** O gatilho **não deriva o fator a partir da eficácia**: ele só aplica a trava de evidência e
 multiplica. Quem grava `riscos` direto, sem a função de gravação da ficha (a tabela aceita `UPDATE` de quem
 tem a permissão da RLS, além da semente e do importador), pode gravar um par incoerente, como eficácia
-`Forte` com fator `1,00`. O `CHECK` só confere se o fator é um dos cinco valores. Isso é **dívida** e tem
+`Forte` com fator `1,00`. O `CHECK` só confere se o fator é um dos cinco valores. **Pior:** a trava confere o
+**fator**, não a eficácia. Um risco **sem evidência**, com eficácia `Forte` e fator `1,00`, passa pela trava
+(o fator não é menor que 0,90) e fica gravado com o rótulo "Forte", o que contraria a RN-004. A gravação
+direta é barrada em validação e em homologação (`trg_riscos_trava_reabertura`), mas não em rascunho nem
+em devolvido; no risco aprovado, ela reabre o risco sem barrar. Isso é **dívida** e tem
 cartão: fazer o gatilho ler o fator da eficácia. Como mexe no cálculo, a correção depende de pergunta ao
 responsável e de migração autorizada (`AGENTS.md`).
 

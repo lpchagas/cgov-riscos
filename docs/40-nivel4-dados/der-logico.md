@@ -136,8 +136,8 @@ erDiagram
         integer nivel_inerente "gatilho, Quadro 7"
         text classificacao_inerente "gatilho, Quadro 8"
         boolean possui_evidencia_controle
-        text nivel_eficacia_controle "Inexistente a Forte, Quadro 6"
-        numeric fator_controle "gatilho, 1,0 a 0,5"
+        text nivel_eficacia_controle "Inexistente a Forte, Quadro 6, a trava pode baixar para Fraco"
+        numeric fator_controle "1,0 a 0,5, lido do Quadro 6 pela gravação da ficha, o gatilho só aplica a trava"
         numeric nivel_residual "gatilho"
         text classificacao_residual "gatilho, Quadro 8"
         text status_critico "gatilho, sim, nao, pendente_dar"
