@@ -5,22 +5,12 @@
 // Sai com código 1 se achar algo (ou se a pasta não existir). Imprime o
 // arquivo e o motivo, mas nunca o segredo.
 // =============================================================================
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { extname, join } from 'node:path';
-import { procurarSegredos } from './regras';
+import { existsSync, readFileSync } from 'node:fs';
+import { listarArquivos, procurarSegredos } from './regras';
 
-const EXTENSOES = new Set(['.js', '.css', '.html', '.json', '.map']);
-
-/** Percorre a pasta e subpastas devolvendo os arquivos das extensões conferidas. */
-function listarArquivos(pasta: string): string[] {
-  const achados: string[] = [];
-  for (const nome of readdirSync(pasta)) {
-    const caminho = join(pasta, nome);
-    if (statSync(caminho).isDirectory()) achados.push(...listarArquivos(caminho));
-    else if (EXTENSOES.has(extname(nome))) achados.push(caminho);
-  }
-  return achados;
-}
+// Todos os arquivos do pacote são conferidos, de qualquer extensão (ver
+// `listarArquivos`). Imagens e fontes também são lidas como texto: o conteúdo
+// binário vira "lixo" para a busca e não gera alarme falso.
 
 const pasta = process.argv[2] ?? 'dist';
 

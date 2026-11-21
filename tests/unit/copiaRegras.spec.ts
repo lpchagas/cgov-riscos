@@ -160,7 +160,23 @@ describe('variaveisDeConexao', () => {
       PGUSER: 'postgres.abc',
       PGPASSWORD: 'S3nh@F0rte',
       PGDATABASE: 'postgres',
+      // Conexão remota sem sslmode: exigimos TLS (cifra a senha e os dados no caminho).
+      PGSSLMODE: 'require',
     });
+  });
+
+  it('respeita o sslmode pedido na URL (ex.: verify-full, que confere a identidade do servidor)', () => {
+    const pg = variaveisDeConexao('postgresql://u:s@aws-0.pooler.supabase.com:5432/postgres?sslmode=verify-full');
+    expect(pg.PGSSLMODE).toBe('verify-full');
+  });
+
+  it('conexão local (127.0.0.1/localhost) não ganha sslmode: o Supabase local não usa TLS', () => {
+    expect(variaveisDeConexao('postgresql://u:s@127.0.0.1:54322/postgres').PGSSLMODE).toBeUndefined();
+    expect(variaveisDeConexao('postgresql://u:s@localhost:54322/postgres').PGSSLMODE).toBeUndefined();
+  });
+
+  it('recusa sslmode desconhecido sem repetir a URL', () => {
+    expect(() => variaveisDeConexao('postgresql://u:segredo@h:5432/db?sslmode=talvez')).toThrow(/sslmode/);
   });
   it('recusa texto que não é conexão postgres, sem repetir o texto no erro', () => {
     expect(() => variaveisDeConexao('mysql://u:segredo@h/db')).toThrow(/RADAR/);

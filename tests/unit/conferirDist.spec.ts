@@ -40,3 +40,34 @@ describe('procurarSegredos (conferência do pacote dist/)', () => {
     expect(procurarSegredos('// usa service_role no servidor')).toEqual([]);
   });
 });
+
+// -----------------------------------------------------------------------------
+// listarArquivos: a conferência olha TODOS os arquivos do pacote, sem filtro de
+// extensão. Antes, um .txt com chave secreta passava sem ser lido (revisão do
+// CodeRabbit na PR #9).
+// -----------------------------------------------------------------------------
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { listarArquivos } from '../../scripts/conferir-dist/regras';
+
+describe('listarArquivos (pacote dist/)', () => {
+  it('inclui arquivos de qualquer extensão, também em subpastas', () => {
+    const pasta = mkdtempSync(join(tmpdir(), 'dist-'));
+    try {
+      mkdirSync(join(pasta, 'assets'));
+      writeFileSync(join(pasta, 'index.html'), '<html></html>');
+      writeFileSync(join(pasta, 'assets', 'config.txt'), 'sb_secret_abcdefghijklmnopqrstuvwx');
+      writeFileSync(join(pasta, 'robots'), 'sem extensão');
+      const nomes = listarArquivos(pasta).map((c) => c.slice(pasta.length + 1)).sort();
+      expect(nomes).toEqual(['assets/config.txt', 'index.html', 'robots']);
+    } finally {
+      rmSync(pasta, { recursive: true, force: true });
+    }
+  });
+
+  it('um .txt com chave sb_secret_ reprova; chave publicável continua permitida', () => {
+    expect(procurarSegredos('chave=sb_secret_abcdefghijklmnopqrstuvwx')).not.toEqual([]);
+    expect(procurarSegredos('chave=sb_publishable_abcdefghijklmnopqrstuvwx')).toEqual([]);
+  });
+});

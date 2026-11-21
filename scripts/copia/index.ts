@@ -9,7 +9,7 @@
  *
  * Subcomandos:
  *   npm run copia:fazer
- *       pg_dump (só dados) de `public` + `auth.users`/`auth.identities` →
+ *       UM pg_dump (só dados, um único instante) de `public` + `auth.users`/`auth.identities` →
  *       .tar → cifra com age → RADAR_COPIA_DESTINO/radar-AAAA-MM-DD.tar.age;
  *       depois apaga as cópias antigas (rotação) e grava uma linha no
  *       registro.log.
@@ -251,29 +251,34 @@ function fazer(): void {
   const agora = new Date();
   const nome = nomeDaCopia(agora);
   const final = join(destino, nome);
-  const parcial = join(destino, `.${nome}.parcial`); // só vira o nome final se tudo der certo
+  // Arquivo parcial EXCLUSIVO desta execução (o número do processo entra no nome):
+  // se a cópia agendada e uma manual rodarem juntas, uma não escreve por cima do
+  // parcial da outra, e o `finally` de uma não apaga o da outra. Só vira o nome
+  // final (diário) se tudo der certo.
+  const parcial = join(destino, `.${nome}.${process.pid}.parcial`);
   let temporaria: string | null = null;
 
   try {
     temporaria = pastaTemporariaNaMemoria();
 
-    // (1) pg_dump dos DADOS do esquema public, em formato "custom" (binário,
+    // (1+2) UM ÚNICO pg_dump com os DADOS de todas as tabelas de `public` e das
+    //     contas (auth.users e auth.identities), em formato "custom" (binário,
     //     comprimido, lido pelo pg_restore). A estrutura vem das migrações.
+    //     Por que um só: cada pg_dump lê o banco num instante. Com dois, uma
+    //     conta apagada entre eles deixaria um perfil sem a conta na cópia.
+    //     Com um só, tudo sai do MESMO instante (o mesmo "snapshot").
+    //     --table=public.*  todas as tabelas (e sequências) do esquema public;
+    //     --table=auth.users / auth.identities  só as contas, não o resto do auth.
     rodarPostgres(imagem, conexao, 'pg_dump',
-      ['--format=custom', '--data-only', '--schema=public', '--file=/copia/public.dump'], temporaria);
-
-    // (2) pg_dump dos DADOS das contas: auth.users e auth.identities
-    //     (perfis_usuarios aponta para auth.users, então elas vão juntas).
-    rodarPostgres(imagem, conexao, 'pg_dump',
-      ['--format=custom', '--data-only', '--table=auth.users', '--table=auth.identities',
-        '--file=/copia/auth.dump'], temporaria);
+      ['--format=custom', '--data-only', '--table=public.*', '--table=auth.users',
+        '--table=auth.identities', '--file=/copia/radar.dump'], temporaria);
 
     // (3) tar junta os dois arquivos e manda pelo "cano" direto para o age,
     //     que cifra com a chave PÚBLICA e grava no destino. O .tar em claro
     //     nunca é gravado em disco.
     //     tar -C <pasta> -cf - ...  → empacota e escreve na saída padrão
     //     age -r <chave> -o <saida> → cifra para quem tem a chave privada
-    rodarCano('tar -C "$1" -cf - auth.dump public.dump | age -r "$2" -o "$3"', [temporaria, chavePublica, parcial]);
+    rodarCano('tar -C "$1" -cf - radar.dump | age -r "$2" -o "$3"', [temporaria, chavePublica, parcial]);
     renameSync(parcial, final);
 
     const bytes = statSync(final).size;
@@ -342,8 +347,10 @@ function restaurar(args: string[]): void {
       stdio: ['inherit', 'pipe', 'pipe'], // se a chave tiver senha, o age pergunta no terminal
     });
 
-    // (2) pg_restore restaura PRIMEIRO as contas (auth) e DEPOIS public
-    //     (perfis_usuarios aponta para auth.users).
+    // (2) pg_restore restaura as contas (auth) e os dados de public.
+    //     Cópia nova: um arquivo só (radar.dump), restaurado numa transação só.
+    //     Cópia antiga (antes de 2026-11-21): dois arquivos, PRIMEIRO auth.dump
+    //     e DEPOIS public.dump (perfis_usuarios aponta para auth.users).
     //     --data-only          só dados (a estrutura já veio das migrações);
     //     --disable-triggers   desliga os gatilhos durante a carga: a trilha de
     //                          auditoria e o recálculo NÃO disparam (a cópia já
@@ -351,7 +358,8 @@ function restaurar(args: string[]): void {
     //     --single-transaction tudo ou nada (se falhar, nada fica pela metade);
     //     --dbname             o nome do banco (a senha vai por PGPASSWORD).
     const nomeBanco = variaveisDeConexao(destino).PGDATABASE;
-    for (const dump of ['auth.dump', 'public.dump']) {
+    const arquivos = existsSync(join(temporaria, 'radar.dump')) ? ['radar.dump'] : ['auth.dump', 'public.dump'];
+    for (const dump of arquivos) {
       rodarPostgres(imagem, destino, 'pg_restore',
         ['--data-only', '--disable-triggers', '--single-transaction', '--no-owner',
           `--dbname=${nomeBanco}`, `/copia/${dump}`], temporaria);

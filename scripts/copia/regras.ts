@@ -200,14 +200,39 @@ export function variaveisDeConexao(conexao: string): Record<string, string> {
     // Não repetimos o texto recebido: ele poderia conter uma senha.
     throw new Error('RADAR: a conexão precisa começar com postgresql:// (ou postgres://).');
   }
-  return {
+  const variaveis: Record<string, string> = {
     PGHOST: url.hostname,
     PGPORT: url.port || '5432',
     PGUSER: decodeURIComponent(url.username),
     PGPASSWORD: decodeURIComponent(url.password),
     PGDATABASE: decodeURIComponent(url.pathname.replace(/^\//, '')) || 'postgres',
   };
+
+  // TLS (a "cifra" da conexão). Sem isso, o cliente do PostgreSQL usa o modo
+  // "prefer": cifra se o servidor aceitar, mas não exige nem confere quem é o
+  // servidor. Regras:
+  //   - se a URL trouxer ?sslmode=..., respeitamos (ex.: verify-full, que também
+  //     confere o certificado do servidor);
+  //   - sem sslmode e com banco REMOTO (a nuvem), exigimos "require";
+  //   - banco LOCAL (127.0.0.1/localhost) fica sem TLS: o Supabase local não usa.
+  const pedido = url.searchParams.get('sslmode');
+  if (pedido !== null) {
+    if (!MODOS_SSL.has(pedido)) {
+      // Não repetimos a URL: ela tem a senha.
+      throw new Error(`RADAR: sslmode inválido na conexão (use um destes: ${[...MODOS_SSL].join(', ')}).`);
+    }
+    variaveis.PGSSLMODE = pedido;
+  } else if (!HOSTS_LOCAIS.has(url.hostname)) {
+    variaveis.PGSSLMODE = 'require';
+  }
+  return variaveis;
 }
+
+/** Modos de TLS aceitos pelo cliente do PostgreSQL (libpq). */
+const MODOS_SSL = new Set(['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full']);
+
+/** Endereços que apontam para o próprio computador (banco local). */
+const HOSTS_LOCAIS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 
 /** Uma linha da contagem por tabela (ex.: { tabela: 'public.riscos', linhas: 42 }). */
 export interface Contagem {

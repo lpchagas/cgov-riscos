@@ -9,6 +9,26 @@
 // (lista vazia = limpo). Atenção: o motivo NUNCA contém o segredo em si, para
 // não vazar a chave nos logs do build.
 // =============================================================================
+import { readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * Percorre a pasta e as subpastas e devolve TODOS os arquivos, de qualquer
+ * extensão. Não filtramos por extensão de propósito: um `config.txt` ou um
+ * arquivo sem extensão também é publicado junto com o pacote, e uma chave
+ * esquecida nele vazaria do mesmo jeito.
+ * Ex.: dist/index.html, dist/assets/app.js, dist/assets/config.txt.
+ */
+export function listarArquivos(pasta: string): string[] {
+  const achados: string[] = [];
+  for (const nome of readdirSync(pasta)) {
+    const caminho = join(pasta, nome);
+    const info = statSync(caminho);
+    if (info.isDirectory()) achados.push(...listarArquivos(caminho));
+    else if (info.isFile()) achados.push(caminho);
+  }
+  return achados;
+}
 
 /** Lê só o "miolo" (payload) de um JWT e devolve o `role`, ou null se não for JWT. */
 function papelDoJwt(token: string): string | null {

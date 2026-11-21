@@ -85,8 +85,22 @@ function avaliarVersaoMinima(
 function avaliarDocker(l: Leitura): Veredito {
   if (l.saida === null) {
     const erro = l.erro ?? '';
+    // A ORDEM importa: a mensagem de falta de permissão também cita "daemon",
+    // por isso ela é testada antes da de serviço parado.
+    // Ex.: "permission denied while trying to connect to the Docker daemon socket"
+    //      → o Docker está instalado e rodando, mas o seu usuário não pode usá-lo.
+    if (/permission denied/i.test(erro)) {
+      return {
+        ferramenta: 'docker',
+        ok: false,
+        mensagem: 'Docker sem permissão para o seu usuário',
+        dica:
+          'Entre no grupo docker (sudo usermod -aG docker $USER) e abra um terminal novo ' +
+          '(no WSL: wsl --shutdown no Windows e abra o Ubuntu de novo). Não precisa reiniciar o serviço.',
+      };
+    }
     // Ex.: "failed to connect to the docker API" → instalado, mas o motor está parado.
-    if (/Cannot connect|failed to connect|daemon/i.test(erro)) {
+    if (/Cannot connect|failed to connect|Is the docker daemon running/i.test(erro)) {
       return {
         ferramenta: 'docker',
         ok: false,
@@ -96,12 +110,21 @@ function avaliarDocker(l: Leitura): Veredito {
           'No computador de casa: abra o Docker Desktop e espere ele iniciar.',
       };
     }
-    // Ex.: "docker: command not found" → não está instalado.
+    // Ex.: "docker: command not found" ou "docker: not found" → não está instalado.
+    if (/command not found|not found|ENOENT|não encontrado/i.test(erro)) {
+      return {
+        ferramenta: 'docker',
+        ok: false,
+        mensagem: 'Docker não instalado',
+        dica: 'Siga o guia de instalação do Docker em docs/ (Docker Engine no WSL ou Docker Desktop).',
+      };
+    }
+    // Qualquer outra falha: não adivinhamos a causa.
     return {
       ferramenta: 'docker',
       ok: false,
-      mensagem: 'Docker não instalado',
-      dica: 'Siga o guia de instalação do Docker em docs/ (Docker Engine no WSL ou Docker Desktop).',
+      mensagem: 'Não foi possível consultar o Docker',
+      dica: 'Rode "docker info" no terminal e leia a mensagem de erro completa.',
     };
   }
   // A leitura vem no formato "versão|nome da plataforma".

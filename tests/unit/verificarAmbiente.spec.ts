@@ -62,6 +62,22 @@ describe('avaliarAmbiente', () => {
     expect(v.mensagem).toContain('não instalado');
   });
 
+  it('docker sem permissão (usuário fora do grupo docker): não manda reiniciar o serviço', () => {
+    const v = avaliar(leitura('docker', null,
+      'permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock'));
+    expect(v.ok).toBe(false);
+    expect(v.mensagem).toContain('sem permissão');
+    expect(v.dica).toContain('usermod -aG docker');
+    expect(v.dica).not.toContain('service docker start');
+  });
+
+  it('docker com erro desconhecido: não afirma que não está instalado', () => {
+    const v = avaliar(leitura('docker', null, 'erro inesperado XYZ'));
+    expect(v.ok).toBe(false);
+    expect(v.mensagem).not.toContain('não instalado');
+    expect(v.mensagem).toContain('Não foi possível consultar o Docker');
+  });
+
   it('docker Engine e Desktop são reconhecidos', () => {
     const e = avaliar(leitura('docker', '28.1.1|Docker Engine - Community'));
     expect(e.ok).toBe(true);

@@ -28,9 +28,13 @@ function rodar(ferramenta: Ferramenta, comando: string): Leitura {
   }
 }
 
-/** `gh auth status` pode imprimir em stdout ou stderr; juntamos os dois. */
+/**
+ * `gh auth status` pode imprimir em stdout ou stderr; juntamos os dois.
+ * `--hostname github.com`: confere o login no GitHub do projeto. Sem isso, um
+ * login em outro servidor (GitHub Enterprise) bastaria para aprovar.
+ */
 function lerGh(): Leitura {
-  const l = rodar('gh', 'gh auth status 2>&1');
+  const l = rodar('gh', 'gh auth status --hostname github.com 2>&1');
   return l.saida === null && l.erro ? { ...l, saida: l.erro } : l;
 }
 
