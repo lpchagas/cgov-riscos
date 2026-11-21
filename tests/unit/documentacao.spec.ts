@@ -355,13 +355,21 @@ export function tabelasDasMigracoes(sqls: string[]): Set<string> {
 
 /**
  * Lê as entidades dos blocos ```mermaid que contêm `erDiagram`: toda linha `nome {` abre a
- * lista de atributos de uma entidade. Exemplo: "    riscos {" → "riscos".
+ * lista de atributos de uma entidade (ex.: "    riscos {" → "riscos"), e os nomes nas duas
+ * pontas de uma relação (ex.: "a ||--o{ b : tem" → "a" e "b") também contam. Assim, um nome
+ * com erro de digitação que apareça só numa relação não passa em branco.
  */
 export function entidadesDoErDiagram(markdown: string): Set<string> {
   const entidades = new Set<string>();
   for (const bloco of markdown.matchAll(/```mermaid\n([\s\S]*?)```/g)) {
     if (!/^\s*erDiagram\b/m.test(bloco[1])) continue;
     for (const m of bloco[1].matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*\{/gm)) entidades.add(m[1].toLowerCase());
+    // Relação: "a ||--o{ b : texto" (ou ".." no lugar de "--" quando não há chave estrangeira).
+    const relacao = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s+(?:\|\||\|o|\}o|\}\|)(?:--|\.\.)(?:\|\||o\||o\{|\|\{)\s+([A-Za-z_][A-Za-z0-9_]*)\s*:/gm;
+    for (const m of bloco[1].matchAll(relacao)) {
+      entidades.add(m[1].toLowerCase());
+      entidades.add(m[2].toLowerCase());
+    }
   }
   return entidades;
 }
@@ -374,14 +382,23 @@ describe('nível 4 — DER lógico', () => {
     const sql = ['CREATE TABLE a (id int);\n-- CREATE TABLE falsa (x int);\nCREATE TABLE IF NOT EXISTS public.b (id int);\nCREATE TABLE c (id int);\nDROP TABLE c;'];
     expect([...tabelasDasMigracoes(sql)].sort()).toEqual(['a', 'b']);
     const md = '```mermaid\nerDiagram\n  a {\n    uuid id PK\n  }\n  a ||--o{ b : "tem"\n```\n```mermaid\nflowchart LR\n  x {\n```';
-    expect([...entidadesDoErDiagram(md)]).toEqual(['a']);
+    // `b` não tem caixa de atributos, mas aparece numa relação: também é uma entidade citada.
+    expect([...entidadesDoErDiagram(md)].sort()).toEqual(['a', 'b']);
+  });
+
+  it('entidadesDoErDiagram acusa nome errado só numa relação (teste em memória)', () => {
+    // O erro de digitação "objetos_contexo" existe apenas na linha da relação.
+    const md = '```mermaid\nerDiagram\n  objetos_contexto {\n    uuid id PK\n  }\n  riscos {\n    uuid id PK\n  }\n  objetos_contexo ||--o{ riscos : "tem"\n  riscos |o..o{ auditoria_log : "x"\n```';
+    expect([...entidadesDoErDiagram(md)].sort()).toEqual(['auditoria_log', 'objetos_contexo', 'objetos_contexto', 'riscos']);
   });
 
   it('DER contém exatamente as tabelas criadas nas migrações', () => {
     expect(existsSync(DER), 'docs/40-nivel4-dados/der-logico.md ausente').toBe(true);
     const sqls = readdirSync(MIGRACOES).filter((n) => n.endsWith('.sql')).map((n) => readFileSync(join(MIGRACOES, n), 'utf8'));
     const tabelas = [...tabelasDasMigracoes(sqls)].sort();
-    const entidades = [...entidadesDoErDiagram(readFileSync(DER, 'utf8'))].sort();
+    // `auth_users` representa `auth.users`, tabela do Supabase fora do esquema public: o DER a
+    // mostra de propósito (ligada a perfis_usuarios), mas as migrações não a criam.
+    const entidades = [...entidadesDoErDiagram(readFileSync(DER, 'utf8'))].filter((e) => e !== 'auth_users').sort();
     expect(tabelas.length, 'nenhuma tabela lida das migrações').toBeGreaterThan(0);
     expect(entidades).toEqual(tabelas);
   });

@@ -35,9 +35,9 @@ Forças em jogo:
 
 ## Decisão
 
-Nós vamos gravar `nivel_inerente`, `classificacao_inerente`, `fator_controle`, `nivel_residual`,
-`classificacao_residual`, `status_critico`, `is_critico` e `descricao_padrao` na própria linha de `riscos`,
-calculados pelo banco, para preservar o valor histórico auditável: cada valor e cada recálculo ficam
+Nós vamos gravar `nivel_inerente`, `classificacao_inerente`, `nivel_residual`, `classificacao_residual`,
+`status_critico`, `is_critico` e `descricao_padrao` na própria linha de `riscos`, calculados pelo gatilho do
+banco, e o `fator_controle` (lido do Quadro 6 pela gravação da ficha, e não pelo gatilho, que só aplica a trava), para preservar o valor histórico auditável: cada valor e cada recálculo ficam
 registrados na trilha.
 
 - O gatilho `trigger_calcular_risco_radar` recalcula a cada gravação o texto padrão, o inerente, as

@@ -92,19 +92,26 @@ erDiagram
         integer id PK
     }
     subcategorias_risco {
-        integer id PK
+        integer id PK "com categoria_id, forma o par que o risco referencia"
         integer categoria_id FK
         text nome UK "uma das 6 do Quadro 3"
     }
     riscos_depois {
         uuid id PK
         integer categoria_id FK
-        integer subcategoria_id FK "opcional"
+        integer subcategoria_id FK "opcional, chave composta com categoria_id"
     }
     categorias_risco_depois ||--o{ subcategorias_risco : "tem"
     categorias_risco_depois ||--o{ riscos_depois : "categoria_id"
-    subcategorias_risco |o--o{ riscos_depois : "subcategoria_id"
+    subcategorias_risco |o--o{ riscos_depois : "categoria_id e subcategoria_id"
 ```
+
+**Amarra com a categoria do risco.** Duas chaves estrangeiras soltas deixariam um risco da categoria B apontar
+para uma subcategoria da categoria A. Por isso a ligação do risco é **uma chave estrangeira composta**:
+`FOREIGN KEY (categoria_id, subcategoria_id) REFERENCES subcategorias_risco (categoria_id, id)`, com
+`UNIQUE (categoria_id, id)` em `subcategorias_risco` para ela poder ser referenciada. Quando
+`subcategoria_id` é vazio, o banco não confere o par (comportamento padrão `MATCH SIMPLE`), e a subcategoria
+continua opcional.
 
 ### 2.2 Os campos calculados de `riscos` (3FN: desnormalização deliberada, ADR-0003)
 

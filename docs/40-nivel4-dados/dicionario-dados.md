@@ -17,7 +17,7 @@ de [[regras-negocio]].
   aceitos. "Calculado pelo banco" quer dizer que quem preenche a ficha não informa o valor (RN-013 e
   [[0003-gravar-valores-calculados-no-risco]]). "Texto livre" quer dizer que o banco aceita qualquer texto.
 - **Regra:** a regra de negócio (`RN-NNN`) que a coluna atende; "—" quando nenhuma regra a cita.
-- **Dado pessoal:** "sim" quando a coluna identifica ou descreve uma pessoa; "pode conter" quando é texto
+- **Dado pessoal:** "sim" quando a coluna identifica ou descreve uma pessoa (nome, e-mail, cargo, lotação, papel, situação no sistema); "pode conter" quando é texto
   livre em que alguém pode escrever um nome. A matrícula e o CPF **não** são gravados (RN-100). Os dados
   reais só existem no ambiente do piloto (RN-101 a RN-103).
 
@@ -63,11 +63,11 @@ O estado só muda pelas ações do fluxo e pelas reaberturas (RN-038). O fluxo i
 | `perfis_usuarios` | `nome_completo` | `text` | não | — | Nome da pessoa. | — | sim |
 | `perfis_usuarios` | `email` | `text` | não | único | E-mail institucional usado no login. | RN-030 | sim |
 | `perfis_usuarios` | `cargo` | `text` | sim | — | Cargo ou função da pessoa. | — | sim |
-| `perfis_usuarios` | `unidade_id` | `uuid` | não | chave estrangeira para `unidades` | Unidade em que a pessoa está lotada no sistema (uma só). | RN-031 | não |
-| `perfis_usuarios` | `papel_governanca` | `text` | não | `gestor`, `coordenador_territorial`, `gerente_regional`, `coordenador_geral`, `diretor`, `presidencia`, `auditoria`, `cgov`, `cgge`, `gabin` | Perfil de acesso, que decide o que a pessoa lê e grava. | RN-021 a RN-030 | não |
+| `perfis_usuarios` | `unidade_id` | `uuid` | não | chave estrangeira para `unidades` | Unidade em que a pessoa está lotada no sistema (uma só). | RN-031 | sim (descreve a pessoa: lotação) |
+| `perfis_usuarios` | `papel_governanca` | `text` | não | `gestor`, `coordenador_territorial`, `gerente_regional`, `coordenador_geral`, `diretor`, `presidencia`, `auditoria`, `cgov`, `cgge`, `gabin` | Perfil de acesso, que decide o que a pessoa lê e grava. | RN-021 a RN-030 | sim (descreve a pessoa) |
 | `perfis_usuarios` | `criado_em` | `timestamptz` | não | — | Data e hora do cadastro. | — | não |
-| `perfis_usuarios` | `ativo` | `boolean` | não | verdadeiro ou falso | Se o perfil está liberado; sem perfil ativo não há acesso. | RN-026 | não |
-| `perfis_usuarios` | `titular_chefia` | `boolean` | não | verdadeiro ou falso | Se a pessoa é titular da unidade, ou substituta em exercício, e pode validar ou homologar. | RN-032 | não |
+| `perfis_usuarios` | `ativo` | `boolean` | não | verdadeiro ou falso | Se o perfil está liberado; sem perfil ativo não há acesso. | RN-026 | sim (descreve a pessoa) |
+| `perfis_usuarios` | `titular_chefia` | `boolean` | não | verdadeiro ou falso | Se a pessoa é titular da unidade, ou substituta em exercício, e pode validar ou homologar. | RN-032 | sim (descreve a pessoa) |
 
 ### `processos_cadeia_valor`
 
@@ -136,7 +136,7 @@ O estado só muda pelas ações do fluxo e pelas reaberturas (RN-038). O fluxo i
 | `riscos` | `justificativa_impacto` | `text` | sim | — | Justificativa do impacto escolhido. | — | não |
 | `riscos` | `nivel_inerente` | `integer` | não | 1 a 25; calculado pelo banco | Risco inerente lido na tabela de 25 células do Quadro 7 (nunca P × I). | RN-001, RN-013 | não |
 | `riscos` | `classificacao_inerente` | `text` | não | `Baixo`, `Médio`, `Alto`, `Extremo`; calculado pelo banco | Faixa do Quadro 8 do inerente. | RN-002, RN-013 | não |
-| `riscos` | `possui_evidencia_controle` | `boolean` | não | verdadeiro ou falso | Se há evidência comprovada de funcionamento dos controles; sem ela, a eficácia vai no máximo a Fraco. | RN-004 | não |
+| `riscos` | `possui_evidencia_controle` | `boolean` | não | verdadeiro ou falso | Se há evidência comprovada de funcionamento dos controles. **Regra exigida (RN-004):** sem ela, a eficácia vai no máximo a Fraco. **Implementação:** a trava do banco confere o fator, não a eficácia (sem evidência e fator abaixo de 0,90 → Fraco, 0,90); uma gravação direta em `riscos` pode deixar "Forte" sem evidência com fator 1,00 (ver normalização § 2.2). Quem integra com o banco não deve confiar nesse limite. | RN-004 | não |
 | `riscos` | `nivel_eficacia_controle` | `text` | não | `Inexistente`, `Fraco`, `Mediano`, `Satisfatório`, `Forte` | Eficácia dos controles no Quadro 6. O gatilho a troca por Fraco quando não há evidência e o fator é menor que 0,90. | RN-003, RN-004 | não |
 | `riscos` | `fator_controle` | `numeric` | não | `1.00`, `0.90`, `0.75`, `0.60`, `0.50`; calculado pela gravação da ficha | Fator do Quadro 6 que multiplica o inerente. Lido do Quadro 6 pela função de gravação da ficha (`20261117001`); o gatilho só aplica a trava (sem evidência e fator abaixo de 0,90 → Fraco, 0,90). Quem grava `riscos` direto informa o fator (ver normalização § 2.2). | RN-003, RN-004, RN-013 | não |
 | `riscos` | `nivel_residual` | `numeric` | não | calculado pelo banco | Risco residual = inerente × fator, com 2 casas, sem arredondar antes da faixa. | RN-003, RN-007, RN-013 | não |
@@ -215,7 +215,7 @@ O estado só muda pelas ações do fluxo e pelas reaberturas (RN-038). O fluxo i
 | `historico_fluxo` | `etapa` | `text` | não | texto livre, gravado pelas funções do fluxo | Etapa do fluxo em que a ação ocorreu. | RN-096 | não |
 | `historico_fluxo` | `acao` | `text` | não | texto livre, gravado pelas funções do fluxo | Ação feita (enviar, validar, homologar, devolver, reabrir...). | RN-038, RN-096 | não |
 | `historico_fluxo` | `usuario_nome` | `text` | não | — | Nome de quem agiu, gravado no dia da ação. | RN-096 | sim |
-| `historico_fluxo` | `usuario_papel` | `text` | não | — | Papel de quem agiu, gravado no dia da ação. | RN-096 | não |
+| `historico_fluxo` | `usuario_papel` | `text` | não | — | Papel de quem agiu, gravado no dia da ação. | RN-096 | sim (descreve quem agiu) |
 | `historico_fluxo` | `despacho_texto` | `text` | sim | — | Despacho ou motivo; obrigatório na devolução. | RN-046, RN-096 | pode conter (texto livre) |
 | `historico_fluxo` | `criado_em` | `timestamptz` | não | — | Data e hora da ação. | RN-096 | não |
 | `historico_fluxo` | `usuario_id` | `uuid` | sim | uuid, sem chave estrangeira | Identificador de quem agiu (`auth.uid()`), sem chave estrangeira. | RN-096 | sim (identifica a pessoa) |

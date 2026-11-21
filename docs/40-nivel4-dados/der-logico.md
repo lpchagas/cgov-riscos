@@ -245,7 +245,9 @@ registra. Se `objeto_id` fosse chave estrangeira, apagar um objeto obrigaria a a
 sua história. Por isso `objeto_id`, `usuario_id` e `registro_id` são só `uuid`, sem `FK`
 (`20261115005_trilha_auditoria.sql`). O `usuario_id` guarda o `auth.uid()` de quem mexeu, que é o mesmo `id`
 de `perfis_usuarios`, e fica vazio quando o administrador altera o banco direto. Nas linhas da DAR
-(`categorias_risco`, de id numérico), `registro_id` fica vazio e o id vai em `dados_novos->>'id'`.
+(`categorias_risco`, de id numérico), `registro_id` fica vazio e o id vai no retrato da linha: em
+`dados_novos->>'id'` nas operações `INSERT` e `UPDATE`, e em `dados_anteriores->>'id'` no `DELETE`, em que
+`dados_novos` fica vazio.
 
 Em `historico_fluxo`, `usuario_nome` e `usuario_papel` são gravados como texto para mostrar quem agiu e
 com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
