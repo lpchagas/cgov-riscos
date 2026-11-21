@@ -175,6 +175,15 @@ describe('variaveisDeConexao', () => {
     expect(variaveisDeConexao('postgresql://u:s@localhost:54322/postgres').PGSSLMODE).toBeUndefined();
   });
 
+  it('banco remoto não aceita modo sem TLS garantido (disable, allow, prefer)', () => {
+    for (const modo of ['disable', 'allow', 'prefer']) {
+      expect(() => variaveisDeConexao(`postgresql://u:segredo@aws-0.pooler.supabase.com:5432/postgres?sslmode=${modo}`))
+        .toThrow(/TLS/);
+    }
+    // No banco local, o modo sem TLS continua aceito (o Supabase local não usa TLS).
+    expect(variaveisDeConexao('postgresql://u:s@127.0.0.1:54322/postgres?sslmode=disable').PGSSLMODE).toBe('disable');
+  });
+
   it('recusa sslmode desconhecido sem repetir a URL', () => {
     expect(() => variaveisDeConexao('postgresql://u:segredo@h:5432/db?sslmode=talvez')).toThrow(/sslmode/);
   });

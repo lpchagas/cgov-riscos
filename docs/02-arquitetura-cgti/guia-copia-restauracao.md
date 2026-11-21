@@ -121,7 +121,8 @@ Se a senha tiver caracteres especiais (`@`, `:`, `/`, `#`, `?`), escreva-os codi
 **Conexão cifrada (TLS):** com o banco da nuvem, o script exige TLS sozinho (`sslmode=require`): a senha e
 os dados viajam cifrados. Para também conferir o certificado do servidor (`verify-full`), seria preciso
 baixar o certificado do Supabase e montá-lo no contêiner do `pg_dump`; isso ainda não está pronto. Se a
-conexão terminar em `?sslmode=...`, o script respeita o modo pedido.
+conexão terminar em `?sslmode=...`, o script respeita o modo pedido, desde que garanta TLS (`require`,
+`verify-ca` ou `verify-full`); `disable`, `allow` e `prefer` são recusados com o banco da nuvem.
 
 ```bash
 chmod 600 ~/.config/radar-copias/config.env   # só você lê e escreve (OBRIGATÓRIO)

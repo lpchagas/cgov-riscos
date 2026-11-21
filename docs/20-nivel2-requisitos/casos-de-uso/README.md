@@ -13,7 +13,8 @@ sistema ainda não trata uma exceção, o caso de uso descreve o que acontece ho
 pelo sistema; cartão no Kanban)" ([[quadro]]).
 
 **Quem não usa o sistema.** O CTGRIC e o CIG não entram no RADAR. O Presidente do ICMBio usa o perfil
-`presidencia` só para homologar os riscos críticos ligados à Presidência (UC-10); a deliberação do CIG que ele
+`presidencia` só para homologar os riscos ligados à Presidência que exigem homologação: os críticos e os de
+residual Médio em categoria pendente de DAR (UC-10; RN-041); a deliberação do CIG que ele
 preside e a publicação acontecem fora do sistema. O que os colegiados decidem é registrado pela CGOV, que é a Secretaria-Executiva do CTGRIC (UC-18 e UC-25).
 
 ## Índice por ator

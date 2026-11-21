@@ -27,7 +27,7 @@ D6 Dossiê e homologação da CGTI (o antigo D): arquitetura, segurança, checkl
 
 REGRAS FIXAS (com os ajustes só do piloto, a confirmar comigo no D0 antes de gravar no AGENTS.md)
 - Nunca abra, liste nem leia a pasta _temp/ (dados pessoais).
-- Dados REAIS só existem no ambiente do piloto (nuvem) e em _temp/ quando precisar importar: nunca no repositório, nos testes, nas capturas, no Figma nem nos documentos. Testes, desenvolvimento e varredura continuam com dados de demonstração (@radar.test).
+- Dados REAIS só existem no ambiente do piloto (nuvem), nas cópias cifradas fora do repositório, em _temp/ quando precisar importar e, temporariamente, no banco local do computador institucional durante a restauração de teste autorizada (apagados com db:reset no mesmo dia): nunca no repositório, nos testes, nas capturas, no Figma nem nos documentos. Testes, desenvolvimento e varredura continuam com dados de demonstração (@radar.test).
 - Nenhum e-mail do sistema para servidores do ICMBio antes da aprovação da CGTI. Em desenvolvimento, só Mailpit. Envio real só para mim, com o meu aval.
 - Não aplique nada no banco da nuvem, não publique Edge Function, não crie contas, não mude plano nem segredos sem a minha autorização explícita a cada passo. Push na main e merge só quando eu pedir; PR ao fim de cada fase do plano (AGENTS.md) ou quando eu pedir.
 - Não altere o cálculo (Quadros 6, 7 e 8; calculadoraRiscoRadar.ts; trigger do banco), nem alcance, RLS ou fluxo, sem me perguntar. A mudança de login (D2) é autorizada; migração nova só se o plano a autorizar.

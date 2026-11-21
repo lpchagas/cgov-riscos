@@ -221,6 +221,11 @@ export function variaveisDeConexao(conexao: string): Record<string, string> {
       // Não repetimos a URL: ela tem a senha.
       throw new Error(`RADAR: sslmode inválido na conexão (use um destes: ${[...MODOS_SSL].join(', ')}).`);
     }
+    // Banco remoto: só modos que GARANTEM a cifra. "disable" nunca cifra;
+    // "allow" e "prefer" podem cair para conexão sem cifra.
+    if (!HOSTS_LOCAIS.has(url.hostname) && !MODOS_SSL_REMOTOS.has(pedido)) {
+      throw new Error(`RADAR: com o banco da nuvem, a conexão precisa de TLS (use sslmode=${[...MODOS_SSL_REMOTOS].join(', ')}).`);
+    }
     variaveis.PGSSLMODE = pedido;
   } else if (!HOSTS_LOCAIS.has(url.hostname)) {
     variaveis.PGSSLMODE = 'require';
@@ -230,6 +235,9 @@ export function variaveisDeConexao(conexao: string): Record<string, string> {
 
 /** Modos de TLS aceitos pelo cliente do PostgreSQL (libpq). */
 const MODOS_SSL = new Set(['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full']);
+
+/** Modos que garantem TLS: os únicos aceitos com banco remoto. */
+const MODOS_SSL_REMOTOS = new Set(['require', 'verify-ca', 'verify-full']);
 
 /** Endereços que apontam para o próprio computador (banco local). */
 const HOSTS_LOCAIS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
