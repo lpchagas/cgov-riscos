@@ -231,6 +231,24 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 - [ ] **Step 2: Criar um cartão no Backlog para cada LAC**, com classe `#normativo`.
 - [ ] **Step 3: Commit** `docs(nivel1): lacunas entre a norma saneada e o sistema`
 
+### Tarefa 7b: Fluxo FS-02 — análise de ato normativo pelas skills da CGOV e importação no RADAR (incluída em 2026-11-21)
+
+> Incluída por decisão do responsável em 2026-11-21: não há especificação da cadeia de skills do escritório virtual da CGOV (plugin `cgov-escritorio`) que analisa atos normativos e gera as fichas preliminares; o RADAR só documenta a importação (UC-13, RN-033, RN-104, `importadorSkillMarkdown.ts`). Objetivo de longo prazo: um serviço de análise de riscos "em um clique".
+
+**Files:**
+- Create: `docs/10-nivel1-negocio/fluxos/FS-02-analise-ato-por-skills.md`
+- Modify: `docs/10-nivel1-negocio/mapa-processos.md`, `docs/10-nivel1-negocio/README.md`, `docs/00-memoria/MOC-Radar.md`, `docs/90-kanban/quadro.md`
+
+**Interfaces:**
+- Produces: o ID de fluxo `FS-02` e as atividades `FS-02.NN`, que a Tarefa 10 (RF de Importação) e a Tarefa 12 (UC-13) citam como origem; o "contrato com o Importar" (colunas e formatos que a skill entrega × que o importador aceita).
+
+- [ ] **Step 1: Ler, só para consulta, os `SKILL.md` das skills da cadeia** (autorizado pelo responsável em 2026-11-21): `cgov-transcrever-normativos`, `cgov-triagem-processo-sei`, `cgov-cadeia-valor`, `cgov-modelar-fluxo`, `cgov-auditoria-competencias`, `cgov-saneamento-legistica`, `cgov-integridade` e `cgov-gestao-riscos` (itens 3.9 e 4). Extrair de cada uma: gatilho, entrada, saída, regras que afetam o risco. Não alterar o plugin.
+- [ ] **Step 2: Ler o importador** (`src/utils/importadorSkillMarkdown.ts`, a tela de importação e `tests/unit/importadorSkillMarkdown.spec.ts`) e extrair o formato aceito: colunas, sintaxe da descrição, validações e motivos de recusa.
+- [ ] **Step 3: Escrever o FS-02.** Cabeçalho com a origem (`prática da CGOV com as skills do plugin; ferramenta da 2ª linha, sem base nas minutas`); diagrama `flowchart TD` com raias (analista da CGOV, skills, RADAR); atividades `FS-02.NN` numa tabela `Atividade | Executor (pessoa ou skill) | Entrada | Saída | Regra | Observação`; seção "Contrato de dados" (o que cada passo entrega ao seguinte); seção "Contrato com o Importar" (colunas da tabela do Regime B da skill × colunas aceitas pelo importador, com cada divergência); seção "Onde fica o clique (decisão pendente)" com as duas alternativas — skill orquestradora no plugin × botão no RADAR chamando o Claude por Edge Function (dados a serviço externo, CGTI, LGPD, custo, choque com o não-objetivo da visão de produto) — sem decidir.
+- [ ] **Step 4: Validar o diagrama** com `Mermaid_Chart validate_and_render_mermaid_diagram`.
+- [ ] **Step 5: Atualizar o mapa de processos** (o FS-02 vem antes do FS-01: a ficha preliminar nasce no FS-02 e entra no FS-01), o README do Nível 1 e o MOC; criar no Backlog o cartão `[documentação] Decidir onde fica o "um clique" da análise de atos (ADR) · IDs: — · origem: FS-02 · #padrao`.
+- [ ] **Step 6: Rodar `npx vitest run tests/unit/documentacao.spec.ts`** e fazer o commit `docs(nivel1): fluxo FS-02 da análise de atos pelas skills da CGOV`.
+
 ---
 
 ## Fase 2 — Nível 2: Engenharia de requisitos
@@ -282,7 +300,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 **Interfaces:**
 - Produces: a tabela `ID | Enunciado ("O sistema deve…") | Prioridade (MoSCoW) | RN relacionadas | Origem (Fn.NN / LAC / decisão) | Situação (implementado / parcial / não iniciado) | Verificação (I/A/D/T)`, agrupada pelos módulos: Acesso, Estrutura, Objetos, Riscos, Fluxo interno (FS-01), DAR, Monitoramento/KRI, Reavaliação, Comunicação de fatos, Plano de Gestão de Riscos (consolidação, colegiados, publicação, revisão), Acompanhamento pela CGOV, Relatórios e avaliação, Auditoria e Importação.
 
-- [ ] **Step 1: Derivar um RF de cada atividade sistêmica dos fluxos F1 a F4 e FS-01**, de cada linha "faz" da tabela tela × perfil e de cada LAC. Cada RF deve ser singular, ou seja, um "deve" por linha (29148, §5.2.5).
+- [ ] **Step 1: Derivar um RF de cada atividade sistêmica dos fluxos F1 a F4, FS-01 e FS-02**, de cada linha "faz" da tabela tela × perfil e de cada LAC. Cada RF deve ser singular, ou seja, um "deve" por linha (29148, §5.2.5).
 - [ ] **Step 2: Marcar a Situação conferindo o código.** "Implementado" exige um teste citado.
 - [ ] **Step 3: Rodar o teste da documentação.** Esperado: PASS.
 - [ ] **Step 4: Commit** `docs(nivel2): catálogo de requisitos funcionais`
@@ -333,7 +351,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 | UC-10 | Homologar risco | Diretor / Presidente | **FS-01** (P1–P8, B11) | idem |
 | UC-11 | Devolver risco para ajuste | Validador ou homologador | **FS-01** | idem |
 | UC-12 | Elaborar ficha preliminar de risco | CGOV | b1.1 (`preliminar_cgov`) | implementado |
-| UC-13 | Importar riscos da tabela da skill | Gestor de riscos / CGOV | skill | implementado |
+| UC-13 | Importar riscos da tabela da skill | Gestor de riscos / CGOV | FS-02 (Tarefa 7b) | implementado |
 | UC-14 | Propor a Declaração de Apetite a Riscos | CGOV | F3.03, F3.07; LS-02 | parcial (LAC-08: hoje a CGOV altera o apetite direto) |
 | UC-15 | Registrar medição de KRI e tratar alerta | Gestor de riscos | F4.02, F4.04; 4.7.1 (L-40) | parcial (LAC-03) |
 | UC-16 | Comunicar fato de risco à CGOV (6 hipóteses) | Gestor de riscos | F4.05; 4.7.2, I a VI | proposto (LAC-04) |
@@ -503,4 +521,5 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 2. ~~Onde fica o quadro Kanban~~ — **decidido (2026-11-20):** Markdown no Obsidian com o plugin Kanban (ADR-0002).
 3. **Etapa D antes ou depois das lacunas normativas** (Tarefa 19, Step 2). Até lá, a D segue (decidido em 2026-11-20: a etapa D não é suspensa; diagnóstico §5.3).
 4. ~~Base da branch~~ — **decidido (2026-11-20):** a `feat/d1-ambiente-piloto` foi mesclada nesta branch (`66f974a`).
-5. **Destino do fluxo interno de 3 degraus (LAC-11):** mantê-lo como etapa interna anterior à comunicação do 4.6.1 ou adaptá-lo ao rito das minutas. Decisão da CGOV, a tomar na Tarefa 7 ou na Tarefa 19.
+5. **Onde fica o "um clique" da análise de atos pelas skills (FS-02):** skill orquestradora no plugin × botão no RADAR. Decisão da CGOV, registrada em ADR (cartão criado na Tarefa 7b).
+6. **Destino do fluxo interno de 3 degraus (LAC-11):** mantê-lo como etapa interna anterior à comunicação do 4.6.1 ou adaptá-lo ao rito das minutas. Decisão da CGOV, a tomar na Tarefa 7 ou na Tarefa 19.
