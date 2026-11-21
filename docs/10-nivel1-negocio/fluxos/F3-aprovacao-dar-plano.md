@@ -2,7 +2,7 @@
 
 > **Versão:** F3 v3, de 20/11/2026, em duas partes (substitui o F3 v1 e o F3 v2).
 > **Fonte:** diagramas [[04_F3_v3_parte1_consolidacao-devolucao-CTGRIC]] e [[05_F3_v3_parte2_CIG-publicacao-reapresentacao]] (pasta `docs/01-normativos/revisao-2026/fluxos-origem/`); tabela de passos em [[Modelagem_F4_v2_e_F3_v3_2026-11-20]], §7 (passos 1 a 15); atores no §6; alertas no §8.
-> **Situação normativa:** modela o **texto saneado** ([[Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20]], seção 3) **mais as escolhas de 20/11/2026 que ainda não foram aplicadas ao texto** (fonte, §11): **F5-11** (10 dias úteis por passo da CGOV), **F5-13** (o Plano só é votado se a DAR for aprovada) e **F5-15** (reunião extraordinária a pedido da CGOV), todos "decidido, não aplicado" no [[registro-alertas-f4-f5]]. É fluxo-alvo (TO-BE), não o texto da minuta de 15/09 (este está na última seção). A DAR tramita junto com o Plano: por isso não existe fluxo separado da DAR (diagnóstico §5.2, sem F-05).
+> **Situação normativa:** modela o **texto saneado** ([[Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20]], seção 3) **mais as escolhas de 20/11/2026 que ainda não foram aplicadas ao texto** (fonte, §11): **F5-11** (10 dias úteis por passo da CGOV), **F5-13** (o Plano só é votado se a DAR for aprovada) e **F5-15** (reunião extraordinária a pedido da CGOV), todos "decidido, não aplicado" no [[registro-alertas-f4-f5]]. É fluxo-alvo (TO-BE), não o texto original da minuta da Metodologia (este está na última seção). A DAR tramita junto com o Plano: por isso não existe fluxo separado da DAR (diagnóstico §5.2, sem F-05).
 > Volta ao [[mapa-processos]].
 
 ## Para que serve este fluxo
@@ -116,9 +116,9 @@ Resolvidos no texto saneado e já refletidos no fluxo: F5-01, F5-01b, F5-02, F5-
 
 Lacunas norma × sistema (diagnóstico §5.4): **LAC-01** (carteira, consolidação, devolução, ressalva, versões e calendário) em F3.01 a F3.06; **LAC-02** (CTGRIC, CIG, publicação e reapresentação) em F3.07 a F3.14; **LAC-08** (rito da DAR; hoje a CGOV altera o apetite direto em `/dar`) em F3.03, F3.07, F3.10 e F3.11; **LAC-11** (fluxo interno de 3 degraus, [[FS-01-validacao-interna-risco]]) antes do F3.02.
 
-## Versão da minuta de 15/09 (histórico)
+## Versão da minuta da Metodologia, texto original (histórico)
 
-Retrato fiel do item 4.6 da minuta, **antes** das correções: sem devolução, sem CTGRIC no 4.6 e sem saída para a reprovação. Serve só de comparação com o F3 v3; não gera atividades. Fonte: [[03_F3_minuta-atual]] (F3 v1, conferido em 20/11/2026); alertas F3-01 a F3-04 em [[Modelagem_Fluxos_Gestao_Riscos_2026-11-20]], §3.
+Retrato fiel do item 4.6 da minuta da Metodologia (SEI `024421455`), no texto original, **antes** das correções: sem devolução, sem CTGRIC no 4.6 e sem saída para a reprovação. Serve só de comparação com o F3 v3; não gera atividades. Fonte: [[03_F3_minuta-atual]] (F3 v1, conferido em 20/11/2026); alertas F3-01 a F3-04 em [[Modelagem_Fluxos_Gestao_Riscos_2026-11-20]], §3.
 
 ```mermaid
 ---
