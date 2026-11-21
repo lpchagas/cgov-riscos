@@ -59,7 +59,7 @@ Os níveis de classificação (Quadro 8) são **Baixo (1 a 5), Médio (> 5 a 10)
 | ISO/IEC 25010:2023 — Modelo de qualidade de produto (9 características) | 2023 | Só citada |
 | SWEBOK v4 — área *Software Requirements* | v4 | Só citado |
 | Minuta da Política de Gestão de Riscos (RADAR), SEI `024241420` | 15/09/2026, revisada em 21/10/2026 | `docs/01-normativos/Minuta_Portaria_Politica_Gestao_Riscos_SEI_024241420.md` |
-| Minuta da Metodologia de Gestão de Riscos, SEI `024421455` | 15/09/2026, revisada em 21/10/2026 | `docs/01-normativos/Minuta_Portaria_Metodologia_Gestao_Riscos_SEI_024421455.md` |
+| Minuta da Metodologia de Gestão de Riscos, SEI `024421455` | 26/03/2026 (data do cabeçalho da transcrição), revisada em 21/10/2026 | `docs/01-normativos/Minuta_Portaria_Metodologia_Gestao_Riscos_SEI_024421455.md` |
 | Texto saneado da 4ª rodada (legística, auditoria de competências, modelagem) | 20/11/2026 | `docs/01-normativos/revisao-2026/` (ver `README.md`; o `NT_ESTADO.md` prevalece em conflito) |
 | Alertas normativos F4 e F5 | 20/11/2026 | [[registro-alertas-f4-f5]] |
 | Decreto nº 9.203/2017 — Política de Governança da APF | 2017 | [[20171122_Decreto 9203_Política de Governança APF]] |

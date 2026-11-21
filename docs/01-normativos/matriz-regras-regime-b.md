@@ -2,7 +2,7 @@
 
 Fonte canônica para o motor `src/utils/calculadoraRiscoRadar.ts` e para as funções SQL em `supabase/migrations/`.
 
-**O que há nesta página:** os Quadros 6, 7 e 8 (seções 1 e 2, que alimentam o cálculo), os Quadros 1 a 5 e o Anexo III (seções 3 a 8, copiados da minuta da Metodologia de 15/09, SEI `024421455`; o saneamento de 20/11/2026 não mexeu nos Quadros), as regras que o sistema aplica sem base literal nas minutas (seção 9) e os erros materiais da minuta (seção 10). Os alertas citados (F2-03, F2-04, LS-01 etc.) estão no [[registro-alertas-f4-f5]].
+**O que há nesta página:** os Quadros 6, 7 e 8 (seções 1 e 2, que alimentam o cálculo), os Quadros 1 a 5 e o Anexo III (seções 3 a 8, copiados da minuta da Metodologia (versão de 26/03/2026, revisada em 21/10/2026), SEI `024421455`; o saneamento de 20/11/2026 não mexeu nos Quadros), as regras que o sistema aplica sem base literal nas minutas (seção 9) e os erros materiais da minuta (seção 10). Os alertas citados (F2-03, F2-04, LS-01 etc.) estão no [[registro-alertas-f4-f5]].
 
 ## 1. Matriz de Risco Assimétrica (Quadro 7) e Faixas (Quadro 8)
 
@@ -34,7 +34,7 @@ $$\text{Risco Residual} = \text{Risco Inerente} \times \text{Fator de Avaliaçã
 
 ## 3. Atributos dos objetos de gestão de riscos (Quadro 1)
 
-Fonte: Metodologia, item 4.1 (minuta de 15/09). O Quadro é um modelo em branco, para o gestor descrever cada objeto.
+Fonte: Metodologia, item 4.1 (minuta original). O Quadro é um modelo em branco, para o gestor descrever cada objeto.
 
 | TIPOS DE OBJETO DE GR(\*) | DESCRIÇÃO DO OBJETO | PRINCIPAIS RESULTADOS/OBJETIVOS ASSOCIADOS AO OBJETO | RECURSOS NECESSÁRIOS PARA ENTREGA EFICIENTE |
 |---|---|---|---|
@@ -106,7 +106,7 @@ Fonte: Metodologia, item 4.3, b.
 
 ## 8. Modelo de Declaração de Apetite a Riscos (Anexo III)
 
-Fonte: Metodologia, Anexo III (minuta de 15/09). O texto do modelo de portaria está como na minuta, com os erros materiais (ver seção 10); a assinatura foi omitida. O texto saneado em 20/11/2026 (L-12) corrige o Art. 1º e o parágrafo único: ver `revisao-2026/Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20.md`, seção 3.2.
+Fonte: Metodologia, Anexo III (minuta original). O texto do modelo de portaria está como na minuta, com os erros materiais (ver seção 10); a assinatura foi omitida. O texto saneado em 20/11/2026 (L-12) corrige o Art. 1º e o parágrafo único: ver `revisao-2026/Saneamento_Legistica_Aprovacao_Plano_DAR_2026-11-20.md`, seção 3.2.
 
 > Art. 1º. Aprova a Declaração de Apetite a Riscos do Instituto Chico Mendes de Conservação da Biodiversidade – ICMBio, do período a 202X-202X, para fins do Plano de Gestão de Riscos, na forma do Anexo desta Portaria.
 >
@@ -140,7 +140,7 @@ Fonte: Metodologia, Anexo III (minuta de 15/09). O texto do modelo de portaria e
 
 ## 9. Regras do sistema sem base literal nas minutas
 
-Estas regras estão no código e no `AGENTS.md`, mas **não estão escritas** nas minutas de 15/09 nem no texto saneado de 20/11/2026. Na origem das regras de negócio, usam o rótulo `Regra do sistema (AGENTS.md / decisão)` e citam o alerta.
+Estas regras estão no código e no `AGENTS.md`, mas **não estão escritas** nas minutas originais nem no texto saneado de 20/11/2026. Na origem das regras de negócio, usam o rótulo `Regra do sistema (AGENTS.md / decisão)` e citam o alerta.
 
 | Regra | O que a minuta diz | Alerta | Onde está no código |
 |---|---|---|---|
@@ -151,7 +151,7 @@ Estas regras estão no código e no `AGENTS.md`, mas **não estão escritas** na
 
 ## 10. Erros materiais da minuta
 
-Erros do texto da minuta da Metodologia de 15/09 que afetam a leitura das regras. O RADAR segue a leitura correta indicada na última coluna; nenhum deles muda o cálculo.
+Erros do texto da minuta original da Metodologia que afetam a leitura das regras. O RADAR segue a leitura correta indicada na última coluna; nenhum deles muda o cálculo.
 
 | Onde | O que está escrito | Leitura correta | Efeito no RADAR |
 |---|---|---|---|
