@@ -17,7 +17,7 @@ Fontes da 4ª rodada de revisão (cópias fiéis, não editar): pasta `docs/01-n
 
 ## 1. Nível 1 — Negócio
 
-Pasta `docs/10-nivel1-negocio/` (ver o `README.md` dela): visão do produto, mapa de processos, fluxos F1 a F4 e FS-01 e lacunas norma × sistema (LAC-01 a LAC-11). Os arquivos entram nas próximas tarefas.
+Pasta `docs/10-nivel1-negocio/` (ver o `README.md` dela): [[visao-produto]] (visão do produto), mapa de processos, fluxos F1 a F4 e FS-01 e lacunas norma × sistema (LAC-01 a LAC-11). Os demais arquivos entram nas próximas tarefas.
 
 Desenho e plano originais do projeto (histórico):
 
