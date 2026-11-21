@@ -208,7 +208,7 @@ etapa anterior ao item 4.6.1 (LAC-11, alerta F3-04).
 | RN-102 | A primeira carga de dados reais do piloto só pode ocorrer depois do Registro de Decisão da CGOV assinado. | restrição | Regra do sistema (AGENTS.md, regras do piloto da Sede; [[registro-decisao-piloto-sede]]) | — (procedimento fora do sistema) | — (sem LAC: regra do piloto, não da norma) |
 | RN-103 | Os dados reais do piloto devem ser mantidos por no máximo 6 meses contados da primeira carga. | restrição | Regra do sistema (AGENTS.md; [[registro-decisao-piloto-sede]] §6, decisão D0-5) | — (procedimento fora do sistema) | — (sem LAC: regra do piloto, não da norma) |
 | RN-113 | No fim do piloto, os dados reais devem ser exportados para a CGOV e excluídos do projeto em nuvem. | restrição | Regra do sistema ([[registro-decisao-piloto-sede]] §6, decisão D0-5) | — (procedimento fora do sistema) | — (sem LAC: regra do piloto, não da norma) |
-| RN-114 | As cópias cifradas do banco do piloto devem ser apagadas 2 meses depois da exclusão do projeto em nuvem. | restrição | Regra do sistema ([[registro-decisao-piloto-sede]] §6) | — (procedimento fora do sistema) | — (sem LAC: regra do piloto, não da norma) |
+| RN-114 | As cópias cifradas do banco do piloto devem ser apagadas junto com a exclusão do projeto em nuvem, dentro do prazo máximo de 6 meses da primeira carga (decisão de 2026-11-21). | restrição | Regra do sistema ([[registro-decisao-piloto-sede]] §6) | — (procedimento fora do sistema) | — (sem LAC: regra do piloto, não da norma) |
 
 ## Regras pendentes de decisão
 

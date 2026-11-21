@@ -48,7 +48,7 @@ Centros de Pesquisa, Coordenações Técnicas, Unidades de Conservação e Núcl
 ## 6. Retenção e exclusão
 
 Até a homologação da CGTI e a migração, **no máximo 6 meses** contados da primeira carga real (D0-5). No fim:
-exportação para a CGOV e **exclusão do projeto em nuvem**; as cópias cifradas são apagadas 2 meses depois.
+exportação para a CGOV, **exclusão do projeto em nuvem** e exclusão das cópias cifradas, **tudo dentro dos 6 meses** (decisão de 2026-11-21).
 
 ## 7. Riscos aceitos e medidas
 

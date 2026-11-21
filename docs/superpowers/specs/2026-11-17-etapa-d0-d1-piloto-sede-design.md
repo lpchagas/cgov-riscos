@@ -33,7 +33,7 @@ computador local, com cópia e **restauração testadas**.
 | D0-2 | Cópia de segurança | **Cópia lógica diária, cifrada, feita no computador do responsável**, guardada **fora do repositório**. Retenção: 14 diárias + 1 semanal por 2 meses. **Restauração testada** na D1 e repetida uma vez por mês durante o piloto. Risco aceito: dia com o computador desligado = dia sem cópia. |
 | D0-3 | Pausa por inatividade | A cópia diária acessa o banco. A D1 confirma se isso basta para o Supabase considerar o projeto ativo; se não bastar, acrescenta uma consulta leve pela API no mesmo agendamento. |
 | D0-4 | Base legal (LGPD; IN GSI/PR nº 5/2021, uso de nuvem) | **Registro de Decisão da CGOV**, assinado pela Coordenação, com finalidade, dados mínimos, quem acessa, retenção, riscos aceitos e fim do piloto. **Aviso** ao encarregado de dados e à CGTI; o piloto **não espera** resposta. A carga de dados reais só acontece depois da assinatura. |
-| D0-5 | Retenção | Dados do piloto na nuvem até a homologação da CGTI e a migração, **no máximo 6 meses** contados da primeira carga real. No fim: exportação para a CGOV e **exclusão do projeto em nuvem**; cópias cifradas apagadas 2 meses depois. |
+| D0-5 | Retenção | Dados do piloto na nuvem até a homologação da CGTI e a migração, **no máximo 6 meses** contados da primeira carga real. No fim: exportação para a CGOV e **exclusão do projeto em nuvem**; cópias cifradas apagadas 2 meses depois. **Revisto em 2026-11-21:** as cópias são apagadas junto com o projeto, tudo dentro dos 6 meses ([[registro-decisao-piloto-sede]] §6). |
 | D0-6 | Quem acessa | Painel do Supabase (administração): **só o responsável**. Sistema: só contas criadas pela CGOV, com os perfis da matriz de acesso. |
 | D0-7 | Sucesso do piloto | **Cobertura ampla da Sede em 2 a 3 meses:** riscos homologados nas 5 áreas (Presidência, DIPLAN, DIMAN, DISAT e DIBIO), com metas de tempo por degrau e de taxa de recusa no Importar. Os números entram no Registro de Decisão como proposta e são confirmados pelo responsável (ver §9). |
 | D0-8 | Onde fica a tela (front) do piloto | **Power Pages (SPA code site), se o teste do responsável mostrar que ele consegue criar um site num ambiente da Power Platform com upload de `.js` liberado; senão, Cloudflare Pages.** Em qualquer caso, o endereço fica também numa aba "Site" do Teams da Sede. Hospedar o front não expõe dados: o navegador fala direto com o Supabase. |
@@ -218,8 +218,9 @@ Premium, Power Pages Internal User, Entra ID P1, SharePoint Plan 2, Teams etc.):
 
 Nova seção "Regras do piloto da Sede (etapa D)":
 - Nunca abrir, listar nem ler a pasta `_temp/` (dados pessoais).
-- Dados reais só existem no ambiente do piloto (nuvem), nas cópias cifradas fora do repositório e em `_temp/`
-  quando for preciso importar: nunca no repositório, nos testes, nas capturas, no Figma nem nos documentos.
+- Dados reais só existem no ambiente do piloto (nuvem), nas cópias cifradas fora do repositório, em `_temp/`
+  quando for preciso importar e, temporariamente, no banco local do computador institucional durante a
+  restauração de teste autorizada (apagados com `db:reset` no mesmo dia; acréscimo de 2026-11-21): nunca no repositório, nos testes, nas capturas, no Figma nem nos documentos.
   Testes, desenvolvimento e varredura continuam com dados de demonstração (`@radar.test`).
 - Nenhum e-mail do sistema a servidores do ICMBio antes da aprovação da CGTI. Em desenvolvimento, só Mailpit.
   Envio real só para o responsável, com o aval dele.

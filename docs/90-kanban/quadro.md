@@ -6,6 +6,8 @@ kanban-plugin: basic
 
 ## Backlog
 
+- [ ] [dados] Troca de titular em duas gravações: se a retirada da chave do anterior falhar, a unidade fica com dois titulares; fazer a troca numa operação única no banco (migração; pede plano autorizado) · origem: revisão do CodeRabbit na PR #9 e UC-02 (exceção 5a.2) · IDs: UC-02 · #padrao
+- [ ] [dívida] Cópia agendada com `sslmode=verify-full`: baixar o certificado do Supabase no painel e montá-lo no contêiner do `pg_dump` (hoje a conexão exige TLS, mas não confere o certificado) · origem: revisão do CodeRabbit na PR #9 e guia-copia-restauracao §4 · IDs: — · #padrao
 - [ ] [funcional] Cargo vago trava o fluxo: sem titular na chefia, o risco não sobe (decisão futura: delegação ou substituto) · origem: decisoes-tecnicas-b1 (Pendências novas, item 1), decisoes-tecnicas-b3 §3.1 e FS-01-validacao-interna-risco (Caminhos de exceção, "Cargo vago") · IDs: — · #padrao
 - [ ] [funcional] Formulário de risco edita só o 1º controle, a 1ª ação e o 1º KRI; os demais são preservados, mas não editáveis ali · origem: decisoes-tecnicas-b3 §3.2 (B3-11) · IDs: — · #padrao
 - [ ] [dados] Criticidade gravada em `acoes_no_fluxo` pode divergir após mudança da DAR, em risco não aprovado e não editado depois · origem: decisoes-tecnicas-b3 §3.2 (B3-7) · IDs: — (tabela: `acoes_no_fluxo`) · #padrao
