@@ -1,6 +1,6 @@
 # UC-01 — Entrar no RADAR por link de e-mail
 
-> Origem: etapa b2, decisão P6 da CGOV ([[matriz-acesso-responsabilidades]] §5 e §7, linha "Entrar"); o ADR do login por link ainda não está em `docs/adr/` · RF: RF-001, RF-002, RF-003, RF-012, RF-015 · RN: RN-021, RN-022, RN-023, RN-024, RN-025, RN-026, RN-030, RN-033 · Situação: implementado
+> Origem: etapa b2, decisão P6 da CGOV ([[matriz-acesso-responsabilidades]] §5 e §7, linha "Entrar"); o ADR do login por link é o [[0008-login-por-link-de-email-so-para-convidados]] · RF: RF-001, RF-002, RF-003, RF-012, RF-015 · RN: RN-021, RN-022, RN-023, RN-024, RN-025, RN-026, RN-030, RN-033 · Situação: implementado
 
 ## Título
 

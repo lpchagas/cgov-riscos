@@ -18,9 +18,10 @@ A tela precisa mostrar o resultado enquanto a pessoa digita; o banco precisa gar
 
 ## Decisão
 
-Nós vamos guardar a **tabela de 25 células no banco** e calcular nele, pelo gatilho de `riscos`, o inerente, o
+Nós vamos guardar a **matriz de 25 células no banco** (dentro da função `calcular_nivel_inerente_q7`) e calcular nele, pelo gatilho de `riscos`, o inerente, o
 residual e as classificações; e manter um **espelho em TypeScript** (`calculadoraRiscoRadar.ts`) só para a
-prévia instantânea na tela. O teste de regressão confere os dois lados contra os mesmos casos.
+prévia instantânea na tela. Dois testes separados, com casos parecidos, vigiam cada lado (`supabase/tests/000_regressao_calculo.test.sql` e
+`tests/unit/calculadoraRiscoRadar.spec.ts`); nenhum compara as duas matrizes entre si.
 
 ## Consequências
 

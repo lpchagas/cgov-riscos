@@ -89,7 +89,7 @@ classDiagram
   }
   UnidadeOrganizacional "1" o-- "*" UnidadeOrganizacional : unidadePai
   UnidadeOrganizacional "1" --> "*" ObjetoContexto : dona
-  ProcessoCadeiaValor "0..1" --> "*" ObjetoContexto : supervisiona
+  ProcessoCadeiaValor "0..1" --> "*" ObjetoContexto : vincula
   ObjetoContexto "1" --> "*" FichaRisco : tem
   CategoriaRisco "1" --> "*" FichaRisco : classifica
   FichaRisco "1" *-- "*" ControleExistente
@@ -185,6 +185,10 @@ classDiagram
     calcularRiscoCompletoRadar()
     validarRegraIntegridade()
   }
+  class formularioRisco {
+    <<módulo>>
+    prévia do cálculo na ficha
+  }
   class importadorSkillMarkdown {
     <<módulo>>
     importarTabelaMarkdownSkill()
@@ -198,7 +202,9 @@ classDiagram
   riscosStore ..> authStore : modo
   riscosStore ..> importadorSkillMarkdown
   fonteDemonstracao ..> calculadoraRiscoRadar : espelho do banco
-  riscosStore ..> calculadoraRiscoRadar : prévia na tela
+  formularioRisco ..> calculadoraRiscoRadar : prévia na tela
+  riscosStore ..> conversores : fichaDaSkillParaSalvar
+  riscosStore ..> errosBanco
 ```
 
 > **Regra de ouro:** o valor gravado vem do gatilho do banco; `calculadoraRiscoRadar` é só o **espelho** para

@@ -7,8 +7,8 @@ Accepted
 Data: 2026-11-09 (escolha do Supabase, design v2.0 § 5); 2026-11-15 (RLS por alcance de unidade, etapa B1);
 registrada em ADR em 2026-11-21.
 
-Origem: `decisoes-tecnicas-b1.md` (D1 a D3, R16 a R19); [[matriz-acesso-responsabilidades]] § 4 e § 8;
-`supabase/migrations/20261109002_rls_policies.sql` e `20261115003`.
+Origem: `decisoes-tecnicas-b1.md` (D3, R16 a R19); [[matriz-acesso-responsabilidades]] § 4 e § 8;
+`supabase/migrations/20261109002_rls_policies.sql` e `20261115003` (D1 e D2 tratam do fluxo; ver [[0011-fluxo-em-tres-degraus-com-segregacao]]).
 
 ## Contexto
 

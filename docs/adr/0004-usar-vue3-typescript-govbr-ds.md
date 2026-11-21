@@ -6,7 +6,7 @@ Accepted
 
 Data: 2026-11-09 (Documento de Design v2.0, § 5); registrada em ADR em 2026-11-21.
 
-Origem: `docs/superpowers/specs/2026-11-09-cgov-riscos-radar-design.md` § 1.2 e § 5 ("Abordagem 1").
+Origem: `docs/superpowers/specs/2026-11-09-cgov-riscos-radar-design.md` § 1.2, § 2.1 e § 5 ("Abordagem 1").
 
 ## Contexto
 

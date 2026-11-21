@@ -4,7 +4,8 @@
 
 Accepted
 
-Data: 2026-11-09 (design v2.0 § 4; `Dockerfile` criado no mesmo dia); registrada em ADR em 2026-11-21.
+Data: 2026-11-09 (design v2.0 § 4; `Dockerfile` criado no mesmo dia). Acrescentados em 2026-11-17 (etapa D1):
+o modelo `envsubst` com a CSP única e o `.dockerignore`. Registrada em ADR em 2026-11-21.
 
 Origem: design v2.0 § 4; `Dockerfile`, `docker-compose.yml`, `nginx/default.conf.template`;
 [[guia-docker-cgti]]; `decisoes-tecnicas-d.md` (D1-1, D1-2).
@@ -12,8 +13,8 @@ Origem: design v2.0 § 4; `Dockerfile`, `docker-compose.yml`, `nginx/default.con
 ## Contexto
 
 Um dos propósitos do projeto é ser um protótipo que a CGTI/ICMBio possa avaliar e, se aprovar, hospedar em
-servidor institucional, sem instalar Node.js à mão. Durante o protótipo, a nuvem gratuita (Vercel) serve de
-vitrine.
+servidor institucional, sem instalar Node.js à mão. Em 2026-11-09 previa-se a nuvem gratuita (Vercel) como
+vitrine; a decisão D0-8 de 2026-11-17 a trocou por Power Pages ou Cloudflare Pages (`decisoes-tecnicas-d.md`).
 
 ## Decisão
 
@@ -30,7 +31,7 @@ lugar (`scripts/compartilhado/csp.ts`).
 
 **Negativas**
 - A CGTI precisa operar Docker e o Supabase (o contêiner só serve o front; o banco é outro assunto).
-- Manter o `Dockerfile` e o `vercel.json` em paralelo duplica configuração de cabeçalhos.
+- O texto da CSP também vive no `_headers` do Cloudflare e no Power Pages; a fonte única é `scripts/compartilhado/csp.ts`, conferida por `tests/unit/deployConfig.spec.ts`.
 
 **Neutras**
 - O `.dockerignore` impede `_temp/` e `.env` de entrarem no contexto do build.

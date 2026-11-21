@@ -32,8 +32,8 @@ sequenceDiagram
   S->>F: enviar(id)
   F->>R: rpc enviar_para_validacao(risco)
   R->>L: pode_escrever_objeto? chefia acima de quem envia?
-  alt sem chefia acima ou estado inválido
-    L-->>F: RADAR: ... (55000)
+  alt sem chefia acima, sem homologador efetivo (Crítico ou pendente_dar), estado inválido ou sem permissão
+    R-->>F: RADAR: ... (55000 ou 42501)
     F-->>S: ErroRadar traduzido (traduzirErroBanco)
     S-->>T: mensagem em português
   else permitido
@@ -50,7 +50,7 @@ sequenceDiagram
   F->>R: rpc validar_risco(risco, parecer)
   R->>L: é titular do validador efetivo? (quem enviou não valida)
   R->>G2: criticidade atual (a DAR pode ter mudado)
-  alt Risco Crítico e homologador efetivo diferente da chefia
+  alt Crítico ou pendente_dar, e homologador efetivo diferente da chefia
     R->>A: ação "validado" (encaminha à homologação)
     R-->>F: em_homologacao_dir
     H->>T: Clica em "Homologar"
@@ -59,10 +59,10 @@ sequenceDiagram
     F->>R: rpc homologar_risco(risco, parecer)
     R->>A: ação "homologado"
     R-->>F: aprovado
-  else Risco Crítico e mesmo titular valida e homologa
+  else Crítico ou pendente_dar, e o mesmo titular valida e homologa
     R->>A: ação "validado_e_homologado"
     R-->>F: aprovado
-  else dentro do apetite
+  else não Crítico e apetite definido
     R->>A: ação "validado" (não exige homologação)
     R-->>F: aprovado
   end
@@ -85,16 +85,16 @@ sequenceDiagram
   participant R as RPC salvar_ficha_risco
   participant G as Gatilho de cálculo
   U->>T: Cola a tabela e escolhe o objeto
-  T->>S: importarMarkdownDaSkill(markdown, objetoId)
-  S->>I: lê a tabela (prévia)
+  T->>I: importarTabelaMarkdownSkill(markdown) (prévia, na própria tela)
   alt erros de leitura (ex.: categoria proibida)
-    I-->>S: erros
-    S-->>T: importados = 0 e lista de erros
+    I-->>T: erros
     T-->>U: mostra os erros, nada é gravado
   else leitura ok
-    I-->>S: fichas e avisos
+    I-->>T: fichas e avisos
     T-->>U: prévia com avisos, confirma?
     U->>T: Confirma
+    T->>S: importarMarkdownDaSkill(markdown, objetoId, somenteLinhas)
+    S->>I: relê a tabela
     loop cada linha da tabela
       S->>F: salvarFicha(fichaDaSkillParaSalvar)
       F->>R: rpc salvar_ficha_risco(ficha jsonb)
@@ -107,7 +107,7 @@ sequenceDiagram
         R-->>F: id e codigoRadar (estado preliminar_cgov)
       end
     end
-    S->>F: relerDepoisDaAcao(ids novos)
+    S->>S: relerDepoisDaAcao(ids novos), que chama relerRisco e acoesNoFluxo
     S-->>T: importados, total, avisos, erros, recusadas
     T-->>U: resumo, botão "tentar de novo as recusadas"
   end

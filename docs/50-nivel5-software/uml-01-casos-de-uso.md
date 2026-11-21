@@ -122,5 +122,6 @@ flowchart LR
   uc20 -. «include» .-> uc01
 ```
 
-> **Atores que não usam o sistema:** CTGRIC, CIG e Presidente decidem fora do RADAR; a CGOV registra o resultado
-> (UC-18 e UC-25). Por isso não aparecem como atores.
+> **Atores que não usam o sistema:** CTGRIC e CIG decidem fora do RADAR, e o Presidente também ao publicar o
+> Plano e a DAR; a CGOV registra o resultado (UC-18 e UC-25). Por isso não aparecem como atores. (O titular da
+> Presidência usa o RADAR como homologador, UC-10.)

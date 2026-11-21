@@ -19,20 +19,20 @@ stateDiagram-v2
   [*] --> preliminar_cgov : CGOV cria a ficha preliminar (UC-12)
   [*] --> rascunho : unidade cria a ficha (UC-05)
   preliminar_cgov --> rascunho : assumido [titular ou gestor da unidade]
-  preliminar_cgov --> [*] : excluir [só a CGOV]
-  rascunho --> em_validacao_cg : submetido [há chefia acima de quem envia, se Crítico, há homologador efetivo]
+  preliminar_cgov --> [*] : excluir [unidade que grava no objeto ou CGOV]
+  rascunho --> em_validacao_cg : submetido [há chefia acima de quem envia, se Crítico ou pendente_dar, há homologador efetivo]
   rascunho --> [*] : excluir
   devolvido --> em_validacao_cg : submetido [idem]
   devolvido --> [*] : excluir
-  em_validacao_cg --> aprovado : validado [dentro do apetite da DAR]
-  em_validacao_cg --> aprovado : validado_e_homologado [Crítico e mesma chefia valida e homologa]
-  em_validacao_cg --> em_homologacao_dir : validado [Crítico e homologador efetivo diferente]
+  em_validacao_cg --> aprovado : validado [não Crítico e apetite da categoria definido]
+  em_validacao_cg --> aprovado : validado_e_homologado [Crítico ou pendente_dar, e a mesma chefia valida e homologa]
+  em_validacao_cg --> em_homologacao_dir : validado [Crítico ou pendente_dar, e homologador efetivo diferente]
   em_validacao_cg --> devolvido : devolvido_ajuste [validador efetivo, motivo obrigatório]
   em_validacao_cg --> devolvido : devolvido_ajuste [CGOV, só se sem validador efetivo]
   em_homologacao_dir --> aprovado : homologado [titular do homologador efetivo]
   em_homologacao_dir --> devolvido : devolvido_ajuste [homologador efetivo, motivo obrigatório]
   em_homologacao_dir --> devolvido : devolvido_ajuste [CGOV, só se sem homologador efetivo]
-  aprovado --> em_validacao_cg : reaberto_mudanca_nota [edição de P, I, controle, categoria ou objeto, ou mudança de criticidade]
+  aprovado --> em_validacao_cg : reaberto_mudanca_nota [edição de P, I, controle (evidência ou eficácia), tratamento 5W2H, definição do KRI, categoria ou objeto, ou mudança de criticidade; recusa se não houver validador efetivo]
   aprovado --> em_homologacao_dir : reaberto_mudanca_dar [a mudança da DAR faz o risco virar Crítico]
 ```
 

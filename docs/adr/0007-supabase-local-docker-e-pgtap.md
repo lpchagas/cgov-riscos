@@ -11,8 +11,8 @@ Origem: `decisoes-tecnicas-b1.md` (R1, R2, R4, R13); [[guia-supabase-local]]; `p
 ## Contexto
 
 As regras de acesso e de fluxo moram no banco (ver [[0005-usar-postgresql-supabase-com-rls]]) e precisam de
-teste automático por perfil. O banco remoto era de uma versão antiga, incompatível com as migrações, e mexer
-nele depende de autorização. Dados pessoais não podem ir para a nuvem sem aval.
+teste automático por perfil. Depender da nuvem para testar traria dependência de internet, a pausa do plano gratuito e senha no `.env`;
+mexer no banco remoto também depende de autorização. Dados pessoais não podem ir para a nuvem sem aval.
 
 ## Decisão
 

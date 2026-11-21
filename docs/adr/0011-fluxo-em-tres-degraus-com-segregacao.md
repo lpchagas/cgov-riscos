@@ -12,7 +12,7 @@ testes `supabase/tests/050` e `070`; Metodologia (SEI `024421455`), 4.6; Decreto
 ## Contexto
 
 O risco passa por três degraus: o gestor envia, a chefia imediata valida e a autoridade superior homologa
-(sempre para risco Crítico, ou seja, fora do apetite da DAR). Antes da revisão final, o Gerente Regional que
+(sempre para risco Crítico, ou seja, fora do apetite da DAR, e também com apetite ainda pendente de DAR). Antes da revisão final, o Gerente Regional que
 criava um risco no próprio Serviço o enviava e o validava sozinho, inclusive de nível Extremo. Isso quebra a
 segregação entre quem executa e quem valida.
 

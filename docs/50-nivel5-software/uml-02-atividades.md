@@ -31,7 +31,7 @@ flowchart TD
     rel[F1.09 Relatórios trimestrais e<br/>avaliação gerencial anual]
   end
   aceito([Fim: risco aceito,<br/>monitorado quando Médio])
-  travado([Lacuna: sem DAR não há<br/>regra para risco crítico])
+  travado([Lacuna: DAR pendente.<br/>Alto e Extremo já são Críticos,<br/>Médio aguarda a DAR])
   fim([Fim: ciclo seguinte])
   ini --> ctx --> ana --> dok
   dar -.-> dok
@@ -59,7 +59,7 @@ flowchart TD
   subgraph VAL[Chefia imediata - validador efetivo]
     v{Há quem valide acima<br/>de quem enviou?}
     val[Valida o risco]
-    crit{Risco Crítico?}
+    crit{Risco Crítico<br/>ou pendente_dar?}
   end
   subgraph HOM[Homologador efetivo]
     h{Mesmo titular<br/>valida e homologa?}
