@@ -1,5 +1,7 @@
 # Decisões técnicas da etapa B1 (banco, alcance e RLS)
 
+> **Arquivo congelado em 2026-11-20 (histórico).** Decisões vigentes: ADR-0005, ADR-0007, ADR-0011, ADR-0012, ADR-0013 (e ADR-0003 para os valores calculados). Não edite este arquivo; novas decisões vão em `docs/adr/`.
+
 > **Para que serve este documento:** registrar, num lugar só e versionado, as decisões tomadas
 > durante a construção da etapa B1 que **mudam o comportamento** do banco, do importador ou dos
 > testes. Os comentários do código e os testes citam estas decisões pelo código (ex.: "decisão R9",

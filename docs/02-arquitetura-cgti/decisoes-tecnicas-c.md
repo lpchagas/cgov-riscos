@@ -1,5 +1,7 @@
 # Decisões técnicas da etapa C (Painel no celular)
 
+> **Arquivo congelado em 2026-11-20 (histórico).** Decisões vigentes: nenhum ADR novo: as decisões do Painel no celular continuam valendo aqui; a interface segue ADR-0004 e ADR-0015. Não edite este arquivo; novas decisões vão em `docs/adr/`.
+
 > **Para que serve este documento:** registrar, num lugar só e versionado, as decisões da etapa C que
 > **mudam o comportamento** do Painel em telas pequenas. É o irmão de [[decisoes-tecnicas-b3]]. Cada
 > linha diz **o que** foi decidido, **por quê** e **qual o custo ou efeito**.

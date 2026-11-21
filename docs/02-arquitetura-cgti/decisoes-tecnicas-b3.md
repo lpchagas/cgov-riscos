@@ -1,5 +1,7 @@
 # Decisões técnicas da etapa B3 (telas lendo e gravando no banco)
 
+> **Arquivo congelado em 2026-11-20 (histórico).** Decisões vigentes: ADR-0009 (camada de dados com duas fontes) e ADR-0003 (valores calculados e `fator_controle`). Não edite este arquivo; novas decisões vão em `docs/adr/`.
+
 > **Para que serve este documento:** registrar, num lugar só e versionado, as decisões da etapa B3
 > que **mudam o comportamento** das telas, da camada de dados e da migração `20261117001`. É o irmão de
 > [[decisoes-tecnicas-b1]] e [[decisoes-tecnicas-b2]]. Cada linha diz **o que** foi decidido, **por quê**
