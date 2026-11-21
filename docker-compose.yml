@@ -1,9 +1,16 @@
 # ==============================================================================
 # DOCKER COMPOSE — EXECUÇÃO EM 1 COMANDO PARA DEMONSTRAÇÃO À CGTI/ICMBio
 # ==============================================================================
-# Como subir o container:
-#   docker compose up --build -d
-# Em seguida, acesse no navegador: http://localhost:8080
+# Modo demonstração (sem banco), porta 8080:
+#   docker compose up --build -d          -> http://localhost:8080
+#
+# Modo real local (container falando com o Supabase local), porta 8081:
+#   npm run db:start
+#   cp .env.conteiner-local.example .env.conteiner-local   (e preencha a chave anon)
+#   docker compose --env-file .env.conteiner-local --profile real-local up --build -d
+#   -> http://localhost:8081
+# O serviço real-local só sobe com `--profile real-local`; o comando simples
+# acima (sem perfil) continua subindo apenas a demonstração.
 # ==============================================================================
 
 services:
@@ -14,4 +21,23 @@ services:
     container_name: icmbio-cgov-radar-web
     ports:
       - "8080:80"
+    restart: unless-stopped
+
+  radar-web-real-local:
+    profiles: ["real-local"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Estas variáveis vêm do arquivo passado em --env-file (.env.conteiner-local)
+      # e são gravadas no JavaScript pelo Vite durante o build.
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
+    container_name: icmbio-cgov-radar-web-real-local
+    environment:
+      # Libera o Supabase local na CSP (connect-src). O navegador está no seu
+      # computador, por isso o endereço é 127.0.0.1 e não o nome de um container.
+      RADAR_SUPABASE_ORIGEM: http://127.0.0.1:54321
+    ports:
+      - "8081:80"
     restart: unless-stopped

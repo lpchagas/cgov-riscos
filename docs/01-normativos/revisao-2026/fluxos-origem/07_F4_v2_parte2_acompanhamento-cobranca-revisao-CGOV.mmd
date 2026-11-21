@@ -1,0 +1,32 @@
+---
+title: F4 v2, parte 2 – Acompanhamento, cobrança e revisão do Plano pela CGOV
+---
+graph TD
+IN2(["Entrada: comunicação do gestor ou registros da carteira"])
+C1["CGOV: consolida as informações e elabora análises gerenciais"]
+C2["CGOV: acompanha a carteira de riscos críticos. Atualização, tempestividade e consistência, sem prejuízo do mérito"]
+D1{"Há pendência de atualização, relato ou comunicação?"}
+C3["CGOV: cobra o gestor"]
+D2{"Persiste por mais de 10 dias úteis após a cobrança?"}
+C4["CGOV: dá ciência à chefia imediata e informa o CTGRIC no relatório trimestral seguinte"]
+D3{"A situação demanda revisão do Plano?"}
+C5["CGOV: atualiza o Plano e informa nos relatórios trimestrais"]
+D4{"Mudança substancial, nos termos do item 4.6.9?"}
+REV["Rito dos itens 4.6.4 a 4.6.9: CTGRIC manifesta-se e CIG aprova"]
+RJ["CGOV: ajusta e reapresenta em até 30 dias. Plano anterior segue vigente, itens 4.6.8 e 4.6.9"]
+OUT2(["Segue para a parte 3: relatórios e avaliações"])
+IN2 --> C2 --> D1
+D1 -->|Não| C1
+D1 -->|Sim| C3 --> D2
+D2 -->|Não| C1
+D2 -->|Sim| C4 --> C1
+IN2 --> C1
+C1 --> D3
+D3 -->|Não| OUT2
+D3 -->|Sim| D4
+D4 -->|Não| C5 --> OUT2
+D4 -->|Sim| REV
+REV -->|Aprovada pelo CIG| OUT2
+REV -->|Reprovada pelo CIG| RJ --> REV
+
+classDef lacuna fill:#fff3cd,stroke:#b58900,color:#000

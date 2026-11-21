@@ -7,6 +7,8 @@ formato: "transcrição em Markdown"
 revisado_em: "2026-10-21"
 ---
 
+> **Nota do projeto (20/11/2026).** Esta é a transcrição do texto original da minuta e não foi alterada. O texto saneado em 20/11/2026 e as fontes da 4ª rodada de revisão estão em [`revisao-2026/README.md`](revisao-2026/README.md); a situação de cada alerta (resolvido no texto saneado, decidido e não aplicado, aberto ou fora das minutas) está no [[registro-alertas-f4-f5]] (`revisao-2026/registro-alertas-f4-f5.md`). Os Quadros 1 a 8, o Anexo III e os erros materiais estão na [[matriz-regras-regime-b]].
+
 > **Nota editorial.** Este Markdown transcreve o conteúdo visível das páginas 25 a 37 (numeração SEI) do PDF de origem, correspondentes à minuta SEI 024421455. Preservam-se grafia, numeração, pontuação e erros materiais aparentes do original, entre eles: os marcadores de número e dia não preenchidos; "Tabela 6" remetendo ao Quadro 6; a numeração "Tabela 8" na estratégia de tratamento, após o "Quadro 8"; o texto "escala de probabilidade" na descrição da escala de impacto; o item "Evento de risco" listado entre as causas no Anexo II; o texto do Anexo III com redação de portaria ("Art. 1º", "Anexo desta Portaria", "Comitê Gestor do ICMBio"). A marca d'água "MINUTA" não é texto do ato. As cores das células do Quadro 7 (matriz) não são reproduzidas em Markdown; só os valores. A Figura 1 é imagem e está descrita pelos rótulos nela visíveis. Os marcadores `<!-- pg. N -->` indicam a página SEI e não fazem parte do ato.
 
 <!-- pg. 25 -->

@@ -25,4 +25,61 @@ Este repositório contém o código-fonte (Vue.js 3 + TypeScript + `@govbr-ds/co
 
 - **Commits automáticos:** faça um commit sempre que concluir uma alteração relevante (uma tarefa de plano revisada, uma correção, uma etapa de documentação), sem esperar pedido. Revoga a regra anterior de "um único commit no fim da etapa".
 - Mensagem em português, no padrão `tipo(escopo): resumo` (ex.: `feat(b2): ...`, `fix(importador): ...`, `docs(estado): ...`), terminando com a linha `Co-Authored-By` indicada pela ferramenta.
-- Nunca faça commit de `_temp/`, `.env` ou de qualquer dado pessoal. Push, merge e abertura de PR continuam dependendo de pedido explícito.
+- Nunca faça commit de `_temp/`, `.env` ou de qualquer dado pessoal. Merge e push na `main` continuam dependendo de pedido explícito; PR, só a pedido ou pela regra de fase abaixo.
+- **PR a cada mudança de fase (decisão de 2026-11-21):** ao concluir e revisar a última tarefa de uma **Fase** do plano em execução, abra uma PR da branch de trabalho para a `main` **antes** de começar a fase seguinte, com o título `Fase N: <nome da fase>` e, na descrição, o que a fase entregou, os testes rodados e o que fica para depois. Essa autorização para **abrir** a PR é permanente; o **merge** continua dependendo de pedido explícito. Antes do push, confira o que vai sair: o repositório é **público**.
+- **Dois computadores (decisão de 2026-11-17):** o responsável trabalha ora no computador de casa, ora no desktop institucional. **No início de cada sessão**, rode `git pull --ff-only` na branch de trabalho (e `npm ci` se o `package-lock.json` mudou). **No fim de cada sessão** (ou quando o responsável disser que vai trocar de computador), faça o commit do que estiver pronto e **o push da branch de trabalho** (nunca da `main`): essa autorização é permanente. Se o pull não for "fast-forward", pare e pergunte.
+
+## Regras do piloto da Sede (etapa D, decisões de 2026-11-17)
+
+Desenho: `docs/superpowers/specs/2026-11-17-etapa-d0-d1-piloto-sede-design.md`.
+
+- Nunca abra, liste nem leia a pasta `_temp/` (dados pessoais).
+- Dados reais só existem no ambiente do piloto (nuvem), nas cópias cifradas fora do repositório, em `_temp/` quando for preciso importar e, temporariamente, no banco local do computador institucional durante a restauração de teste autorizada (apagados com `db:reset` no mesmo dia; decisão de 2026-11-21): nunca no repositório, nos testes, nas capturas, no Figma nem nos documentos. Testes, desenvolvimento e varredura continuam com dados de demonstração (`@radar.test`). Até o encerramento da D5, os dados reais podem existir nos dois computadores do responsável; depois, só no desktop institucional.
+- Nenhum e-mail do sistema a servidores do ICMBio antes da aprovação da CGTI. Em desenvolvimento, só o Mailpit (porta 54324). Envio real só para o responsável, com o aval dele.
+- Na nuvem, nada sem autorização explícita **a cada passo**: aplicar no banco, publicar Edge Function ou front, criar contas, mudar plano, Auth ou segredos. Nos planos, esses passos vêm marcados com **[AUTORIZAÇÃO]**: pare neles e peça.
+- Não altere cálculo (Quadros 6, 7 e 8; `calculadoraRiscoRadar.ts`; trigger do banco), alcance, RLS ou fluxo sem perguntar. Migração nova só se o plano da etapa a autorizar.
+- Registro de Decisão da CGOV assinado antes da primeira carga de dados reais; retenção máxima de 6 meses.
+
+## Forma de trabalhar com o responsável
+
+- O responsável é iniciante em programação: explique em linguagem simples e comente o código de forma didática.
+- Decisões que cabem a ele: perguntas de múltipla escolha (ferramenta de perguntas interativas), com a opção recomendada em primeiro lugar e marcada "(Recomendado)".
+- Base normativa dos fluxos: as minutas da Política (SEI `024241420`) e da Metodologia (SEI `024421455`) até a publicação; depois, revisão sistêmica das regras.
+- No fim de cada conversa, proponha um prompt curto para continuar o trabalho (neste chat ou num novo).
+
+## Documentação em níveis
+
+| Nível | Pasta | Conteúdo |
+| --- | --- | --- |
+| 1 | `docs/10-nivel1-negocio/` | visão, processos, fluxos F1 a F4 e FS-01, lacunas |
+| 2 | `docs/20-nivel2-requisitos/` | ERS, RN, RF, RNF, casos de uso, rastreabilidade |
+| 3 | `docs/30-nivel3-interface/` (hoje `docs/04-ux/`) | telas, design system, Figma |
+| 4 | `docs/40-nivel4-dados/` | MER, DER, normalização, dicionário |
+| 5 | `docs/50-nivel5-software/` | diagramas UML em Mermaid |
+| - | `docs/adr/`, `docs/90-kanban/` | decisões de arquitetura; fluxo de trabalho |
+
+- Identificadores: `RN-NNN`, `RF-NNN`, `RNF-NNN`, `UC-NN`, `ADR-NNNN`, `LAC-NN` e atividades `Fn.NN`.
+- ADR com status `Accepted` é imutável: só o Status muda, quando outro ADR o substitui.
+- O teste `tests/unit/documentacao.spec.ts` protege a estrutura (sequência dos ADRs, seções, IDs, siglas); rode `npm test` depois de mexer em `docs/`.
+
+## Regras do Figma — biblioteca de componentes "RADAR — Painel" (decisão do responsável, 2026-11-16)
+
+Arquivo: `RADAR — Painel` (fileKey `T1AuuL9jEfqkP7uoAPTUFF`, equipe Figma "cgov"). O Code Connect é ligado **à mão** pelo responsável, no Dev Mode (o plano não permite `add_code_connect_map` pelo MCP: não chame essa ferramenta).
+
+**Sempre que criar, alterar, renomear, mover ou mudar variantes/propriedades de um componente da biblioteca**, termine a resposta com o bloco **"O que você precisa fazer no Figma"**, neste formato:
+
+1. **Republicar a biblioteca** (*Assets → Libraries → Publish changes*). Diga quais componentes novos e quais mudanças vão aparecer. Antes, confirme com `search_design_system` se o componente já está publicado, e diga o resultado.
+2. **No *Connect components*** (Dev Mode), **ligar** os componentes novos com a tabela abaixo.
+3. **Atualizar a linha** dos componentes que já estavam ligados e mudaram (props, variantes ou nome).
+
+Depois, a tabela, com **exatamente** estas 4 colunas e só com os componentes novos ou alterados:
+
+| Componente no Figma | Arquivo no código | Component name | Add instructions for MCP |
+| --- | --- | --- | --- |
+
+Como preencher:
+- **Arquivo no código:** caminho real, conferido no repositório antes de escrever (ex.: `src/components/ui/SegmentedControl.vue`).
+- **Component name:** nome do arquivo `.vue` sem extensão (ex.: `MatrizCelula` no Figma → `MatrizCalorAssimetrica`), nunca o nome do Figma.
+- **Add instructions for MCP:** texto curto, em português do Brasil, que explique (a) o que cada variante do Figma significa e a qual propriedade do código corresponde (ex.: `selecionada` ↔ `v-model`), (b) o que o componente faz de acessibilidade/comportamento, (c) o que **não** fazer ("não recrie com botões soltos"), e (d) as regras de negócio quando se aplicarem (Quadro 7 sem P × I; Quadro 8 sem arredondar; "Crítico" = fora da DAR e nunca o nível 18 a 25; nunca "PGR" para Plano de Gestão de Riscos).
+- O conjunto **`Icone`** fica sem ligação (*Skip connection*): no código os ícones são Font Awesome.
+- Continua valendo o fluxo de cópia: a tela **Original** fica travada e as mudanças vão na cópia **Trabalho** (ver [[manual-fluxo-figma-vscode]]).

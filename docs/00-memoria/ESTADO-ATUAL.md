@@ -1,7 +1,7 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
-> **Última atualização:** 2026-11-16  
-> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** está concluída na branch `feat/c-painel-celular` (aberta no PR #8, ainda não mesclada). Próxima: D (homologação na CGTI).
+> **Última atualização:** 2026-11-20  
+> **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** foi mesclada na `main` pelo **PR #8** (merge `a127b08`, 2026-11-16). Próxima: D (homologação na CGTI). A **D1 (piloto da Sede)** foi trazida para esta branch (merge `66f974a`) e corre em paralelo à **reestruturação da documentação em 5 níveis + 4ª rodada normativa** (plano [[2026-11-20-reestruturacao-documentacao-plan]], diagnóstico [[2026-11-20-diagnostico-documentacao-radar]]). A etapa D **não é suspensa** (diagnóstico §5.3); as lacunas normativas entram no Kanban como `#normativo`.
 
 ## Concluído
 - [x] Análise comparativa dos repositórios legados (`v1.1`, `v1.2` e `v2.1`).
@@ -71,7 +71,7 @@ Design: [[2026-11-15-varredura-a11y-design]] · Plano: [[2026-11-15-varredura-a1
 - [x] Defeito encontrado e corrigido: progresso do **Plano de ação** usava `aria-label` em `<p>` (ignorado por leitores de tela). O axe-core 4.10.3 acusa o caso; o script antigo (4.10.2) não acusava.
 - [x] Vitest restrito a `tests/unit/`. **107 testes**.
 - Só local, sem GitHub Actions. Quem vai manter: equipe técnica da CGOV.
-- **Próximas opções:** B (Supabase de verdade), C (Painel no celular, decisão da CGOV), D (homologação na CGTI).
+- **Próximas opções:** B (Supabase de verdade), D (homologação na CGTI).
 
 ## Preparação da etapa B — acesso por perfil (2026-11-15)
 - [x] Conexão com o Supabase verificada: projeto `cgov-riscos-v2.1` ativo (São Paulo, plano gratuito). O banco remoto tem 14 tabelas **vazias** de uma versão antiga, incompatíveis com as migrações do repositório, que nunca foram aplicadas. Zerar e aplicar as migrações depende de autorização.
@@ -161,7 +161,7 @@ Design: [[2026-11-16-etapa-b3-telas-banco-design]] · Plano: [[2026-11-16-etapa-
   - **Telas no banco:** Painel, Riscos, Ficha (com excluir), Novo risco e **edição** (`/riscos/novo?editar=<id>`), Importar (tentar de novo só as recusadas), Aprovações, Objetos (reatribuir), Monitoramento, DAR e Auditoria.
   - **Varredura de acessibilidade** com Painel e Riscos também em `carregando` e `erro` (`radar.demo-estado.v1`): (16 + 4) telas.
   - Documentação: [[decisoes-tecnicas-b3]] (B3-1 a B3-17 e pendências), [[06-camada-de-dados-e-async]], [[modelo-dados-mer]] (3.7), [[guia-supabase-local]] (seção 10) e [[design-system]] (seção 10).
-- **Pendências principais** (detalhe em [[decisoes-tecnicas-b3]], seção 3): criticidade gravada em `acoes_no_fluxo` pode divergir após mudança da DAR em risco não aprovado e não editado; formulário edita só o 1º controle/ação/KRI; reimportar a tabela inteira após nova prévia duplica (deliberado); cargo vago da B1.1 segue aberto; ajustes pequenos de interface (coluna Ações no celular, CSV da auditoria sem guarda contra fórmula).
+- **Pendências principais** (detalhe em [[decisoes-tecnicas-b3]], seção 3): criticidade gravada em `acoes_no_fluxo` pode divergir após mudança da DAR em risco não aprovado e não editado; formulário edita só o 1º controle/ação/KRI; reimportar a tabela inteira após nova prévia duplica (deliberado); cargo vago da B1.1 segue aberto; ajustes pequenos de interface (coluna Ações no celular; o CSV da auditoria já tem guarda contra fórmula, em `auditoriaCsv.ts`).
 - **Verificação final da B3 (2026-11-16, nesta ordem):**
   - `npm test`: **45 arquivos, 514 testes passando** (após a rodada de correções da revisão final, commit `937b17d`; reverificado em 2026-11-16).
   - `npm run build`: ok (`vue-tsc` + `vite build`).
@@ -173,7 +173,7 @@ Design: [[2026-11-16-etapa-b3-telas-banco-design]] · Plano: [[2026-11-16-etapa-
 
 ## Etapa C — Painel no celular (2026-11-16, branch `feat/c-painel-celular`)
 Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etapa-c-painel-celular-plan]] · Decisões: [[decisoes-tecnicas-c]] · Design system: [[design-system]] (seção 11)
-- **Situação: etapa C concluída na branch, ainda não mesclada na `main`.** Sem migração, sem mudança de cálculo, alcance ou RLS.
+- **Situação: etapa C concluída e mesclada na `main` (PR #8, merge `a127b08`, 2026-11-16).** Sem migração, sem mudança de cálculo, alcance ou RLS.
 - **Decisões da CGOV:** D-C1 recolher sem remover; D-C2 "Precisa da sua atenção" antes da Matriz no celular; D-C3 indicadores compactos 2×2 sem descrição.
 - **Entregas:** `useCelular` (breakpoint 639,98 px); `BlocoRecolhivel` (três resumos fechados no celular, abertos no computador); `StatCard` com `compacto`; Painel reordenado só por CSS; "Maiores riscos" com até 3 cartões e "Mostrar mais N"; alvos de toque de 44 px (inclusive o "Fundamento" do `PageHeader` compartilhado); teste de navegador `painelCelular.a11y.ts`; 390 px na varredura; Figma atualizado (quadro Trabalho do celular e componente `BlocoRecolhivel`).
 - **Altura medida do Painel em 390 px (demonstração, blocos fechados):** CGOV **3.690 px** (antes 4.104) e Gestor **3.771 px** (antes 4.185). **A meta de 3.500 px NÃO foi atingida:** ficou 190 px e 271 px acima. Sem os alvos de 44 px seria 3.537 / 3.618 px (os alvos custaram cerca de 150 px). Alvos com lado menor que 44 px: 0 (antes 14 de 49). Sem rolagem lateral.
@@ -185,3 +185,7 @@ Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etap
   - `npm run test:integracao` (com `db:start` e `db:funcoes`): **5 arquivos, 29 testes passando**.
   - `npm run db:reset && npm run test:db`: **17 arquivos (`000` a `082`), 840 testes, `Result: PASS`**.
   - `git status --porcelain | grep -i '_temp'`: vazio. `git diff --stat main -- supabase/migrations`: vazio. `grep -rn "service_role\|SERVICE_ROLE" src/`: só o comentário em `src/services/supabase.ts` linha 36.
+
+## Reestruturação da documentação (2026-11-20)
+- As fontes da 4ª rodada normativa estão em `docs/01-normativos/revisao-2026/` (ver o `README.md` da pasta: cópias fiéis, somente leitura; o `NT_ESTADO.md` prevalece em conflito).
+- A revisão do diagnóstico está no §5 de [[2026-11-20-diagnostico-documentacao-radar]] (11 lacunas normativas). Plano: [[2026-11-20-reestruturacao-documentacao-plan]].

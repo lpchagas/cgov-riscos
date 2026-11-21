@@ -28,3 +28,9 @@ test-results/
 
 # Exportações locais das listas do SharePoint (podem conter dados pessoais — nunca versionar)
 _temp/
+
+# Variáveis do perfil real-local do container (contém a chave anon local; nunca versionar)
+.env.conteiner-local
+
+# Pacote de publicação gerado localmente (Power Pages)
+publicacao/

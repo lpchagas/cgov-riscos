@@ -1,0 +1,35 @@
+---
+title: F1 – Ciclo de gestão de riscos (macro)
+---
+graph TD
+INICIO([Gatilho do ciclo: não definido nas minutas])
+CIG_DAR(CIG: define o apetite e aprova a DAR)
+DAR_OK{DAR formalizada?}
+FIM_TRAVADO([⚠️ Lacuna: sem DAR não há regra para definir risco crítico])
+GES_CTX(Gestor de riscos: contexto e identificação)
+GES_AN(Gestor de riscos: análise com risco inerente, controle e residual)
+GES_AV{Residual acima do limite da categoria?}
+FIM_ACEITO([Fim: risco aceito, monitorado quando médio])
+GES_TRAT(Gestor de riscos: tratamento e KRI, só para risco crítico)
+CGOV_PLANO(CGOV, CTGRIC, CIG e Presidente: consolidação, manifestação, aprovação e publicação do Plano)
+GES_MON(Gestor de riscos: monitoramento, KRI, registro e comunicação em 10 dias úteis)
+CGOV_REL(CGOV: relatórios trimestrais ao CTGRIC e ao CIG e avaliação gerencial anual, com a maturidade)
+FIM([Fim: ciclo seguinte])
+
+INICIO --> GES_CTX
+CIG_DAR -.-> DAR_OK
+GES_CTX --> GES_AN
+GES_AN --> DAR_OK
+DAR_OK -->|Não| FIM_TRAVADO
+DAR_OK -->|Sim| GES_AV
+GES_AV -->|Não| FIM_ACEITO
+GES_AV -->|Sim: risco crítico| GES_TRAT
+GES_TRAT --> CGOV_PLANO
+CGOV_PLANO --> GES_MON
+GES_MON -->|Risco emergente ou perda de eficácia do controle| GES_AN
+GES_MON -->|Mudança substancial do Plano| CGOV_PLANO
+GES_MON --> CGOV_REL
+CGOV_REL --> FIM
+
+classDef lacuna fill:#fff3cd,stroke:#b58900,color:#000
+class FIM_TRAVADO lacuna
