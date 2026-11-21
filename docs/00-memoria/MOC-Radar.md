@@ -1,4 +1,4 @@
-# 🧠 Mapa Central do Projeto RADAR (MOC — Map of Content)
+# Mapa Central do Projeto RADAR (MOC — Map of Content)
 
 Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arquivo conecta toda a documentação do sistema web **RADAR (Rede de Avaliação, Diagnóstico e Ação em Riscos)** do ICMBio, organizada em **níveis**: do negócio (nível 1) ao software (nível 5). Os documentos mais antigos continuam nas seções 0, 2 e 3 e serão migrados aos níveis nas tarefas do plano de reestruturação.
 
