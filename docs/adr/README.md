@@ -18,6 +18,7 @@ problema, o que foi decidido e o que isso custa. Usamos o modelo de Michael Nyga
 | --- | --- | --- |
 | [[0001-registrar-decisoes-em-adr-nygard]] | Registrar decisões arquiteturalmente significativas em ADRs | Accepted |
 | [[0002-gerir-trabalho-em-kanban-no-obsidian]] | Gerir o trabalho do RADAR em Kanban no Obsidian | Accepted |
+| [[0003-gravar-valores-calculados-no-risco]] | Gravar os valores calculados no risco | Accepted |
 
 ## Decisões antigas
 

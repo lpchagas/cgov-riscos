@@ -1,5 +1,8 @@
 # Modelo Entidade-Relacionamento (MER) — Sistema RADAR (`cgov-riscos`)
 
+> [!warning] Substituído
+> Este documento foi **substituído por [[mer-conceitual]] e [[der-logico]]** (`docs/40-nivel4-dados/`, 2026-11-21). O DER novo é escrito a partir do estado final das migrações e é conferido por teste. O conteúdo abaixo, inclusive as seções 3.x, fica como **histórico das migrações** e não é mais atualizado.
+
 > **Documento Técnico-Executivo para a CGTI/ICMBio**  
 > **Banco de Dados:** PostgreSQL 15+ (Compatível com Supabase e PostgreSQL On-Premises ICMBio)
 

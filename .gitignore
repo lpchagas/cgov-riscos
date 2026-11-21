@@ -34,3 +34,22 @@ _temp/
 
 # Pacote de publicação gerado localmente (Power Pages)
 publicacao/
+
+# Skills de agentes: links simbólicos com caminho absoluto (não funcionam em outro computador)
+.agents/
+.claude/skills/
+.opencode/
+copilot/
+
+# Plugins do Obsidian (código de terceiros) e cache de ferramentas de IA
+.obsidian/plugins/
+.copilot/
+
+# Preferências pessoais do Obsidian (visual, grafo e lista de plugins)
+.obsidian/appearance.json
+.obsidian/core-plugins.json
+.obsidian/graph.json
+.obsidian/community-plugins.json
+
+# Configuração local do Claude Code (pode conter permissões e dados da máquina)
+.claude/settings.local.json
