@@ -102,6 +102,8 @@ Aprovadas no diagnóstico ([[2026-11-20-diagnostico-documentacao-radar]] §5). S
 | LAC-10 | Reavaliação anual de todo risco registrado |
 | LAC-11 | Fluxo interno de 3 degraus sem base nas minutas (decisão da CGOV sobre mantê-lo) |
 
+A lista completa (com as LAC-12 a LAC-15, achadas depois do diagnóstico), a severidade de cada lacuna e o que o sistema faz hoje estão em [[lacunas-norma-sistema]].
+
 ## 6. Métricas de sucesso
 
 Nenhuma meta numérica foi definida: **meta a definir pela CGOV**. "Mensurável hoje" significa que o dado já é gravado pelo sistema.

@@ -9,8 +9,8 @@ Decisão de adotar o Kanban: [[0002-gerir-trabalho-em-kanban-no-obsidian]].
 
 **Tipos:** `[normativo]`, `[funcional]`, `[dados]`, `[interface]`, `[figma]`, `[documentação]`, `[dívida]`.
 
-**IDs ligados:** ainda não existem RF, UC nem LAC (vêm nas Tarefas 7 a 12 do plano de reestruturação).
-Por isso, os cartões atuais trazem a **origem** (arquivo e código da pendência, ex.:
+**IDs ligados:** as lacunas LAC-01 a LAC-15 já existem ([[lacunas-norma-sistema]], Tarefa 7); RF e UC vêm nas Tarefas 10 e 12 do plano de reestruturação.
+Os cartões `[normativo]` já citam a LAC. Os demais trazem a **origem** (arquivo e código da pendência, ex.:
 `decisoes-tecnicas-b3 §3`) e `—` no lugar dos IDs. Eles ficam no **Backlog** até ganharem IDs
 (Tarefa 19), pois a Definição de Pronto exige o ID.
 

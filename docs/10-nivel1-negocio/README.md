@@ -14,7 +14,7 @@ SEI `024241420` (Política RADAR) e `024421455` (Metodologia).
   - [[F3-aprovacao-dar-plano]] — F3 v3, partes 1 e 2, aprovação da DAR e do Plano (F3.01 a F3.15), com o retrato da minuta como histórico;
   - [[F4-monitoramento-relato-avaliacao]] — F4 v2, partes 1 a 3, monitoramento, relato e avaliação anual (F4.01 a F4.17);
   - [[FS-01-validacao-interna-risco]] — fluxo interno de 3 degraus do RADAR, sem base nas minutas (FS-01.01 a FS-01.12; LAC-11).
-- `lacunas-norma-sistema.md` — lacunas LAC-01 a LAC-11 (o que a norma pede e o sistema ainda não faz).
+- [[lacunas-norma-sistema]] — lacunas LAC-01 a LAC-15 (o que a norma saneada pede e o sistema ainda não faz), com severidade, alertas e atividades ligados (criado na Tarefa 7).
 - `registro-alertas-f4-f5.md` — alertas normativos F4-NN e F5-NN.
 
 Os demais arquivos serão criados nas tarefas seguintes do plano de reestruturação.
