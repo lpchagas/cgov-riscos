@@ -63,6 +63,7 @@
 - **Proposta:** trocar por "nível" em todos esses lugares (inclusive no texto do leitor de tela).
 
 ### AG-04 · Nomes e percentuais da escala de Probabilidade
+- **Lacuna normativa:** LAC-12 em [[lacunas-norma-sistema]] (a severidade fica lá; este item continua sendo o dono da correção de interface).
 - **Onde:**
   - [FormularioRiscoView.vue:219-225](../../src/views/FormularioRiscoView.vue#L219-L225), com "1 — Muito baixa (menos de 10%)" e outras
   - Eixo da matriz ([MatrizCalorAssimetrica.vue:52-58](../../src/components/radar/MatrizCalorAssimetrica.vue#L52-L58)), com "Muito baixa…Muito alta"
@@ -151,6 +152,7 @@
 ## 2. Decidir antes da D3 (banco, dados de referência ou regra)
 
 ### D3-01 · As categorias do banco não são as do Quadro 2 (já estão na nuvem)
+- **Lacuna normativa:** LAC-14 em [[lacunas-norma-sistema]] (a severidade fica lá; este item continua sendo o dono da correção de interface).
 - **Onde:**
   - [supabase/seed.sql:6-15](../../supabase/seed.sql#L6-L15), o mesmo conteúdo que foi aplicado no banco do piloto na D1
   - Dados de demonstração em `src/services/dadosSementeAnexoII.ts`
@@ -166,6 +168,7 @@
   - Conferir o mapeamento de categorias do importador da skill.
 
 ### D3-02 · As subcategorias de Integridade não são as do Quadro 3
+- **Lacuna normativa:** LAC-15 em [[lacunas-norma-sistema]] (a severidade fica lá; este item continua sendo o dono da correção de interface).
 - **Onde:**
   - `SUBCATEGORIAS_INTEGRIDADE_QUADRO_3` em [calculadoraRiscoRadar.ts:81-88](../../src/utils/calculadoraRiscoRadar.ts#L81-L88) (arquivo protegido: só se altera com aval)
   - `subcategorias_permitidas` no `seed.sql`

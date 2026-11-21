@@ -30,7 +30,7 @@ kanban-plugin: basic
 - [ ] [normativo] Reavaliação anual de todo risco registrado, com período menor opcional no registro do risco · IDs: LAC-10 · origem: Metodologia 4.7 · #normativo
 - [ ] [normativo] Decisão da CGOV sobre manter o fluxo interno de 3 degraus (FS-01) antes do 4.6.1 · IDs: LAC-11 · origem: Metodologia 4.6.1 e 4.6.2; Política art. 17 · #normativo
 - [ ] [normativo] Rótulos da escala de probabilidade iguais aos do Quadro 4 (Raro a Praticamente certo, sem percentuais) · IDs: LAC-12 · origem: Metodologia 4.3, a (Quadro 4); pendência AG-04 · #normativo
-- [ ] [normativo] Risco crítico com estratégia "Aceitar" sem tratamento: avisar ou pedir justificativa · IDs: LAC-13 · origem: Metodologia 4.5 e 4.5.1 (Tabela 8 da minuta); Anexo III (diretrizes) · #normativo
+- [ ] [normativo] Risco crítico com "Aceitar" sem tratamento (Anexo III, diretrizes) · IDs: LAC-13 · origem: Metodologia 4.5 e 4.5.1 (Tabela 8 da minuta); Anexo III (diretrizes) · #normativo
 - [ ] [normativo] Categorias do risco iguais às 8 do Quadro 2 (base do apetite da DAR) · IDs: LAC-14 · origem: Metodologia 4.2.2 (Quadro 2) e Anexo III; pendência D3-01 · #normativo
 - [ ] [normativo] Subcategorias de Integridade iguais às 6 do Quadro 3 · IDs: LAC-15 · origem: Metodologia 4.2.2.1 (Quadro 3); Portaria ICMBio nº 253/2026; pendência D3-02 · #normativo
 - [ ] [dívida] Teste pgTAP para a recusa do envio quando a unidade não tem chefia imediata na árvore (FS-01.04; sem teste próprio desde a P-B1-1) · origem: FS-01-validacao-interna-risco (Caminhos de exceção) · IDs: — · #divida
