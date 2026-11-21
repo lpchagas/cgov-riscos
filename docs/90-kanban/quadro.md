@@ -35,6 +35,7 @@ kanban-plugin: basic
 - [ ] [normativo] Subcategorias de Integridade iguais às 6 do Quadro 3 · IDs: LAC-15 · origem: Metodologia 4.2.2.1 (Quadro 3); Portaria ICMBio nº 253/2026; pendência D3-02 · #normativo
 - [ ] [dívida] Teste pgTAP para a recusa do envio quando a unidade não tem chefia imediata na árvore (FS-01.04; sem teste próprio desde a P-B1-1) · origem: FS-01-validacao-interna-risco (Caminhos de exceção) · IDs: — · #divida
 - [ ] [dívida] Teste pgTAP para a devolução pela CGOV de risco em validação sem validador efetivo (FS-01.12; só o caso da homologação tem teste, `073` bloco 3b) · origem: FS-01-validacao-interna-risco (FS-01.12) e decisoes-tecnicas-b1 §5, pendência 2 · IDs: — · #divida
+- [ ] [documentação] Decidir onde fica o "um clique" da análise de atos (ADR) · IDs: — · origem: FS-02 · #padrao
 - [ ] [documentação] Matriz de acesso §7: a tabela de telas mostra Riscos e Ficha como só leitura para a AUDIT e Novo risco como edição; esclarecer a diferença · origem: visao-produto (Partes interessadas, linha da AUDIT) · IDs: — · #divida
 
 

@@ -17,11 +17,12 @@ Fontes da 4ª rodada de revisão (cópias fiéis, não editar): pasta `docs/01-n
 
 ## 1. Nível 1 — Negócio
 
-Pasta `docs/10-nivel1-negocio/` (ver o `README.md` dela): [[visao-produto]] (visão do produto), mapa de processos, fluxos F1 a F4 e FS-01 e lacunas norma × sistema (LAC-01 a LAC-15). Os demais arquivos entram nas próximas tarefas.
+Pasta `docs/10-nivel1-negocio/` (ver o `README.md` dela): [[visao-produto]] (visão do produto), mapa de processos, fluxos F1 a F4, FS-01 e FS-02 e lacunas norma × sistema (LAC-01 a LAC-15). Os demais arquivos entram nas próximas tarefas.
 
 - [[mapa-processos]] — Mapa de processos: fluxos no ciclo da Metodologia (4.1 a 5), na Política e na Cadeia de Valor (1.05.2, Gestão de riscos).
 - [[F1-ciclo-gestao-riscos]] · [[F2-avaliacao-tratamento]] · [[F3-aprovacao-dar-plano]] · [[F4-monitoramento-relato-avaliacao]] — Fluxos oficiais (F1 v2, F2, F3 v3, F4 v2), com as atividades `Fn.NN` iguais aos passos das tabelas oficiais.
 - [[FS-01-validacao-interna-risco]] — Fluxo interno de validação do RADAR (3 degraus), decisão da CGOV sem base nas minutas (LAC-11).
+- [[FS-02-analise-ato-por-skills]] — Análise de ato normativo pelas skills da CGOV e importação no RADAR (prática da 2ª linha; contrato com o Importar; "um clique" pendente).
 - [[lacunas-norma-sistema]] — Lacunas entre a norma saneada e o sistema (LAC-01 a LAC-15), com severidade (bloqueia homologação, importante, melhoria), alertas e atividades `Fn.NN` ligados.
 
 Desenho e plano originais do projeto (histórico):
