@@ -93,8 +93,8 @@ aqui em Estrutura e em Acesso, junto dos casos de uso UC-02 e UC-03.
 | RF-029 | O sistema deve recusar a exclusão do objeto que tenha risco aprovado. | Must | RN-050 | Decisão D2 | implementado — `050` bl. 8b "apagar o objeto de um risco aprovado também é recusado (cascata)" | T |
 
 **Nota 1.** A tela só oferece o cadastro à CGOV, como manda a Matriz §7; o banco, porém, também deixa a unidade
-   criar objeto na própria unidade (`041` bl. 5), e a tabela de casos de uso da Tarefa 12 põe o gestor de
-   riscos como ator do UC-04. A diferença fica para a Tarefa 12 decidir com a CGOV.
+   criar objeto na própria unidade (`041` bl. 5). O UC-04 (Tarefa 12) escolheu a CGOV como ator, pela Matriz §5 e §7; a
+   divergência com o banco (`041` bl. 5) fica para a CGOV decidir (cartão no Backlog do [[quadro]]).
 
 ## 4. Riscos
 

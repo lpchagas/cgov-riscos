@@ -1,6 +1,6 @@
 # UC-01 — Entrar no RADAR por link de e-mail
 
-> Origem: etapa b2, decisão P6 da CGOV ([[matriz-acesso-responsabilidades]] §5 e §7, linha "Entrar"); o ADR do login por link ainda não está em `docs/adr/` · RF: RF-001, RF-002, RF-003, RF-012, RF-015 · RN: RN-026, RN-030, RN-021 a RN-025 · Situação: implementado
+> Origem: etapa b2, decisão P6 da CGOV ([[matriz-acesso-responsabilidades]] §5 e §7, linha "Entrar"); o ADR do login por link ainda não está em `docs/adr/` · RF: RF-001, RF-002, RF-003, RF-012, RF-015 · RN: RN-021, RN-022, RN-023, RN-024, RN-025, RN-026, RN-030, RN-033 · Situação: implementado
 
 ## Título
 
@@ -28,7 +28,7 @@ Servidor convidado: pessoa a quem a CGOV já cadastrou uma conta, com perfil e u
 3. O servidor abre o link recebido no e-mail.
 4. O sistema abre a sessão e lê o perfil e a unidade da conta.
 5. O sistema confere que o perfil está ativo (RN-026).
-6. O sistema leva o servidor ao endereço que ele tinha pedido antes de entrar ou, se não havia, ao Painel.
+6. O sistema leva o servidor ao endereço que ele tinha pedido antes de entrar ou, se não havia, à visão geral inicial.
 7. O sistema mostra ao servidor só as funções e os dados do alcance do seu perfil (RN-021 a RN-025).
 
 ## Fluxos alternativos e de exceção
@@ -38,7 +38,7 @@ Servidor convidado: pessoa a quem a CGOV já cadastrou uma conta, com perfil e u
 - 3a. O link já foi usado ou venceu: o sistema não abre a sessão e avisa que o link expirou ou já foi usado; o servidor pede outro (volta ao passo 1).
 - 5a. A conta não tem perfil ou o perfil está suspenso: o sistema informa que o acesso não foi liberado e não mostra nenhum dado (RN-026). O servidor procura a CGOV.
 - 5b. A CGOV suspende o perfil depois que o servidor entrou: na renovação da sessão, o sistema relê o perfil e passa a barrar o acesso, como no 5a.
-- 7a. O servidor pede uma função que o seu perfil não pode abrir (por exemplo, importar riscos ou gerenciar usuários, só da CGOV): o sistema o leva ao Painel e avisa que a função é exclusiva da CGOV (RN-030, RN-033).
+- 7a. O servidor pede uma função que o seu perfil não pode abrir (por exemplo, importar riscos ou gerenciar usuários, só da CGOV): o sistema o leva à visão geral inicial e avisa que a função é exclusiva da CGOV (RN-030, RN-033).
 
 ## Pós-condição de sucesso
 

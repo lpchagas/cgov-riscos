@@ -1,6 +1,6 @@
 # UC-15 — Registrar medição de KRI e tratar alerta
 
-> Origem: F4.02 e F4.04 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.1 (parágrafo do alerta) e 4.7.2 (1º parágrafo); decisão L-40 · RF: RF-098, RF-099, RF-100, RF-101, RF-102, RF-106, RF-109 · RN: RN-115, RN-052, RN-083, RN-084, RN-085, RN-086, RN-051 · Situação: parcial (LAC-03)
+> Origem: F4.02 e F4.04 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.1 (parágrafo do alerta) e 4.7.2 (1º parágrafo); decisão L-40 · RF: RF-098, RF-099, RF-100, RF-101, RF-102, RF-106, RF-109 · RN: RN-027, RN-095, RN-115, RN-052, RN-083, RN-084, RN-085, RN-086, RN-051 · Situação: parcial (LAC-03)
 
 ## Título
 

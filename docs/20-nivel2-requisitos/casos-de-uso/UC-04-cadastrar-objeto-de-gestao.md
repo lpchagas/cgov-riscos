@@ -34,7 +34,7 @@ Por que a CGOV, e não o gestor de riscos da tabela do plano: as minutas não di
 ## Fluxos alternativos e de exceção
 
 - 1a. A unidade escolhida está inativa: o sistema não a oferece e o banco recusa a gravação (RN-034).
-- 1b. **Divergência tela × banco.** Um gestor de riscos (perfil sem acesso ao catálogo) tenta cadastrar objeto: o sistema não lhe oferece o cadastro (Matriz §7). O banco, porém, aceita que a unidade crie objeto na própria unidade (`supabase/tests/041`, bloco 5) e recusa em outra unidade. A diferença não é corrigida aqui: fica para a CGOV decidir se o banco passa a seguir a Matriz ou se a Matriz passa a permitir o cadastro pela unidade (nota 1 de [[requisitos-funcionais]]).
+- 1b. **Divergência tela × banco.** Um gestor de riscos (perfil sem acesso ao catálogo) tenta cadastrar objeto: o sistema não lhe oferece o cadastro (Matriz §7). O banco, porém, aceita que a unidade crie objeto na própria unidade (`supabase/tests/041`, bloco 5) e recusa em outra unidade. A diferença não é corrigida aqui: fica para a CGOV decidir se o banco passa a seguir a Matriz ou se a Matriz passa a permitir o cadastro pela unidade (nota 1 de [[requisitos-funcionais]]; cartão "Decidir quem cadastra objeto de gestão de riscos" no Kanban).
 - 3a. O objeto não tem processo da Cadeia de Valor: o supervisor fica vazio e só a CGOV pode preenchê-lo (RN-036).
 - 4a. O processo ligado fica inativo depois: o objeto mantém o vínculo (histórico) e recebe o selo de processo inativo; a troca de processo só aceita processo ativo (RN-035).
 - 5a. A unidade supervisora do processo muda: o banco atualiza o supervisor dos objetos ligados a ele (RN-036).

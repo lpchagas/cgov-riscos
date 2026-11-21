@@ -20,7 +20,7 @@ Gestor de riscos (1ª linha).
 ## Pós-condições
 
 - Os valores calculados continuam sendo os do banco (RN-013).
-- A data e o motivo de cada reavaliação ficam registrados.
+- Se a reavaliação falhar ou for abandonada, a ficha e a data da última reavaliação registrada continuam como estavam.
 
 ## Fluxo principal de sucesso
 

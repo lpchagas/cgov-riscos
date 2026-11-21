@@ -1,6 +1,6 @@
 # UC-06 — Analisar risco e avaliar controles existentes
 
-> Origem: F1.02, F2.01 e F2.02; Metodologia 4.3 e 4.4 (Quadros 4 a 8); Política art. 8º, § 1º · RF: RF-037, RF-038, RF-039, RF-040, RF-041, RF-042, RF-043, RF-044, RF-045, RF-046, RF-087, RF-088 · RN: RN-011, RN-012, RN-001, RN-002, RN-003, RN-004, RN-005, RN-007, RN-008, RN-009, RN-010, RN-013 · Situação: implementado
+> Origem: F1.02, F2.01 e F2.02; Metodologia 4.3 e 4.4 (Quadros 4 a 8); Política art. 8º, § 1º · RF: RF-037, RF-038, RF-039, RF-040, RF-041, RF-042, RF-043, RF-044, RF-045, RF-046, RF-087, RF-088 · RN: RN-011, RN-012, RN-001, RN-002, RN-003, RN-004, RN-005, RN-007, RN-008, RN-009, RN-010, RN-013, RN-037, RN-041, RN-051 · Situação: implementado
 
 ## Título
 

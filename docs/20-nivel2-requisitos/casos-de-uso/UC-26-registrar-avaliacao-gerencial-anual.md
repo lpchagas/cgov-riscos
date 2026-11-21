@@ -19,7 +19,7 @@ CGOV (perfil `cgov`).
 ## Pós-condições
 
 - A avaliação registrada não altera os dados de risco.
-- A avaliação da CGOV não substitui a avaliação independente da AUDIT (RN-093).
+- Se o registro falhar, nenhuma avaliação parcial fica gravada, e a ciência à AUDIT só é registrada depois da avaliação.
 
 ## Fluxo principal de sucesso
 

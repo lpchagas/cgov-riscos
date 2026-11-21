@@ -1,6 +1,6 @@
 # UC-20 — Consultar painel e trilha de auditoria
 
-> Origem: etapa b3; [[matriz-acesso-responsabilidades]] §7, linhas "Painel", "Riscos — lista" e "Auditoria — trilha" · RF: RF-012, RF-052, RF-053, RF-144, RF-145, RF-146, RF-153, RF-154, RF-155, RF-156, RF-157, RF-158, RF-159 · RN: RN-001, RN-002, RN-005, RN-021 a RN-026, RN-095, RN-096, RN-097, RN-098 · Situação: implementado
+> Origem: etapa b3; [[matriz-acesso-responsabilidades]] §7, linhas "Painel", "Riscos — lista" e "Auditoria — trilha" · RF: RF-012, RF-052, RF-053, RF-144, RF-145, RF-146, RF-153, RF-154, RF-155, RF-156, RF-157, RF-158, RF-159 · RN: RN-001, RN-002, RN-005, RN-021, RN-022, RN-023, RN-024, RN-025, RN-026, RN-095, RN-096, RN-097, RN-098 · Situação: implementado
 
 ## Título
 
@@ -22,7 +22,7 @@ Qualquer perfil com acesso ativo (gestor, chefias, Diretor, Presidência, AUDIT,
 
 ## Fluxo principal de sucesso
 
-1. A pessoa abre o Painel.
+1. A pessoa pede a visão geral dos riscos.
 2. O sistema mostra, só com os riscos do alcance do perfil (RN-021 a RN-025): a matriz do Quadro 7 com a quantidade de riscos de cada célula (RN-001), a distribuição pelo nível residual do Quadro 8 (RN-002) e o que precisa da atenção da pessoa, conforme as ações do fluxo que ela pode executar.
 3. A pessoa filtra a lista de riscos por célula da matriz, objeto, busca ou risco crítico.
 4. O sistema mostra os riscos filtrados; o filtro "crítico" traz os de residual fora do apetite da DAR, e não os da faixa Extremo (RN-005).

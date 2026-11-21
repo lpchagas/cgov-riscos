@@ -1,6 +1,6 @@
 # UC-07 — Definir tratamento, plano de ação e KRI
 
-> Origem: F1.06, F2.03 a F2.10; Metodologia 4.5, 4.5.1 e 4.7.1; Política art. 8º, § 2º · RF: RF-048, RF-049, RF-050, RF-051, RF-094, RF-095, RF-096, RF-097, RF-100 · RN: RN-019, RN-020, RN-082, RN-083, RN-095 · Situação: parcial (LAC-03)
+> Origem: F1.06, F2.03 a F2.10; Metodologia 4.5, 4.5.1 e 4.7.1; Política art. 8º, § 2º · RF: RF-048, RF-049, RF-050, RF-051, RF-094, RF-095, RF-096, RF-097, RF-100 · RN: RN-005, RN-019, RN-020, RN-037, RN-051, RN-052, RN-082, RN-083, RN-095 · Situação: parcial (LAC-03)
 
 ## Título
 
@@ -34,7 +34,7 @@ Gestor de riscos (1ª linha) da unidade dona do risco.
 - 1a. O risco não é crítico: tratamento e KRI não são exigidos (RN-082). O gestor pode registrar a estratégia "Aceitar"; segue no passo 6.
 - 3a. O gestor escolhe "Aceitar" para risco crítico: a norma não permite (RN-020). Hoje o sistema aceita e dispensa a ação de tratamento (não tratado pelo sistema; cartão LAC-13 no Kanban).
 - 4a. A estratégia não é "Aceitar" e falta o quê, o responsável ou o prazo da ação: o sistema não avança e diz o que falta.
-- 5a. O KRI é gravado sem fonte, meta e limite de alerta definidos: hoje o sistema grava "A definir" nesses campos (RN-083; não tratado pelo sistema; cartão LAC-03 no Kanban).
+- 5a. O KRI é gravado sem fonte, meta e limite de alerta definidos: hoje o sistema grava "A definir" nesses dados (RN-083; não tratado pelo sistema; cartão LAC-03 no Kanban).
 - 5b. O risco crítico fica sem KRI: a norma exige (RN-082), mas hoje o sistema grava e deixa enviar (não tratado pelo sistema; cartão LAC-03 no Kanban).
 - 5c. Um mesmo KRI serve a um grupo de riscos críticos correlatos: a norma permite (RN-082); o sistema liga o KRI a um só risco (não tratado pelo sistema; cartão LAC-03 no Kanban).
 - 6a. A ficha está aprovada: a inclusão ou mudança de ação de tratamento ou de KRI reabre o risco para validação (RN-051); a mudança só da situação de execução de uma ação não reabre (RN-052).

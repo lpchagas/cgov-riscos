@@ -1,6 +1,6 @@
 # UC-13 — Importar riscos da tabela da skill
 
-> Origem: FS-02 ([[FS-02-analise-ato-por-skills]]), atividades FS-02.15 a FS-02.18 e seção "Contrato com o Importar"; decisões P5 e P-B1-5 da CGOV · RF: RF-160, RF-161, RF-162, RF-163, RF-164, RF-165, RF-166, RF-167, RF-168, RF-193, RF-169, RF-170, RF-171, RF-172, RF-173 a RF-188, RF-194 · RN: RN-033, RN-104, RN-048, RN-099, RN-014, RN-015, RN-016, RN-017, RN-001, RN-002, RN-003, RN-004, RN-013, RN-034 · Situação: implementado
+> Origem: FS-02 ([[FS-02-analise-ato-por-skills]]), atividades FS-02.15 a FS-02.18 e seção "Contrato com o Importar"; decisões P5 e P-B1-5 da CGOV · RF: RF-160, RF-161, RF-162, RF-163, RF-164, RF-165, RF-166, RF-167, RF-168, RF-193, RF-169, RF-170, RF-171, RF-172, RF-173 a RF-188, RF-194 · RN: RN-033, RN-104, RN-048, RN-099, RN-014, RN-015, RN-016, RN-017, RN-001, RN-002, RN-003, RN-004, RN-013, RN-018, RN-034 · Situação: implementado
 
 ## Título
 
@@ -36,7 +36,7 @@ Gestor de riscos / CGOV, como na tabela do plano. **Hoje só a CGOV importa** (R
 
 Os itens marcados "hoje" descrevem o comportamento atual, que diverge do "Contrato com o Importar"; todos estão no cartão "Importador: recusas e conversões silenciosas" do Kanban.
 
-- 1a. Quem não é da CGOV tenta abrir a importação: o sistema o leva ao Painel e avisa que a função é exclusiva da CGOV (RN-033).
+- 1a. Quem não é da CGOV tenta abrir a importação: o sistema o leva à visão geral inicial e avisa que a função é exclusiva da CGOV (RN-033).
 - 3a. Linha com menos de 10 colunas: hoje é ignorada sem aviso (RF-186). Barra vertical dentro do texto de uma célula desloca as colunas seguintes.
 - 3b. Descrição fora da sintaxe do item 4.2.1: o sistema avisa, sem bloquear (RN-014); hoje grava textos genéricos como causa, consequência e objetivo (RF-182).
 - 3c. Tabela do Regime A (13 colunas): as colunas ficam deslocadas e a linha é recusada por categoria inválida, com mensagem que não fala de regime (RF-188).
