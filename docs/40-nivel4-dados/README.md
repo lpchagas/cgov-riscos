@@ -6,9 +6,9 @@ PostgreSQL/Supabase.
 
 ## Arquivos previstos no plano
 
-- `mer-conceitual.md` — entidades e relacionamentos do negócio.
-- `der-pe-de-galinha.md` — DER do banco atual.
+- [[mer-conceitual]] — entidades e relacionamentos do negócio, com as entidades propostas pelas lacunas.
+- [[der-logico]] — DER do banco atual (pé-de-galinha), conferido por teste contra as migrações.
 - `normalizacao.md` — análise das formas normais.
-- `dicionario-de-dados.md` — tabelas, colunas, tipos e regras.
+- `dicionario-dados.md` — tabelas, colunas, tipos e regras.
 
-O documento atual sobre o banco é [[modelo-dados-mer]], em `docs/02-arquitetura-cgti/`.
+O documento anterior, [[modelo-dados-mer]] (`docs/02-arquitetura-cgti/`), fica como histórico das migrações.

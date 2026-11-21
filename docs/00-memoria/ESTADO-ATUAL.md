@@ -1,6 +1,6 @@
 # Estado Atual do Projeto — Sistema RADAR (`cgov-riscos`)
 
-> **Última atualização:** 2026-11-20  
+> **Última atualização:** 2026-11-21  
 > **Fase atual:** B1, B2, B1.1 e **B3** mescladas na `main` (a B3 entrou pelo **PR #7**, merge `ea8e239`, em 2026-11-16). A **etapa C (Painel no celular)** foi mesclada na `main` pelo **PR #8** (merge `a127b08`, 2026-11-16). Próxima: D (homologação na CGTI). A **D1 (piloto da Sede)** foi trazida para esta branch (merge `66f974a`) e corre em paralelo à **reestruturação da documentação em 5 níveis + 4ª rodada normativa** (plano [[2026-11-20-reestruturacao-documentacao-plan]], diagnóstico [[2026-11-20-diagnostico-documentacao-radar]]). A etapa D **não é suspensa** (diagnóstico §5.3); as lacunas normativas entram no Kanban como `#normativo`.
 
 ## Concluído
@@ -191,4 +191,5 @@ Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etap
 - A revisão do diagnóstico está no §5 de [[2026-11-20-diagnostico-documentacao-radar]] (11 lacunas normativas). Plano: [[2026-11-20-reestruturacao-documentacao-plan]].
 - **Fases 0, 1 e 2 do plano concluídas e mescladas na `main` pelo PR #9** (merge `d3bd1e6`, 2026-11-21). É a primeira PR pela regra "uma PR a cada mudança de fase" (`AGENTS.md`). Antes do merge, o **CodeRabbit** (configurado em `.coderabbit.yaml`, em teste) e o Codex revisaram a PR em 3 rodadas: 45 + 8 comentários, todos tratados (correções nos documentos de nível 1 e 2, nos scripts de cópia, de conferência do pacote e de verificação do ambiente; decisões de 2026-11-21 sobre retenção, restauração de teste e categorias sem equivalente). Dois cartões novos no Kanban: troca de titular em operação única e cópia com `verify-full`.
 - **Pendente de prova real:** as mudanças da cópia (um único `pg_dump`, parcial exclusivo, TLS obrigatório na nuvem) passaram nos testes, mas não rodaram com Docker; a primeira prova completa do [[guia-copia-restauracao]] (seção 8) confere.
-- **Próximo:** Fase 3 do plano (Nível 4, dados), Tarefa 14: MER conceitual e DER lógico.
+- [x] **Tarefa 14 (Fase 3, Nível 4):** [[mer-conceitual]] (13 entidades do negócio + 5 propostas pelas LAC-01 a LAC-07 e LAC-10) e [[der-logico]] (as 12 tabelas, em 3 blocos, colunas conferidas no banco local com as 12 migrações). Novo teste: o DER tem exatamente as tabelas dos `CREATE TABLE` das migrações. [[modelo-dados-mer]] virou histórico.
+- **Próximo:** Tarefa 15: normalização (1FN, 2FN, 3FN), dicionário de dados e ADR-0003. Ao fim dela, PR da Fase 3.
