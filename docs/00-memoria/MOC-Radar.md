@@ -32,7 +32,7 @@ Desenho e plano originais do projeto (histórico):
 
 ## 2. Nível 2 — Requisitos
 
-Pasta `docs/20-nivel2-requisitos/` (ver o `README.md` dela): [[ERS-radar]] (documento-base, já criado), [[regras-negocio]] (catálogo das regras de negócio RN-001 a RN-115, já criado), [[requisitos-funcionais]] (catálogo dos requisitos funcionais RF-001 a RF-189, já criado), requisitos não funcionais (RNF), casos de uso (UC-01 a UC-26) e rastreabilidade. Os arquivos entram nas próximas tarefas.
+Pasta `docs/20-nivel2-requisitos/` (ver o `README.md` dela): [[ERS-radar]] (documento-base, já criado), [[regras-negocio]] (catálogo das regras de negócio RN-001 a RN-115, já criado), [[requisitos-funcionais]] (catálogo dos requisitos funcionais RF-001 a RF-195, já criado), requisitos não funcionais (RNF), casos de uso (UC-01 a UC-26) e rastreabilidade. Os arquivos entram nas próximas tarefas.
 
 ## 3. Nível 3 — Interface (Reformulação 2026-11)
 

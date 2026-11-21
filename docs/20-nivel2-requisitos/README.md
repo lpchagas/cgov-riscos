@@ -7,7 +7,7 @@ Guarda **o que o sistema deve fazer e com que qualidade**, escrito conforme a IS
 
 - [[ERS-radar]] — Especificação de Requisitos de Software (documento-base; já existe).
 - [[regras-negocio]] — catálogo de regras de negócio (`RN-001` a `RN-115`, com origem, implementação e teste; já existe).
-- [[requisitos-funcionais]] — catálogo de requisitos funcionais (`RF-001` a `RF-189`, "O sistema deve…", com prioridade MoSCoW, origem, situação conferida no código e verificação; já existe).
+- [[requisitos-funcionais]] — catálogo de requisitos funcionais (`RF-001` a `RF-195`, "O sistema deve…", com prioridade MoSCoW, origem, situação conferida no código e verificação; já existe).
 - `requisitos-nao-funcionais.md` — catálogo de requisitos não funcionais (`RNF-NNN`).
 - `casos-de-uso/` — casos de uso `UC-01` a `UC-26`; veja o [[_modelo]].
 - `rastreabilidade.md` — liga norma, RN, RF, UC, tela e teste.
