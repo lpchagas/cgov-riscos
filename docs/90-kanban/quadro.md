@@ -36,6 +36,7 @@ kanban-plugin: basic
 - [ ] [dívida] Teste pgTAP para a recusa do envio quando a unidade não tem chefia imediata na árvore (FS-01.04; sem teste próprio desde a P-B1-1) · origem: FS-01-validacao-interna-risco (Caminhos de exceção) · IDs: — · #divida
 - [ ] [dívida] Teste pgTAP para a devolução pela CGOV de risco em validação sem validador efetivo (FS-01.12; só o caso da homologação tem teste, `073` bloco 3b) · origem: FS-01-validacao-interna-risco (FS-01.12) e decisoes-tecnicas-b1 §5, pendência 2 · IDs: — · #divida
 - [ ] [documentação] Decidir onde fica o "um clique" da análise de atos (ADR) · IDs: — · origem: FS-02 · #padrao
+- [ ] [funcional] Importador: recusas e conversões silenciosas antes da primeira carga real do piloto (6 das 8 categorias da skill recusadas e bloqueiam o lote; "Integridade" vira "Corrupção e Fraude"; P/I só com o nome da escala, 0, acima de 5 ou negativo convertidos sem aviso; meta e limite do KRI inventados; "sem evidencia" sem acento lido como com evidência; "inexistente" minúsculo cria controle; aviso de divergência do número prometido e não implementado; RADAR só lê o Regime B) · IDs: LAC-03, LAC-12, LAC-14, LAC-15 · origem: FS-02, seção "Contrato com o Importar" (conferido por script na revisão de 2026-11-21) · #padrao
 - [ ] [documentação] Matriz de acesso §7: a tabela de telas mostra Riscos e Ficha como só leitura para a AUDIT e Novo risco como edição; esclarecer a diferença · origem: visao-produto (Partes interessadas, linha da AUDIT) · IDs: — · #divida
 
 
