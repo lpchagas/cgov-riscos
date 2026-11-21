@@ -1,14 +1,12 @@
 # Nível 5 — Software
 
-Guarda **como o software é desenhado**, com diagramas UML em Mermaid (sem Modelo C4): casos de uso,
-atividades, classes, sequência e estados.
+Guarda **como o software é desenhado**, com diagramas UML em Mermaid (sem Modelo C4, ver
+[[0016-diagramas-em-mermaid-sem-c4]]).
 
-## Arquivos previstos no plano
-
-- `uml-casos-de-uso.md` — diagrama de casos de uso (feito com `flowchart`: ator = nó, fronteira do sistema = `subgraph`).
-- `uml-atividades.md` — atividades dos fluxos principais.
-- `uml-classes.md` — classes e módulos do front.
-- `uml-sequencia.md` — sequências (ex.: login por link, salvar ficha).
-- `uml-estados.md` — estados do risco e do fluxo de validação.
-
-Os arquivos serão criados nas tarefas seguintes do plano de reestruturação.
+| Arquivo | Diagrama | Situação |
+| --- | --- | --- |
+| [[uml-01-casos-de-uso]] | Casos de uso (UC-01 a UC-26), por grupo de atores | desenhado; os UC propostos vêm tracejados |
+| [[uml-02-atividades]] | Ciclo F1, validação interna (FS-01) e aprovação do Plano (F3, proposta) | desenhado |
+| [[uml-03-classes]] | Domínio, stores, camada de dados e cálculo | desenhado a partir do código |
+| [[uml-04-sequencia]] | Envio → validação → homologação; importação da skill | desenhado a partir do código |
+| [[uml-05-maquina-estados]] | `riscos.status_fluxo` (6 estados) e ciclo do Plano (proposta LAC-01/02) | desenhado a partir das migrações |
