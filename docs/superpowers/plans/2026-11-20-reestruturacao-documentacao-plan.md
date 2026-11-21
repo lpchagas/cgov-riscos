@@ -23,7 +23,7 @@
 - ADR no modelo de Nygard: **Título, Status (`Proposed` | `Accepted` | `Deprecated` | `Superseded by ADR-NNNN`), Contexto, Decisão ("Nós vamos…"), Consequências (positivas, negativas, neutras)** + opcional **Alternativas consideradas**. Arquivo `docs/adr/NNNN-slug-em-kebab-case.md`, de 1 a 2 páginas (≤ 120 linhas). ADR `Accepted` é imutável: só o campo Status muda, quando outro ADR o substitui.
 - Diagramas em Mermaid; **sem Modelo C4**. Banco: DER em `erDiagram` (pé-de-galinha).
 - Mover arquivos com `git mv`; wikilinks do Obsidian resolvem pelo nome do arquivo, então **nomes de arquivo existentes não mudam**.
-- Commit a cada tarefa concluída, mensagem `tipo(escopo): resumo` em português, com a linha `Co-Authored-By`. Nunca versionar `_temp/`, `.env` ou dado pessoal. Push e PR só com pedido explícito.
+- Commit a cada tarefa concluída, mensagem `tipo(escopo): resumo` em português, com a linha `Co-Authored-By`. Nunca versionar `_temp/`, `.env` ou dado pessoal. PR ao fim de cada fase (regra de 2026-11-21 no `AGENTS.md`); push na `main` e merge só com pedido explícito.
 - Nenhuma mudança em `src/`, `supabase/migrations/` ou nos cálculos nesta reestruturação: só documentação e o teste da documentação.
 
 ## Review Focus
@@ -481,7 +481,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 - Create: `docs/30-nivel3-interface/mapa-telas.md`
 - Modify: `docs/20-nivel2-requisitos/rastreabilidade.md` (coluna Tela), `docs/30-nivel3-interface/manual-fluxo-figma-vscode.md` (caminhos)
 
-- [ ] **Step 1: Mover a pasta e procurar caminhos quebrados.** Rode `grep -rn "04-ux/" --include=*.md --include=*.ts .`. Esperado: nenhum resultado depois de corrigir.
+- [ ] **Step 1: Mover a pasta e procurar caminhos quebrados.** Rode `grep -rn "04-ux/" --include=*.md --include=*.ts --exclude-dir=node_modules --exclude-dir=superpowers --exclude-dir=revisao-2026 .` (os planos, as specs e as cópias fiéis guardam o caminho antigo como histórico). Esperado: nenhum resultado depois de corrigir.
 - [ ] **Step 2: Montar o `mapa-telas.md`** com a tabela `Rota | View (.vue) | UC atendidos | Perfis (matriz §7) | Página Figma (Original/Trabalho) | Componentes Code Connect | Situação`. Linhas novas para as telas exigidas pelos UC de situação "proposto" (UC-14 a UC-19 e UC-21 a UC-26; Situação "a prototipar").
 - [ ] **Step 3: Criar um cartão "Modelagem" para cada tela a prototipar.** O cartão segue o fluxo de [[manual-fluxo-figma-vscode]] pelo MCP do Figma (skills `figma:figma-use` e `figma:figma-generate-design`).
 - [ ] **Step 4: Rodar `npm test` e `npm run build`.** Esperado: PASS (nenhum import aponta para `docs/`).

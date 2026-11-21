@@ -186,8 +186,10 @@ Premium, Power Pages Internal User, Entra ID P1, SharePoint Plan 2, Teams etc.):
   porta 8080) continua funcionando.
 - Roteiro do ensaio: subir o Supabase local, `db:reset`, `db:funcoes`, subir o front em container, entrar com um
   usuário `@radar.test` (link pelo Mailpit enquanto a D2 não chega), percorrer Importar → Aprovações → Painel.
-- O mesmo roteiro serve para restaurar uma cópia e abrir o sistema sobre ela (com autorização do responsável
-  quando a cópia tiver dados reais).
+- Para restaurar uma cópia e abrir o sistema sobre ela (com autorização do responsável quando a cópia tiver
+  dados reais), o roteiro **muda**: o banco local precisa estar vazio, sem a semente de demonstração, antes do
+  `copia:restaurar`, e o `db:reset` só roda **depois** da conferência, porque apaga os dados restaurados (ver
+  [[guia-copia-restauracao]], seções 6 e 7).
 
 ### 6.5 Documentação
 

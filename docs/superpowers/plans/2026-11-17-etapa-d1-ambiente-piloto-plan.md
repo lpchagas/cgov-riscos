@@ -83,7 +83,7 @@
 - [ ] **Step 2:** rodar os dois arquivos → FAIL.
 - [ ] **Step 3: Implementar** `csp.ts`, o template (mesmos `try_files` e gzip de hoje, comentários didáticos sobre o `envsubst` da imagem oficial), Dockerfile, compose, exemplo do `.env`, `.gitignore`, `conferir-csp`.
 - [ ] **Step 4:** rodar os dois arquivos → PASS; `npm test` → tudo passando.
-- [ ] **Step 5: Prova com container:** `docker compose up -d --build` e `npm run conferir:csp -- http://localhost:8080` → 0 violações (modo demonstração). Com `npm run db:start` e `.env.conteiner-local` preenchido com a anon local: `docker compose --profile real-local up -d --build` e `npm run conferir:csp -- http://localhost:8081/entrar` → 0 violações, e a tela de entrar aparece sem a faixa "Modo demonstração". `curl -sI http://localhost:8081 | grep -i content-security` mostra a CSP com `http://127.0.0.1:54321`.
+- [ ] **Step 5: Prova com container:** `docker compose up -d --build` e `npm run conferir:csp -- http://localhost:8080` → 0 violações (modo demonstração). Com `npm run db:start` e `.env.conteiner-local` preenchido com a anon local: `docker compose --env-file .env.conteiner-local --profile real-local up -d --build` e `npm run conferir:csp -- http://localhost:8081/entrar` → 0 violações, e a tela de entrar aparece sem a faixa "Modo demonstração". `curl -sI http://localhost:8081 | grep -i content-security` mostra a CSP com `http://127.0.0.1:54321`.
 - [ ] **Step 6: Commit** `feat(d1): cabeçalhos de segurança e perfil real-local no container`
 
 ### Task 3: Pacote de publicação do piloto (Cloudflare Pages ou Power Pages)
@@ -197,7 +197,7 @@ Sem código novo; o resultado é registrado em `docs/02-arquitetura-cgti/guia-am
 - [ ] **Step 3:** restaurar essa cópia no Supabase local (`npx supabase db reset --no-seed` + `copia:restaurar`) e comparar `copia:contar` da nuvem × local → idênticos.
 - [ ] **Step 4 [RESPONSÁVEL]:** criar a tarefa diária no Agendador de Tarefas do Windows (comando `schtasks` do guia, chamando `wsl.exe` com `npm run copia:fazer` às 12h30). Se a política da máquina não permitir: `cron` no WSL e `npm run copia:conferir` ao abrir o terminal (linha no `~/.bashrc`). Anotar qual caminho valeu.
 - [ ] **Step 5:** depois de 7 dias corridos, conferir (MCP `get_project`) se o projeto continua ativo só com a cópia diária (D0-3). Se for pausado, acrescentar ao `copia:fazer` uma consulta leve pela API REST com a chave publicável e registrar a decisão.
-- [ ] **Step 6: Ensaio local (roteiro, no desktop):** `npm run db:start`, `npm run db:reset`, `npm run db:funcoes`, `docker compose --profile real-local up -d --build`, entrar em `http://localhost:8081` com `cgov@radar.test` (link pelo Mailpit, `http://127.0.0.1:54324`), importar uma tabela de demonstração, validar e homologar com os usuários de demonstração e ver o Painel. Escrever o roteiro em `guia-ambiente-piloto.md` (seção "Ensaio no computador local").
+- [ ] **Step 6: Ensaio local (roteiro, no desktop):** `npm run db:start`, `npm run db:reset`, `npm run db:funcoes`, `docker compose --env-file .env.conteiner-local --profile real-local up -d --build`, entrar em `http://localhost:8081` com `cgov@radar.test` (link pelo Mailpit, `http://127.0.0.1:54324`), importar uma tabela de demonstração, validar e homologar com os usuários de demonstração e ver o Painel. Escrever o roteiro em `guia-ambiente-piloto.md` (seção "Ensaio no computador local").
 - [ ] **Step 7: Commit** `docs(d1): cópia agendada, restauração da nuvem e ensaio local`
 
 ### Task 9: Verificação final e registro

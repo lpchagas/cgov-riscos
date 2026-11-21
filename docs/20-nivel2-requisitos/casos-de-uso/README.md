@@ -12,8 +12,9 @@ dispositivo ou decisão da CGOV) e a situação.
 sistema ainda não trata uma exceção, o caso de uso descreve o que acontece hoje e diz "(não tratado
 pelo sistema; cartão no Kanban)" ([[quadro]]).
 
-**Quem não usa o sistema.** O CTGRIC, o CIG e o Presidente do ICMBio não entram no RADAR: o que eles
-decidem é registrado pela CGOV, que é a Secretaria-Executiva do CTGRIC (UC-18 e UC-25).
+**Quem não usa o sistema.** O CTGRIC e o CIG não entram no RADAR. O Presidente do ICMBio usa o perfil
+`presidencia` só para homologar os riscos críticos ligados à Presidência (UC-10); a deliberação do CIG que ele
+preside e a publicação acontecem fora do sistema. O que os colegiados decidem é registrado pela CGOV, que é a Secretaria-Executiva do CTGRIC (UC-18 e UC-25).
 
 ## Índice por ator
 

@@ -42,6 +42,7 @@ CGOV (perfil `cgov`), como responsável por cadastrar as contas e atribuir perfi
 - 4c. Falta o nome, a unidade, o perfil, ou o e-mail é inválido: o sistema recusa e diz o que falta.
 - 5a. A unidade já tem titular: o sistema avisa quem é o titular atual e sugere o perfil do cargo, sem trocá-lo sozinho. A CGOV pode pedir que a chave do titular anterior seja tirada; o sistema grava primeiro a pessoa nova e só depois tira a chave do anterior.
 - 5a.1. A gravação da pessoa nova falha: a chave do anterior não é tirada.
+- 5a.2. A gravação da pessoa nova passa, mas a retirada da chave do anterior falha: as duas pessoas ficam como titulares da unidade. O sistema mostra o erro e recarrega a lista, que passa a exibir os dois titulares; a CGOV tira a chave do anterior à mão, editando o perfil dele. Enquanto isso, o titular anterior continua podendo validar e homologar pela unidade (as duas gravações não são uma operação única no banco; não tratado pelo sistema).
 - 6a. A CGOV altera o perfil, a unidade ou a situação (ativa ou suspensa) de uma conta existente: o sistema grava e registra na trilha (RN-030, RN-095). A conta suspensa perde o acesso na renovação da sessão (UC-01, 5b).
 - 8a. Parte dos convites falha (por exemplo, a conta foi apagada): o sistema mostra o resultado parcial, com o motivo de cada falha; os enviados não são reenviados.
 

@@ -12,8 +12,9 @@
 ## 1. Finalidade
 
 Testar e operacionalizar o Sistema RADAR (Rede de Avaliação, Diagnóstico e Ação em Riscos) com **dados reais**,
-antes de levá-lo à CGTI. A CGOV processa atos normativos, importa as fichas de risco, as Coordenações-Gerais
-validam e os Diretores homologam. O RADAR operacionaliza a Política de Gestão de Riscos (minuta SEI `024241420`)
+antes de levá-lo à CGTI. A CGOV processa atos normativos e importa as fichas de risco; a chefia imediata de cada
+unidade valida (na Sede, em geral a Coordenação-Geral ou a Diretoria), e o Diretor ou a Presidência homologa os
+riscos críticos ([[matriz-acesso-responsabilidades]], seção 5). O RADAR operacionaliza a Política de Gestão de Riscos (minuta SEI `024241420`)
 e a Metodologia (minuta SEI `024421455`), até a publicação.
 
 ## 2. Recorte
@@ -96,7 +97,8 @@ CGTI e a migração, ou ao fim do prazo de retenção, o que ocorrer primeiro.
 >
 > Dados tratados: nome, e-mail institucional e unidade dos usuários, e fichas de risco (inclusive de
 > integridade). Não são tratados matrícula nem CPF. Os dados ficam em banco na nuvem (Supabase, São Paulo), com
-> cópias cifradas na máquina institucional, e serão excluídos em até 6 meses da primeira carga. Nenhum e-mail do
+> cópias cifradas na máquina institucional; até o encerramento da fase assistida do piloto, também podem estar
+> no computador de trabalho remoto do responsável técnico, que os apaga ao fim dessa fase. Serão excluídos em até 6 meses da primeira carga. Nenhum e-mail do
 > sistema é enviado a servidores durante o piloto.
 >
 > O piloto não depende de resposta, mas a CGOV agradece qualquer orientação. Contato: [contato do responsável

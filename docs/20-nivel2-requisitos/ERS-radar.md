@@ -1,7 +1,7 @@
 ---
 tipo: requisitos
 data: 2026-11-21
-status: "Rascunho — catálogos RN, RF, RNF e casos de uso entram nas Tarefas 9 a 13"
+status: "Rascunho — catálogos RN, RF, RNF, casos de uso e rastreabilidade criados nas Tarefas 9 a 13"
 fontes:
   - "ISO/IEC/IEEE 29148:2018, seção 9.6 (conteúdo da especificação de requisitos de software)"
   - "[[visao-produto]], [[mapa-processos]], [[lacunas-norma-sistema]] (Nível 1)"
@@ -50,6 +50,8 @@ Os termos e siglas estão em [[GLOSSARIO-ACESSIVEL]]. Os essenciais para ler est
 | **Regime B** | Modelo da Política RADAR e da nova Metodologia (minutas), base do sistema |
 
 Os níveis de classificação (Quadro 8) são **Baixo (1 a 5), Médio (> 5 a 10), Alto (> 10 a 17) e Extremo (> 17 a 25)**. Ver [[matriz-regras-regime-b]].
+
+Residual menor que 1 (ex.: inerente 1 com fator 0,9 dá 0,9) não pertence a nenhuma faixa do Quadro 8, que começa em 1. A **regra adicional do sistema** o classifica como **Baixo** ([[matriz-regras-regime-b]] §9).
 
 ## 4. Referências
 
@@ -113,7 +115,7 @@ São **10 perfis**, conferidos em [[matriz-acesso-responsabilidades]] (seção 5
 | `coordenador_geral` | Coordenadores-Gerais; leitura também por macroprocesso | Matriz, seções 4 e 5; Regimento art. 4º e 185 |
 | `diretor` | Diretores; alta administração, leitura total, valida e homologa na Sede | Matriz, seção 5; Decreto 9.203/2017, art. 17 |
 | `presidencia` | Presidente e Assessoria; leitura total, homologa riscos ligados a ela | Matriz, seção 5 (decisão P-B1-1) |
-| `auditoria` | Auditor-Chefe e AUDIT (3ª linha); leitura total, somente leitura | Matriz, seção 5; Decreto art. 18; Política art. 16 |
+| `auditoria` | Auditor-Chefe e AUDIT (3ª linha); leitura total; edita só as fichas da própria AUDIT (a tabela de telas da Matriz, §7, mostra a ficha como só leitura: divergência interna a esclarecer; ver [[visao-produto]]) | Matriz, seção 5; Decreto art. 18; Política art. 16 |
 | `cgov` | Servidores da CGOV (2ª linha); consolida o Plano, simula a DAR, importa, mantém objetos e cadastra usuários | Matriz, seção 5; Política art. 15 |
 | `cgge` | Servidores da CGGE; supervisão, leitura total | Matriz, seção 5; Política art. 14 |
 | `gabin` | Chefe de Gabinete e equipe; valida os riscos da Presidência | Matriz, seção 5 (decisão P-B1-1) |
@@ -142,7 +144,7 @@ CIG, CTGRIC e Presidente (quando decide por portaria) **decidem fora do sistema*
 
 ## 7. Requisitos específicos
 
-Os requisitos ficam em catálogos próprios, criados nas **Tarefas 9 a 13** do plano ([[2026-11-20-reestruturacao-documentacao-plan]]). **Ainda não existem**; os links abaixo passam a funcionar quando cada tarefa terminar.
+Os requisitos ficam em catálogos próprios, criados nas **Tarefas 9 a 13** do plano ([[2026-11-20-reestruturacao-documentacao-plan]]), todas concluídas.
 
 | Catálogo | Conteúdo | Formato do ID | Tarefa |
 | --- | --- | --- | --- |

@@ -33,7 +33,7 @@ Gestor de riscos (1ª linha).
 
 - 1a. O gestor fixa, no registro do risco, período de reavaliação menor que um ano (RN-088); o sistema passa a sinalizar por esse período.
 - 1b. A reavaliação é antecipada por alerta do KRI ou por fato do item 4.7.2 (RN-087, RN-084): começa no passo 2, vinda do [[UC-15-registrar-medicao-de-kri-e-tratar-alerta]] ou do [[UC-16-comunicar-fato-de-risco-a-cgov]].
-- 4a. A reavaliação muda o nível residual ou o enquadramento no apetite: o gestor comunica à CGOV (hipótese I; RN-086; [[UC-16-comunicar-fato-de-risco-a-cgov]]).
+- 4a. A reavaliação muda o nível residual ou o enquadramento no apetite, de modo que o risco passe a ser ou deixe de ser crítico: o gestor comunica à CGOV (hipótese I; RN-086; [[UC-16-comunicar-fato-de-risco-a-cgov]]).
 - 4b. O risco estava aprovado e a reavaliação mudou a ficha: o risco reabre para validação ([[UC-08-enviar-risco-para-validacao]], exceção 1a; RN-051).
 - 4c. **Hoje:** o RADAR guarda só a data da última alteração, que não prova reavaliação, e não sinaliza vencimento (LAC-10; não tratado pelo sistema; cartão LAC-10 no Kanban). Quem verifica a reavaliação dos riscos não críticos também não está definido (alerta F4-13, aberto).
 

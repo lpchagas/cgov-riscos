@@ -217,10 +217,14 @@ Resultado real (2026-11-20): a pergunta apareceu com a lista das 12 migrações;
 
 ### 7.1 Dados de referência **[AUTORIZAÇÃO]**
 
-Aplicar **só** o `supabase/seed.sql`: as 8 categorias do Quadro 2 (Integridade com as 6 subcategorias do
-Quadro 3), o apetite padrão da DAR e o acerto do contador (`setval`, para a próxima categoria ser a 9).
+Aplicar **só** o `supabase/seed.sql`: as 8 categorias do sistema, com as subcategorias de Integridade, o apetite padrão da DAR e o acerto do contador (`setval`, para a próxima categoria ser a 9).
 Em 2026-11-20 foi aplicado pelo Claude via MCP, numa transação (`begin ... commit`); também pode ser
 colado no SQL Editor (seção 5.1).
+
+> **Atenção:** essas categorias e subcategorias **não são** as dos Quadros 2 e 3 da Metodologia (sobram
+> Estratégico, Socioambiental e Tecnologia da Informação; faltam Riscos da visitação, Ocupacionais e
+> Privacidade e Proteção de Dados). O alinhamento é decisão pendente da CGOV (D3-01 e D3-02 em
+> [[pendencias-ui-piloto]]; LAC-14 e LAC-15 em [[lacunas-norma-sistema]]).
 
 - Esperado: `setval` = 8; 8 linhas em `categorias_risco`; **8 linhas em `auditoria_log`** (a trilha de
   auditoria registra as inclusões da DAR; no local acontece o mesmo).

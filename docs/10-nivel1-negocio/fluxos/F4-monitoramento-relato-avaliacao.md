@@ -36,6 +36,8 @@ classDef lacuna fill:#fff3cd,stroke:#b58900,color:#000
 class T1 lacuna
 ```
 
+> **Nota de leitura:** o gatilho do diagrama de origem só cobre o **risco crítico** do Plano. A reavaliação anual vale para **todo** risco registrado, inclusive o não crítico aceito no F1 (F4.03; RN-087), e essa entrada não aparece no desenho. O diagrama é cópia fiel e não foi alterado: a lacuna está no alerta **F4-13** (aberto) e na LAC-10.
+
 ## Diagrama — parte 2: acompanhamento, cobrança e revisão do Plano pela CGOV (copiado do `.mmd`, sem alteração)
 
 ```mermaid

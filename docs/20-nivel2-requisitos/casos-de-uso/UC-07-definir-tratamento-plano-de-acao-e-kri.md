@@ -12,7 +12,7 @@ Gestor de riscos (1ª linha) da unidade dona do risco.
 
 ## Pré-condições
 
-- O risco foi analisado e o banco calculou a criticidade ([[UC-06-analisar-risco-e-avaliar-controles]]).
+- O risco foi analisado ([[UC-06-analisar-risco-e-avaliar-controles]]). Na ficha nova, que grava identificação, análise e tratamento de uma vez (UC-05), o gestor define o tratamento a partir da **prévia** da criticidade, e o banco a confirma ao gravar; na ficha já gravada, vale a criticidade calculada pelo banco.
 - A ficha está em rascunho, devolvida ou preliminar da CGOV, ou aprovada (com reabertura).
 
 ## Pós-condições

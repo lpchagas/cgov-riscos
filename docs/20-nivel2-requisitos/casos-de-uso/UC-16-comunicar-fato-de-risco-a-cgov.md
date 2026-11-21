@@ -23,7 +23,7 @@ Gestor de riscos (1ª linha).
 
 ## Fluxo principal de sucesso
 
-1. O gestor toma ciência de um fato de uma das 6 hipóteses: (I) mudança do nível residual ou do enquadramento no apetite; (II) falha de controle de risco crítico que o reduza no Quadro 6; (III) materialização de risco crítico; (IV) risco emergente; (V) atraso ou dificuldade no tratamento; (VI) situação que possa demandar revisão do Plano (RN-086).
+1. O gestor toma ciência de um fato de uma das 6 hipóteses: (I) mudança do nível residual ou do enquadramento no apetite, de modo que o risco passe a ser ou deixe de ser crítico; (II) falha de controle de risco crítico que o reduza no Quadro 6; (III) materialização de risco crítico; (IV) risco emergente; (V) atraso ou dificuldade no tratamento; (VI) situação que possa demandar revisão do Plano ou apreciação pelas instâncias de governança (RN-086).
 2. O gestor registra a comunicação, indicando a hipótese e a data em que tomou ciência do fato.
 3. O sistema mostra o prazo de 10 dias úteis, contado da ciência (RN-086).
 4. O sistema grava a comunicação, com a data, e a mostra à CGOV, com a hipótese, a data da ciência e a data da comunicação.

@@ -15,7 +15,7 @@ Gestor de riscos (1ª linha).
 ## Pré-condições
 
 - O ciclo do Plano foi aberto pela CGOV, conforme o calendário anual das reuniões do CTGRIC e do CIG (RN-076), ou por fato que demande atualização.
-- O gestor tem riscos críticos, com tratamento e KRI ([[UC-07-definir-tratamento-plano-de-acao-e-kri]]). Se a CGOV mantiver o fluxo interno de validação, esses riscos já passaram por ele ([[UC-08-enviar-risco-para-validacao]] a [[UC-10-homologar-risco]]; LAC-11).
+- O gestor tem riscos críticos. Em regra, eles já têm tratamento e KRI ([[UC-07-definir-tratamento-plano-de-acao-e-kri]]); o que faltar não impede a comunicação e é cobrado pela CGOV na verificação (exceção 2a). Se a CGOV mantiver o fluxo interno de validação, esses riscos já passaram por ele ([[UC-08-enviar-risco-para-validacao]] a [[UC-10-homologar-risco]]; LAC-11).
 
 ## Pós-condições
 

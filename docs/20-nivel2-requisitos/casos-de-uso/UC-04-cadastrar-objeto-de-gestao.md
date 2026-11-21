@@ -44,4 +44,4 @@ Por que a CGOV, e não o gestor de riscos da tabela do plano: as minutas não di
 
 ## Pós-condição de sucesso
 
-- O objeto está no catálogo, ligado a uma unidade ativa e, quando houver, a um processo ativo, com o supervisor preenchido pelo banco; a inclusão está na trilha de auditoria.
+- O objeto está no catálogo, ligado a uma unidade ativa e, quando houver, a um processo ativo; havendo processo, o supervisor foi preenchido pelo banco (sem processo, fica vazio até a CGOV preenchê-lo, exceção 3a); a inclusão está na trilha de auditoria.

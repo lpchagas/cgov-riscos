@@ -31,7 +31,8 @@ Supabase (nuvem)                     seu computador (WSL)
 ```
 
 - **O que vai na cópia:** os **dados** do esquema `public` e as contas (`auth.users` e
-  `auth.identities`), porque `perfis_usuarios` aponta para `auth.users`. A **estrutura** (tabelas,
+  `auth.identities`), num **único `pg_dump`** (assim tudo sai do mesmo instante; cópias feitas antes de
+  2026-11-21 tinham dois arquivos e continuam restauráveis), porque `perfis_usuarios` aponta para `auth.users`. A **estrutura** (tabelas,
   funções, RLS) vem das migrações do repositório (`supabase/migrations/`).
 - **Por que cifrar com chave pública:** o script só conhece a chave **pública**, que serve para
   trancar, não para abrir. A chave **privada** (a que abre) fica com você, fora do computador de uso
@@ -117,6 +118,11 @@ RADAR_COPIA_CHAVE_PUBLICA=age1<...>
 Se a senha tiver caracteres especiais (`@`, `:`, `/`, `#`, `?`), escreva-os codificados na conexão:
 `@` vira `%40`, `:` vira `%3A`, `/` vira `%2F`, `#` vira `%23`, `?` vira `%3F`.
 
+**Conexão cifrada (TLS):** com o banco da nuvem, o script exige TLS sozinho (`sslmode=require`): a senha e
+os dados viajam cifrados. Para também conferir o certificado do servidor (`verify-full`), seria preciso
+baixar o certificado do Supabase e montá-lo no contêiner do `pg_dump`; isso ainda não está pronto. Se a
+conexão terminar em `?sslmode=...`, o script respeita o modo pedido.
+
 ```bash
 chmod 600 ~/.config/radar-copias/config.env   # só você lê e escreve (OBRIGATÓRIO)
 ```
@@ -148,7 +154,7 @@ npx supabase db reset --no-seed            # (2) zera o banco LOCAL e aplica só
 nano /dev/shm/chave.txt                    # (3) cola a chave PRIVADA do gerenciador de senhas (na memória)
 chmod 600 /dev/shm/chave.txt               #     só você lê
 npm run copia:restaurar -- ~/radar-copias/radar-AAAA-MM-DD.tar.age --identidade /dev/shm/chave.txt
-                                           # (4) decifra em /dev/shm, restaura auth e depois public
+                                           # (4) decifra em /dev/shm e restaura contas e dados numa transação
 rm -f /dev/shm/chave.txt                   # (5) apaga a chave privada (estava só na memória)
 ```
 
@@ -156,8 +162,8 @@ O que o `copia:restaurar` faz por dentro:
 
 1. confere que o destino é local e que o banco está vazio (todas as contagens em zero);
 2. `age -d` decifra e `tar -x` desempacota **direto em `/dev/shm`** (memória);
-3. `pg_restore --data-only --disable-triggers --single-transaction` restaura **primeiro `auth`** e
-   **depois `public`**, conectado como `supabase_admin` (o superusuário local, o único que pode
+3. `pg_restore --data-only --disable-triggers --single-transaction` restaura as contas (`auth`) e os
+   dados de `public` **numa transação só**, a partir de um único arquivo (`radar.dump`), conectado como `supabase_admin` (o superusuário local, o único que pode
    desligar os gatilhos). Com os gatilhos desligados, a **trilha de auditoria e o recálculo não
    disparam**: a auditoria restaurada é a da origem, linha por linha;
 4. apaga os arquivos decifrados (no `finally`, mesmo se der erro) e imprime as contagens.
@@ -165,7 +171,8 @@ O que o `copia:restaurar` faz por dentro:
 **Conferência:** as contagens do fim devem ser **idênticas** às do passo (1), inclusive
 `public.auditoria_log`. Se a auditoria tiver linhas a mais, os gatilhos dispararam: pare e avise.
 
-Depois de terminar, volte o banco local para a demonstração com `npm run db:reset`.
+**Ainda não rode `db:reset`:** ele apagaria a cópia restaurada. Primeiro faça a leitura de amostra da
+seção 7; o reset fica para o fim dela (passo 4).
 
 ## 7. Conta de teste local para a leitura de amostra pela RLS
 

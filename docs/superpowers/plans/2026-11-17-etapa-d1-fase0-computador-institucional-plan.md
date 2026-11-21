@@ -15,7 +15,7 @@
 - Nunca abrir, listar nem ler a pasta `_temp/`. A cópia da `_temp/` para o desktop é feita **pelo responsável** (pen drive ou OneDrive do ICMBio), nunca pelo GitHub.
 - Dados reais podem existir nos dois computadores **até o encerramento da D5**; depois, só no institucional (D0-13).
 - Docker no desktop institucional: **Docker Engine no WSL**; não instalar Docker Desktop nele (licença paga para o porte do ICMBio).
-- Push automático só da **branch de trabalho**, nunca da `main` (D0-12). Merge e PR só a pedido.
+- Push automático só da **branch de trabalho**, nunca da `main` (D0-12). PR ao fim de cada fase do plano (regra de 2026-11-21 no `AGENTS.md`) ou a pedido; merge só a pedido.
 - Mesmo caminho do projeto nos dois computadores: `~/projetos/cgov-riscos` (mantém iguais os comandos dos guias).
 - Node: mínimo **22** (o Dockerfile usa `node:22-alpine`); versão recomendada **24** (`.nvmrc`).
 - Código e documentação com comentários didáticos em português do Brasil. Commits `tipo(escopo): resumo` com a linha `Co-Authored-By`.

@@ -11,9 +11,10 @@
   - Este arquivo (0000) é só modelo: o teste o ignora.
 -->
 
+<!-- Status: uma destas opções, sozinha na linha logo abaixo de "## Status": Proposed | Accepted | Deprecated | Superseded by ADR-NNNN. O teste lê a primeira linha não vazia depois do título, por isso este comentário fica aqui em cima. -->
+
 ## Status
 
-<!-- Uma destas opções, sozinha na linha: Proposed | Accepted | Deprecated | Superseded by ADR-NNNN -->
 Proposed
 
 Data: AAAA-MM-DD

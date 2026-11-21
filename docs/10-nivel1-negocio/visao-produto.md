@@ -11,7 +11,7 @@
 O ICMBio está trocando o modelo antigo de gestão de riscos (Regime A: Portarias nº 255/2020 e nº 975/2021; a minuta da Política revoga só a nº 255/2020, Art. 20, e a nº 975/2021 não é revogada, alerta F1-04) pelo modelo novo da Política RADAR (Regime B). Sem uma ferramenta, a troca esbarra em quatro dificuldades práticas:
 
 1. **Tela em branco para o gestor.** O gestor de riscos (1ª linha) precisa identificar, analisar, avaliar, tratar, monitorar e comunicar riscos (Art. 17, I), mas não tem onde fazer isso de forma padronizada.
-2. **Cálculo que costuma dar errado.** A Metodologia exige a matriz assimétrica (Quadro 7), os fatores de controle com trava de evidência (Quadro 6) e as faixas sem arredondamento (Quadro 8). Multiplicar Probabilidade × Impacto é proibido (`AGENTS.md`, regra 2): o Quadro 7 é uma tabela fixa, e uma planilha solta não impede o erro.
+2. **Cálculo que costuma dar errado.** A Metodologia exige a matriz assimétrica (Quadro 7), os fatores de controle (Quadro 6) e as faixas sem arredondamento (Quadro 8); o sistema acrescenta a trava de evidência (controle sem evidência comprovada não passa de Fraco), que é regra do sistema e não texto da minuta ([[matriz-regras-regime-b]] §9). Multiplicar Probabilidade × Impacto é proibido (`AGENTS.md`, regra 2): o Quadro 7 é uma tabela fixa, e uma planilha solta não impede o erro.
 3. **Decisão sem rastro.** A carteira de **riscos críticos** (riscos fora dos limites da Declaração de Apetite a Riscos, **DAR**; Art. 8º, §1º) precisa chegar à CGOV, ser consolidada no Plano de Gestão de Riscos e ser acompanhada. Sem sistema, não há registro de quem validou, quem homologou e quando.
 4. **Alcance diferente por cargo.** Presidência, Diretorias, Coordenações-Gerais, Gerências Regionais e unidades enxergam e decidem coisas diferentes ([[matriz-acesso-responsabilidades]]).
 
@@ -96,7 +96,7 @@ Aprovadas no diagnóstico ([[2026-11-20-diagnostico-documentacao-radar]] §5). S
 | LAC-04 | Comunicação das 6 hipóteses à CGOV em 10 dias úteis |
 | LAC-05 | Relatórios trimestrais ao CTGRIC e ao CIG |
 | LAC-06 | Avaliação gerencial anual (registro e dados) |
-| LAC-07 | Revisão do Plano (decisão da CGOV em 10 dias úteis; substancial × ordinária) |
+| LAC-07 | Revisão do Plano (decisão da CGOV em 10 dias úteis, prazo decidido em 20/11 e ainda não aplicado ao texto saneado; substancial × ordinária) |
 | LAC-08 | Rito da DAR (proposta da CGOV, CTGRIC, CIG, portaria) |
 | LAC-09 | Acompanhamento da carteira crítica e cobrança de pendências pela CGOV |
 | LAC-10 | Reavaliação anual de todo risco registrado |

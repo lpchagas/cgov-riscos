@@ -61,4 +61,4 @@ A análise das licenças Microsoft que sustenta a D0-8 está na spec, §3.1.
 | D1-P3 | 11 chaves estrangeiras sem índice e 7 índices não usados (banco vazio). | Rever com dados reais (D3/D4). |
 | D1-P4 | Comentário do topo de `supabase/seed.sql` desatualizado ("unidades", "caso Anexo II"). | Corrigir o comentário. |
 
-*(as próximas tarefas da D1 acrescentam linhas aqui)*
+*(Arquivo congelado como histórico pelo [[0001-registrar-decisoes-em-adr-nygard|ADR-0001]]: as decisões novas da etapa D vão em ADRs, em `docs/adr/`.)*

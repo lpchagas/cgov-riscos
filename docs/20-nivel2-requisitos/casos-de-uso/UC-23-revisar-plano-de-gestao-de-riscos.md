@@ -33,7 +33,7 @@ CGOV (perfil `cgov`).
 ## Fluxos alternativos e de exceção
 
 - 2a. A CGOV decide que não há revisão: o sistema registra a decisão e a ciência ao gestor. O caso de uso termina.
-- 3a. **Revisão substancial:** segue o rito do CTGRIC e do CIG (RN-077; [[UC-18-registrar-manifestacao-ctgric-e-deliberacao-cig]]); o sistema mantém vigente o Plano anterior enquanto a revisão não for aprovada (RN-110).
+- 3a. **Revisão substancial:** depois do passo 4 (registro da decisão e ciência ao gestor), segue o rito do CTGRIC e do CIG (RN-077; [[UC-18-registrar-manifestacao-ctgric-e-deliberacao-cig]]); o sistema mantém vigente o Plano anterior enquanto a revisão não for aprovada (RN-110).
 - 3a.1. O CIG reprova a revisão substancial: a CGOV a ajusta e a reapresenta conforme os itens 4.6.8 e 4.6.9, com o Plano anterior vigente (RN-080, RN-110).
 - 3b. A revisão inclui risco crítico com urgência: a CGOV pode pedir reunião extraordinária do CTGRIC e do CIG; a convocação do CIG cabe ao seu Presidente (RN-081). Enquanto a revisão tramita, o gestor mantém o monitoramento e o KRI desse risco (RN-111).
 - 3c. A base de comparação da "mudança substancial" na revisão não está definida (alerta F5-14, aberto); o critério do sistema é o do 4.6.9.
