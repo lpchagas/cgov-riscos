@@ -6,7 +6,7 @@ Guarda **o que o sistema deve fazer e com que qualidade**, escrito conforme a IS
 ## Arquivos previstos no plano
 
 - [[ERS-radar]] — Especificação de Requisitos de Software (documento-base; já existe).
-- `regras-negocio.md` — catálogo de regras de negócio (`RN-NNN`).
+- [[regras-negocio]] — catálogo de regras de negócio (`RN-001` a `RN-103`, com origem, implementação e teste; já existe).
 - `requisitos-funcionais.md` — catálogo de requisitos funcionais (`RF-NNN`, "O sistema deve…").
 - `requisitos-nao-funcionais.md` — catálogo de requisitos não funcionais (`RNF-NNN`).
 - `casos-de-uso/` — casos de uso `UC-01` a `UC-26`; veja o [[_modelo]].
