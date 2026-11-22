@@ -33,7 +33,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useToast } from '../composables/useToast';
 import { ErroRadar, traduzirErroBanco } from '../services/dados/errosBanco';
-import type { EstrategiaTratamento, FichaRisco, NivelEficaciaControle, StatusFluxoRisco } from '../types/radar.types';
+import type { EstrategiaTratamento, FichaRisco, NivelEficaciaControle, NivelImpacto, NivelProbabilidade, StatusFluxoRisco } from '../types/radar.types';
 import {
   SUBCATEGORIAS_INTEGRIDADE_QUADRO_3,
   calcularRiscoCompletoRadar,
@@ -50,6 +50,9 @@ import {
 } from '../utils/formularioRisco';
 import { ROTULOS_APETITE } from '../utils/darImpacto';
 import FormField from '../components/ui/FormField.vue';
+import GrupoOpcoesDescritas from '../components/ui/GrupoOpcoesDescritas.vue';
+import type { OpcaoDescrita } from '../components/ui/tipos';
+import { ESCALA_IMPACTO_QUADRO_5, ESCALA_PROBABILIDADE_QUADRO_4 } from '../utils/escalasProbabilidadeImpacto';
 import PageHeader from '../components/ui/PageHeader.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
 import EstadoCarregamento from '../components/ui/EstadoCarregamento.vue';
@@ -216,20 +219,18 @@ watch(titulo, (t) => { document.title = `${t} · RADAR | ICMBio`; });
 // ---------------------------------------------------------------------------
 // OPÇÕES DOS CAMPOS (escalas da Metodologia)
 // ---------------------------------------------------------------------------
-const PROBABILIDADES = [
-  { valor: 1, rotulo: '1 — Muito baixa (menos de 10%)' },
-  { valor: 2, rotulo: '2 — Baixa (10% a 30%)' },
-  { valor: 3, rotulo: '3 — Média (31% a 60%)' },
-  { valor: 4, rotulo: '4 — Alta (61% a 90%)' },
-  { valor: 5, rotulo: '5 — Muito alta (mais de 90%)' },
-] as const;
-const IMPACTOS = [
-  { valor: 1, rotulo: '1 — Muito baixo' },
-  { valor: 2, rotulo: '2 — Baixo' },
-  { valor: 3, rotulo: '3 — Médio' },
-  { valor: 4, rotulo: '4 — Alto' },
-  { valor: 5, rotulo: '5 — Muito alto' },
-] as const;
+// Probabilidade (Quadro 4) e Impacto (Quadro 5): o nome e a descrição vêm do módulo
+// único das escalas. Ex.: valor 1 → rótulo "1 — Raro", com a descrição literal do Quadro 4.
+const OPCOES_PROBABILIDADE: OpcaoDescrita<NivelProbabilidade>[] = ESCALA_PROBABILIDADE_QUADRO_4.map((n) => ({
+  valor: n.valor,
+  rotulo: `${n.valor} — ${n.nome}`,
+  descricao: n.descricao,
+}));
+const OPCOES_IMPACTO: OpcaoDescrita<NivelImpacto>[] = ESCALA_IMPACTO_QUADRO_5.map((n) => ({
+  valor: n.valor,
+  rotulo: `${n.valor} — ${n.nome}`,
+  descricao: n.descricao,
+}));
 const EFICACIAS: { valor: NivelEficaciaControle; rotulo: string }[] = [
   { valor: 'Inexistente', rotulo: 'Inexistente (fator 1,0)' },
   { valor: 'Fraco', rotulo: 'Fraco (fator 0,9)' },
@@ -516,21 +517,10 @@ async function salvar(enviar: boolean): Promise<void> {
             <!-- ETAPA 3 -->
             <fieldset v-else-if="etapa === 3" class="etapa">
               <h2 class="etapa__titulo" tabindex="-1">Análise</h2>
-              <p class="etapa__ajuda">A nota inerente vem da tabela do Quadro 7 — o impacto pesa mais que a probabilidade.</p>
-              <div class="duas-colunas">
-                <FormField rotulo="Probabilidade" :erro="erros.probabilidade" obrigatorio v-slot="{ attrs }">
-                  <select v-bind="attrs" v-model.number="d.probabilidade">
-                    <option :value="null" disabled>Escolha…</option>
-                    <option v-for="o in PROBABILIDADES" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
-                  </select>
-                </FormField>
-                <FormField rotulo="Impacto" :erro="erros.impacto" obrigatorio v-slot="{ attrs }">
-                  <select v-bind="attrs" v-model.number="d.impacto">
-                    <option :value="null" disabled>Escolha…</option>
-                    <option v-for="o in IMPACTOS" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
-                  </select>
-                </FormField>
-              </div>
+              <p class="etapa__ajuda">Escolha a probabilidade pelo histórico do evento (Quadro 4) e o impacto pelo efeito no objetivo (Quadro 5). A nota inerente vem da tabela do Quadro 7: o impacto pesa mais que a probabilidade.</p>
+              <!-- Um grupo embaixo do outro: as descrições são longas e precisam de largura. -->
+              <GrupoOpcoesDescritas v-model="d.probabilidade" legenda="Probabilidade" obrigatorio :opcoes="OPCOES_PROBABILIDADE" :erro="erros.probabilidade" />
+              <GrupoOpcoesDescritas v-model="d.impacto" legenda="Impacto" obrigatorio :opcoes="OPCOES_IMPACTO" :erro="erros.impacto" />
               <FormField rotulo="Eficácia do controle existente (Quadro 6)" v-slot="{ attrs }">
                 <select v-bind="attrs" v-model="d.eficacia">
                   <option v-for="o in EFICACIAS" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
