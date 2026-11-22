@@ -434,19 +434,28 @@ export function criarFonteDemonstracao(
      * 2º degrau: validação em 1 clique (comportamento de `aprovarEmUmCliqueCg`).
      * Risco Crítico (fora do apetite da DAR) sobe para a Diretoria; os demais
      * já ficam aprovados.
+     *
+     * Igual ao banco (`fn_fluxo_validar`, migração 20261115004): o risco cuja
+     * categoria ainda não tem apetite na DAR (`statusCritico = 'pendente_dar'`)
+     * também sobe para a Diretoria. Ex.: residual Médio (P=3, I=2 → 8) em
+     * "Ocupacionais", que nasce `pendente_dar`, não pode ficar aprovado antes de
+     * a DAR decidir o apetite dessa categoria.
      */
     async validar(id, parecer) {
       const r = acharRisco(id);
       if (r.statusFluxo !== 'em_validacao_cg') recusar('só se valida risco em validação');
-      r.statusFluxo = r.isCritico || r.statusCritico === 'sim' ? 'em_homologacao_dir' : 'aprovado';
+      const exigeHomologacao = r.isCritico || r.statusCritico === 'sim' || r.statusCritico === 'pendente_dar';
+      r.statusFluxo = exigeHomologacao ? 'em_homologacao_dir' : 'aprovado';
       registrar(
         r,
         'validacao_cg',
         'aprovado_1_clique',
         parecer ||
-          (r.statusFluxo === 'em_homologacao_dir'
-            ? 'Validado em 1 clique pela Coordenação-Geral e encaminhado à Diretoria por se tratar de Risco Crítico.'
-            : 'Aprovado em 1 clique pela Coordenação-Geral (Risco dentro do apetite da DAR).')
+          (r.statusFluxo !== 'em_homologacao_dir'
+            ? 'Aprovado em 1 clique pela Coordenação-Geral (Risco dentro do apetite da DAR).'
+            : r.statusCritico === 'pendente_dar' && !r.isCritico
+              ? 'Validado em 1 clique pela Coordenação-Geral e encaminhado à Diretoria: a categoria ainda não tem apetite declarado na DAR.'
+              : 'Validado em 1 clique pela Coordenação-Geral e encaminhado à Diretoria por se tratar de Risco Crítico.')
       );
     },
 

@@ -43,6 +43,21 @@
 
 
 -- ----------------------------------------------------------------------------
+-- 0. TRAVA DE ESCRITA EM riscos (até o COMMIT)
+-- ----------------------------------------------------------------------------
+-- A conferência do bloco 1 lê os riscos que existem AGORA. Sem esta trava,
+-- outra sessão poderia gravar um risco depois dela e antes de a chave e o
+-- gatilho do bloco 4 existirem. Ex.: Integridade (5) sem subcategoria, gravada
+-- nesse intervalo, passaria (a chave composta não confere subcategoria nula e
+-- o gatilho só vale para gravações futuras), contra a RN-017.
+-- O modo SHARE ROW EXCLUSIVE deixa as LEITURAS passarem e faz as GRAVAÇÕES
+-- esperarem o fim da migração; aí o gatilho já existe e recusa a linha.
+-- LOCK TABLE só vale dentro de transação, e a migração já roda numa só.
+-- (Sugestão do CodeRabbit na PR #14, aceita pelo responsável em 2026-11-22.)
+LOCK TABLE public.riscos IN SHARE ROW EXCLUSIVE MODE;
+
+
+-- ----------------------------------------------------------------------------
 -- 1. TRAVA DE RECLASSIFICAÇÃO (antes de mexer em qualquer coisa)
 -- ----------------------------------------------------------------------------
 -- A migração PARA com erro e lista os códigos se existir risco:

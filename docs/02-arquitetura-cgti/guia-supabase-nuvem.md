@@ -239,7 +239,7 @@ Passos (cada um pede o aval na hora, e o 3 é só leitura):
 
 1. **[AUTORIZAÇÃO]** Conferência de leitura no projeto `cgov-riscos-v3.0`: `select count(*) from riscos;` e `select id, nome from categorias_risco order by id;`. Esperado: 0 riscos e os ids 1 a 8 antigos. Se houver risco, ou categoria com outro id ou outro nome, **parar** e mostrar ao responsável.
 2. **[AUTORIZAÇÃO]** `npx supabase db push` (sem `--include-seed`), conferindo na lista que só a `20261122001` vai ser aplicada.
-3. Conferir de novo (leitura): 8 categorias com os ids 2 a 6 e 9 a 11; 6 subcategorias; coluna JSONB ausente; linhas novas em `auditoria_log` (3 exclusões, 3 inclusões e 5 alterações de categoria, mais as 6 inclusões de subcategoria, sem usuário logado). Registrar o resultado e a data no histórico da seção 4.
+3. Conferir de novo (leitura): 8 categorias com os ids 2 a 6 e 9 a 11; 6 subcategorias; coluna JSONB ausente; linhas novas em `auditoria_log` só de `categorias_risco` (3 exclusões, 3 inclusões e 5 alterações, sem usuário logado; a tabela `subcategorias_risco` não tem gatilho de auditoria, então as 6 inclusões de subcategoria não aparecem na trilha). Registrar o resultado e a data no histórico da seção 4.
 
 ### 7.2 Desligar o cadastro avulso **[AUTORIZAÇÃO]**
 

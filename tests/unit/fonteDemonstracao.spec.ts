@@ -188,6 +188,22 @@ describe('fluxo simulado', () => {
     expect(r?.historicoFluxo.at(-1)?.despachoTexto).toBe('De acordo.');
   });
 
+  it("validar risco Médio em categoria 'pendente_dar' leva a em_homologacao_dir (igual ao banco)", async () => {
+    // Categoria 10 (Ocupacionais) nasce sem apetite na DAR. P=3, I=2 → 8 (Médio, Quadro 7).
+    const fonte = fonteComo('coordenador_geral');
+    const { id } = await fonte.salvarFicha({ objetoId: 'obj-anexo-ii', categoriaId: 10, probabilidade: 3, impacto: 2 });
+    await fonte.enviar(id);
+    const enviado = await fonte.relerRisco(id);
+    expect(enviado?.classificacaoResidual).toBe('Médio');
+    expect(enviado?.statusCritico).toBe('pendente_dar');
+    expect(enviado?.isCritico).toBe(false);
+    await fonte.validar(id);
+    const r = await fonte.relerRisco(id);
+    expect(r?.statusFluxo).toBe('em_homologacao_dir');
+    // O histórico não chama de "Risco Crítico" o que só está pendente da DAR.
+    expect(r?.historicoFluxo.at(-1)?.despachoTexto).toContain('ainda não tem apetite declarado na DAR');
+  });
+
   it('homologar leva a aprovado', async () => {
     const fonte = fonteComo('diretor');
     await fonte.homologar('risco-integra-02');

@@ -25,7 +25,8 @@ A ordem segue o plano (Tarefa 19, Step 1) e o [[0017-lacunas-que-bloqueiam-homol
    porque as mesmas regras (categorias, subcategorias, rótulos, KRI) precisam valer antes da primeira
    carga real.
 2. **Dívida de dados que muda o esquema**: fazer antes de crescer a base do piloto, para não migrar duas
-   vezes. A subcategoria em JSONB vai junto com a LAC-15 (mesma tabela nova).
+   vezes. A subcategoria em JSONB foi resolvida junto com a LAC-15 em 2026-11-22 (tabela `subcategorias_risco`,
+   no código e no banco local; a aplicação no banco do piloto na nuvem segue pendente, na Fase 2 do plano).
 3. **O restante**: as 8 lacunas omissas ainda abertas (LAC-01, 02, 04 a 07, 09 e 10), que passam à frente
    quando a portaria for publicada (classe `#normativo`), os ajustes funcionais, os testes que faltam, o
    Figma e a documentação.
@@ -51,7 +52,7 @@ porque trata da pendência que persiste depois da cobrança).
 | LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-109, RF-183, RF-184 | `indicadores_kri`, `medicoes_kri` | Pronto para iniciar |
 | LAC-03 — alerta do KRI (prazo de 10 dias úteis) | RF-102 | `medicoes_kri` | Backlog (depois do Figma P-02) |
 | LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois dos desenhos P-01 e P-10 no Figma; o P-10 cobre o RF-130) |
-| Importador antes da primeira carga real | RF-162, RF-171, RF-172, RF-177 a RF-182, RF-185 a RF-188, RF-194 (o RF-183 e o RF-184 ficam na LAC-03) | `riscos`, `controles_existentes`, `indicadores_kri` | Backlog |
+| Importador antes da primeira carga real | RF-162, RF-171, RF-177 a RF-182, RF-185 a RF-188, RF-194 (o RF-183 e o RF-184 ficam na LAC-03) | `riscos`, `controles_existentes`, `indicadores_kri` | Backlog |
 
 O alerta do KRI (RF-102) saiu do cartão da LAC-03 para um cartão próprio, porque pede a tela P-02 aprovada
 antes do código. A LAC-08 não foi para "Pronto para iniciar" porque também pede tela nova: antes do código, a CGOV aprova o desenho
@@ -78,7 +79,7 @@ do catálogo o põe na LAC-02, e ele ficou lá.
 | RF | Situação | Cartão |
 | --- | --- | --- |
 | RF-035, RF-038, RF-048, RF-099 | parcial: o código faz, falta o teste | `[dívida] Testes que faltam` (novo) |
-| RF-162, RF-171, RF-172 | parcial: o código faz, falta o teste | cartão do importador (prioridade 1) |
+| RF-162, RF-171 | parcial: o código faz, falta o teste | cartão do importador (prioridade 1); o RF-172 foi implementado em 2026-11-22, com a LAC-14 |
 | RF-177 a RF-182, RF-185 a RF-188, RF-194 | não iniciado | cartão do importador (prioridade 1); o RF-183 e o RF-184 estão no cartão da LAC-03 |
 | RF-063 | parcial: falta o teste pgTAP da unidade sem chefia | `[dívida] Teste pgTAP para a recusa do envio…` |
 | RF-078 | parcial: falta o teste pgTAP da devolução pela CGOV em validação | `[dívida] Teste pgTAP para a devolução pela CGOV…` |
@@ -108,7 +109,9 @@ A conferência achou 4 pendências da D1 (Task 6, banco na nuvem) que só estava
 
 ## 6. O que fica para o responsável
 
-- Os cartões de "Pronto para iniciar" mudam banco e regras (LAC-13 e LAC-03 mexem no fluxo, LAC-14 e LAC-15
-  em dados do piloto): cada um precisa de plano autorizado antes do código (`AGENTS.md`).
+- Os cartões de "Pronto para iniciar" mudam banco e regras (LAC-13 e LAC-03 mexem no fluxo, LAC-12 nos rótulos
+  do front e do importador): cada um precisa de plano autorizado antes do código (`AGENTS.md`). A LAC-14 e a
+  LAC-15 foram concluídas em 2026-11-22 no código e no banco local; falta aplicar a migração no banco do piloto
+  na nuvem (Fase 2 do plano, com **[AUTORIZAÇÃO]** a cada passo).
 - A grafia final das 8 categorias do Quadro 2 (D3-01) e a regra para as categorias e subcategorias já gravadas
   foram decididas em 2026-11-22 ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]): Quadro 2 literal e recusa com reclassificação, sem conversão.
