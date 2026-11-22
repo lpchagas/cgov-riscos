@@ -52,5 +52,5 @@ Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto
    KRI (RF-102) tem cartão próprio e espera o desenho P-02.
 
 Cada uma muda banco ou regra: antes do código, é preciso um **plano autorizado** pelo responsável
-(`AGENTS.md`). A LAC-08 (rito da DAR) espera o desenho P-01 no Figma, aprovado pela CGOV. Em paralelo, a
+(`AGENTS.md`). A LAC-08 (rito da DAR) espera os desenhos P-01 e P-10 no Figma, aprovados pela CGOV. Em paralelo, a
 etapa D segue com a Task 7 da D1.

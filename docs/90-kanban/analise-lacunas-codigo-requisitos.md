@@ -50,7 +50,7 @@ porque trata da pendência que persiste depois da cobrança).
 | LAC-13 — "Aceitar" e ação obrigatória no risco crítico | RF-049, RF-050 | `riscos`, `respostas_tratamento` | Pronto para iniciar |
 | LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-109, RF-183, RF-184 | `indicadores_kri`, `medicoes_kri` | Pronto para iniciar |
 | LAC-03 — alerta do KRI (prazo de 10 dias úteis) | RF-102 | `medicoes_kri` | Backlog (depois do Figma P-02) |
-| LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois do Figma P-01) |
+| LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois dos desenhos P-01 e P-10 no Figma; o P-10 cobre o RF-130) |
 | Importador antes da primeira carga real | RF-162, RF-171, RF-172, RF-177 a RF-182, RF-185 a RF-188, RF-194 (o RF-183 e o RF-184 ficam na LAC-03) | `riscos`, `controles_existentes`, `indicadores_kri` | Backlog |
 
 O alerta do KRI (RF-102) saiu do cartão da LAC-03 para um cartão próprio, porque pede a tela P-02 aprovada
