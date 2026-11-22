@@ -140,7 +140,7 @@ Criada pela migração `20261122001` ([[0019-categorias-e-subcategorias-literais
 | `riscos` | `objetivo_afetado` | `text` | não | — | Objetivo que o evento afeta. | RN-014 | não |
 | `riscos` | `descricao_padrao` | `text` | não | calculado pelo banco | Frase padrão do item 4.2.1, montada pelo gatilho ("Devido o(a)..."); não se informa. | RN-013, RN-014 | não |
 | `riscos` | `categoria_id` | `integer` | não | chave estrangeira para `categorias_risco` | Categoria dominante do risco. | RN-015, RN-016 | não |
-| `riscos` | `subcategoria_integridade` | `text` | sim | chave estrangeira composta (`categoria_id`, `subcategoria_integridade`) para `subcategorias_risco`; o gatilho exige valor na Integridade | Subcategoria do Quadro 3, para risco de Integridade; risco de outra categoria não pode ter. | RN-017 | não |
+| `riscos` | `subcategoria_integridade` | `text` | sim | chave estrangeira composta (`categoria_id`, `subcategoria_integridade`) para `subcategorias_risco`; o gatilho exige valor na Integridade e grava texto em branco (`''` ou só espaços) como nulo | Subcategoria do Quadro 3, para risco de Integridade; risco de outra categoria não pode ter. | RN-017 | não |
 | `riscos` | `teste_integridade_aplicavel` | `boolean` | não | verdadeiro ou falso | Se o objeto envolve decisão sobre beneficiário, licença ou autorização, fiscalização ou sanção, ou contratação ou atestação. | RN-006 | não |
 | `riscos` | `justificativa_nao_integridade` | `text` | sim | — | Por que o risco não foi classificado como Integridade quando o teste se aplica. | RN-018 | não |
 | `riscos` | `probabilidade` | `integer` | não | 1 a 5 | Probabilidade na escala do Quadro 4. | RN-011 | não |

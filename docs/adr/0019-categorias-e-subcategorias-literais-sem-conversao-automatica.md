@@ -47,8 +47,8 @@ Regras que valem a partir daqui:
   apetites é a D3-03, fora deste ADR.
 - **Nenhum ponto do código troca categoria ou subcategoria por um padrão.** A coluna de categoria vazia ou
   desconhecida na importação é recusada; a ficha gravada com categoria inexistente falha com mensagem clara.
-- Os sinônimos do Anexo III ficam **só no importador** (comparação sem diferença de maiúsculas e de espaços nas
-  pontas, e nenhum outro sinônimo). O banco, a tela e a calculadora conhecem só a grafia do Quadro 2.
+- Os sinônimos do Anexo III ficam **só no importador** (comparação sem diferença de maiúsculas, de espaços nas
+  pontas ou repetidos no meio e da forma Unicode do acento, e nenhum outro sinônimo). O banco, a tela e a calculadora conhecem só a grafia do Quadro 2.
 - O cálculo (Quadros 6, 7 e 8) não muda. Em `calculadoraRiscoRadar.ts` só mudam as duas listas.
 
 ## Consequências
@@ -58,13 +58,15 @@ Regras que valem a partir daqui:
   homologação, ADR-0017) ficam resolvidas.
 - O banco recusa categoria fora do Quadro 2 (restrição `CHECK` no nome), subcategoria fora do Quadro 3 (chave
   estrangeira) e Integridade sem subcategoria (gatilho), com a mensagem "RADAR: risco da categoria … exige uma
-  das subcategorias do Quadro 3." traduzida pela tela.
+  das subcategorias do Quadro 3." traduzida pela tela. Subcategoria em branco (`''` ou só espaços) conta como
+  "sem subcategoria": o gatilho a grava como nula antes da chave estrangeira, e o front já a envia como nula.
 - A dívida de 1FN fica resolvida: a lista deixa de ser JSON.
 
 **Negativas**
 - **A migração recusa** se houver risco nas categorias 1, 7 ou 8, com subcategoria fora do Quadro 3, de
   Integridade sem subcategoria ou com subcategoria fora da Integridade. Ela lista os `codigo_radar`, e a
-  reclassificação é manual. Na nuvem do piloto não deve disparar (não há risco); em bancos com dados, é passo
+  reclassificação é manual. Também recusa se `categorias_risco` tiver categoria que o alinhamento não conhece
+  (id fora de 1 a 8, ou nome que não é dos 8 antigos nem dos 8 do Quadro 2), listando "id - nome". Na nuvem do piloto não deve disparar (não há risco); em bancos com dados, é passo
   obrigatório antes de aplicar.
 - Salvar um rascunho de Integridade sem subcategoria passa a falhar no banco (o formulário já exige a
   subcategoria; ao sair da Integridade, ele limpa a subcategoria).
