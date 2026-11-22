@@ -52,9 +52,18 @@
 -- o gatilho só vale para gravações futuras), contra a RN-017.
 -- O modo SHARE ROW EXCLUSIVE deixa as LEITURAS passarem e faz as GRAVAÇÕES
 -- esperarem o fim da migração; aí o gatilho já existe e recusa a linha.
--- LOCK TABLE só vale dentro de transação, e a migração já roda numa só.
+-- Por que dentro de um bloco DO? O `supabase db push` manda os comandos do
+-- arquivo num lote só (uma transação implícita, sem BEGIN). Nesse modo, o
+-- LOCK TABLE "solto" é recusado ("LOCK TABLE can only be used in transaction
+-- blocks", erro 25P01: foi o que aconteceu na 1ª tentativa na nuvem, em
+-- 2026-11-22, sem gravar nada). Dentro de um bloco DO ele é aceito, e a trava
+-- dura do mesmo jeito até o fim da transação da migração.
 -- (Sugestão do CodeRabbit na PR #14, aceita pelo responsável em 2026-11-22.)
-LOCK TABLE public.riscos IN SHARE ROW EXCLUSIVE MODE;
+DO $$
+BEGIN
+  LOCK TABLE public.riscos IN SHARE ROW EXCLUSIVE MODE;
+END
+$$;
 
 
 -- ----------------------------------------------------------------------------
