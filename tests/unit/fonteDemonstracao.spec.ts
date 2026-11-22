@@ -8,10 +8,11 @@
  * criticidade quando a DAR muda. Estes testes garantem que o comportamento
  * de hoje (antes da etapa B3) continua igual depois da mudança de lugar.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { criarFonteDemonstracao } from '../../src/services/dados/fonteDemonstracao';
 import { criarFonteDados, CHAVE_ESTADO_DEMO } from '../../src/services/dados';
 import { ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
+import { MENSAGEM_TRAVA_CRITICO } from '../../src/utils/travaRiscoCritico';
 import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
 import { RISCOS_SEMENTE_ANEXO_II, CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import type { PapelGovernanca } from '../../src/types/radar.types';
@@ -191,7 +192,24 @@ describe('fluxo simulado', () => {
   it("validar risco Médio em categoria 'pendente_dar' leva a em_homologacao_dir (igual ao banco)", async () => {
     // Categoria 10 (Ocupacionais) nasce sem apetite na DAR. P=3, I=2 → 8 (Médio, Quadro 7).
     const fonte = fonteComo('coordenador_geral');
-    const { id } = await fonte.salvarFicha({ objetoId: 'obj-anexo-ii', categoriaId: 10, probabilidade: 3, impacto: 2 });
+    // LAC-13: risco 'pendente_dar' é crítico para a trava; precisa de Mitigar + ação 5W2H para ser enviado.
+    const { id } = await fonte.salvarFicha({
+      objetoId: 'obj-anexo-ii',
+      categoriaId: 10,
+      probabilidade: 3,
+      impacto: 2,
+      estrategiaPrincipal: 'Mitigar',
+      respostas: [
+        {
+          estrategia: 'Mitigar',
+          acaoOQue: 'Ação de teste',
+          responsavelQuem: 'Unidade',
+          prazoQuando: '2026-12-31',
+          procedimentoComo: 'Como de teste',
+          statusExecucao: 'nao_iniciada',
+        },
+      ],
+    });
     await fonte.enviar(id);
     const enviado = await fonte.relerRisco(id);
     expect(enviado?.classificacaoResidual).toBe('Médio');
@@ -367,5 +385,171 @@ describe('criarFonteDados', () => {
     const fonte = criarFonteDados('real');
     expect(typeof fonte.carregarCarteira).toBe('function');
     expect(typeof fonte.lerAuditoria).toBe('function');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// LAC-13: trava do risco crítico ("Aceitar" não vale fora do apetite da DAR)
+// ---------------------------------------------------------------------------
+describe('trava do risco crítico (LAC-13)', () => {
+  /** Ação 5W2H mínima para os testes. */
+  const acao = (estrategia: 'Mitigar' | 'Aceitar') => ({
+    estrategia,
+    acaoOQue: 'Ação de teste',
+    responsavelQuem: 'Unidade',
+    prazoQuando: '2026-12-31',
+    procedimentoComo: 'Como de teste',
+    statusExecucao: 'nao_iniciada' as const,
+  });
+  /** Ficha crítica: categoria 2 (apetite moderado), P=5 e I=5 → residual Extremo → 'sim'. */
+  const critica = (estrategiaPrincipal: 'Mitigar' | 'Aceitar', respostas: ReturnType<typeof acao>[] = []) => ({
+    objetoId: 'obj-anexo-ii',
+    categoriaId: 2,
+    probabilidade: 5 as const,
+    impacto: 5 as const,
+    nivelEficaciaControle: 'Inexistente' as const,
+    estrategiaPrincipal,
+    respostas,
+  });
+
+  it('enviar rascunho crítico com Aceitar é recusado e a ficha não muda', async () => {
+    const fonte = fonteComo('gestor');
+    const { id } = await fonte.salvarFicha(critica('Aceitar'));
+    const e = await erroDe(fonte.enviar(id));
+    expect(e.message).toBe(MENSAGEM_TRAVA_CRITICO);
+    expect((await fonte.relerRisco(id))?.statusFluxo).toBe('rascunho');
+  });
+
+  it('enviar rascunho crítico com Mitigar mas sem ação é recusado', async () => {
+    const fonte = fonteComo('gestor');
+    const { id } = await fonte.salvarFicha(critica('Mitigar'));
+    expect((await erroDe(fonte.enviar(id))).message).toBe(MENSAGEM_TRAVA_CRITICO);
+  });
+
+  it('enviar crítico com Mitigar + ação vai para em_validacao_cg', async () => {
+    const fonte = fonteComo('gestor');
+    const { id } = await fonte.salvarFicha(critica('Mitigar', [acao('Mitigar')]));
+    await fonte.enviar(id);
+    expect((await fonte.relerRisco(id))?.statusFluxo).toBe('em_validacao_cg');
+  });
+
+  it('salvar ficha APROVADA crítica com Aceitar é recusado e a ficha guardada não muda', async () => {
+    const fonte = fonteComo('coordenador_geral');
+    const { id } = await fonte.salvarFicha(critica('Mitigar', [acao('Mitigar')]));
+    await fonte.enviar(id);
+    await fonte.validar(id); // crítico sobe para a Diretoria
+    await fonte.homologar(id);
+    expect((await fonte.relerRisco(id))?.statusFluxo).toBe('aprovado');
+    const e = await erroDe(fonte.salvarFicha({ id, objetoId: 'obj-anexo-ii', estrategiaPrincipal: 'Aceitar' }));
+    expect(e.message).toBe(MENSAGEM_TRAVA_CRITICO);
+    const depois = await fonte.relerRisco(id);
+    expect(depois?.estrategiaPrincipal).toBe('Mitigar');
+    expect(depois?.statusFluxo).toBe('aprovado');
+  });
+
+  it('salvar rascunho crítico com Aceitar continua livre', async () => {
+    const fonte = fonteComo('gestor');
+    const { id } = await fonte.salvarFicha(critica('Aceitar'));
+    await expect(
+      fonte.salvarFicha({ id, objetoId: 'obj-anexo-ii', estrategiaPrincipal: 'Aceitar' })
+    ).resolves.toBeDefined();
+  });
+
+  describe('validar, homologar e devolver ficha que não passa (semente antiga)', () => {
+    afterEach(() => {
+      vi.doUnmock('../../src/services/dadosSementeAnexoII');
+      vi.resetModules();
+    });
+
+    /** Fonte cuja semente tem os riscos 01 (validação) e 02 (homologação) com "Aceitar". */
+    async function fonteComSementeAceitar() {
+      vi.resetModules();
+      vi.doMock('../../src/services/dadosSementeAnexoII', async (orig) => {
+        const real = await orig<typeof import('../../src/services/dadosSementeAnexoII')>();
+        return {
+          ...real,
+          RISCOS_SEMENTE_ANEXO_II: real.RISCOS_SEMENTE_ANEXO_II.map((r) =>
+            r.id === 'risco-anexo-ii-01' || r.id === 'risco-integra-02'
+              ? { ...r, estrategiaPrincipal: 'Aceitar' as const, respostasTratamento: [] }
+              : r
+          ),
+        };
+      });
+      const modulo = await import('../../src/services/dados/fonteDemonstracao');
+      return modulo.criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.cgov });
+    }
+
+    it('validar recusa e a ficha continua em validação', async () => {
+      const fonte = await fonteComSementeAceitar();
+      expect((await erroDe(fonte.validar('risco-anexo-ii-01'))).message).toBe(MENSAGEM_TRAVA_CRITICO);
+      expect((await fonte.relerRisco('risco-anexo-ii-01'))?.statusFluxo).toBe('em_validacao_cg');
+    });
+
+    it('homologar recusa e a ficha continua em homologação', async () => {
+      const fonte = await fonteComSementeAceitar();
+      expect((await erroDe(fonte.homologar('risco-integra-02'))).message).toBe(MENSAGEM_TRAVA_CRITICO);
+      expect((await fonte.relerRisco('risco-integra-02'))?.statusFluxo).toBe('em_homologacao_dir');
+    });
+
+    it('devolver continua funcionando', async () => {
+      const fonte = await fonteComSementeAceitar();
+      await fonte.devolver('risco-anexo-ii-01', 'Escolha outra estratégia.');
+      expect((await fonte.relerRisco('risco-anexo-ii-01'))?.statusFluxo).toBe('devolvido');
+    });
+  });
+
+  describe('mudança da DAR sobre riscos aprovados', () => {
+    /** Cria um risco aprovado de residual Médio (P=3, I=2 → 8) ou Baixo (P=1, I=1 → 1) na categoria 2. */
+    async function aprovado(
+      fonte: ReturnType<typeof fonteComo>,
+      p: 1 | 3,
+      i: 1 | 2,
+      estrategia: 'Aceitar' | 'Mitigar',
+      respostas: ReturnType<typeof acao>[]
+    ) {
+      const { id } = await fonte.salvarFicha({
+        objetoId: 'obj-anexo-ii',
+        categoriaId: 2,
+        probabilidade: p,
+        impacto: i,
+        nivelEficaciaControle: 'Inexistente',
+        estrategiaPrincipal: estrategia,
+        respostas,
+      });
+      await fonte.enviar(id);
+      await fonte.validar(id);
+      expect((await fonte.relerRisco(id))?.statusFluxo).toBe('aprovado');
+      return id;
+    }
+
+    it('baixo: A (Aceitar sem ação) volta devolvido; B e C ficam aprovados', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const a = await aprovado(fonte, 3, 2, 'Aceitar', []);
+      const b = await aprovado(fonte, 3, 2, 'Mitigar', [acao('Mitigar')]);
+      const c = await aprovado(fonte, 1, 1, 'Aceitar', []);
+      await fonte.alterarApetite(2, 'baixo');
+      const ra = await fonte.relerRisco(a);
+      expect(ra?.statusFluxo).toBe('devolvido');
+      const h = ra!.historicoFluxo.at(-1)!;
+      expect(h.etapa).toBe('reabertura_nota');
+      expect(h.acao).toBe('devolvido_mudanca_dar');
+      expect(h.despachoTexto).toContain('passou a Risco Crítico');
+      // B: comportamento de hoje da demonstração (só recalcula a criticidade).
+      expect((await fonte.relerRisco(b))?.statusFluxo).toBe('aprovado');
+      expect((await fonte.relerRisco(b))?.statusCritico).toBe('sim');
+      // C: continua dentro do apetite.
+      const rc = await fonte.relerRisco(c);
+      expect(rc?.statusFluxo).toBe('aprovado');
+      expect(rc?.statusCritico).toBe('nao');
+    });
+
+    it('pendente_dar: Médio com Aceitar volta devolvido; com Mitigar + ação continua aprovado', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const a = await aprovado(fonte, 3, 2, 'Aceitar', []);
+      const b = await aprovado(fonte, 3, 2, 'Mitigar', [acao('Mitigar')]);
+      await fonte.alterarApetite(2, 'pendente_dar');
+      expect((await fonte.relerRisco(a))?.statusFluxo).toBe('devolvido');
+      expect((await fonte.relerRisco(b))?.statusFluxo).toBe('aprovado');
+    });
   });
 });

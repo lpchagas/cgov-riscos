@@ -257,6 +257,7 @@ export interface HistoricoFluxoItem {
     | 'devolvido_ajuste'
     | 'reaberto_mudanca_nota'
     | 'reaberto_mudanca_dar'
+    | 'devolvido_mudanca_dar'
     | 'aprovado_1_clique';
   usuarioNome: string;
   usuarioPapel: PapelGovernanca | string;

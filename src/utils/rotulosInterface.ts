@@ -164,5 +164,6 @@ export const ROTULOS_ACAO_HISTORICO: Record<HistoricoFluxoItem['acao'], string> 
   devolvido_ajuste: 'Devolvido para ajuste',
   reaberto_mudanca_nota: 'Reaberto por alteração na ficha',
   reaberto_mudanca_dar: 'Reaberto por mudança na DAR',
+  devolvido_mudanca_dar: 'Devolvido por mudança na DAR',
   aprovado_1_clique: 'Aprovado em 1 clique',
 };
