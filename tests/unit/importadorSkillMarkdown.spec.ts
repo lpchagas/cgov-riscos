@@ -63,6 +63,23 @@ describe('Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4', () => 
     expect(r.fichas[0].categoriaNome).toBe(esperada);
   });
 
+  // A mesma palavra pode chegar com bytes diferentes: "ç" e "ã" compostos
+  // (NFC, o comum) ou decompostos (NFD: "c" + cedilha; vem de alguns editores
+  // e do macOS). E colar de planilha costuma deixar espaço duplo no meio.
+  // Nada disso é sinônimo: é a mesma grafia, então tem de ser aceita.
+  it.each([
+    ['Reputação'.normalize('NFD'), 'Reputação'],
+    ['Riscos da  visitação', 'Riscos da visitação'],
+    ['Privacidade e\tProteção de Dados', 'Privacidade e Proteção de Dados'],
+  ])('aceita a mesma grafia com Unicode decomposto ou espaço duplo (%j)', (bruta, esperada) => {
+    expect(normalizarCategoriaImportada(bruta)).toBe(esperada);
+  });
+
+  it('subcategoria com Unicode decomposto e espaço duplo também é reconhecida', () => {
+    expect(normalizarSubcategoriaImportada('Pressão interna ou externa  ilegal para influenciar agente público'.normalize('NFD')))
+      .toBe('Pressão interna ou externa ilegal para influenciar agente público');
+  });
+
   it('aceita as 8 do Quadro 2 (RF-173)', () => {
     const linhas = CATEGORIAS_OFICIAIS_QUADRO_2.map((nome, i) =>
       // Integridade exige subcategoria; as demais entram como estão.

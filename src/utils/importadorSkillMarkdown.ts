@@ -35,11 +35,21 @@ import {
 } from './calculadoraRiscoRadar';
 
 /**
- * Compara dois textos sem ligar para maiúsculas/minúsculas e espaços nas pontas.
+ * Compara dois textos sem ligar para maiúsculas/minúsculas e para espaços.
+ * Antes de comparar, cada texto passa por:
+ *   - normalize('NFC'): junta letra + acento num caractere só. Um "ç" pode
+ *     chegar como "c" + cedilha (NFD, comum ao colar do macOS ou de alguns
+ *     editores); na tela é igual, mas os bytes são outros;
+ *   - replace(/\s+/g, ' '): espaço duplo, tabulação ou quebra no meio viram
+ *     um espaço só (comum ao colar de planilha);
+ *   - trim() e toLocaleLowerCase('pt-BR'): pontas e maiúsculas.
+ * Não é sinônimo: só aceita a MESMA grafia escrita com bytes diferentes.
  * Ex.: igualSemCaixa(' Visitação ', 'visitação') -> true
+ * Ex.: igualSemCaixa('Riscos da  visitação', 'Riscos da visitação') -> true
  */
 function igualSemCaixa(a: string, b: string): boolean {
-  return a.trim().toLocaleLowerCase('pt-BR') === b.trim().toLocaleLowerCase('pt-BR');
+  const normalizar = (t: string) => t.normalize('NFC').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR');
+  return normalizar(a) === normalizar(b);
 }
 
 /**
