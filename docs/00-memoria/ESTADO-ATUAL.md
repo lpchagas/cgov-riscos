@@ -11,7 +11,7 @@
 | --- | --- |
 | Implementação (etapas A, B1, B2, B1.1, B3 e C) | Mescladas na `main` (PRs #7 e #8, 2026-11-16). |
 | Etapa D — piloto da Sede (D0/D1) | **Em curso.** D1, Tasks 1 a 6 feitas: build em modo real, CSP única, pacote de publicação, Registro de Decisão, cópia cifrada e banco do piloto na nuvem, conferido ([[guia-supabase-nuvem]], [[decisoes-tecnicas-d]]). Próxima: Task 7 (front publicado, **[AUTORIZAÇÃO]**). A Task 8 e a Fase 0 precisam do desktop institucional. A D2 (login por senha temporária) ainda vai ser desenhada. |
-| LAC-14 e LAC-15 — categorias do Quadro 2 e subcategorias do Quadro 3 | **Fases 1 e 2 feitas (código, banco local e banco do piloto na nuvem), na branch de trabalho; PR #14 aberta, sem merge.** Entregue em 2026-11-22: listas literais no front, importador sem conversão silenciosa, migração `20261122001` (tabela `subcategorias_risco`, chave estrangeira, gatilho e trava de reclassificação), sementes e testes pgTAP `090` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica\|ADR-0019]]). Aplicada no banco do piloto em 2026-11-22, com autorização a cada passo, e conferida por leitura ([[guia-supabase-nuvem]] §4 e §7.1.1). |
+| LAC-14 e LAC-15 — categorias do Quadro 2 e subcategorias do Quadro 3 | **Concluída.** Fases 1 e 2 feitas (código, banco local e banco do piloto na nuvem) e mescladas na `main` (PR #14, "Fase 1: Categorias do Quadro 2 e subcategorias do Quadro 3", em 2026-11-22, merge `ef7fb9e`, depois de 2 rodadas do CodeRabbit e 1 do Codex). Entregue em 2026-11-22: listas literais no front, importador sem conversão silenciosa, migração `20261122001` (tabela `subcategorias_risco`, chave estrangeira, gatilho e trava de reclassificação), sementes e testes pgTAP `090` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica\|ADR-0019]]). Aplicada no banco do piloto em 2026-11-22, com autorização a cada passo, e conferida por leitura ([[guia-supabase-nuvem]] §4 e §7.1.1). |
 | Etapa D — homologação na CGTI | Só depois das 6 lacunas que bloqueiam a homologação (LAC-03, 08, 12, 13, 14 e 15; a LAC-14 e a LAC-15 já estão resolvidas no código, no banco local e na nuvem do piloto), pelo [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti\|ADR-0017]]. |
 | Reestruturação da documentação em 5 níveis | **Concluída.** Fases 0 a 6 mescladas na `main` (PRs #9 a #13; a #13, "Fase 6: Fechamento e retomada da implementação", em 2026-11-22, merge `4be60d7`, depois de 3 rodadas do CodeRabbit e do Codex). |
 
@@ -60,8 +60,7 @@ etapa D segue com a Task 7 da D1.
 **Fase 2 da LAC-14 e da LAC-15 (nuvem do piloto): feita em 2026-11-22.** A migração `20261122001` está no
 projeto `cgov-riscos-v3.0`, conferida por leitura (8 categorias do Quadro 2, 6 subcategorias, coluna JSONB
 removida, 11 linhas novas na trilha). A 1ª tentativa do `db push` foi recusada sem gravar nada, por causa da
-trava de escrita fora de um bloco `DO`; corrigida no commit `cbbe8c3` ([[guia-supabase-nuvem]] §4). Falta o
-merge da PR #14, que depende de pedido do responsável.
+trava de escrita fora de um bloco `DO`; corrigida no commit `cbbe8c3` ([[guia-supabase-nuvem]] §4). PR #14 mesclada na `main` em 2026-11-22 (merge `ef7fb9e`).
 
 ## 5. Pendências abertas para o responsável
 
