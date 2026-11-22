@@ -229,3 +229,7 @@ Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etap
   lacunas; a Definição de Pronto passou a aceitar RNF e a exigir as dependências cumpridas; novo passo
   "Falta de requisito" nas políticas; o P-01 deixou de aparecer como já aprovado no ADR-0017.
   **1 improcedente**, respondido na PR: o total de 622 testes foi medido, e a `origin/main` dá o mesmo.
+- **PR #13, 2ª e 3ª rodadas (2026-11-22):** 2ª rodada, 1 achado (o mesmo no CodeRabbit e no Codex): o F3-04
+  ainda "aberto" no FS-01, corrigido em `78d8c4a`. 3ª rodada (Codex), 2 achados: o cartão da LAC-08 também
+  depende do desenho P-10 (procedente, `b955b77`); as specs antigas citam o `ESTADO-ATUAL` como base
+  (improcedente: são registros do momento, e o retrato manda para o histórico).
