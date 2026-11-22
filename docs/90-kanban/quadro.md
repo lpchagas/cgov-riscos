@@ -73,7 +73,6 @@ kanban-plugin: basic
 
 ## Pronto para iniciar (WIP 5)
 
-- [ ] [normativo] Risco crítico com "Aceitar" sem tratamento (Anexo III, diretrizes) · IDs: LAC-13, RF-049, RF-050, RN-019, RN-020 · tabelas `riscos`, `respostas_tratamento` · mexe no fluxo (recusa no envio): perguntar e plano autorizado · origem: Metodologia 4.5 e 4.5.1 (Tabela 8 da minuta); Anexo III (diretrizes) · #normativo
 - [ ] [normativo] KRI obrigatório para risco crítico, por grupo de riscos correlatos, com consequência do alerta (reavaliar e comunicar em 10 dias úteis) · IDs: LAC-03, RF-094 a RF-097, RF-109, RF-183, RF-184, RN-082, RN-083 · tabelas `indicadores_kri`, `medicoes_kri` · mexe no fluxo (exigência no envio): plano autorizado; o alerta (RF-102) tem cartão próprio, depois do desenho P-02 · origem: Metodologia 4.7.1; Política art. 8º, § 2º · #normativo
 
 ## Modelagem (WIP 3)
@@ -89,6 +88,8 @@ kanban-plugin: basic
 
 
 ## Homologação CGOV (WIP 3)
+
+- [ ] [normativo] Risco crítico com "Aceitar" sem tratamento (Anexo III, diretrizes) · IDs: LAC-13, RF-049, RF-050, RN-019, RN-020 · tabelas `riscos`, `respostas_tratamento` · **implementado no código em 2026-11-22** (`travaRiscoCritico.ts`, formulário, importador, migração `20261122002`, demonstração; Pendente de DAR também trava; DAR alterada devolve à unidade); **aplicação na nuvem do piloto pendente de autorização**; sobras: `acoes_no_fluxo` ainda mostra Validar/Homologar em risco crítico sem tratamento (o clique é recusado com mensagem) e as sementes de `supabase/seed-demonstracao.sql` têm riscos críticos sem ação (só local) · origem: Metodologia 4.5 e 4.5.1 (Tabela 8 da minuta); Anexo III (diretrizes) · #normativo
 
 
 
