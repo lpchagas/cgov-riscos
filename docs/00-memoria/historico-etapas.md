@@ -217,3 +217,9 @@ Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etap
   CodeRabbit (na PR e na revisão local pela CLI, sobre os commits da branch) e o Codex não acharam nada.
 - **Fase 6 (Tarefa 19):** análise de lacunas código × requisitos, backlog priorizado e ADRs 0017 e 0018.
   O andamento segue no [[ESTADO-ATUAL]] (retrato) e no [[quadro]].
+- **Revisões da Fase 6 (2026-11-22):** revisão da Tarefa 19 (`sonnet`), com 5 achados menores, todos
+  corrigidos (`edb638c`); `/code-review` medium contra a `origin/main`, com 1 achado importante (o
+  ADR-0017 contava 9 omissões abertas, e são 8, porque a LAC-11 foi resolvida) e 8 menores, todos
+  corrigidos (`0609094`). Entre eles: o alerta do KRI (RF-102) ganhou cartão próprio, porque espera o
+  desenho P-02; o RF-123 foi para a LAC-02; a decisão da LAC-11 chegou à visão de produto e ao
+  registro de alertas.
