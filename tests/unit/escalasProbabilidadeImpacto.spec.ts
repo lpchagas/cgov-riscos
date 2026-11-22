@@ -57,4 +57,21 @@ describe('escalas dos Quadros 4 e 5', () => {
   it('nomeDoNivel devolve o nome', () => {
     expect(nomeDoNivel(ESCALA_IMPACTO_QUADRO_5, 4)).toBe('Alto');
   });
+
+  it('devolve os motivos exatos de recusa', () => {
+    const q4 = ESCALA_PROBABILIDADE_QUADRO_4;
+    expect(lerNivelDaCelula('', q4)).toEqual({ ok: false, motivo: 'célula vazia' });
+    expect(lerNivelDaCelula('6', q4)).toEqual({ ok: false, motivo: 'fora de 1 a 5' });
+    expect(lerNivelDaCelula('3,5', q4)).toEqual({ ok: false, motivo: 'mais de um número' });
+    expect(lerNivelDaCelula('abc', q4)).toEqual({ ok: false, motivo: 'nome fora do quadro' });
+  });
+
+  it('lê células também na escala de impacto (Quadro 5)', () => {
+    expect(lerNivelDaCelula('Alto', ESCALA_IMPACTO_QUADRO_5)).toEqual({ ok: true, nivel: 4 });
+    expect(lerNivelDaCelula('Média', ESCALA_IMPACTO_QUADRO_5).ok).toBe(false);
+  });
+
+  it('nomeDoNivel falha para um valor que não existe na escala', () => {
+    expect(() => nomeDoNivel(ESCALA_IMPACTO_QUADRO_5, 9 as never)).toThrow('Nível 9 não existe na escala');
+  });
 });

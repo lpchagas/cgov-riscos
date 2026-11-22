@@ -10,8 +10,8 @@
  * ficam diferentes de uma tela para outra.
  *
  * Os textos são copiados literalmente de
- * `docs/01-normativos/matriz-regras-regime-b.md` (§6 e §7). O Quadro 4 NÃO
- * tem percentuais: nada de "< 10%" ou "> 90%".
+ * `docs/01-normativos/matriz-regras-regime-b.md` (§6 e §7). O Quadro 4 não usa
+ * percentuais: só nomes e descrições.
  *
  * `lerNivelDaCelula` entende a célula de uma planilha escrita de vários jeitos:
  *   "3", "Provável", "provavel", " PROVÁVEL ", "3 — Provável", "Provável (3)"
@@ -64,7 +64,7 @@ export type LeituraNivel<N> = { ok: true; nivel: N } | { ok: false; motivo: stri
 function normalizarNome(texto: string): string {
   return texto
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
@@ -93,7 +93,7 @@ export function lerNivelDaCelula<N extends number>(
   }
 
   // O que sobra sem dígitos e sem separadores (— - ( )) é o nome.
-  const nomeBruto = normalizarNome(texto.replace(/[\d—\-()]/g, ' '));
+  const nomeBruto = normalizarNome(texto.replace(/[\d\u2014\-()]/g, ' '));
   if (nomeBruto === '') {
     // Só número (já validado acima).
     return { ok: true, nivel: (porNumero as NivelDescrito<N>).valor };
