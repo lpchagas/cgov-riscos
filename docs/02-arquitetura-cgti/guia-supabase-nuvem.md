@@ -104,6 +104,9 @@
 | 2026-11-22 | `db push --linked` (1ª tentativa) | **Recusado no primeiro comando**, sem gravar nada: `LOCK TABLE can only be used in transaction blocks` (25P01). O `db push` manda o arquivo num lote só, sem `BEGIN`, e o `LOCK TABLE` solto não é aceito assim. Conferido por leitura: nuvem igual a antes. Corrigido no commit `cbbe8c3` (trava dentro de um bloco `DO`). |
 | 2026-11-22 | `db push --linked` (2ª tentativa) | Ok, rodado pelo responsável: só a `20261122001` listada e aplicada (`Finished supabase db push.`). |
 | 2026-11-22 | Conferência depois da migração (só leitura) | Ok: 8 categorias (2 Operacional, 3 Financeiro/Orçamentário, 4 Legal, 5 Integridade, 6 Reputação, com o apetite de antes; 9, 10 e 11 com `pendente_dar`); 6 subcategorias da Integridade; coluna JSONB ausente; `CHECK` dos nomes, chave estrangeira e gatilho `trg_riscos_exige_subcategoria` presentes; contador em 11; 0 riscos; `auditoria_log` = 19 (11 novas de `categorias_risco`: 3 exclusões, 3 inclusões e 5 alterações, todas sem usuário). |
+| 2026-11-22 | Conferência antes da migração `20261122002` (só leitura, LAC-13) | Ok, pelo Claude via MCP, com autorização: 0 riscos na nuvem, logo nenhum risco crítico (ou Pendente de DAR) com "Aceitar" ou sem ação, em nenhuma situação do fluxo. Nada a decidir caso a caso. |
+| 2026-11-22 | `db push --linked` (LAC-13) | Ok, pelo Claude, com autorização: prévia (`--dry-run`) listou só a `20261122002`; aplicada (`Finished supabase db push.`). |
+| 2026-11-22 | Conferência depois da migração (só leitura) | Ok: 14 migrações, a última `20261122002`; as 4 funções novas presentes (`fn_trava_risco_critico` e as 3 `fn_base_*`); `authenticated` **não** executa `fn_base_validar_risco`, mas executa `validar_risco`; `salvar_ficha_risco` continua `SECURITY INVOKER`. |
 | *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
 
 > [!note] Proteção da própria Supabase

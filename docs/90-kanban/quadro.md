@@ -89,7 +89,7 @@ kanban-plugin: basic
 
 ## Homologação CGOV (WIP 3)
 
-- [ ] [normativo] Risco crítico com "Aceitar" sem tratamento (Anexo III, diretrizes) · IDs: LAC-13, RF-049, RF-050, RN-019, RN-020 · tabelas `riscos`, `respostas_tratamento` · **implementado no código em 2026-11-22** (`travaRiscoCritico.ts`, formulário, importador, migração `20261122002`, demonstração; Pendente de DAR também trava; DAR alterada devolve à unidade); **aplicação na nuvem do piloto pendente de autorização**; sobras: `acoes_no_fluxo` ainda mostra Validar/Homologar em risco crítico sem tratamento (o clique é recusado com mensagem) e as sementes de `supabase/seed-demonstracao.sql` têm riscos críticos sem ação (só local) · origem: Metodologia 4.5 e 4.5.1 (Tabela 8 da minuta); Anexo III (diretrizes) · #normativo
+- [ ] [normativo] Risco crítico com "Aceitar" sem tratamento (Anexo III, diretrizes) · IDs: LAC-13, RF-049, RF-050, RN-019, RN-020 · tabelas `riscos`, `respostas_tratamento` · **implementado no código em 2026-11-22** (`travaRiscoCritico.ts`, formulário, importador, migração `20261122002`, demonstração; Pendente de DAR também trava; DAR alterada devolve à unidade); **aplicada na nuvem do piloto em 2026-11-22**; sobras: `acoes_no_fluxo` ainda mostra Validar/Homologar em risco crítico sem tratamento (o clique é recusado com mensagem) e as sementes de `supabase/seed-demonstracao.sql` têm riscos críticos sem ação (só local) · origem: Metodologia 4.5 e 4.5.1 (Tabela 8 da minuta); Anexo III (diretrizes) · #normativo
 
 
 

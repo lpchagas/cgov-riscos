@@ -46,7 +46,7 @@ rodou com Docker.
 
 ## 4. Próximo trabalho
 
-Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto para iniciar" (a LAC-12 foi concluída em 2026-11-22, só no código, sem migração; a LAC-13 está implementada no código e na coluna "Homologação CGOV", com a aplicação na nuvem do piloto pendente de autorização):
+Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto para iniciar" (a LAC-12 foi concluída em 2026-11-22, só no código, sem migração; a LAC-13 está implementada no código e na coluna "Homologação CGOV", já aplicada na nuvem do piloto em 2026-11-22):
 
 1. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
    KRI (RF-102) tem cartão próprio e espera o desenho P-02.
@@ -55,7 +55,7 @@ Cada uma muda banco ou regra: antes do código, é preciso um **plano autorizado
 (`AGENTS.md`). A LAC-08 (rito da DAR) espera os desenhos P-01 e P-10 no Figma, aprovados pela CGOV. Em paralelo, a
 etapa D segue com a Task 7 da D1.
 
-**LAC-13 (trava do "Aceitar" no risco crítico): implementada no código em 2026-11-22; aplicação na nuvem do piloto pendente de autorização.** Regra única em `src/utils/travaRiscoCritico.ts`; formulário (etapa 4, opção desabilitada com ajuda), importador (recusa a linha), banco (migração `20261122002_lac13_trava_aceitar_critico.sql`: `fn_trava_risco_critico` nos envoltórios de `enviar_para_validacao`, `validar_risco` e `homologar_risco`; trava embutida em `salvar_ficha_risco`; `fn_dar_reavaliar_aprovados` devolve à unidade) e demonstração; pgTAP `100_lac13_trava_critico.test.sql`. Decisões do responsável (2026-11-22): o Pendente de DAR também trava; DAR alterada devolve à unidade. Sobras conhecidas: `acoes_no_fluxo` ainda mostra Validar/Homologar para risco crítico sem tratamento (o clique é recusado com mensagem) e os riscos críticos de `supabase/seed-demonstracao.sql` não têm ação (só local). Próximo passo [AUTORIZAÇÃO]: aplicar a migração na nuvem, passo a passo.
+**LAC-13 (trava do "Aceitar" no risco crítico): implementada no código em 2026-11-22; aplicada na nuvem do piloto em 2026-11-22.** Regra única em `src/utils/travaRiscoCritico.ts`; formulário (etapa 4, opção desabilitada com ajuda), importador (recusa a linha), banco (migração `20261122002_lac13_trava_aceitar_critico.sql`: `fn_trava_risco_critico` nos envoltórios de `enviar_para_validacao`, `validar_risco` e `homologar_risco`; trava embutida em `salvar_ficha_risco`; `fn_dar_reavaliar_aprovados` devolve à unidade) e demonstração; pgTAP `100_lac13_trava_critico.test.sql`. Decisões do responsável (2026-11-22): o Pendente de DAR também trava; DAR alterada devolve à unidade. Sobras conhecidas: `acoes_no_fluxo` ainda mostra Validar/Homologar para risco crítico sem tratamento (o clique é recusado com mensagem) e os riscos críticos de `supabase/seed-demonstracao.sql` não têm ação (só local). Próximo passo [AUTORIZAÇÃO]: aplicar a migração na nuvem, passo a passo.
 
 **Fase 2 da LAC-14 e da LAC-15 (nuvem do piloto): feita em 2026-11-22.** A migração `20261122001` está no
 projeto `cgov-riscos-v3.0`, conferida por leitura (8 categorias do Quadro 2, 6 subcategorias, coluna JSONB
