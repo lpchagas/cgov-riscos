@@ -57,4 +57,20 @@ describe('Dados de demonstração coerentes com os Quadros 6, 7 e 8 e a DAR', ()
       expect(risco.isCritico).toBe(calculado.statusCritico === 'sim');
     }
   );
+
+  // O HISTÓRICO também precisa contar a mesma história do cálculo. Risco que
+  // NÃO é crítico (residual dentro do apetite da DAR) é aprovado pela CG e
+  // não sobe à Diretoria (spec 7.1; migração 20261115004). Então não pode ter
+  // etapa de homologação da Diretoria, nem despacho dizendo "Risco Crítico"
+  // ou "acima do apetite".
+  // Ex.: o RADAR-2026-003 (Operacional, Moderado, 8,4 Médio) dizia "acima do
+  // apetite Baixo da DAR — Risco Crítico" depois de mudar de categoria.
+  it.each(
+    RISCOS_SEMENTE_ANEXO_II.filter((r) => r.statusCritico === 'nao').map((r) => [r.codigoRadar, r] as const)
+  )('%s: risco não crítico tem histórico sem homologação e sem "Risco Crítico"', (_codigo, risco) => {
+    for (const h of risco.historicoFluxo) {
+      expect(h.etapa, `${h.id}: risco não crítico não passa pela Diretoria`).not.toBe('homologacao_diretoria');
+      expect(h.despachoTexto ?? '', `${h.id}: despacho diz que é crítico`).not.toMatch(/acima do apetite|—\s*Risco Crítico/);
+    }
+  });
 });

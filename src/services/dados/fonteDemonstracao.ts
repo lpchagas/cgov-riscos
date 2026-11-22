@@ -202,6 +202,10 @@ export function criarFonteDemonstracao(
   function aplicarEntradas(r: FichaRisco, f: FichaParaSalvar): void {
     const objeto = objetos.find((o) => o.id === f.objetoId);
     if (!objeto) recusar('objeto não encontrado.');
+    // Categoria informada e desconhecida: recusa ANTES de mexer no risco
+    // (como a chave estrangeira do banco). Ex.: categoriaId 99 -> recusado.
+    const cat = f.categoriaId === undefined ? undefined : categorias.find((c) => c.id === f.categoriaId);
+    if (f.categoriaId !== undefined && !cat) recusar('categoria não encontrada.');
     r.objetoId = objeto.id;
     r.unidadeId = objeto.unidadeId;
     r.nomeObjetoCache = objeto.nomeObjeto;
@@ -215,12 +219,9 @@ export function criarFonteDemonstracao(
     if (f.eventoRisco !== undefined) r.eventoRisco = f.eventoRisco;
     if (f.consequencias !== undefined) r.consequencias = f.consequencias;
     if (f.objetivoAfetado !== undefined) r.objetivoAfetado = f.objetivoAfetado;
-    if (f.categoriaId !== undefined) {
-      const cat = categorias.find((c) => c.id === f.categoriaId);
-      if (cat) {
-        r.categoriaId = cat.id;
-        r.categoriaNome = cat.nome;
-      }
+    if (cat) {
+      r.categoriaId = cat.id;
+      r.categoriaNome = cat.nome;
     }
     r.subcategoriaIntegridade = opcional(f.subcategoriaIntegridade, r.subcategoriaIntegridade);
     if (f.testeIntegridadeAplicavel !== undefined) r.testeIntegridadeAplicavel = f.testeIntegridadeAplicavel;
@@ -343,7 +344,12 @@ export function criarFonteDemonstracao(
       // Ficha nova: valores padrão iguais aos da store de hoje.
       const objetoPadrao = objetos.find((o) => o.id === f.objetoId);
       if (!objetoPadrao) recusar('objeto não encontrado.');
-      const categoria = categorias.find((c) => c.id === (f.categoriaId ?? 2)) ?? categorias[1];
+      // Sem categoria na ficha nova: Operacional (id 2), o padrão de hoje.
+      // Categoria que não existe é RECUSADA (no banco, a chave estrangeira
+      // recusaria): nada de cair numa categoria qualquer sem ninguém ver.
+      // Ex.: categoriaId 99 -> "Categoria não encontrada."
+      const categoria = categorias.find((c) => c.id === (f.categoriaId ?? 2));
+      if (!categoria) recusar('categoria não encontrada.');
       const nova: FichaRisco = {
         id: novoId('risco'),
         codigoRadar: proximoCodigo(),

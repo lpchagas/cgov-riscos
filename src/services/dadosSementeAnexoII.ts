@@ -628,19 +628,13 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         acao: 'aprovado_1_clique',
         usuarioNome: 'Coordenador-Geral (2º Degrau — CG)',
         usuarioPapel: 'coordenador_geral',
+        // Operacional tem apetite Moderado na DAR: o residual 8,4 (Médio) cabe
+        // nele, então o risco NÃO é crítico e a aprovação da CG encerra o
+        // fluxo, sem homologação da Diretoria (spec 7.1; migração 20261115004).
+        // Por isso não há um 3º registro de homologação.
         despachoTexto:
-          'Aprovado em 1 clique pela CG e encaminhado à Diretoria (Residual 8,4 = Médio, acima do apetite Baixo da DAR — Risco Crítico).',
+          'Aprovado em 1 clique pela CG para compor o Plano de Gestão de Riscos do ICMBio (Residual 8,4 = Médio, dentro do apetite Moderado da DAR da categoria Operacional: não é Risco Crítico e não exige homologação da Diretoria).',
         criadoEm: '2026-11-06T15:30:00Z',
-      },
-      {
-        id: 'hist-socio-3',
-        etapa: 'homologacao_diretoria',
-        acao: 'aprovado_1_clique',
-        usuarioNome: 'Diretor Setorial (3º Degrau — Diretoria)',
-        usuarioPapel: 'diretor',
-        despachoTexto:
-          'Homologado em 1 clique para compor o Plano de Gestão de Riscos do ICMBio.',
-        criadoEm: '2026-11-07T16:45:00Z',
       },
     ],
   },

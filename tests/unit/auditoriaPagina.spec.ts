@@ -65,7 +65,10 @@ describe('Página Auditoria', () => {
 
   it('mostra todos os eventos agrupados por dia, do mais recente ao mais antigo', async () => {
     const w = await montar();
-    expect(w.findAll('.evento')).toHaveLength(6);
+    // 5 passos do fluxo na semente: 1 do RADAR-2026-001, 2 do RADAR-2026-002 e
+    // 2 do RADAR-2026-003. O 003 não é crítico (Operacional, Moderado, 8,4
+    // Médio), então não tem homologação da Diretoria (revisão da Fase 1 da LAC-14/15).
+    expect(w.findAll('.evento')).toHaveLength(5);
     expect(w.findAll('.dia__titulo').length).toBeGreaterThan(1);
     expect(w.find('.evento').text()).toContain('RADAR-2026-001');
   });
@@ -78,7 +81,7 @@ describe('Página Auditoria', () => {
     expect(w.text()).toContain('Nenhum evento encontrado');
     await tabela.setValue('');
     await flushPromises();
-    expect(w.findAll('.evento')).toHaveLength(6);
+    expect(w.findAll('.evento')).toHaveLength(5);
     await w.findAll('input[type="date"]')[0].setValue('2030-01-01');
     await flushPromises();
     expect(w.text()).toContain('Nenhum evento encontrado');

@@ -115,6 +115,22 @@ describe('salvarFicha', () => {
     expect((await fonte.carregarCarteira()).riscos).toHaveLength(RISCOS_SEMENTE_ANEXO_II.length + 1);
   });
 
+  // Sem conversão silenciosa: categoria desconhecida é recusada (no banco, a
+  // chave estrangeira recusaria). O padrão Operacional (id 2) só vale quando
+  // a ficha nova não diz a categoria.
+  it('categoria desconhecida é recusada, na ficha nova e na edição; sem categoria, nasce Operacional', async () => {
+    const fonte = fonteComo('gestor');
+    const nova = await erroDe(fonte.salvarFicha({ objetoId: 'obj-anexo-ii', categoriaId: 99 }));
+    expect(nova.message).toBe('Categoria não encontrada.');
+    expect((await fonte.carregarCarteira()).riscos).toHaveLength(RISCOS_SEMENTE_ANEXO_II.length);
+
+    const criado = await fonte.salvarFicha({ objetoId: 'obj-anexo-ii' });
+    expect((await fonte.relerRisco(criado.id))?.categoriaNome).toBe('Operacional');
+    const edicao = await erroDe(fonte.salvarFicha({ id: criado.id, objetoId: 'obj-anexo-ii', categoriaId: 99 }));
+    expect(edicao.message).toBe('Categoria não encontrada.');
+    expect((await fonte.relerRisco(criado.id))?.categoriaId).toBe(2);
+  });
+
   it('ficha preliminar da CGOV nasce em preliminar_cgov', async () => {
     const fonte = fonteComo('cgov');
     const { id } = await fonte.salvarFicha({ objetoId: 'obj-anexo-ii', preliminarCgov: true });
