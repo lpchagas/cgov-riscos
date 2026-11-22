@@ -334,6 +334,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     kris: [
       {
         id: 'kri-anexo-ii-1',
+        objetoId: 'obj-anexo-ii',
+        riscoIds: ['risco-anexo-ii-01'],
         nomeIndicador: 'Percentual de atividades críticas documentadas em POP',
         formulaCalculo:
           '(Nº de atividades críticas com POP publicado / Total de atividades críticas) × 100',
@@ -354,6 +356,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
       },
       {
         id: 'kri-anexo-ii-2',
+        objetoId: 'obj-anexo-ii',
+        riscoIds: ['risco-anexo-ii-01'],
         nomeIndicador:
           'Percentual de processos críticos com substituto capacitado ativo',
         formulaCalculo:
@@ -367,6 +371,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
       },
       {
         id: 'kri-anexo-ii-3',
+        objetoId: 'obj-anexo-ii',
+        riscoIds: ['risco-anexo-ii-01'],
         nomeIndicador:
           'Taxa de processos críticos com prazo vencido por ausência do titular',
         formulaCalculo:
@@ -467,6 +473,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     kris: [
       {
         id: 'kri-integra-1',
+        objetoId: 'obj-fiscalizacao-autos',
+        riscoIds: ['risco-integra-02'],
         nomeIndicador:
           'Percentual de processos sancionadores revisados em dupla assinatura com termo de integridade',
         formulaCalculo:
@@ -591,6 +599,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     kris: [
       {
         id: 'kri-socio-1',
+        objetoId: 'obj-autorizacao-uc',
+        riscoIds: ['risco-socio-03'],
         nomeIndicador:
           'Percentual de autorizações emitidas com laudo de capacidade de carga atualizado nos últimos 6 meses',
         formulaCalculo:

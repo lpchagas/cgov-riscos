@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { traduzirErroBanco, ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
-import { MENSAGEM_TRAVA_CRITICO } from '../../src/utils/travaRiscoCritico';
+import { MENSAGEM_TRAVA_CRITICO, MENSAGEM_TRAVA_KRI } from '../../src/utils/travaRiscoCritico';
 
 describe('traduzirErroBanco', () => {
   it('traduz a trava da ficha', () => {
@@ -28,6 +28,11 @@ describe('traduzirErroBanco', () => {
       code: '23514',
       message: 'RADAR: o risco RADAR-2026-004 é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: falta uma ação de tratamento (5W2H). Devolva a ficha à unidade para ajuste.',
     }).message).toBe(MENSAGEM_TRAVA_CRITICO);
+    // 3º motivo (LAC-03): falta KRI completo.
+    expect(traduzirErroBanco({
+      code: '23514',
+      message: 'RADAR: o risco RADAR-2026-004 é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: falta um KRI completo (nome, fórmula, fonte, periodicidade, limite de alerta e responsável).',
+    }).message).toBe(MENSAGEM_TRAVA_KRI);
   });
 
   it('cai no código quando o trecho é desconhecido', () => {

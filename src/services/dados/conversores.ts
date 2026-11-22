@@ -181,9 +181,12 @@ function medicaoDoBanco(l: LinhaBanco): MedicaoKri {
   };
 }
 
-function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[]): IndicadorKri {
+function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], objetoId: string, riscoId: string): IndicadorKri {
   return {
     id: texto(l.id),
+    // Por ora o KRI pertence ao risco da linha (a ligação N:N vem nas Tarefas 4 e 5 da LAC-03).
+    objetoId,
+    riscoIds: [riscoId],
     nomeIndicador: texto(l.nome_indicador),
     formulaCalculo: texto(l.formula_calculo),
     fonteDados: texto(l.fonte_dados),
@@ -314,7 +317,7 @@ export function riscoDoBanco(l: LinhaBanco, filhos: FilhosRiscoBanco): FichaRisc
 
     controlesExistentes: doRisco(filhos.controles).map(controleDoBanco),
     respostasTratamento: doRisco(filhos.respostas).map(respostaDoBanco),
-    kris: doRisco(filhos.kris).map((k) => kriDoBanco(k, filhos.medicoes ?? [])),
+    kris: doRisco(filhos.kris).map((k) => kriDoBanco(k, filhos.medicoes ?? [], texto(l.objeto_id), id)),
     historicoFluxo: [...doRisco(filhos.historico)].sort(compararHistorico).map(historicoDoBanco),
   };
 

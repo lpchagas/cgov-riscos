@@ -292,7 +292,13 @@ export function criarFonteDemonstracao(
       // As medições não vêm na ficha: o KRI que já existia mantém as suas.
       r.kris = f.kris.map((k) => {
         const anterior = k.id ? r.kris.find((x) => x.id === k.id) : undefined;
-        return { ...k, id: k.id ?? novoId('kri'), medicoes: anterior ? anterior.medicoes : [] };
+        return {
+          ...k,
+          id: k.id ?? novoId('kri'),
+          objetoId: r.objetoId,
+          riscoIds: [r.id],
+          medicoes: anterior ? anterior.medicoes : [],
+        };
       });
     }
   }

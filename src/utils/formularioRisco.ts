@@ -259,7 +259,7 @@ export function dadosParaFicha(
   const kri: IndicadorKri | undefined = d.nomeKri
     ? {
         ...(kriAntigo ?? {
-          id: '', formulaCalculo: 'A definir pela unidade', fonteDados: 'A definir', periodicidade: 'Trimestral' as const,
+          id: '', objetoId: existente?.objetoId ?? '', riscoIds: existente ? [existente.id] : [], formulaCalculo: 'A definir pela unidade', fonteDados: 'A definir', periodicidade: 'Trimestral' as const,
           metaAlvo: 'A definir', limiteAlerta: 'A definir', responsavelMedicao: d.responsavel || 'Unidade', medicoes: [],
         }),
         nomeIndicador: d.nomeKri,

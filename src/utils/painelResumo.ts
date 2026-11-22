@@ -265,7 +265,7 @@ export function itensDeAtencao(
           tipo: 'kri',
           tom: 'perigo',
           titulo: `Indicador em alerta: ${kri.nomeIndicador}`,
-          detalhe: `${r.codigoRadar} · ${ultima.valorApurado} em ${dataCurta(ultima.dataMedicao)} (alerta: ${kri.limiteAlerta.toLowerCase()})`,
+          detalhe: `${r.codigoRadar} · ${ultima.valorApurado} em ${dataCurta(ultima.dataMedicao)} (alerta: ${(kri.limiteAlerta ?? '').toLowerCase()})`,
           acao: papel === 'gestor' ? 'Registrar nova leitura' : 'Ver indicador',
           destino: { name: 'monitoramento-kris' },
         });

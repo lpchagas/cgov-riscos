@@ -21,7 +21,7 @@
  *   -> "Este risco está em validação ou homologação e não pode ser editado agora. ..."
  */
 
-import { MENSAGEM_TRAVA_CRITICO } from '../../utils/travaRiscoCritico';
+import { MENSAGEM_TRAVA_CRITICO, MENSAGEM_TRAVA_KRI } from '../../utils/travaRiscoCritico';
 
 /** Frase de falha de rede (a mesma usada no login, na etapa B2). */
 export const MENSAGEM_REDE = 'Não foi possível falar com o RADAR. Verifique sua conexão e tente de novo.';
@@ -114,6 +114,8 @@ const DICIONARIO: Entrada[] = [
   // variantes (envio/gravação e validação/homologação, que pede a devolução).
   // Ex.: "RADAR: o risco RADAR-2026-004 é crítico (...) e precisa de tratamento:
   // a estratégia "Aceitar" não é permitida."
+  // LAC-03: 3º motivo (falta KRI completo). Vem ANTES da entrada genérica abaixo.
+  ['precisa de tratamento: falta um KRI completo', MENSAGEM_TRAVA_KRI, 'validacao'],
   ['é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento', MENSAGEM_TRAVA_CRITICO, 'validacao'],
   ['não encontrado', 'Risco não encontrado.', 'nao_encontrado'], // "risco ... não encontrado"
 ];
