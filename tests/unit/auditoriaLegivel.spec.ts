@@ -3,7 +3,7 @@
  * Traduzem linhas cruas do banco em frases que a Auditoria Interna entende.
  */
 import { describe, it, expect } from 'vitest';
-import { descreverEvento, quemFez } from '../../src/utils/auditoriaLegivel';
+import { descreverEvento, quemFez, ROTULOS_TABELA } from '../../src/utils/auditoriaLegivel';
 import type { EventoAuditoria } from '../../src/services/dados/tipos';
 
 const base: EventoAuditoria = {
@@ -39,6 +39,16 @@ describe('descreverEvento', () => {
         anteriores: { nome: 'Integridade', apetite_declarado: 'baixo' }, novos: { nome: 'Integridade', apetite_declarado: 'moderado' },
       }).titulo
     ).toBe('Apetite da categoria Integridade alterado');
+  });
+
+  it('LAC-03: ligação do KRI ao risco tem nome e rótulo próprios, sem "do risco" repetido', () => {
+    expect(descreverEvento({ ...base, tabela: 'kri_riscos', operacao: 'INSERT' }).titulo).toBe(
+      'Ligação do KRI ao risco RADAR-2026-003 criada'
+    );
+    expect(descreverEvento({ ...base, tabela: 'kri_riscos', operacao: 'DELETE', codigoRadar: null }).titulo).toBe(
+      'Ligação do KRI ao risco removida'
+    );
+    expect(ROTULOS_TABELA.kri_riscos).toBe('Ligações de KRI a riscos');
   });
 
   it('campo desconhecido usa o nome da coluna sem "_"; booleano vira Sim/Não; vazio vira "—"', () => {
