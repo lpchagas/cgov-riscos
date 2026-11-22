@@ -144,6 +144,23 @@ describe('Página Importar riscos', () => {
     expect(ultima.mensagem.length).toBeGreaterThan(0);
   });
 
+  it('categoria que não existe no banco aparece na lista de erros da linha (sem trocar por Operacional)', async () => {
+    const store = useRiscosStore();
+    const antes = store.riscos.length;
+    // Simula um banco sem a categoria "Legal", mesmo ela sendo do Quadro 2.
+    store.categorias = store.categorias.filter((c) => c.nome !== 'Legal');
+    const { w } = await montar();
+    await w.find('textarea').setValue(tabelaCom(1).replace('| Operacional |', '| Legal |'));
+    await botao(w, 'Ver prévia').trigger('click');
+    await escolherObjeto(w);
+    await botao(w, 'Importar 1 risco').trigger('click');
+    await flushPromises();
+    const resultado = w.find('.resultado');
+    expect(resultado.text()).toContain('RSC-T-01');
+    expect(resultado.text()).toContain('A categoria "Legal" não existe no banco.');
+    expect(store.riscos.length).toBe(antes);
+  });
+
   describe('importação parcial', () => {
     afterEach(() => definirFonteParaTeste(null));
 

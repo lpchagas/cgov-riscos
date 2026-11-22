@@ -550,6 +550,8 @@ export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
  * demonstração). Os valores calculados da skill também são descartados — a
  * fonte recalcula a partir de P, I, eficácia e evidência.
  *
+ * Categoria que não existe no banco: LANÇA erro (nunca troca por outra).
+ *
  * Ex.: fichaDaSkillParaSalvar(linha, categorias, 'obj-1', 'Ponto Focal')
  *   -> { objetoId: 'obj-1', preliminarCgov: true, probabilidade: 3, ... }
  */
@@ -559,8 +561,12 @@ export function fichaDaSkillParaSalvar(
   objetoId: string,
   responsavelNome = 'Ponto Focal 1ª Linha (A validar)'
 ): FichaParaSalvar {
-  const categoria =
-    categorias.find((c) => c.nome.toLowerCase() === item.categoriaNome.toLowerCase()) ?? categorias[1] ?? categorias[0];
+  const categoria = categorias.find((c) => c.nome.toLowerCase() === item.categoriaNome.toLowerCase());
+  // Sem conversão silenciosa: categoria que o banco não tem NÃO vira "Operacional".
+  // O erro "RADAR: ..." aparece na lista de erros da linha na tela de importação.
+  if (!categoria) {
+    throw new Error(`RADAR: a categoria "${item.categoriaNome}" não existe no banco.`);
+  }
   const temControle = Boolean(item.controlesTexto) && item.controlesTexto !== 'Inexistente';
   return {
     objetoId,
@@ -570,7 +576,7 @@ export function fichaDaSkillParaSalvar(
     eventoRisco: item.eventoRisco,
     consequencias: item.consequencias,
     objetivoAfetado: item.objetivoAfetado,
-    categoriaId: categoria?.id,
+    categoriaId: categoria.id,
     subcategoriaIntegridade: item.subcategoriaIntegridade,
     probabilidade: item.probabilidade,
     impacto: item.impacto,

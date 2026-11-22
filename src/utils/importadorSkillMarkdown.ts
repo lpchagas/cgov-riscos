@@ -29,9 +29,59 @@ import type {
 } from '../types/radar.types';
 import {
   calcularRiscoCompletoRadar,
+  CATEGORIAS_OFICIAIS_QUADRO_2,
   SUBCATEGORIAS_INTEGRIDADE_QUADRO_3,
   validarRegraIntegridade,
 } from './calculadoraRiscoRadar';
+
+/**
+ * Compara dois textos sem ligar para maiúsculas/minúsculas e espaços nas pontas.
+ * Ex.: igualSemCaixa(' Visitação ', 'visitação') -> true
+ */
+function igualSemCaixa(a: string, b: string): boolean {
+  return a.trim().toLocaleLowerCase('pt-BR') === b.trim().toLocaleLowerCase('pt-BR');
+}
+
+/**
+ * Sinônimos do Anexo III aceitos SÓ na importação (decisão de 2026-11-22):
+ * a grafia do Anexo III vira a do Quadro 2 da Metodologia. Nenhum outro
+ * sinônimo é aceito: o que não for do Quadro 2 nem desta lista é recusado.
+ */
+const SINONIMOS_CATEGORIA_ANEXO_III: ReadonlyArray<
+  readonly [string, (typeof CATEGORIAS_OFICIAIS_QUADRO_2)[number]]
+> = [
+  ['Financeiro ou Orçamentário', 'Financeiro/Orçamentário'],
+  ['Reputação ou Imagem', 'Reputação'],
+  ['Visitação', 'Riscos da visitação'],
+];
+
+/**
+ * Devolve o nome OFICIAL (Quadro 2) de uma categoria escrita na tabela, ou
+ * `null` se ela não existir. NUNCA troca por uma categoria "padrão".
+ *
+ * Exemplos:
+ *   normalizarCategoriaImportada('reputação ou imagem') -> 'Reputação'
+ *   normalizarCategoriaImportada(' Visitação ')         -> 'Riscos da visitação'
+ *   normalizarCategoriaImportada('Socioambiental')      -> null
+ */
+export function normalizarCategoriaImportada(
+  bruta: string
+): (typeof CATEGORIAS_OFICIAIS_QUADRO_2)[number] | null {
+  const oficial = CATEGORIAS_OFICIAIS_QUADRO_2.find((c) => igualSemCaixa(c, bruta));
+  if (oficial) return oficial;
+  const sinonimo = SINONIMOS_CATEGORIA_ANEXO_III.find(([antigo]) => igualSemCaixa(antigo, bruta));
+  return sinonimo ? sinonimo[1] : null;
+}
+
+/**
+ * Devolve o nome OFICIAL (Quadro 3) de uma subcategoria de Integridade, ou
+ * `null` se não for uma das 6. Ex.: 'conflito de interesses' -> 'Conflito de interesses'.
+ */
+export function normalizarSubcategoriaImportada(
+  bruta: string
+): (typeof SUBCATEGORIAS_INTEGRIDADE_QUADRO_3)[number] | null {
+  return SUBCATEGORIAS_INTEGRIDADE_QUADRO_3.find((s) => igualSemCaixa(s, bruta)) ?? null;
+}
 
 /**
  * Estrutura de cada ficha preliminar extraída da tabela Markdown da Skill.
@@ -223,18 +273,42 @@ export function importarTabelaMarkdownSkill(
     const codigoRadar = colunas[0] || `RSC-SKILL-${fichas.length + 1}`;
     const nomeObjeto = colunas[1] || 'Processo Normativo Analisado';
     const descricaoPadrao = colunas[2] || '';
-    const categoriaBruta = colunas[3] || 'Operacional';
+    const categoriaBruta = colunas[3]; // vazia = recusada (não há categoria "padrão")
 
-    // Verifica se a categoria é a híbrida proibida ou se traz "Integridade - Subcategoria"
-    let categoriaNome = categoriaBruta;
+    // Categoria e subcategoria SEM conversão silenciosa (RF-172 a RF-175):
+    // ou casam com o Quadro 2 / Quadro 3, ou a linha é recusada com o motivo.
+    // "Integridade: Nepotismo" traz a subcategoria depois dos dois-pontos.
+    const comSubcategoria = /^integridade\s*:(.*)$/i.exec(categoriaBruta);
+    const nomeDaCategoria = comSubcategoria ? 'Integridade' : categoriaBruta;
+    const categoriaOficial = normalizarCategoriaImportada(nomeDaCategoria);
+
+    if (!categoriaOficial) {
+      // Passa o texto original adiante: a regra do motor explica o erro
+      // (inclusive o da categoria mista "Operacional com interface de Integridade").
+      const rejeicao = validarRegraIntegridade({
+        categoriaNome: categoriaBruta,
+        testeIntegridadeAplicavel: false,
+      });
+      erros.push(`Linha ${codigoRadar}: ${rejeicao.erro ?? `Categoria inválida ("${categoriaBruta}").`}`);
+      continue;
+    }
+
+    const categoriaNome: string = categoriaOficial;
     let subcategoriaIntegridade: string | undefined;
 
-    if (categoriaBruta.startsWith('Integridade') && categoriaBruta.includes(':')) {
-      const partes = categoriaBruta.split(':');
-      categoriaNome = 'Integridade';
-      subcategoriaIntegridade = partes[1]?.trim();
-    } else if (categoriaBruta === 'Integridade') {
-      subcategoriaIntegridade = SUBCATEGORIAS_INTEGRIDADE_QUADRO_3[0];
+    if (categoriaOficial === 'Integridade') {
+      const subcategoriaBruta = comSubcategoria?.[1]?.trim() ?? '';
+      if (subcategoriaBruta) {
+        const subcategoriaOficial = normalizarSubcategoriaImportada(subcategoriaBruta);
+        if (!subcategoriaOficial) {
+          erros.push(
+            `Linha ${codigoRadar}: subcategoria de Integridade inválida ("${subcategoriaBruta}"). Use uma das 6 subcategorias do Quadro 3: ${SUBCATEGORIAS_INTEGRIDADE_QUADRO_3.join('; ')}.`
+          );
+          continue;
+        }
+        subcategoriaIntegridade = subcategoriaOficial;
+      }
+      // Sem subcategoria: a validação abaixo recusa ("uma das 6 subcategorias do Quadro 3").
     }
 
     const validacaoCat = validarRegraIntegridade({

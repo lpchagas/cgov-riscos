@@ -16,6 +16,7 @@ import {
   eventoAuditoriaDoBanco,
   eventoFluxoDoBanco,
   fichaParaJson,
+  fichaDaSkillParaSalvar,
   fichaParaSalvarDeRisco,
   historicoDoBanco,
   objetoDoBanco,
@@ -351,5 +352,39 @@ describe('demais conversores', () => {
       anteriores: { causas: 'a' },
       novos: { causas: 'b' },
     });
+  });
+});
+
+describe('fichaDaSkillParaSalvar (importação)', () => {
+  const linha = {
+    codigoRadar: 'RSC-X',
+    nomeObjeto: 'Objeto',
+    descricaoPadrao: '',
+    causas: 'c',
+    eventoRisco: 'e',
+    consequencias: 'q',
+    objetivoAfetado: 'o',
+    categoriaNome: 'Socioambiental',
+    probabilidade: 3,
+    impacto: 3,
+    controlesTexto: 'Inexistente',
+    possuiEvidenciaControle: false,
+    nivelEficaciaControle: 'Inexistente',
+    estrategiaTratamento: 'Mitigar',
+  } as unknown as Parameters<typeof fichaDaSkillParaSalvar>[0];
+  const categorias = [
+    categoriaDoBanco({ ...fixture.categoria, id: 2, nome: 'Operacional' }),
+    categoriaDoBanco({ ...fixture.categoria, id: 4, nome: 'Legal' }),
+  ];
+
+  it('fichaDaSkillParaSalvar recusa categoria desconhecida em vez de trocar por Operacional', () => {
+    expect(() => fichaDaSkillParaSalvar(linha, categorias, 'obj-1')).toThrow(
+      'RADAR: a categoria "Socioambiental" não existe no banco.'
+    );
+  });
+
+  it('acha a categoria sem diferença de maiúsculas', () => {
+    const ficha = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal' }, categorias, 'obj-1');
+    expect(ficha.categoriaId).toBe(4);
   });
 });
