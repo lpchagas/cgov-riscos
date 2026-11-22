@@ -231,14 +231,13 @@ Itens que o axe **não conseguiu decidir sozinho** (conferência manual):
 - "Crítico" usado só para "fora do apetite da DAR"; a faixa de 18 a 25 se chama Extremo.
 - Cor primária, anel de foco, cabeçalho, rodapé, trilha (breadcrumb) e link para pular conteúdo (skiplink).
 
-## 7. Decisões para o responsável (antes do plano)
+## 7. Decisões do responsável (2026-11-22)
 
-1. **Tamanho do corpo do texto:** 14 px (padrão oficial) ou manter 16 px? Recomendação: **14 px** no corpo e
-   nas tabelas, com a escala oficial nos títulos. O usuário que precisar pode ampliar pelo navegador, e o
-   `html { font-size: 100% }` continua respeitando essa escolha.
-2. **Cinzas neutros oficiais** (G-04) só no tema claro, ou também revisar o escuro? Recomendação: **só o
-   claro** nesta rodada.
-3. **Fonte Rawline local** (G-07): levar à CGTI agora ou deixar para a homologação?
+1. **Tamanho do corpo do texto:** **14 px, o oficial**, com a escala oficial nos títulos. O usuário que
+   precisar pode ampliar pelo navegador, e o `html { font-size: 100% }` continua respeitando essa escolha.
+2. **Cinzas neutros oficiais** (G-04): **só no tema claro**. O escuro e o de alto contraste ficam como estão.
+3. **Fonte Rawline local** (G-07): **fica para a homologação**, como pendência a tratar com a CGTI. Não
+   entra no plano desta rodada.
 
 ## 8. Ordem sugerida para o plano de implementação
 
