@@ -227,6 +227,19 @@ describe('GrupoOpcoesDescritas', () => {
     expect(labels[3].find('input[type="radio"]').exists()).toBe(true);
   });
 
+  it('dois grupos na mesma tela usam names diferentes (senão um desmarca o outro)', () => {
+    // Dois `mount` separados seriam dois apps (cada um com seu contador de useId);
+    // por isso os dois grupos entram juntos, no mesmo app, como numa tela real.
+    const w = mount({
+      components: { GrupoOpcoesDescritas },
+      data: () => ({ base, a: null, b: null }),
+      template: '<div><GrupoOpcoesDescritas v-bind="base" v-model="a" /><GrupoOpcoesDescritas v-bind="base" v-model="b" /></div>',
+    });
+    const [nomeA, nomeB] = w.findAll('fieldset').map((f) => f.find('input[type="radio"]').attributes('name'));
+    expect(nomeA).toBeTruthy();
+    expect(nomeA).not.toBe(nomeB);
+  });
+
   it('com ajuda, o fieldset aponta para o texto de ajuda', () => {
     const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null, ajuda: 'Dica' } });
     const idAjuda = w.find('fieldset').attributes('aria-describedby')!;

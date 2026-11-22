@@ -151,6 +151,9 @@ function celula(p: NivelProbabilidade, i: NivelImpacto) {
 }
 
 .matriz__rotulo-coluna {
+  /* Deixa "Praticamente certo" quebrar dentro da coluna em vez de estourá-la. */
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding-top: var(--esp-1);
   text-align: center;
   font-size: var(--texto-sm);
