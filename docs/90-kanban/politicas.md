@@ -22,7 +22,8 @@ Definida na Tarefa 19 ([[analise-lacunas-codigo-requisitos]] e
 ordem, e quem puxa trabalho pega o primeiro cartão que cumpre a Definição de Pronto:
 
 1. **Prioridade 1:** lacunas que bloqueiam a homologação (LAC-03, 08, 12, 13, 14 e 15), os desenhos do
-   Figma de que elas dependem (P-01, P-02 e P-10) e o importador antes da primeira carga real.
+   Figma de que elas dependem (P-01 e P-02 e, só pelo RF-130 da LAC-08, o P-10, cuja outra parte é da
+   LAC-02) e o importador antes da primeira carga real.
 2. **Prioridade 2:** dívida de dados que muda o esquema (para não migrar duas vezes).
 3. **Prioridade 3:** o restante: lacunas omissas (puxadas quando a portaria for publicada), ajustes
    funcionais, testes, Figma e documentação.

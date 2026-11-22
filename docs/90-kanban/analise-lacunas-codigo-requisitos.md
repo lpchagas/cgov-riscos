@@ -50,7 +50,7 @@ porque trata da pendência que persiste depois da cobrança).
 | LAC-13 — "Aceitar" e ação obrigatória no risco crítico | RF-049, RF-050 | `riscos`, `respostas_tratamento` | Pronto para iniciar |
 | LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-102, RF-109, RF-183, RF-184 | `indicadores_kri`, `medicoes_kri` | Pronto para iniciar |
 | LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois do Figma P-01) |
-| Importador antes da primeira carga real | RF-162, RF-171, RF-172, RF-177 a RF-188, RF-194 | `riscos`, `controles_existentes`, `indicadores_kri` | Backlog |
+| Importador antes da primeira carga real | RF-162, RF-171, RF-172, RF-177 a RF-182, RF-185 a RF-188, RF-194 (o RF-183 e o RF-184 ficam na LAC-03) | `riscos`, `controles_existentes`, `indicadores_kri` | Backlog |
 
 A LAC-08 não foi para "Pronto para iniciar" porque pede tela nova: antes do código, a CGOV aprova o desenho
 P-01 no Figma ([[mapa-telas]] §2). O cartão `[figma] Modelagem — P-01` abre o Backlog.
@@ -68,7 +68,7 @@ P-01 no Figma ([[mapa-telas]] §2). O cartão `[figma] Modelagem — P-01` abre 
 | LAC-09 — carteira crítica e cobrança | RF-140 a RF-143, RF-149 |
 | LAC-10 — reavaliação anual | RF-103 a RF-106 |
 
-O RF-120 está no cartão da LAC-01 e também serve à LAC-02.
+O RF-120 e o RF-123 estão no cartão da LAC-01 (a Origem deles começa pela LAC-01) e também servem à LAC-02.
 
 ### 3.3 RF pendentes sem lacuna normativa
 
@@ -76,7 +76,7 @@ O RF-120 está no cartão da LAC-01 e também serve à LAC-02.
 | --- | --- | --- |
 | RF-035, RF-038, RF-048, RF-099 | parcial: o código faz, falta o teste | `[dívida] Testes que faltam` (novo) |
 | RF-162, RF-171, RF-172 | parcial: o código faz, falta o teste | cartão do importador (prioridade 1) |
-| RF-177 a RF-188, RF-194 | não iniciado | cartão do importador (prioridade 1) |
+| RF-177 a RF-182, RF-185 a RF-188, RF-194 | não iniciado | cartão do importador (prioridade 1); o RF-183 e o RF-184 estão no cartão da LAC-03 |
 | RF-063 | parcial: falta o teste pgTAP da unidade sem chefia | `[dívida] Teste pgTAP para a recusa do envio…` |
 | RF-078 | parcial: falta o teste pgTAP da devolução pela CGOV em validação | `[dívida] Teste pgTAP para a devolução pela CGOV…` |
 | RF-085 | não iniciado: o ator depende de decisão da CGOV | `[funcional] Cargo vago trava o fluxo` |
