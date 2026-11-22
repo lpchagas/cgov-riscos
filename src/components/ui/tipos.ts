@@ -28,3 +28,10 @@ export interface OpcaoSegmento<T> {
   rotulo: string;
   icone?: string;
 }
+
+/** Uma opção do `GrupoOpcoesDescritas`: rótulo em destaque + descrição logo abaixo. */
+export interface OpcaoDescrita<T> {
+  valor: T;
+  rotulo: string;
+  descricao: string;
+}
