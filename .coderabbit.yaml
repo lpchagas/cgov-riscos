@@ -114,8 +114,10 @@ reviews:
           segurança, dados pessoais, acessibilidade, contradição entre
           documentos. Não comente estilo, formatação, nomes, ordem de
           importações nem refatorações opcionais.
-        - Tipos (vue-tsc) e testes (vitest) já rodam num hook antes de cada
-          commit: não peça para rodá-los nem aponte o que eles já pegam.
+        - Tipos (vue-tsc) e testes (vitest) rodam num hook local antes de
+          cada commit: não peça para rodá-los. Mas aponte erro de tipo ou de
+          teste que você encontrar, sobretudo em scripts/ e
+          supabase/functions/, que o vue-tsc não cobre.
         - O mesmo problema em vários lugares vira UM comentário, com a lista
           dos lugares.
         - Em dúvida se é problema, não comente.

@@ -1,6 +1,6 @@
 # Decisões técnicas da etapa B2 (login por link de e-mail e perfis)
 
-> **Arquivo congelado em 2026-11-20 (histórico).** Decisões vigentes: ADR-0008, ADR-0009, ADR-0010. Não edite este arquivo; novas decisões vão em `docs/adr/`.
+> **Arquivo congelado em 2026-11-21 (histórico).** Decisões vigentes: ADR-0008, ADR-0009, ADR-0010. Não edite este arquivo; novas decisões vão em `docs/adr/`.
 
 > **Para que serve este documento:** registrar, num lugar só e versionado, as decisões tomadas
 > durante a etapa B2 que **mudam o comportamento** do login, das telas de acesso, da Edge Function e

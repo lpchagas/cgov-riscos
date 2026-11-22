@@ -89,6 +89,7 @@ flowchart LR
     uc02([UC-02 Gerenciar usuários e perfis])
     uc03([UC-03 Sincronizar estrutura e Cadeia de Valor])
     uc04([UC-04 Cadastrar objeto de gestão])
+    uc05([UC-05 Identificar e registrar risco])
     uc12([UC-12 Elaborar ficha preliminar])
     uc13([UC-13 Importar riscos da tabela da skill])
     uc14([UC-14 Propor a DAR])

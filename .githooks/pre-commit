@@ -31,11 +31,12 @@
 #   git commit --no-verify
 # =============================================================================
 
-# Lista os arquivos marcados para este commit (adicionados, copiados,
-# modificados ou renomeados; arquivos apagados não precisam ser testados).
-arquivos=$(git diff --cached --name-only --diff-filter=ACMR)
+# Lista TODOS os arquivos deste commit, inclusive os apagados. Apagar código
+# também pode quebrar o sistema: se apagar src/utils/x.ts e outro arquivo
+# ainda o importar, a checagem de tipos precisa rodar para pegar o erro.
+arquivos=$(git diff --cached --name-only)
 
-# Nada a verificar (ex.: commit que só apaga arquivos).
+# Nada marcado para o commit: não há o que verificar.
 [ -z "$arquivos" ] && exit 0
 
 # Arquivo temporário para guardar a saída das ferramentas. Ele é apagado no

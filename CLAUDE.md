@@ -18,7 +18,7 @@ Aplicativo web e cofre Obsidian do **Sistema RADAR (Rede de Avaliação, Diagnó
 
 Objetivo: menos tokens do Claude e menos ruído do CodeRabbit, sem perder rigor. Cada camada faz uma coisa só:
 
-1. **Hook de commit (mecânico, sem IA):** tipos, testes e estrutura/siglas dos docs. Se ele passou, nenhum revisor reconfere isso. Não rode `npm test` "só para conferir" logo antes do commit: o hook já roda.
+1. **Hook de commit (mecânico, sem IA):** tipos, testes e estrutura/siglas dos docs. Não rode `npm test` "só para conferir" logo antes do commit: o hook já roda. Os revisores não precisam rodar testes, mas **apontam** erro de tipo ou de teste que encontrarem, porque o hook tem limites: é local, pode ser pulado com `--no-verify`, só existe depois do `npm ci`, e o `vue-tsc` não cobre `scripts/` nem `supabase/functions/` (fora do `include` do `tsconfig.json`). Não há CI no GitHub.
 2. **Claude, por tarefa (lógica):** **uma** revisão por tarefa, juntando aderência ao plano e qualidade (não duas rodadas separadas). Tarefa só de documentação ou configuração: revisor com modelo mais barato (`sonnet`) ou só a autorrevisão do diff, se for trivial. Cálculo (Quadros 6, 7 e 8), RLS, migrações e Edge Functions: revisão completa, sempre.
 3. **Claude, no fim da fase:** um `/code-review` (nível `medium`) no diff da branch antes de abrir a PR. Os níveis `max`/`ultra` ficam só a pedido.
 4. **CodeRabbit, na PR (visão ampla):** regras do Regime B, segurança, dados pessoais e coerência entre documentos (`.coderabbit.yaml`). Faça a triagem dos comentários **em lote**, numa passada só: leia todos, classifique em procedente/improcedente, corrija os procedentes num commit e responda os improcedentes na PR.

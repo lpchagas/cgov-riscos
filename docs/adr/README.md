@@ -36,6 +36,6 @@ problema, o que foi decidido e o que isso custa. Usamos o modelo de Michael Nyga
 ## Decisões antigas
 
 As decisões das etapas B1, B2, B3, C e D estão nos arquivos `decisoes-tecnicas-*` de
-`docs/02-arquitetura-cgti/`, **congelados em 2026-11-20** como histórico (cada um aponta para os ADRs vigentes).
+`docs/02-arquitetura-cgti/`, **congelados em 2026-11-21** como histórico (cada um aponta para os ADRs vigentes).
 Os ADRs 0004 a 0016 são retroativos: registram cada decisão como foi tomada, com a data original.
 O `decisoes-tecnicas-d.md` também já está congelado (ADR-0001): decisões novas da etapa D vão em ADRs.

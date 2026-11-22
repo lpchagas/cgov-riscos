@@ -21,8 +21,10 @@ segregação entre quem executa e quem valida.
 Nós vamos aplicar a regra **"sobe um nível"**: quem enviou o risco (ou o reabriu ao editar a ficha aprovada)
 nunca o valida nem o homologa; se for o titular da chefia imediata, a validação sobe à chefia da chefia, e
 assim por diante. Sem nível acima, o banco recusa (`55000`) já no envio. Os Riscos da Presidência são
-validados pelo titular do GABIN e homologados pelo Presidente. Risco aprovado não se exclui (só se edita, o
-que reabre o fluxo). Quando não há ator efetivo, só a CGOV devolve o risco.
+validados pelo titular do GABIN e homologados pelo Presidente. Quando o validador e o homologador efetivos
+são a mesma pessoa e ela não enviou o risco, a validação e a homologação acontecem num passo só
+(`validado_e_homologado`). Risco aprovado não se exclui (só se edita, o que reabre o fluxo). Quando não há
+ator efetivo, só a CGOV devolve o risco.
 
 ## Consequências
 
@@ -39,5 +41,4 @@ que reabre o fluxo). Quando não há ator efetivo, só a CGOV devolve o risco.
 
 ## Alternativas consideradas
 
-- **Validar e homologar pela mesma chefia:** vale só quando os atores efetivos coincidem e nenhum enviou.
 - **Delegação e substituto:** adiada; está nas pendências.

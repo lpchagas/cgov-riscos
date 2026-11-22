@@ -31,11 +31,13 @@ flowchart TD
     rel[F1.09 Relatórios trimestrais e<br/>avaliação gerencial anual]
   end
   aceito([Fim: risco aceito,<br/>monitorado quando Médio])
-  travado([Lacuna: DAR pendente.<br/>Alto e Extremo já são Críticos,<br/>Médio aguarda a DAR])
+  travado([Lacuna: DAR pendente.<br/>Médio aguarda a DAR])
   fim([Fim: ciclo seguinte])
   ini --> ctx --> ana --> dok
   dar -.-> dok
-  dok -->|Não| travado
+  dok -->|Não, residual Alto ou Extremo:<br/>sempre Risco Crítico| trat
+  dok -->|Não, residual Médio| travado
+  dok -->|Não, residual Baixo| aceito
   dok -->|Sim| ava
   ava -->|Não| aceito
   ava -->|Sim: Risco Crítico| trat --> plano --> mon
