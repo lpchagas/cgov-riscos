@@ -59,7 +59,7 @@ Regras que valem a partir daqui:
 - O banco recusa categoria fora do Quadro 2 (restrição `CHECK` no nome), subcategoria fora do Quadro 3 (chave
   estrangeira) e Integridade sem subcategoria (gatilho), com a mensagem "RADAR: risco da categoria … exige uma
   das subcategorias do Quadro 3." traduzida pela tela.
-- Fica a linha de 1FN resolvida: a lista deixa de ser JSON.
+- A dívida de 1FN fica resolvida: a lista deixa de ser JSON.
 
 **Negativas**
 - **A migração recusa** se houver risco nas categorias 1, 7 ou 8, com subcategoria fora do Quadro 3, de

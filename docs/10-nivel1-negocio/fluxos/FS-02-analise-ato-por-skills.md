@@ -160,7 +160,7 @@ Conferido no código em 21/11/2026. O importador lê **por posição** (1ª colu
 - **Barra vertical dentro do texto** de uma célula desloca todas as colunas seguintes da linha.
 - **Cabeçalho:** só é reconhecido se a 1ª célula for "ID", "Código" ou "Codigo". Outro cabeçalho de 10 ou mais colunas é lido como risco e dá erro de categoria.
 - **Tabela do Regime A** (13 colunas, sem "Objeto de GR"): as colunas ficam deslocadas e a linha é recusada por categoria inválida, com mensagem que não fala de regime.
-- **Erros (bloqueiam tudo):** categoria fora da lista do RADAR; categoria mista; Integridade sem subcategoria depois da leitura (na prática não ocorre, porque "Integridade" sozinho ganha a subcategoria padrão). Sem nenhuma linha válida e sem erro: "Nenhuma linha de risco encontrada".
+- **Erros (bloqueiam tudo):** categoria fora do Quadro 2 (e dos 3 sinônimos do Anexo III); categoria mista; Integridade sem subcategoria ou com subcategoria fora do Quadro 3. Sem nenhuma linha válida e sem erro: "Nenhuma linha de risco encontrada".
 - **Avisos (não bloqueiam):** só um tipo, a frase fora da sintaxe.
 - **Silêncios (sem erro nem aviso):** P ou I sem número (vira 3), estratégia desconhecida (vira Mitigar), evidência deduzida por palavra (com acento), trava de evidência acionada, inerente ou residual da skill diferente do recálculo.
 - **Na gravação:** recusa do banco (ex.: permissão) recusa só aquela linha; a tela mostra "N de M importados" e oferece reimportar só as recusadas, sem duplicar as que entraram.

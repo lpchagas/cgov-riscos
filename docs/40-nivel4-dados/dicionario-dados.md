@@ -9,7 +9,7 @@ entre as tabelas, e a [[normalizacao]], que analisa as repetições.
 `information_schema` (colunas, tipos e nulos) e no `pg_constraint` (os valores dos `CHECK`), e da 13ª migração
 (`20261122001`), acrescentada em 2026-11-22 a partir do próprio arquivo (a tabela `subcategorias_risco` e a
 saída de `categorias_risco.subcategorias_permitidas`). São **13 tabelas e 142 colunas** (138, mais as 5 da
-tabela nova, menos a coluna JSONB que saiu). Os significados foram escritos a partir dos comentários das migrações e das regras
+tabela nova, menos a coluna JSONB que saiu); o 142 foi conferido contando as linhas de colunas deste dicionário, não por nova leitura do banco. Os significados foram escritos a partir dos comentários das migrações e das regras
 de [[regras-negocio]].
 
 ## Como ler
