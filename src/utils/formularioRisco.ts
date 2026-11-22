@@ -257,7 +257,11 @@ export function dadosParaFicha(
     consequencias: d.consequencias,
     objetivoAfetado: d.objetivo,
     categoriaId: d.categoriaId ?? undefined,
-    subcategoriaIntegridade: ehIntegridade ? d.subcategoriaIntegridade : undefined,
+    // Subcategoria só na Integridade; em branco ('' ou espaços) vai como
+    // undefined ("sem subcategoria"), nunca como '': o banco então responde
+    // "RADAR: ... exige uma das subcategorias do Quadro 3" em vez de um erro
+    // genérico da chave estrangeira. Ex.: '' -> undefined; 'Nepotismo' -> 'Nepotismo'.
+    subcategoriaIntegridade: ehIntegridade && d.subcategoriaIntegridade.trim() ? d.subcategoriaIntegridade : undefined,
     testeIntegridadeAplicavel: d.decideSobreTerceiros,
     justificativaNaoIntegridade: d.justificativaNaoIntegridade || undefined,
     probabilidade: d.probabilidade ?? undefined,

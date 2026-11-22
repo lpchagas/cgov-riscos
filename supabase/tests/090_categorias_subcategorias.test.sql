@@ -33,7 +33,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(36);
+select plan(41);
 
 -- ----------------------------------------------------------------------------
 -- 1. Estrutura e conteúdo
@@ -145,12 +145,27 @@ select pg_temp.entrar_como('gestor.uc@radar.test');
 select throws_ok($$select public.salvar_ficha_risco(pg_temp.ficha_integridade(null))$$,
                  '23514', 'RADAR: risco da categoria Integridade exige uma das subcategorias do Quadro 3.',
                  'salvar_ficha_risco: rascunho da Integridade sem subcategoria volta com a mensagem RADAR');
+-- Texto vazio ('' ou só espaços) conta como "sem subcategoria": o gatilho o
+-- troca por nulo ANTES da chave estrangeira. Sem isso, o par (5, '') iria
+-- para a chave e voltaria como o erro genérico 23503 ("ligado a outro...").
+select throws_ok($$select public.salvar_ficha_risco(pg_temp.ficha_integridade(''))$$,
+                 '23514', 'RADAR: risco da categoria Integridade exige uma das subcategorias do Quadro 3.',
+                 'salvar_ficha_risco: Integridade com subcategoria vazia ('''') volta com a mensagem RADAR');
+select throws_ok($$select public.salvar_ficha_risco(pg_temp.ficha_integridade(E' \t '))$$,
+                 '23514', 'RADAR: risco da categoria Integridade exige uma das subcategorias do Quadro 3.',
+                 'salvar_ficha_risco: Integridade com subcategoria só de espaços e tabulação volta com a mensagem RADAR');
+-- Operacional com subcategoria vazia: grava, e a coluna fica nula.
+select f.id as r_ficha_op
+  from public.salvar_ficha_risco(pg_temp.ficha_integridade('') || jsonb_build_object('categoria_id', 2)) as f
+\gset
 select f.id as r_ficha
   from public.salvar_ficha_risco(pg_temp.ficha_integridade('Conflito de interesses')) as f
 \gset
 select pg_temp.sair();
 select is((select subcategoria_integridade from public.riscos where id = :'r_ficha'), 'Conflito de interesses',
           'salvar_ficha_risco: Integridade com Conflito de interesses gravada');
+select is((select subcategoria_integridade from public.riscos where id = :'r_ficha_op'), null,
+          'salvar_ficha_risco: Operacional com subcategoria vazia grava com subcategoria nula');
 
 -- ----------------------------------------------------------------------------
 -- 5. subcategorias_risco: leitura por quem tem perfil; ninguém logado grava
@@ -184,6 +199,7 @@ language plpgsql
 as $$
 DECLARE
   v_codigos text;
+  v_inesperadas text;
 BEGIN
   SELECT string_agg(r.codigo_radar, ', ' ORDER BY r.codigo_radar)
     INTO v_codigos
@@ -204,6 +220,24 @@ BEGIN
 
   IF v_codigos IS NOT NULL THEN
     RAISE EXCEPTION 'RADAR: há riscos em categoria que sai do Quadro 2 (Estratégico, Socioambiental ou Tecnologia da Informação) ou com subcategoria fora do Quadro 3, da Integridade sem subcategoria ou com subcategoria fora da Integridade: %; reclassifique esses riscos antes de aplicar esta migração (decisão de 2026-11-22).', v_codigos
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Categorias que o bloco 3 não sabe alinhar (lista "id - nome").
+  SELECT string_agg(c.id || ' - ' || c.nome, ', ' ORDER BY c.id)
+    INTO v_inesperadas
+    FROM public.categorias_risco AS c
+   WHERE c.id NOT BETWEEN 1 AND 8
+      OR c.nome NOT IN (
+        -- os 8 antigos (seed.sql anterior a esta migração)
+        'Estratégico', 'Operacional', 'Orçamentário/Financeiro', 'Conformidade/Legal',
+        'Integridade', 'Imagem/Reputação', 'Socioambiental', 'Tecnologia da Informação',
+        -- os 8 do Quadro 2
+        'Legal', 'Financeiro/Orçamentário', 'Reputação', 'Riscos da visitação',
+        'Ocupacionais', 'Privacidade e Proteção de Dados');
+
+  IF v_inesperadas IS NOT NULL THEN
+    RAISE EXCEPTION 'RADAR: categorias inesperadas no banco: %; confira antes de aplicar esta migração (o alinhamento ao Quadro 2 só conhece os ids 1 a 8 do seed.sql antigo).', v_inesperadas
       USING ERRCODE = 'check_violation';
   END IF;
 END;
@@ -267,7 +301,7 @@ create temp table _semente_sub as
 -- mudaram). Para gravar os nomes antigos, o CHECK novo sai (o rollback do
 -- fim o devolve). Os riscos de teste deste arquivo saem antes, senão a chave
 -- estrangeira não deixaria apagar as subcategorias.
-delete from public.riscos where codigo_radar like 'RADAR-T090-%' or id = :'r_ficha';
+delete from public.riscos where codigo_radar like 'RADAR-T090-%' or id in (:'r_ficha', :'r_ficha_op');
 alter table public.categorias_risco drop constraint categorias_risco_nome_quadro_2;
 delete from public.subcategorias_risco;
 delete from public.categorias_risco where id in (9, 10, 11);
@@ -311,6 +345,18 @@ set local session_replication_role = origin;
 select throws_like($$select pg_temp.travar_reclassificacao()$$, '%RADAR-T090-TRAVA-OP%',
                    'trava: risco Operacional com subcategoria para a migração');
 delete from public.riscos where codigo_radar = 'RADAR-T090-TRAVA-OP';
+
+-- Categoria inesperada (id fora de 1 a 8, ou nome que não é nem dos 8
+-- antigos nem dos 8 do Quadro 2): o bloco 3 não saberia o que fazer com ela.
+-- Ex.: alguém cadastrou "Ambiental" (id 12) na nuvem → a migração para.
+insert into public.categorias_risco (id, nome, descricao_normativa) values (12, 'Ambiental', 'x');
+select throws_like($$select pg_temp.travar_reclassificacao()$$, '%categorias inesperadas no banco: 12 - Ambiental%',
+                   'trava: categoria com id fora de 1 a 8 para a migração, com o id e o nome na mensagem');
+delete from public.categorias_risco where id = 12;
+update public.categorias_risco set nome = 'Meio Ambiente' where id = 7;
+select throws_like($$select pg_temp.travar_reclassificacao()$$, '%categorias inesperadas no banco: 7 - Meio Ambiente%',
+                   'trava: categoria com nome desconhecido (nem antigo nem do Quadro 2) para a migração');
+update public.categorias_risco set nome = 'Socioambiental' where id = 7;
 
 select lives_ok($$select pg_temp.travar_reclassificacao()$$,
                 'trava: sem risco em categoria que sai, a migração segue (caso da nuvem)');

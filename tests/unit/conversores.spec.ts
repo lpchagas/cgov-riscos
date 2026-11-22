@@ -220,6 +220,17 @@ describe('fichaParaJson', () => {
   });
 });
 
+describe('fichaParaJson: subcategoria em branco', () => {
+  // Segunda ponta da mesma regra: mesmo que chegue '' ou só espaços, o JSON
+  // leva null ("sem subcategoria"), e o banco responde com a mensagem RADAR.
+  it("'' e '   ' viram null; texto de verdade passa como veio; ausente fica ausente", () => {
+    expect(fichaParaJson({ objetoId: 'obj-1', subcategoriaIntegridade: '' }).subcategoria_integridade).toBeNull();
+    expect(fichaParaJson({ objetoId: 'obj-1', subcategoriaIntegridade: '   ' }).subcategoria_integridade).toBeNull();
+    expect(fichaParaJson({ objetoId: 'obj-1', subcategoriaIntegridade: 'Nepotismo' }).subcategoria_integridade).toBe('Nepotismo');
+    expect(fichaParaJson({ objetoId: 'obj-1' })).not.toHaveProperty('subcategoria_integridade');
+  });
+});
+
 describe('soCamposCalculadosMudaram ("recalculado pela DAR")', () => {
   const antes = fixture.risco as Record<string, unknown>;
 

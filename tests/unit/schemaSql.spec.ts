@@ -97,7 +97,10 @@ describe('Migrations SQL e Dados Semente (Anexo II e Quadros 2/3)', () => {
       expect(b, `não achei "${fim}"`).toBeGreaterThan(-1);
       return texto.slice(a, b + fim.length);
     };
-    const bloco1 = (t: string) => trecho(t, 'SELECT string_agg(r.codigo_radar', "USING ERRCODE = 'check_violation';\n  END IF;");
+    // Bloco 1 inteiro: das variáveis (DECLARE) até o fim da 2ª checagem
+    // (categorias inesperadas), para que nenhuma das duas fique diferente.
+    const bloco1 = (t: string) =>
+      trecho(t, 'DECLARE\n  v_codigos text;', "v_inesperadas\n      USING ERRCODE = 'check_violation';\n  END IF;");
     const bloco3 = (t: string) => trecho(t, 'IF EXISTS (SELECT 1 FROM public.categorias_risco) THEN', "PERFORM setval('public.categorias_risco_id_seq', 11);\n  END IF;");
     expect(bloco1(teste)).toBe(bloco1(migracao));
     expect(bloco3(teste)).toBe(bloco3(migracao));

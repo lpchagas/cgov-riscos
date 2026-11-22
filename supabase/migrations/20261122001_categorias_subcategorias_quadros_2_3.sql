@@ -19,7 +19,8 @@
 --      Ex.: (5, 'Nepotismo') passa; (5, 'Corrupção e Fraude') e
 --      (2, 'Nepotismo') são recusados (erro 23503).
 --   4. Gatilho: risco de categoria que TEM subcategorias (a Integridade) não
---      pode ficar sem uma. Ex.: categoria 5 com subcategoria vazia → erro
+--      pode ficar sem uma (texto em branco conta como "sem"; o gatilho o
+--      grava como nulo). Ex.: categoria 5 com subcategoria vazia → erro
 --      "RADAR: risco da categoria Integridade exige uma das subcategorias do
 --      Quadro 3." (código 23514). A chave estrangeira sozinha não pega esse
 --      caso: com um dos lados nulo, o PostgreSQL não confere a chave.
@@ -53,11 +54,21 @@
 -- de categoria ou de subcategoria sem decisão humana.
 -- Ex.: RADAR-2026-010 na categoria 7 → "RADAR: ... RADAR-2026-010 ...".
 -- Na nuvem (conferido em 2026-11-22) não há nenhum risco, então ela não dispara.
+--
+-- Também PARA se `categorias_risco` tiver alguma categoria que o bloco 3 não
+-- conhece: id fora de 1 a 8, ou nome que não é nem um dos 8 antigos do
+-- seed.sql nem um dos 8 do Quadro 2. O bloco 3 só sabe alinhar os ids 1 a 8;
+-- uma categoria extra ficaria para trás e o CHECK do bloco 4 falharia com um
+-- erro pouco claro. Ex.: id 12 "Ambiental" → "RADAR: categorias inesperadas
+-- no banco: 12 - Ambiental; confira antes de aplicar esta migração."
+-- Localmente (`npm run db:reset`) a tabela está vazia neste momento (o
+-- seed.sql roda depois das migrações), então esta parte também não dispara.
 -- ATENÇÃO: o teste supabase/tests/090_categorias_subcategorias.test.sql tem uma
 -- CÓPIA deste bloco (pg_temp.travar_reclassificacao). Mudou aqui, mude lá.
 DO $$
 DECLARE
   v_codigos text;
+  v_inesperadas text;
 BEGIN
   SELECT string_agg(r.codigo_radar, ', ' ORDER BY r.codigo_radar)
     INTO v_codigos
@@ -78,6 +89,24 @@ BEGIN
 
   IF v_codigos IS NOT NULL THEN
     RAISE EXCEPTION 'RADAR: há riscos em categoria que sai do Quadro 2 (Estratégico, Socioambiental ou Tecnologia da Informação) ou com subcategoria fora do Quadro 3, da Integridade sem subcategoria ou com subcategoria fora da Integridade: %; reclassifique esses riscos antes de aplicar esta migração (decisão de 2026-11-22).', v_codigos
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Categorias que o bloco 3 não sabe alinhar (lista "id - nome").
+  SELECT string_agg(c.id || ' - ' || c.nome, ', ' ORDER BY c.id)
+    INTO v_inesperadas
+    FROM public.categorias_risco AS c
+   WHERE c.id NOT BETWEEN 1 AND 8
+      OR c.nome NOT IN (
+        -- os 8 antigos (seed.sql anterior a esta migração)
+        'Estratégico', 'Operacional', 'Orçamentário/Financeiro', 'Conformidade/Legal',
+        'Integridade', 'Imagem/Reputação', 'Socioambiental', 'Tecnologia da Informação',
+        -- os 8 do Quadro 2
+        'Legal', 'Financeiro/Orçamentário', 'Reputação', 'Riscos da visitação',
+        'Ocupacionais', 'Privacidade e Proteção de Dados');
+
+  IF v_inesperadas IS NOT NULL THEN
+    RAISE EXCEPTION 'RADAR: categorias inesperadas no banco: %; confira antes de aplicar esta migração (o alinhamento ao Quadro 2 só conhece os ids 1 a 8 do seed.sql antigo).', v_inesperadas
       USING ERRCODE = 'check_violation';
   END IF;
 END $$;
@@ -229,6 +258,16 @@ AS $$
 DECLARE
   v_categoria text;
 BEGIN
+  -- Texto em branco ('', espaços, tabulação ou quebra de linha: o padrão
+  -- '^\s*$') é "sem subcategoria": vira nulo
+  -- ANTES da chave estrangeira. Sem isso, o par (5, '') iria para a chave e
+  -- voltaria como o erro genérico 23503, e não com a mensagem RADAR abaixo;
+  -- e um risco Operacional com '' seria recusado à toa (par (2, '')).
+  -- Só o texto em branco muda: ' Nepotismo ' continua como veio (a chave decide).
+  IF NEW.subcategoria_integridade ~ '^\s*$' THEN
+    NEW.subcategoria_integridade := NULL;
+  END IF;
+
   IF NEW.subcategoria_integridade IS NULL
      AND EXISTS (SELECT 1 FROM public.subcategorias_risco AS s
                   WHERE s.categoria_id = NEW.categoria_id) THEN

@@ -75,6 +75,16 @@ describe('dadosParaFicha (edição)', () => {
     ]);
   });
 
+  // Subcategoria em branco é "sem subcategoria": vai como undefined (o banco
+  // grava nulo e o gatilho devolve a mensagem RADAR), nunca como ''. Com '',
+  // o par (5, '') iria para a chave estrangeira e voltaria um erro genérico.
+  it('Integridade com subcategoria em branco não leva \'\' para a ficha', () => {
+    const base = { ...dadosExemplo('obj-1'), categoriaId: idCategoria('Integridade') };
+    expect(dadosParaFicha({ ...base, subcategoriaIntegridade: '' }, { ehIntegridade: true }).subcategoriaIntegridade).toBeUndefined();
+    expect(dadosParaFicha({ ...base, subcategoriaIntegridade: '   ' }, { ehIntegridade: true }).subcategoriaIntegridade).toBeUndefined();
+    expect(dadosParaFicha({ ...base, subcategoriaIntegridade: 'Nepotismo' }, { ehIntegridade: true }).subcategoriaIntegridade).toBe('Nepotismo');
+  });
+
   it('risco novo: filhos sem id (vazio) e objeto escolhido', () => {
     const parcial = dadosParaFicha({ ...dadosExemplo('obj-1'), descricaoControle: 'X' }, { ehIntegridade: false });
     expect(parcial.objetoId).toBe('obj-1');

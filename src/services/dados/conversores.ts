@@ -438,7 +438,10 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
   copiarSeDefinido(json, 'consequencias', f.consequencias);
   copiarSeDefinido(json, 'objetivo_afetado', f.objetivoAfetado);
   copiarSeDefinido(json, 'categoria_id', f.categoriaId);
-  copiarSeDefinido(json, 'subcategoria_integridade', f.subcategoriaIntegridade);
+  // Subcategoria em branco ('' ou só espaços) vai como null ("sem
+  // subcategoria"). Ex.: '' -> null; 'Nepotismo' -> 'Nepotismo'; ausente -> omitida.
+  const sub = f.subcategoriaIntegridade;
+  copiarSeDefinido(json, 'subcategoria_integridade', typeof sub === 'string' && !sub.trim() ? null : sub);
   copiarSeDefinido(json, 'teste_integridade_aplicavel', f.testeIntegridadeAplicavel);
   copiarSeDefinido(json, 'justificativa_nao_integridade', f.justificativaNaoIntegridade);
   copiarSeDefinido(json, 'probabilidade', f.probabilidade);
