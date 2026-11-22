@@ -48,8 +48,8 @@ O piloto da Sede **continua** com as regras de hoje, em paralelo.
   refeito se as minutas mudarem.
 
 **Negativas**
-- A homologação na CGTI fica mais longe: a LAC-08 pede tela nova (P-01, aprovada antes no Figma) e
-  migração; a LAC-03, regras novas no envio do risco crítico.
+- A homologação na CGTI fica mais longe: a LAC-08 pede tela nova (P-01, que a CGOV ainda precisa aprovar no Figma
+  antes do código) e migração; a LAC-03, regras novas no envio do risco crítico.
 - No piloto, os riscos gravados antes das mudanças (categorias e subcategorias antigas) vão precisar de
   conversão, com regra combinada com a CGOV.
 - Até as 8 omissões abertas entrarem, a CGOV mantém por SEI o rito do Plano, dos colegiados e dos relatórios.

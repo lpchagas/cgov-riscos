@@ -15,6 +15,10 @@ pendência, ex.: `decisoes-tecnicas-b3 §3`) e os RF, RN ou RNF que ganharam na 
 não há requisito a ligar (errata de comentário, decisão de documentação); esses cartões não vão para
 "Pronto para iniciar", porque a Definição de Pronto exige o ID.
 
+**Falta de requisito:** se o cartão trata de algo que nenhum RF, RN ou RNF cobre (ex.: senha do banco na
+linha de comando), o primeiro passo é escrever o requisito que falta no catálogo, com a coluna Origem, e
+ligar o cartão ao ID novo. Só então ele cumpre a Definição de Pronto.
+
 ## Ordem do Backlog
 
 Definida na Tarefa 19 ([[analise-lacunas-codigo-requisitos]] e
@@ -56,8 +60,10 @@ Coluna cheia: ninguém puxa cartão novo para ela. Primeiro se termina (ou destr
 ## Definição de Pronto (DoR)
 
 O cartão só vai para "Pronto para iniciar" se:
-- liga pelo menos um RF, RN ou LAC; e
-- se mexe em dados, cita a tabela.
+- liga pelo menos um RF, RN, RNF ou LAC;
+- se mexe em dados, cita a tabela; e
+- as dependências que o cartão indica já estão cumpridas (ex.: o desenho aprovado no Figma pela CGOV,
+  antes de um cartão que pede tela nova).
 
 ## Definição de Concluído (DoD)
 

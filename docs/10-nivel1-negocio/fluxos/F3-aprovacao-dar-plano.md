@@ -108,7 +108,7 @@ classDef lacuna fill:#fff3cd,stroke:#b58900,color:#000
 | **F5-08b** Falta o modelo de portaria que aprova o Plano no Anexo III | F3.11 | aberto |
 | **F5-09b** A Portaria nº 4.529/2025 mantém o voto pleno da AUDIT | F3.08 | fora das minutas |
 | **F3-01** CTGRIC fora do item 4.6 (leitura da 4.529 vai à PFE, L-13) | F3.07 a F3.09 | decidido, não aplicado |
-| **F3-04** O fluxo do aplicativo (3 degraus) não tem base nas minutas | antes do F3.02 | aberto |
+| **F3-04** O fluxo do aplicativo (3 degraus) não tem base nas minutas | antes do F3.02 | decidido, não aplicado: fica como etapa anterior ao 4.6.1 ([[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1\|ADR-0018]]) |
 | **LS-02** Elaboração e rito da DAR | F3.03, F3.07, F3.10, F3.11 | decidido, não aplicado |
 | **LS-05** Revisão do Plano e riscos emergentes | F3.14 | decidido, não aplicado |
 
