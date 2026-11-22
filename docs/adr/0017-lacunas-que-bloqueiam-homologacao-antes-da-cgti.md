@@ -31,8 +31,8 @@ etapa D **não é suspensa** e deixou para esta tarefa a ordem entre a homologa�
 ## Decisão
 
 Nós vamos **fechar as 6 lacunas que bloqueiam a homologação (LAC-03, 08, 12, 13, 14 e 15) antes de
-submeter o RADAR à homologação da CGTI**. As 9 lacunas importantes (LAC-01, 02, 04 a 07, 09 e 10; a LAC-11
-foi decidida no [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]) entram depois, como
+submeter o RADAR à homologação da CGTI**. As 8 lacunas importantes ainda abertas (LAC-01, 02, 04 a 07, 09 e
+10; a nona, LAC-11, foi decidida no [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]) entram depois, como
 evolução: o cartão `#normativo` passa à frente quando a portaria for publicada.
 
 O piloto da Sede **continua** com as regras de hoje, em paralelo.
@@ -41,7 +41,7 @@ O piloto da Sede **continua** com as regras de hoje, em paralelo.
 
 **Positivas**
 - A CGTI homologa um sistema que não grava nada contra a norma: categorias, subcategorias, rótulos, tratamento
-  do risco crítico, KRI e apetite seguem os Quadros 2 a 5 e o rito da DAR.
+  do risco crítico, KRI e apetite seguem os Quadros 2 a 4, o Anexo III, o item 4.7.1 e o rito da DAR.
 - As lacunas bloqueantes que mudam o esquema (LAC-14, LAC-15, LAC-03 e LAC-08) entram antes da carga de
   muitos dados reais, e a migração dos dados fica menor.
 - O trabalho grande das omissões (Plano único, colegiados, relatórios) espera o texto publicado e não é
@@ -52,7 +52,7 @@ O piloto da Sede **continua** com as regras de hoje, em paralelo.
   migração; a LAC-03, regras novas no envio do risco crítico.
 - No piloto, os riscos gravados antes das mudanças (categorias e subcategorias antigas) vão precisar de
   conversão, com regra combinada com a CGOV.
-- Até as 9 omissões entrarem, a CGOV mantém por SEI o rito do Plano, dos colegiados e dos relatórios.
+- Até as 8 omissões abertas entrarem, a CGOV mantém por SEI o rito do Plano, dos colegiados e dos relatórios.
 
 **Neutras**
 - A ordem do Kanban segue esta decisão: os cartões das 6 lacunas bloqueantes vêm primeiro no Backlog e em

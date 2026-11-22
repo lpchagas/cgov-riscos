@@ -228,3 +228,4 @@ Se um desenho contradizer uma regra, o Claude vai **avisar e não aplicar**. Exe
 - **Code Connect:** a ligação "componente do Figma ↔ arquivo `.vue`".
 - **MCP:** o "conector" que deixa o Claude ler e escrever no Figma.
 - **Dev Mode:** o modo do Figma voltado para desenvolvedores (`</>` na barra inferior).
+

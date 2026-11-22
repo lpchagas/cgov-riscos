@@ -67,7 +67,7 @@ O RADAR **não** é, e não será nesta etapa:
 
 ## 5. Escopo do ciclo 2026–2027
 
-Fonte do que existe: [[ESTADO-ATUAL]]. Não há prazos prometidos.
+Fonte do que existe: [[historico-etapas]] (o que cada etapa entregou) e [[ESTADO-ATUAL]] (retrato de hoje). Não há prazos prometidos.
 
 ### Já entregue (etapas A a C e D1)
 
@@ -100,7 +100,7 @@ Aprovadas no diagnóstico ([[2026-11-20-diagnostico-documentacao-radar]] §5). S
 | LAC-08 | Rito da DAR (proposta da CGOV, CTGRIC, CIG, portaria) |
 | LAC-09 | Acompanhamento da carteira crítica e cobrança de pendências pela CGOV |
 | LAC-10 | Reavaliação anual de todo risco registrado |
-| LAC-11 | Fluxo interno de 3 degraus sem base nas minutas (decisão da CGOV sobre mantê-lo) |
+| LAC-11 | Fluxo interno de 3 degraus sem base nas minutas: **resolvida em 2026-11-22**, o fluxo fica como etapa anterior ao 4.6.1 ([[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1\|ADR-0018]]) |
 
 A lista completa (com as LAC-12 a LAC-15, achadas depois do diagnóstico), a severidade de cada lacuna e o que o sistema faz hoje estão em [[lacunas-norma-sistema]].
 

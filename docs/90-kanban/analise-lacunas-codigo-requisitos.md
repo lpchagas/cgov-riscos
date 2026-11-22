@@ -48,19 +48,21 @@ porque trata da pendência que persiste depois da cobrança).
 | LAC-15 — 6 subcategorias do Quadro 3 (com a dívida da subcategoria em JSONB) | RF-036, RF-174, RF-175 | `categorias_risco`, `riscos` | Pronto para iniciar |
 | LAC-12 — rótulos do Quadro 4 | RF-037, RF-176 | — (rótulos no front e no importador) | Pronto para iniciar |
 | LAC-13 — "Aceitar" e ação obrigatória no risco crítico | RF-049, RF-050 | `riscos`, `respostas_tratamento` | Pronto para iniciar |
-| LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-102, RF-109, RF-183, RF-184 | `indicadores_kri`, `medicoes_kri` | Pronto para iniciar |
+| LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-109, RF-183, RF-184 | `indicadores_kri`, `medicoes_kri` | Pronto para iniciar |
+| LAC-03 — alerta do KRI (prazo de 10 dias úteis) | RF-102 | `medicoes_kri` | Backlog (depois do Figma P-02) |
 | LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois do Figma P-01) |
 | Importador antes da primeira carga real | RF-162, RF-171, RF-172, RF-177 a RF-182, RF-185 a RF-188, RF-194 (o RF-183 e o RF-184 ficam na LAC-03) | `riscos`, `controles_existentes`, `indicadores_kri` | Backlog |
 
-A LAC-08 não foi para "Pronto para iniciar" porque pede tela nova: antes do código, a CGOV aprova o desenho
+O alerta do KRI (RF-102) saiu do cartão da LAC-03 para um cartão próprio, porque pede a tela P-02 aprovada
+antes do código. A LAC-08 não foi para "Pronto para iniciar" porque também pede tela nova: antes do código, a CGOV aprova o desenho
 P-01 no Figma ([[mapa-telas]] §2). O cartão `[figma] Modelagem — P-01` abre o Backlog.
 
 ### 3.2 Prioridade 3: lacunas omissas (puxadas quando a portaria for publicada)
 
 | Cartão | RF |
 | --- | --- |
-| LAC-01 — Plano de Gestão de Riscos único | RF-112 a RF-121, RF-123 |
-| LAC-02 — CTGRIC, CIG, publicação e reapresentação | RF-125, RF-126, RF-128, RF-129, RF-131, RF-132, RF-133, RF-135 |
+| LAC-01 — Plano de Gestão de Riscos único | RF-112 a RF-121 |
+| LAC-02 — CTGRIC, CIG, publicação e reapresentação | RF-123, RF-125, RF-126, RF-128, RF-129, RF-131, RF-132, RF-133, RF-135 |
 | LAC-04 — comunicação das 6 hipóteses do 4.7.2 | RF-107, RF-108, RF-110, RF-111, RF-192 |
 | LAC-05 — relatório trimestral | RF-147, RF-148 |
 | LAC-06 — avaliação gerencial anual | RF-150, RF-151, RF-152 |
@@ -68,7 +70,8 @@ P-01 no Figma ([[mapa-telas]] §2). O cartão `[figma] Modelagem — P-01` abre 
 | LAC-09 — carteira crítica e cobrança | RF-140 a RF-143, RF-149 |
 | LAC-10 — reavaliação anual | RF-103 a RF-106 |
 
-O RF-120 e o RF-123 estão no cartão da LAC-01 (a Origem deles começa pela LAC-01) e também servem à LAC-02.
+O RF-120 está no cartão da LAC-01 e também serve à LAC-02. O RF-123 cita as duas na Origem, mas a Situação
+do catálogo o põe na LAC-02, e ele ficou lá.
 
 ### 3.3 RF pendentes sem lacuna normativa
 

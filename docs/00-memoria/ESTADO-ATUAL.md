@@ -34,7 +34,7 @@ Branch de trabalho: `claude/icmbio-risk-policy-modeling-q840ho`.
 | `npm run test:db` (pgTAP) | Última medição: 17 arquivos, 840 testes, `PASS` (etapa C, 2026-11-16). **Re-medir** na próxima mudança de banco. |
 | `npm run test:a11y` | Última medição: 0 violações em 300 combinações (etapa C). |
 | Documentação | 115 RN, 195 RF (106 implementados, 13 parciais, 76 não iniciados), 51 RNF, 26 casos de uso, 18 ADRs, 12 migrações no DER. |
-| Kanban | 70 cartões: 64 no Backlog, 5 em "Pronto para iniciar" e 1 concluído (a LAC-11). |
+| Kanban | 71 cartões: 65 no Backlog, 5 em "Pronto para iniciar" e 1 concluído (a LAC-11). |
 
 **Pendente de prova real:** as mudanças da cópia (um único `pg_dump`, parcial exclusivo, TLS obrigatório na
 nuvem) passaram nos testes, mas a primeira prova completa do [[guia-copia-restauracao]] (seção 8) ainda não
@@ -48,7 +48,8 @@ Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto
 2. LAC-15 — as 6 subcategorias do Quadro 3, junto com a tabela de subcategorias (RF-036, RF-174, RF-175);
 3. LAC-12 — rótulos da probabilidade do Quadro 4 (RF-037, RF-176);
 4. LAC-13 — "Aceitar" proibido e ação obrigatória no risco crítico (RF-049, RF-050);
-5. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-102, RF-109, RF-183, RF-184).
+5. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
+   KRI (RF-102) tem cartão próprio e espera o desenho P-02.
 
 Cada uma muda banco ou regra: antes do código, é preciso um **plano autorizado** pelo responsável
 (`AGENTS.md`). A LAC-08 (rito da DAR) espera o desenho P-01 no Figma, aprovado pela CGOV. Em paralelo, a
