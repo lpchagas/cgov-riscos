@@ -1,5 +1,5 @@
 {
-  "_comentario": "Linhas REAIS do banco local (seed-demonstracao.sql), copiadas com to_jsonb em 2026-11-16: risco RADAR-DEMO-COFIS, seu objeto, a unidade COFIS, o processo 2.02.3 e a categoria 4. Na semente esse risco não tem filhos; os filhos (controles, respostas, kris, medicoes, historico) foram escritos à mão com os MESMOS nomes de coluna, só para testar o agrupamento.",
+  "_comentario": "Linhas REAIS do banco local (seed-demonstracao.sql), copiadas com to_jsonb em 2026-11-16: risco RADAR-DEMO-COFIS, seu objeto, a unidade COFIS, o processo 2.02.3 e a categoria 4. Na cópia de 2026-11-16 esse risco não tinha filhos (desde a LAC-03, em 2026-11-22, a semente dá uma ação e um KRI aos riscos críticos, inclusive a este); os filhos desta fixture (controles, respostas, kris, medicoes, historico) foram escritos à mão com os MESMOS nomes de coluna, só para testar o agrupamento.",
   "risco": {
     "id": "e58bb8dd-ca88-4b6a-bc37-7fcfd0f72141",
     "causas": "concentração do conhecimento técnico em um único servidor, ausência de manuais operacionais padronizados e inexistência de substituto formalmente capacitado",

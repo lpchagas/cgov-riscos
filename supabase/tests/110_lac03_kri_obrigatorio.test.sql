@@ -31,7 +31,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(110);
+select plan(116);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -458,9 +458,78 @@ select pg_temp.inserir_kri('T110 KRI de dois aprovados', :'obj_a') as k_sh2 \gse
 select pg_temp.ligar_sem_fluxo(:'k_sh2', :'r_ap4');
 select pg_temp.ligar_sem_fluxo(:'k_sh2', :'r_ap5');
 
+-- Review Focus 1, com caminho DETERMINÍSTICO: a trava passa pelos riscos
+-- ligados em ordem de risco_id. Com ids fixos, os dois casos de ordem ficam
+-- provados:
+--   K1: o APROVADO vem primeiro (…a110-…01) → é reaberto e, logo depois, o
+--       risco em validação (…a110-…02) recusa: a reabertura também é desfeita;
+--   K2: o risco EM VALIDAÇÃO vem primeiro (…a110-…03) → recusa antes de chegar
+--       ao aprovado (…a110-…04).
+-- inserir_risco_com_id(id, código, estado): como inserir_risco, com id fixo.
+create or replace function pg_temp.inserir_risco_com_id(p_id uuid, p_codigo text, p_status text)
+returns uuid
+language plpgsql
+as $$
+begin
+  insert into public.riscos
+    (id, codigo_radar, objeto_id, responsavel_risco_nome, causas, evento_risco, consequencias,
+     objetivo_afetado, descricao_padrao, categoria_id, probabilidade, impacto,
+     nivel_inerente, classificacao_inerente, nivel_residual, classificacao_residual,
+     status_fluxo)
+  values (p_id, p_codigo, '00000000-0000-4000-b000-000000000001', 'Responsável de demonstração',
+          'causa de teste', 'evento de teste', 'consequência de teste', 'objetivo de teste', 'x',
+          2, 1, 1, 0, 'Baixo', 0, 'Baixo', 'rascunho');
+  if p_status <> 'rascunho' then
+    perform public.fn_fluxo_mudar_estado(p_id, p_status);
+  end if;
+  return p_id;
+end;
+$$;
+
+select pg_temp.inserir_risco_com_id('00000000-0000-4000-a110-000000000001', 'T110-ORD-1-APROV', 'aprovado') as ro1_ap,
+       pg_temp.inserir_risco_com_id('00000000-0000-4000-a110-000000000002', 'T110-ORD-1-VALID', 'em_validacao_cg') as ro1_va,
+       pg_temp.inserir_risco_com_id('00000000-0000-4000-a110-000000000003', 'T110-ORD-2-VALID', 'em_validacao_cg') as ro2_va,
+       pg_temp.inserir_risco_com_id('00000000-0000-4000-a110-000000000004', 'T110-ORD-2-APROV', 'aprovado') as ro2_ap,
+       pg_temp.inserir_risco_com_id('00000000-0000-4000-a110-000000000005', 'T110-ORD-RASC', 'rascunho') as ro_rasc
+\gset
+select pg_temp.inserir_kri('T110 KRI ordem 1', :'obj_a') as k_o1,
+       pg_temp.inserir_kri('T110 KRI ordem 2', :'obj_a') as k_o2
+\gset
+select pg_temp.ligar_sem_fluxo(:'k_o1', :'ro1_ap');
+select pg_temp.ligar_sem_fluxo(:'k_o1', :'ro1_va');
+select pg_temp.ligar_sem_fluxo(:'k_o1', :'ro_rasc');
+select pg_temp.ligar_sem_fluxo(:'k_o2', :'ro2_va');
+select pg_temp.ligar_sem_fluxo(:'k_o2', :'ro2_ap');
+
 select pg_temp.entrar_como('gestor.uc@radar.test');
-select throws_like(format($$update public.indicadores_kri set formula_calculo = 'nova fórmula' where id = %L$$, :'k_sh'),
-                   '%travada%', '12. alterar KRI compartilhado com um risco em validação é recusado (ficha travada)');
+select throws_like(format($$update public.indicadores_kri set formula_calculo = 'nova fórmula' where id = %L$$, :'k_o1'),
+                   '%T110-ORD-1-VALID está travada%',
+                   '12. K1 (aprovado antes na ordem): alterar o KRI é recusado pelo risco em validação');
+select throws_like(format($$update public.indicadores_kri set formula_calculo = 'nova fórmula' where id = %L$$, :'k_o2'),
+                   '%T110-ORD-2-VALID está travada%',
+                   '12. K2 (em validação antes na ordem): alterar o KRI é recusado');
+-- O mesmo caso pela ficha: o RASCUNHO que divide K1 com o risco em validação
+-- tenta alterar a definição de K1 → recusado, e nada muda.
+select throws_like(format($$select public.salvar_ficha_risco(%L::jsonb)$$, jsonb_build_object(
+                     'id', :'ro_rasc', 'causas', 'causa trocada pela ficha',
+                     'kris', jsonb_build_array(jsonb_build_object('id', :'k_o1', 'formula_calculo', 'fórmula pela ficha')))),
+                   '%T110-ORD-1-VALID está travada%',
+                   '12. ficha de rascunho que altera KRI compartilhado com risco em validação é recusada');
+select pg_temp.sair();
+select is((select string_agg(status_fluxo, ',' order by id) from public.riscos
+            where id in (:'ro1_ap', :'ro1_va', :'ro2_va', :'ro2_ap', :'ro_rasc')),
+          'aprovado,em_validacao_cg,em_validacao_cg,aprovado,rascunho',
+          '12. nos dois casos e pela ficha, nenhum risco mudou de estado (a reabertura de K1 foi desfeita)');
+select is((select string_agg(formula_calculo, ',' order by nome_indicador) from public.indicadores_kri
+            where id in (:'k_o1', :'k_o2')), 'atrasados / total,atrasados / total',
+          '12. a definição dos dois KRIs não mudou');
+select is((select causas from public.riscos where id = :'ro_rasc') || '/'
+          || (select count(*) from public.kri_riscos where risco_id = :'ro_rasc'),
+          'causa de teste/1', '12. a ficha recusada não gravou nada (texto do risco e ligação como antes)');
+select is((select count(*)::int from public.historico_fluxo where risco_id = :'ro1_ap'), 0,
+          '12. K1: o histórico do aprovado não ganhou linha de reabertura');
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
 select is(pg_temp.linhas_afetadas(format($$update public.indicadores_kri set formula_calculo = formula_calculo where id = %L$$, :'k_sh')),
           1, '12. UPDATE que não muda nada continua livre');
 select lives_ok(format($$update public.indicadores_kri set formula_calculo = 'nova fórmula' where id = %L$$, :'k_sh2'),
@@ -468,12 +537,26 @@ select lives_ok(format($$update public.indicadores_kri set formula_calculo = 'no
 select lives_ok(format($$insert into public.indicadores_kri (objeto_id, nome_indicador) values (%L, 'T110 KRI solto')$$, :'obj_a'),
                 '12. criar KRI (ainda sem ligação) é livre');
 select pg_temp.sair();
-select is((select status_fluxo from public.riscos where id = :'r_ap3'), 'aprovado',
-          '12. o outro risco (aprovado) do KRI recusado não mudou');
-select is((select formula_calculo from public.indicadores_kri where id = :'k_sh'), 'atrasados / total',
-          '12. a definição do KRI recusado não mudou');
 select is((select string_agg(status_fluxo, ',' order by codigo_radar) from public.riscos where id in (:'r_ap4', :'r_ap5')),
           'em_validacao_cg,em_validacao_cg', '12. os dois aprovados do KRI alterado reabriram');
+
+-- 12b. KRI que a pessoa LÊ mas não pode ALTERAR: a ficha avisa (42501)
+-- A CGOV lê todos os objetos e grava a ficha do risco preliminar dela. Mas o
+-- KRI abaixo também serve a um rascunho da unidade, então a CGOV não pode
+-- alterá-lo (cgov_grava_no_kri_preliminar). A RLS só "não acha" a linha no
+-- UPDATE; sem a conferência do ROW_COUNT, a ficha diria "salvo" sem gravar.
+select pg_temp.inserir_risco_com_id('00000000-0000-4000-a110-000000000006', 'T110-PRELIM', 'preliminar_cgov') as r_prel \gset
+select pg_temp.inserir_kri('T110 KRI do preliminar e da unidade', :'obj_a') as k_cg \gset
+select pg_temp.ligar_sem_fluxo(:'k_cg', :'r_prel');
+select pg_temp.ligar_sem_fluxo(:'k_cg', :'ro_rasc');
+select pg_temp.entrar_como('cgov@radar.test');
+select throws_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$, jsonb_build_object(
+                   'id', :'r_prel',
+                   'kris', jsonb_build_array(jsonb_build_object('id', :'k_cg', 'formula_calculo', 'fórmula da CGOV')))),
+                 '42501', null, '12b. CGOV altera, pela ficha preliminar, KRI que também é da unidade → recusa 42501');
+select pg_temp.sair();
+select is((select formula_calculo from public.indicadores_kri where id = :'k_cg'), 'atrasados / total',
+          '12b. a definição do KRI não mudou');
 
 -- ----------------------------------------------------------------------------
 -- 13. kri_riscos: sem UPDATE; desligar reabre ou trava; órfão pelo gestor

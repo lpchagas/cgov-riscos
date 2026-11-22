@@ -699,9 +699,9 @@ $$;
 --      Como os envoltórios (enviar, validar, homologar) já chamam essa
 --      função, eles passam a exigir o KRI sem mudar uma linha.
 --      As três bases (fn_base_*) são recriadas iguais às de 20261122002, com
---      uma linha a mais: a categoria do risco fica presa (FOR SHARE) antes de
---      qualquer leitura do apetite (sobra da LAC-13: fecha a corrida com uma
---      mudança simultânea da DAR).
+--      uma linha a mais: a categoria do risco fica presa (FOR SHARE) depois
+--      das conferências de estado e antes de qualquer leitura do apetite
+--      (sobra da LAC-13: fecha a corrida com uma mudança simultânea da DAR).
 --   7. Alterar ou excluir a DEFINIÇÃO de um KRI passa pela trava e pela
 --      reabertura de CADA risco ligado a ele (fn_trava_reabertura_kri). Se um
 --      deles estiver em validação ou homologação, nada é gravado ("ficha
@@ -788,8 +788,9 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.fn_trava_risco_critico(uuid) FROM public, anon, authenticated;
 
 -- 6.2 As três bases, com a categoria presa (FOR SHARE). Corpo igual ao de
--- 20261122002 (seção 2); a única linha nova vem logo depois de ler e travar a
--- ficha. Os envoltórios e as permissões não mudam.
+-- 20261122002 (seção 2); a única linha nova vem depois das conferências de
+-- estado e antes do primeiro fn_fluxo_mudar_estado (que recalcula e lê o
+-- apetite). Os envoltórios e as permissões não mudam.
 CREATE OR REPLACE FUNCTION public.fn_base_enviar_para_validacao(risco uuid)
 RETURNS public.riscos
 LANGUAGE plpgsql
@@ -804,12 +805,6 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'RADAR: risco % não encontrado.', fn_base_enviar_para_validacao.risco USING ERRCODE = 'no_data_found';
   END IF;
-
-  -- LAC-03 (sobra da LAC-13): segura a linha da categoria (FOR SHARE) ANTES
-  -- de qualquer leitura do apetite. Uma mudança simultânea da DAR espera este
-  -- comando terminar (ou este espera a DAR), e o recálculo nunca usa um
-  -- apetite que está sendo trocado no mesmo instante.
-  PERFORM 1 FROM public.categorias_risco AS c WHERE c.id = v_risco.categoria_id FOR SHARE;
 
   IF NOT public.pode_escrever_objeto(v_risco.objeto_id) THEN
     RAISE EXCEPTION 'RADAR: só a unidade dona do risco % pode enviá-lo para validação.', v_risco.codigo_radar
@@ -834,6 +829,16 @@ BEGIN
       v_risco.codigo_radar
       USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
+
+  -- LAC-03 (sobra da LAC-13): segura a linha da categoria (FOR SHARE) ANTES
+  -- de qualquer leitura do apetite (o recálculo abaixo lê o apetite). Uma
+  -- mudança simultânea da DAR espera este comando terminar (ou este espera a
+  -- DAR), e o recálculo nunca usa um apetite que está sendo trocado.
+  -- POR QUE AQUI, DEPOIS DAS CONFERÊNCIAS DE ESTADO: o gatilho da DAR trava
+  -- a categoria e depois SÓ os riscos 'aprovado'. Daqui em diante o risco já
+  -- não é 'aprovado' (as conferências acima garantiram o estado), então a DAR
+  -- nunca espera por ele: não há espera em círculo (deadlock) entre os dois.
+  PERFORM 1 FROM public.categorias_risco AS c WHERE c.id = v_risco.categoria_id FOR SHARE;
 
   -- P-B1-1 (correção da revisão): risco que exige homologação precisa de
   -- homologador efetivo. Criticidade fresca (a DAR pode ter mudado).
@@ -878,12 +883,6 @@ BEGIN
     RAISE EXCEPTION 'RADAR: risco % não encontrado.', fn_base_validar_risco.risco USING ERRCODE = 'no_data_found';
   END IF;
 
-  -- LAC-03 (sobra da LAC-13): segura a linha da categoria (FOR SHARE) ANTES
-  -- de qualquer leitura do apetite. Uma mudança simultânea da DAR espera este
-  -- comando terminar (ou este espera a DAR), e o recálculo nunca usa um
-  -- apetite que está sendo trocado no mesmo instante.
-  PERFORM 1 FROM public.categorias_risco AS c WHERE c.id = v_risco.categoria_id FOR SHARE;
-
   SELECT o.unidade_id INTO v_unidade FROM public.objetos_contexto AS o WHERE o.id = v_risco.objeto_id;
   v_enviou   := public.fn_fluxo_quem_enviou(v_risco.id);
   v_chefia   := public.fn_fluxo_validador_efetivo(v_unidade, v_enviou);
@@ -904,6 +903,16 @@ BEGIN
       v_risco.codigo_radar, v_risco.status_fluxo
       USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
+
+  -- LAC-03 (sobra da LAC-13): segura a linha da categoria (FOR SHARE) ANTES
+  -- de qualquer leitura do apetite (o recálculo abaixo lê o apetite). Uma
+  -- mudança simultânea da DAR espera este comando terminar (ou este espera a
+  -- DAR), e o recálculo nunca usa um apetite que está sendo trocado.
+  -- POR QUE AQUI, DEPOIS DAS CONFERÊNCIAS DE ESTADO: o gatilho da DAR trava
+  -- a categoria e depois SÓ os riscos 'aprovado'. Daqui em diante o risco já
+  -- não é 'aprovado' (as conferências acima garantiram o estado), então a DAR
+  -- nunca espera por ele: não há espera em círculo (deadlock) entre os dois.
+  PERFORM 1 FROM public.categorias_risco AS c WHERE c.id = v_risco.categoria_id FOR SHARE;
 
   -- Criticidade atual (a DAR pode ter mudado durante a espera): ver a
   -- explicação na migração 20261115004.
@@ -958,12 +967,6 @@ BEGIN
     RAISE EXCEPTION 'RADAR: risco % não encontrado.', fn_base_homologar_risco.risco USING ERRCODE = 'no_data_found';
   END IF;
 
-  -- LAC-03 (sobra da LAC-13): segura a linha da categoria (FOR SHARE) ANTES
-  -- de qualquer leitura do apetite. Uma mudança simultânea da DAR espera este
-  -- comando terminar (ou este espera a DAR), e o recálculo nunca usa um
-  -- apetite que está sendo trocado no mesmo instante.
-  PERFORM 1 FROM public.categorias_risco AS c WHERE c.id = v_risco.categoria_id FOR SHARE;
-
   SELECT o.unidade_id INTO v_unidade FROM public.objetos_contexto AS o WHERE o.id = v_risco.objeto_id;
   v_homologa := public.fn_fluxo_homologador_efetivo(v_unidade, public.fn_fluxo_quem_enviou(v_risco.id));
 
@@ -977,6 +980,16 @@ BEGIN
       v_risco.codigo_radar, v_risco.status_fluxo
       USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
+
+  -- LAC-03 (sobra da LAC-13): segura a linha da categoria (FOR SHARE) ANTES
+  -- de qualquer leitura do apetite (o recálculo abaixo lê o apetite). Uma
+  -- mudança simultânea da DAR espera este comando terminar (ou este espera a
+  -- DAR), e o recálculo nunca usa um apetite que está sendo trocado.
+  -- POR QUE AQUI, DEPOIS DAS CONFERÊNCIAS DE ESTADO: o gatilho da DAR trava
+  -- a categoria e depois SÓ os riscos 'aprovado'. Daqui em diante o risco já
+  -- não é 'aprovado' (as conferências acima garantiram o estado), então a DAR
+  -- nunca espera por ele: não há espera em círculo (deadlock) entre os dois.
+  PERFORM 1 FROM public.categorias_risco AS c WHERE c.id = v_risco.categoria_id FOR SHARE;
 
   v_risco := public.fn_fluxo_mudar_estado(v_risco.id, 'aprovado');
   PERFORM public.fn_fluxo_registrar_historico(v_risco.id, 'homologacao_diretoria', 'homologado',
@@ -1090,7 +1103,7 @@ DECLARE
   v_grupo   text;                         -- nome da lista (controles, respostas, kris)
   v_novo    boolean;                      -- true = ficha nova (sem id)
   v_fator   numeric(3,2);                 -- fator do Quadro 6 (sai da eficácia)
-  v_linhas  integer;                      -- linhas alteradas pelo UPDATE do risco
+  v_linhas  integer;                      -- linhas alteradas pelo UPDATE do risco (e do KRI, na 2c)
   -- Trava do risco crítico (LAC-13, bloco 2d): o risco como ficou gravado.
   v_trava_estado     text;
   v_trava_critico    text;
@@ -1404,6 +1417,16 @@ BEGIN
             limite_alerta       = v_kri.limite_alerta,
             responsavel_medicao = v_kri.responsavel_medicao
           WHERE k.id = v_kri_id AND k.objeto_id = v_objeto;
+          -- A RLS não dá erro no UPDATE barrado: só "não acha" a linha. Sem
+          -- esta conferência, a ficha diria "salvo" sem ter gravado o KRI.
+          -- Ex.: a CGOV, na ficha preliminar, altera um KRI que também serve
+          -- a um risco da unidade (ela lê o KRI, mas não pode alterá-lo).
+          GET DIAGNOSTICS v_linhas = ROW_COUNT;
+          IF v_linhas = 0 THEN
+            RAISE EXCEPTION 'RADAR: você não pode alterar a definição do KRI "%" na ficha do risco % (o KRI serve a risco que você não pode alterar).',
+              v_kri.nome_indicador, v_codigo
+              USING ERRCODE = 'insufficient_privilege';   -- 42501
+          END IF;
         END IF;
       END IF;
 

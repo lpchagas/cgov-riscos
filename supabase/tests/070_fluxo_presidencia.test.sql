@@ -31,10 +31,11 @@ select
   (select id from public.unidades where icmbio_id = '10.0007') as cgge
 \gset
 
--- LAC-13 (migração 20261122002): os riscos da semente não têm ações 5W2H, e o
--- risco crítico sem ação não anda mais no fluxo. Este teste prova OUTRAS
--- regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava é
--- provada em 100_lac13_trava_critico.test.sql.
+-- LAC-13 e LAC-03 (migrações 20261122002 e 20261122004): o risco crítico só
+-- anda no fluxo com ação 5W2H e KRI completo. Na semente, só os riscos
+-- críticos têm ação e KRI (seção 5b); os outros não têm. Este teste prova
+-- OUTRAS regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava
+-- é provada em 100_lac13_trava_critico.test.sql e 110_lac03_kri_obrigatorio.test.sql.
 select pg_temp.dar_tratamento_a_todos();
 
 -- Um gestor FICTÍCIO (não titular) na Assessoria da Presidência.
