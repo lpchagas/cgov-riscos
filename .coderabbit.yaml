@@ -12,6 +12,18 @@
 #
 # Documentação oficial: https://docs.coderabbit.ai/reference/configuration
 # Teste de experimentação aberto em 2026-11-21 (avaliação de custo-benefício).
+#
+# Divisão de papéis (decisão de 2026-11-21; ver seção "Revisões" do CLAUDE.md):
+#   - o hook .githooks/pre-commit roda tipos e testes antes de cada commit;
+#   - o Claude Code revisa a lógica de cada tarefa, localmente;
+#   - o CodeRabbit revisa a PR inteira, uma vez por fase, com foco nas regras
+#     do Regime B, em segurança e em dados pessoais.
+# Por isso este arquivo corta tudo o que gera ruído: estilo, ferramentas que
+# repetem o hook e enfeites do resumo.
+#
+# Esquema: continua o v2. O formato v3 (version: 3) está em prévia restrita;
+# migrar quando ele sair da prévia (instruções por pasta viram arquivos em
+# .coderabbit/instructions/). Referência: docs.coderabbit.ai/reference/configuration-v3
 # =============================================================================
 
 # Comentários em português do Brasil.
@@ -26,7 +38,22 @@ reviews:
   # "chill" = só o que importa; "assertive" = mais comentários (mais ruído).
   profile: chill
   high_level_summary: true
+  high_level_summary_instructions: >-
+    Resumo curto em português do Brasil: no máximo 8 tópicos, agrupados por
+    pasta, dizendo o que mudou e por quê. Sem tabelas longas.
   poem: false
+  in_progress_fortune: false
+
+  # Enfeites do comentário de "walkthrough" que não ajudam nesta equipe de
+  # uma pessoa: desligados para o resumo ficar curto.
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
   # Não pedir "Request changes": o revisor sugere, quem decide é o responsável.
   request_changes_workflow: false
 
@@ -36,6 +63,10 @@ reviews:
     # Só revisa PRs que vão para a main.
     base_branches:
       - "^main$"
+    # Revisa de novo a cada push na PR, mas pausa depois de 5 commits
+    # revisados (para retomar: comente "@coderabbitai review").
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 5
 
   # O que NÃO revisar (economiza a cota e evita ruído).
   path_filters:
@@ -54,6 +85,14 @@ reviews:
     - "!.copilot/**"
     - "!.opencode/**"
     - "!copilot/**"
+    # Planos, desenhos e prompts de trabalho dos agentes: são rascunhos do
+    # processo, não o produto. Na PR #9 boa parte do ruído veio daqui.
+    - "!docs/superpowers/**"
+    - "!docs/00-memoria/prompt-*.md"
+    # Arquivos gerados (caso algum dia entrem por engano numa PR).
+    - "!dist/**"
+    - "!playwright-report/**"
+    - "!test-results/**"
 
   # Instruções por pasta. O CodeRabbit também lê o AGENTS.md sozinho
   # (knowledge_base.code_guidelines), mas repetimos aqui o essencial.
@@ -70,6 +109,16 @@ reviews:
           em código, testes ou docs; só contas de demonstração @radar.test.
           Nada vindo de _temp/ nem de arquivos .env.
         - Textos e comentários em português do Brasil, didáticos.
+        Como comentar (para reduzir ruído):
+        - Comente só o que pode causar erro: lógica, regra de negócio,
+          segurança, dados pessoais, acessibilidade, contradição entre
+          documentos. Não comente estilo, formatação, nomes, ordem de
+          importações nem refatorações opcionais.
+        - Tipos (vue-tsc) e testes (vitest) já rodam num hook antes de cada
+          commit: não peça para rodá-los nem aponte o que eles já pegam.
+        - O mesmo problema em vários lugares vira UM comentário, com a lista
+          dos lugares.
+        - Em dúvida se é problema, não comente.
     - path: "src/utils/calculadoraRiscoRadar.ts"
       instructions: |
         Cálculo oficial (Metodologia SEI 024421455). Verifique com rigor:
@@ -117,16 +166,79 @@ reviews:
         links quebrados e contradições com as regras do Regime B. Não sugira
         mudanças de estilo Markdown sem impacto no conteúdo.
 
+  # Verificações automáticas da PR: o título e a descrição seguem o padrão
+  # do AGENTS.md ("Fase N: <nome>"), e não usamos issues. Desligadas.
+  pre_merge_checks:
+    title:
+      mode: "off"
+    description:
+      mode: "off"
+    issue_assessment:
+      mode: "off"
+
+  # Ferramentas (linters) que o CodeRabbit roda por conta própria. No painel
+  # web quase todas vêm ligadas; aqui ficam LIGADAS só as que acham coisas
+  # que o hook de commit não acha, e DESLIGADAS as que geram ruído no nosso
+  # tipo de arquivo. Ferramentas de linguagens que não usamos (Python, PHP,
+  # Go, Ruby...) nem são citadas: sem arquivos delas, nunca rodam.
   tools:
-    # Procura senhas e chaves vazadas: importante num repositório público.
+    # --- LIGADAS: segurança e privacidade (o repositório é público) ---
+    # Senhas e chaves vazadas (duas ferramentas, métodos diferentes).
     gitleaks:
       enabled: true
-    # Desligados para evitar ruído: a estrutura dos docs já é protegida por
-    # tests/unit/documentacao.spec.ts, e o LanguageTool erra muito em pt-BR
-    # técnico.
+    trufflehog:
+      enabled: true
+    # Dados pessoais (nome, CPF, e-mail) em código e documentos.
+    presidio:
+      enabled: true
+    # Dependências do npm com vulnerabilidade conhecida.
+    osvScanner:
+      enabled: true
+    # Migrações do Postgres perigosas (travar tabela, apagar coluna...).
+    squawk:
+      enabled: true
+    # Dockerfile e imagem do contêiner de homologação da CGTI.
+    hadolint:
+      enabled: true
+    trivy:
+      enabled: true
+    # Padrões de código inseguro em TypeScript (um só motor basta).
+    semgrep:
+      enabled: true
+    ast-grep:
+      essential_rules: true
+    # --- DESLIGADAS: ruído ---
+    # Estrutura e siglas dos docs já são protegidas pelo teste
+    # tests/unit/documentacao.spec.ts; o LanguageTool e o Vale erram muito
+    # em português técnico.
     markdownlint:
       enabled: false
     languagetool:
+      enabled: false
+    vale:
+      enabled: false
+    # Estilo de SQL: só formatação, sem achar erro (as migrações são testadas
+    # com "npm run test:db").
+    sqlfluff:
+      enabled: false
+    # Linters de estilo de JavaScript sem configuração no projeto: só dão
+    # palpites de formatação. O vue-tsc do hook cobre os tipos.
+    biome:
+      enabled: false
+    oxc:
+      enabled: false
+    eslint:
+      enabled: false
+    # Repetem o semgrep.
+    opengrep:
+      enabled: false
+    # Repetem o hadolint/trivy no Dockerfile com regras de nuvem genéricas.
+    checkov:
+      enabled: false
+    # Reclamam da ordem das chaves do .env.example e da formatação de YAML.
+    dotenvLint:
+      enabled: false
+    yamllint:
       enabled: false
 
 knowledge_base:

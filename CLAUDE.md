@@ -12,6 +12,16 @@ Aplicativo web e cofre Obsidian do **Sistema RADAR (Rede de Avaliação, Diagnó
 - **Executar todos os testes automatizados:** `npm test` (ou `npx vitest run`)
 - **Gerar build de produção (TypeScript + Vite):** `npm run build`
 - **Subir container Docker para homologação CGTI:** `docker compose up -d --build`
+- **Verificação antes do commit:** automática, pelo hook `.githooks/pre-commit` (instalado pelo `npm ci` via script `prepare`). Commit só de docs roda o `documentacao.spec.ts`; os demais rodam `vue-tsc` + `vitest`. Fica calado quando passa.
+
+## Revisões (decisão do responsável, 2026-11-21)
+
+Objetivo: menos tokens do Claude e menos ruído do CodeRabbit, sem perder rigor. Cada camada faz uma coisa só:
+
+1. **Hook de commit (mecânico, sem IA):** tipos, testes e estrutura/siglas dos docs. Se ele passou, nenhum revisor reconfere isso. Não rode `npm test` "só para conferir" logo antes do commit: o hook já roda.
+2. **Claude, por tarefa (lógica):** **uma** revisão por tarefa, juntando aderência ao plano e qualidade (não duas rodadas separadas). Tarefa só de documentação ou configuração: revisor com modelo mais barato (`sonnet`) ou só a autorrevisão do diff, se for trivial. Cálculo (Quadros 6, 7 e 8), RLS, migrações e Edge Functions: revisão completa, sempre.
+3. **Claude, no fim da fase:** um `/code-review` (nível `medium`) no diff da branch antes de abrir a PR. Os níveis `max`/`ultra` ficam só a pedido.
+4. **CodeRabbit, na PR (visão ampla):** regras do Regime B, segurança, dados pessoais e coerência entre documentos (`.coderabbit.yaml`). Faça a triagem dos comentários **em lote**, numa passada só: leia todos, classifique em procedente/improcedente, corrija os procedentes num commit e responda os improcedentes na PR.
 
 ## Navegação pelo Segundo Cérebro (Obsidian)
 
