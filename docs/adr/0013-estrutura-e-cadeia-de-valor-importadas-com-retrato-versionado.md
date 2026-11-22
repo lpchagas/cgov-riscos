@@ -27,7 +27,10 @@ importa. Atribuições de pessoas (dados pessoais) ficam fora do repositório (`
 
 **Positivas**
 - Banco recriável por qualquer pessoa, sem SharePoint; carga atômica (tudo ou nada).
-- Defeitos da lista viram avisos no relatório, sem travar a importação.
+- A maior parte dos defeitos da lista vira aviso no relatório, sem travar a importação (mãe inexistente, vínculo
+  com CT de outra GR, processo sem `proc_id`). Duas exceções: um **ciclo** na árvore (A é mãe de B, que é mãe
+  de A) faz o conversor lançar erro e **interrompe** a importação; e a unidade cujo tipo não se deduz fica
+  **fora da carga** e aparece na lista "sem tipo" do relatório (`scripts/sync-estrutura/converter.ts`).
 
 **Negativas**
 - O retrato envelhece: precisa ser atualizado quando a CGOV corrige a lista.

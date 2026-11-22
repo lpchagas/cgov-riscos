@@ -20,8 +20,11 @@ vitrine; a decisão D0-8 de 2026-11-17 a trocou por Power Pages ou Cloudflare Pa
 
 Nós vamos empacotar o front compilado e um servidor **Nginx** numa imagem Docker em dois estágios (construção
 com Node, execução com `nginx:alpine`), com `docker-compose.yml`, para subir com `docker compose up -d --build`.
-Os cabeçalhos de segurança, inclusive a CSP, saem de um modelo (`envsubst`) com a política escrita num só
-lugar (`scripts/compartilhado/csp.ts`).
+Esse comando sobe **só o modo demonstração** (sem banco). O modo real usa o perfil `real-local` do
+`docker-compose.yml`, com as variáveis do Supabase passadas por `--env-file` no momento do build (ver o
+[[guia-docker-cgti]]). A CSP está escrita em **dois lugares**: `scripts/compartilhado/csp.ts` (para as
+publicações estáticas) e, por extenso, `nginx/default.conf.template`, em que o `envsubst` só troca a origem
+do Supabase (`RADAR_SUPABASE_ORIGEM`); o teste `tests/unit/deployConfig.spec.ts` compara as duas cópias.
 
 ## Consequências
 

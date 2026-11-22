@@ -11,7 +11,8 @@ data: 2026-11-21
 São **6 estados**, de `20261115004_fluxo_aprovacao.sql`,
 `20261116001_fluxo_presidencia.sql`, `20261116003_preliminar_cgov.sql` e `20261116004_dar_reavalia_aprovados.sql`.
 Cada seta traz a **ação** gravada em `historico_fluxo.acao` e a **guarda** (condição). Estado `aprovado` =
-integrado ao Plano de Gestão de Riscos; **Risco Crítico** = residual fora do apetite da DAR (não é o nível Extremo).
+fim do fluxo interno do risco (validado e, se preciso, homologado); ainda não há a entidade Plano, por isso
+aprovar não inclui o risco num Plano de Gestão de Riscos (ver a seção 2); **Risco Crítico** = residual fora do apetite da DAR (não é o nível Extremo).
 
 ```mermaid
 stateDiagram-v2

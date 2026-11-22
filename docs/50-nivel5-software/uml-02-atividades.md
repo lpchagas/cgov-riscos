@@ -45,11 +45,12 @@ flowchart TD
   mon -->|Mudança substancial do Plano| plano
   mon --> rel --> fim
   classDef lacuna stroke-dasharray: 5 5
-  class plano,rel,travado lacuna
+  class dar,plano,rel,travado lacuna
 ```
 
-> No RADAR de hoje, o trecho `F1.01 a F1.06` e a decisão `F1.05` estão implementados; `F1.07` e `F1.09` não
-> (LAC-01, LAC-02, LAC-05). Em `F1.05`, "Risco Crítico" é o residual fora do apetite da DAR, não o nível Extremo.
+> No RADAR de hoje, `F1.01`, `F1.02`, as decisões `F1.04` e `F1.05` e `F1.06` estão implementados; `F1.03`, `F1.07`
+> e `F1.09` não (LAC-08, LAC-01, LAC-02, LAC-05). Em `F1.03`, a CGOV muda o apetite direto na tela `/dar`, sem o
+> rito do CTGRIC, do CIG e da portaria (LAC-08); `F1.04` só consulta o apetite gravado. Em `F1.05`, "Risco Crítico" é o residual fora do apetite da DAR, não o nível Extremo.
 
 ## 2. Validação interna do risco (FS-01), implementada
 
@@ -68,15 +69,23 @@ flowchart TD
     hom[Homologa]
   end
   rec([Recusa 55000: procure a CGOV])
+  dev([Validador devolve à unidade])
   apr([Aprovado])
   env --> v
   v -->|Não| rec
-  v -->|Sim| val --> crit
+  v -->|Sim| hok{Crítico ou pendente_dar<br/>sem homologador efetivo?}
+  hok -->|Sim| rec
+  hok -->|Não| val --> crit
   crit -->|Não| apr
-  crit -->|Sim| h
+  crit -->|Sim, há homologador efetivo| h
+  crit -->|Sim, sem homologador: a DAR mudou<br/>durante a validação, validar_risco recusa| dev
   h -->|Sim: validado e homologado| apr
   h -->|Não| hom --> apr
 ```
+
+> O envio já recusa (`55000`) o risco Crítico ou `pendente_dar` sem homologador efetivo. Se a DAR mudar enquanto o
+> risco espera a validação e ele passar a exigir homologação sem haver homologador, `validar_risco` recusa e o risco
+> fica em `em_validacao_cg`: o validador o devolve (teste `070_fluxo_presidencia.test.sql`, bloco 5b).
 
 ## 3. Aprovação do Plano e da DAR (F3), proposta
 
@@ -101,11 +110,15 @@ flowchart TD
     por[Presidente publica por portaria]
   end
   cons --> ver
-  ver -->|Não| dev --> san --> ver
+  ver -->|Não| dev --> san
+  san -->|Sanou no prazo| ver
+  san -->|Sem resposta em 10 dias úteis| res[CGOV consolida com<br/>ressalva de incompletude]
+  res --> enc
   ver -->|Sim| enc --> man --> inc --> del
   del -->|Sim| por --> pub
   del -->|Não| aj[CGOV ajusta e reapresenta em até 30 dias]
-  aj --> enc
+  aj -->|Mudança substancial| enc
+  aj -->|Sem mudança substancial| del
 ```
 
 > Todo o diagrama 3 é **proposta** (LAC-01 e LAC-02): hoje esse rito acontece fora do RADAR, por SEI e reunião.

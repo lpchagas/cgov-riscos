@@ -35,7 +35,7 @@ sequenceDiagram
   alt sem chefia acima, sem homologador efetivo (Crítico ou pendente_dar), estado inválido ou sem permissão
     R-->>F: RADAR: ... (55000 ou 42501)
     F-->>S: ErroRadar traduzido (traduzirErroBanco)
-    S-->>T: mensagem em português
+    S-->>T: mensagem em português (o fluxo para aqui)
   else permitido
     R->>G2: recalcula criticidade (UPDATE no mesmo estado)
     R->>A: ação "submetido" e linha de auditoria
@@ -43,30 +43,38 @@ sequenceDiagram
     F-->>S: ok
     S->>F: relerRisco e acoesNoFluxo
     S-->>T: ficha e botões atualizados
+    C->>T: Clica em "Validar"
+    T->>S: aprovarEmUmCliqueCg(riscoId, parecer)
+    S->>F: validar(id, parecer)
+    F->>R: rpc validar_risco(risco, parecer)
+    R->>L: é titular do validador efetivo? (quem enviou não valida)
+    R->>G2: criticidade atual (a DAR pode ter mudado)
+    alt Crítico ou pendente_dar, e homologador efetivo diferente da chefia
+      R->>A: ação "validado" (encaminha à homologação)
+      R-->>F: em_homologacao_dir
+      F-->>S: ok
+      S->>F: relerRisco e acoesNoFluxo (logo após a validação)
+      S-->>T: ficha validada, à espera da homologação
+      H->>T: Clica em "Homologar" (mais tarde, em outra sessão)
+      T->>S: homologarEmUmCliqueDiretoria(riscoId, parecer)
+      S->>F: homologar(id, parecer)
+      F->>R: rpc homologar_risco(risco, parecer)
+      R->>A: ação "homologado"
+      R-->>F: aprovado
+      F-->>S: ok
+      S->>F: relerRisco e acoesNoFluxo
+    else Crítico ou pendente_dar, e o mesmo titular valida e homologa
+      R->>A: ação "validado_e_homologado"
+      R-->>F: aprovado
+      F-->>S: ok
+      S->>F: relerRisco e acoesNoFluxo
+    else não Crítico e apetite definido
+      R->>A: ação "validado" (não exige homologação)
+      R-->>F: aprovado
+      F-->>S: ok
+      S->>F: relerRisco e acoesNoFluxo
+    end
   end
-  C->>T: Clica em "Validar"
-  T->>S: aprovarEmUmCliqueCg(riscoId, parecer)
-  S->>F: validar(id, parecer)
-  F->>R: rpc validar_risco(risco, parecer)
-  R->>L: é titular do validador efetivo? (quem enviou não valida)
-  R->>G2: criticidade atual (a DAR pode ter mudado)
-  alt Crítico ou pendente_dar, e homologador efetivo diferente da chefia
-    R->>A: ação "validado" (encaminha à homologação)
-    R-->>F: em_homologacao_dir
-    H->>T: Clica em "Homologar"
-    T->>S: homologarEmUmCliqueDiretoria(riscoId, parecer)
-    S->>F: homologar(id, parecer)
-    F->>R: rpc homologar_risco(risco, parecer)
-    R->>A: ação "homologado"
-    R-->>F: aprovado
-  else Crítico ou pendente_dar, e o mesmo titular valida e homologa
-    R->>A: ação "validado_e_homologado"
-    R-->>F: aprovado
-  else não Crítico e apetite definido
-    R->>A: ação "validado" (não exige homologação)
-    R-->>F: aprovado
-  end
-  F-->>S: ok, a store relê o risco e as ações
 ```
 
 ## (b) UC-13: importar riscos da tabela da skill
