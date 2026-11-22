@@ -91,7 +91,7 @@ views e migrações). A coluna **Tela** entrou na Tarefa 18 (interface), a parti
 | Regra do sistema (AGENTS.md, regra 5) | RN-006 | RF-034 | UC-05 | `/riscos/novo` | Novo risco | `riscos` | `calculadoraRiscoRadar.spec.ts`; `novoRiscoPagina.spec.ts` |
 | Regra do sistema (AGENTS.md, regra 5) | RN-018 | RF-035 | UC-05 | `/riscos/novo` | Novo risco | `riscos` | `novoRiscoPagina.spec.ts` (parcial) |
 | Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-036 | UC-05 | `/riscos/novo` | Novo risco | `subcategorias_risco`; `riscos` | `novoRiscoPagina.spec.ts`; pgTAP `090`; `errosBanco.spec.ts` |
-| Metodologia 4.3, a, Quadro 4 | RN-011 | RF-037 | UC-06 | `/riscos/novo` | Novo risco | `riscos` | `escalasProbabilidadeImpacto.spec.ts`; `novoRiscoPagina.spec.ts`; `componentesUi.spec.ts` |
+| Metodologia 4.3, a, Quadro 4 | RN-011 | RF-037 | UC-06 | `/riscos/novo` | Novo risco | `riscos` | `escalasProbabilidadeImpacto.spec.ts`; `novoRiscoPagina.spec.ts`; `componentesUi.spec.ts`; `painelPiloto.spec.ts` |
 | Metodologia 4.3, b, Quadro 5 | RN-012 | RF-038 | UC-06 | `/riscos/novo` | Novo risco | `riscos` | `escalasProbabilidadeImpacto.spec.ts`; `novoRiscoPagina.spec.ts` |
 | Metodologia 4.3, c, e fórmula do residual / Regra do sistema (AGENTS.md, regra 4) | RN-003, RN-004 | RF-039 | UC-06 | `/riscos/novo` | Novo risco | `controles_existentes`; `salvar_ficha_risco` | pgTAP `050` bl. 8; `novoRiscoPagina.spec.ts` |
 | Regra do sistema (AGENTS.md, regra 4) | RN-004 | RF-040 | UC-06 | `/riscos/novo` | Novo risco | `controles_existentes`; `salvar_ficha_risco` | `novoRiscoPagina.spec.ts` |

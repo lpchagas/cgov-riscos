@@ -8,7 +8,7 @@ tags: [acessibilidade, wcag, axe-core, playwright, testes]
 
 # Varredura de acessibilidade do RADAR (`npm run test:a11y`)
 
-> **Em uma frase:** um único comando abre o RADAR num navegador de verdade, passa por **(16 + 5) telas ×
+> **Em uma frase:** um único comando abre o RADAR num navegador de verdade, passa por **(17 + 4) telas ×
 > 5 larguras × 3 temas = 315 combinações** e **reprova** se encontrar qualquer problema de
 > acessibilidade (WCAG 2.2, níveis A e AA) ou se alguma página rolar para o lado.
 
