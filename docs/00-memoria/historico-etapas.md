@@ -223,3 +223,9 @@ Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etap
   corrigidos (`0609094`). Entre eles: o alerta do KRI (RF-102) ganhou cartão próprio, porque espera o
   desenho P-02; o RF-123 foi para a LAC-02; a decisão da LAC-11 chegou à visão de produto e ao
   registro de alertas.
+- **Triagem em lote da PR #13 (2026-11-22):** 8 comentários (5 do CodeRabbit e 3 do Codex). **7 procedentes**,
+  corrigidos em `d9a43c3`: decisão da LAC-11 levada ao início do FS-01, à tabela do F3 e à situação do
+  F3-04 no registro de alertas (`decidido, não aplicado`); `|` dos aliases escapado nas tabelas das
+  lacunas; a Definição de Pronto passou a aceitar RNF e a exigir as dependências cumpridas; novo passo
+  "Falta de requisito" nas políticas; o P-01 deixou de aparecer como já aprovado no ADR-0017.
+  **1 improcedente**, respondido na PR: o total de 622 testes foi medido, e a `origin/main` dá o mesmo.
