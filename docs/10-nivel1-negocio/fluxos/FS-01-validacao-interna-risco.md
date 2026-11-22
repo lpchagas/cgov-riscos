@@ -1,7 +1,7 @@
 # FS-01 — Validação interna do risco no RADAR (3 degraus)
 
 > **Origem: decisão da CGOV, sem base nas minutas (LAC-11).**
-> Nenhum fluxo oficial (F1 a F4) prevê validação pela chefia nem homologação pelo diretor **risco a risco**. Pela norma, o gestor comunica os riscos críticos à CGOV (Metodologia 4.6.1) e a CGOV verifica e consolida (4.6.2). Os 3 degraus do RADAR vêm das decisões da CGOV: matriz P1 a P8 e P-B1-1 a P-B1-8 ([[matriz-acesso-responsabilidades]] §5, §6 linhas 4 e 5, e §9) e D1 "sobe um nível" ([[decisoes-tecnicas-b1]] §1 e §5, B11-1 a B11-9). O alerta **F3-04** ([[registro-alertas-f4-f5]], aberto) pede que a CGOV decida se este fluxo fica como etapa anterior ao 4.6.1 (diagnóstico §5.2, B2).
+> Nenhum fluxo oficial (F1 a F4) prevê validação pela chefia nem homologação pelo diretor **risco a risco**. Pela norma, o gestor comunica os riscos críticos à CGOV (Metodologia 4.6.1) e a CGOV verifica e consolida (4.6.2). Os 3 degraus do RADAR vêm das decisões da CGOV: matriz P1 a P8 e P-B1-1 a P-B1-8 ([[matriz-acesso-responsabilidades]] §5, §6 linhas 4 e 5, e §9) e D1 "sobe um nível" ([[decisoes-tecnicas-b1]] §1 e §5, B11-1 a B11-9). O alerta **F3-04** ([[registro-alertas-f4-f5]]) pedia que a CGOV decidisse se este fluxo fica como etapa anterior ao 4.6.1 (diagnóstico §5.2, B2). **Decidido em 2026-11-22:** fica, como controle de qualidade da unidade ([[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]).
 
 > **Versão:** FS-01 v1, de 20/11/2026, derivada do banco tal como está.
 > **Fonte:** migrações `supabase/migrations/20261115004_fluxo_aprovacao.sql`, `20261116001_fluxo_presidencia.sql`, `20261116003_preliminar_cgov.sql` e `20261116004_dar_reavalia_aprovados.sql` (e as políticas do preliminar em `20261115003`); testes pgTAP `supabase/tests/050_fluxo.test.sql`, `070_fluxo_presidencia.test.sql`, `072_preliminar_cgov.test.sql`, `073_dar_reavalia.test.sql` e `080_acoes_no_fluxo.test.sql`.
@@ -116,8 +116,8 @@ Não há dispositivo nas minutas para nenhuma destas atividades: a coluna "Regra
 
 ## Alertas e lacunas
 
-- **LAC-11** — fluxo interno de 3 degraus sem base nas minutas; a CGOV decide se ele fica antes do 4.6.1 (diagnóstico §5.4).
-- **F3-04** — "o fluxo do aplicativo não tem base nas minutas" (aberto, [[registro-alertas-f4-f5]]).
+- **LAC-11** — fluxo interno de 3 degraus sem base nas minutas; a CGOV decidiu, em 2026-11-22, que ele fica antes do 4.6.1, como controle de qualidade da unidade ([[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]; diagnóstico §5.4).
+- **F3-04** — "o fluxo do aplicativo não tem base nas minutas" (decidido, não aplicado: fica como etapa anterior ao 4.6.1, [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]; [[registro-alertas-f4-f5]]).
 - **F3-02** (resolvido no texto saneado) — a devolução da norma é da CGOV na consolidação (F3.04), com 10 dias úteis; a devolução do RADAR é da chefia ou do homologador, sem prazo (impacto anotado no registro; LAC-01).
 - **F5-12** (aberto) — o número de devoluções não é limitado (`devolver_risco`; LAC-01).
 - **F2-04** e **LS-01** — a trava "sem evidência, no máximo Fraco (0,9)" é regra do sistema, aplicada pelo gatilho de cálculo antes do FS-01.04 (aberto).

@@ -4,9 +4,10 @@ Bem-vindo ao **Segundo Cérebro** do projeto `cgov-riscos` no Obsidian! Este arq
 
 ## 0. Memória e normativos
 
-- [[ESTADO-ATUAL]] — O que já foi construído, status dos testes e próximos passos.
+- [[ESTADO-ATUAL]] — Retrato do projeto: onde estamos, números da última verificação e próximo trabalho.
+- [[historico-etapas]] — Diário das etapas (A a D1 e Fases 0 a 5 da reestruturação), como estava no `ESTADO-ATUAL` até 2026-11-21.
 - [[prompt-etapa-d-piloto-sede]] — Prompt de partida da etapa D (nova): piloto com dados reais só na Sede, dois ambientes e login por senha temporária; depois homologação da CGTI.
-- [[GLOSSARIO-ACESSIVEL]] — Explicação sem jargões dos termos de programação e das siglas oficiais da CGOV.
+- [[GLOSSARIO-ACESSIVEL]] — Explicação sem jargões dos termos de programação, das siglas oficiais da CGOV e dos termos da documentação (RN, RF, RNF, UC, LAC, ADR, MER/DER, formas normais, WIP, DoR/DoD).
 
 - [[matriz-regras-regime-b]] — Tabelas oficiais dos Quadros 1 a 8 e do Anexo III da Metodologia (SEI `024421455`), regras do sistema sem base literal nas minutas, erros materiais da minuta, Política RADAR (SEI `024241420`) e Tabela de Apoio 25×5 da skill `cgov-gestao-riscos-v4`.
 - [[registro-alertas-f4-f5]] — Registro dos alertas da revisão normativa (F1 a F5 e LS-01 a LS-06): decisão, dispositivo, impacto no RADAR e situação de cada um, mais os itens para levar à PFE.
@@ -79,10 +80,16 @@ Pasta `docs/50-nivel5-software/` (ver o `README.md` dela): diagramas UML em Merm
 - [[adr/README]] — Índice dos ADRs (`docs/adr/`), modelo de Nygard, imutáveis.
 - [[0000-modelo]] — Modelo para novos ADRs.
 - [[0001-registrar-decisoes-em-adr-nygard]] — Por que registramos decisões em ADRs; os arquivos `decisoes-tecnicas-*` ficam congelados como histórico.
+- [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti]] — As 6 lacunas que contradizem a norma vêm antes da homologação na CGTI; o piloto segue.
+- [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1]] — O fluxo interno de 3 degraus fica como etapa anterior ao item 4.6.1 (LAC-11 resolvida).
 
 ## Kanban
 
-Pasta `docs/90-kanban/` (ver o `README.md` dela): quadro, políticas, DoR/DoD e métricas de fluxo. Os arquivos entram nas próximas tarefas.
+Pasta `docs/90-kanban/` (ver o `README.md` dela).
+
+- [[quadro]] — O quadro Kanban (plugin do Obsidian), com o Backlog em ordem de prioridade.
+- [[politicas]] — Formato do cartão, limites de WIP, classes de serviço, DoR, DoD, métricas e ordem do Backlog.
+- [[analise-lacunas-codigo-requisitos]] — Os 89 RF parciais ou não iniciados, cada um ligado a um cartão, e a ordem de prioridade (Tarefa 19).
 
 ## Caderno de Aprendizado (Do Zero ao Deploy)
 
