@@ -53,7 +53,7 @@ Desenho: `docs/superpowers/specs/2026-11-17-etapa-d0-d1-piloto-sede-design.md`.
 | --- | --- | --- |
 | 1 | `docs/10-nivel1-negocio/` | visão, processos, fluxos F1 a F4 e FS-01, lacunas |
 | 2 | `docs/20-nivel2-requisitos/` | ERS, RN, RF, RNF, casos de uso, rastreabilidade |
-| 3 | `docs/30-nivel3-interface/` (hoje `docs/04-ux/`) | telas, design system, Figma |
+| 3 | `docs/30-nivel3-interface/` | telas, mapa tela ↔ caso de uso ↔ Figma, design system |
 | 4 | `docs/40-nivel4-dados/` | MER, DER, normalização, dicionário |
 | 5 | `docs/50-nivel5-software/` | diagramas UML em Mermaid |
 | - | `docs/adr/`, `docs/90-kanban/` | decisões de arquitetura; fluxo de trabalho |
