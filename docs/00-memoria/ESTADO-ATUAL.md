@@ -51,6 +51,8 @@ Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto
 1. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
    KRI (RF-102) tem cartão próprio e espera o desenho P-02.
 
+PR #16 (LAC-13) mesclada na `main` em 2026-11-22 (merge `dcb4a7a`), depois da triagem do CodeRabbit. Desenho da LAC-03 em `docs/superpowers/specs/2026-11-22-lac-03-kri-obrigatorio-design.md` (KRI muitos para muitos no mesmo objeto; KRI completo na trava da LAC-13), aguardando aprovação.
+
 A LAC-03 muda banco e regra: antes do código, é preciso um **plano autorizado** pelo responsável
 (`AGENTS.md`). A LAC-08 (rito da DAR) espera os desenhos P-01 e P-10 no Figma, aprovados pela CGOV. Em paralelo, a
 etapa D segue com a Task 7 da D1.
