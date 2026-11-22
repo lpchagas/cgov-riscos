@@ -73,10 +73,10 @@ describe('carregarCarteira', () => {
     const a = fonteComo('cgov');
     const b = fonteComo('cgov');
     await a.salvarFicha({ objetoId: 'obj-anexo-ii', causas: 'só na fonte A' });
-    await a.alterarApetite(7, 'moderado');
+    await a.alterarApetite(4, 'moderado'); // categoria 4 = Legal (apetite baixo)
     const cb = await b.carregarCarteira();
     expect(cb.riscos).toHaveLength(RISCOS_SEMENTE_ANEXO_II.length);
-    expect(cb.categorias.find((c) => c.id === 7)?.apetiteDeclarado).toBe('baixo');
+    expect(cb.categorias.find((c) => c.id === 4)?.apetiteDeclarado).toBe('baixo');
   });
 });
 
@@ -259,19 +259,19 @@ describe('acoesNoFluxo (botões pelo perfil e pelo estado, como hoje)', () => {
 describe('DAR, monitoramento e objetos', () => {
   it('alterarApetite recalcula a criticidade na memória', async () => {
     const fonte = fonteComo('cgov');
-    // risco-socio-03: residual 8,4 (Médio) na categoria 7 (apetite baixo) → Crítico.
-    expect((await fonte.relerRisco('risco-socio-03'))?.statusCritico).toBe('sim');
-    await fonte.alterarApetite(7, 'moderado');
+    // risco-socio-03: residual 8,4 (Médio) na categoria 2, Operacional (apetite moderado) → não é Crítico.
+    expect((await fonte.relerRisco('risco-socio-03'))?.statusCritico).toBe('nao');
+    await fonte.alterarApetite(2, 'baixo');
     const r = await fonte.relerRisco('risco-socio-03');
-    expect(r?.statusCritico).toBe('nao');
-    expect(r?.isCritico).toBe(false);
-    expect((await fonte.carregarCarteira()).categorias.find((c) => c.id === 7)?.apetiteDeclarado).toBe('moderado');
+    expect(r?.statusCritico).toBe('sim');
+    expect(r?.isCritico).toBe(true);
+    expect((await fonte.carregarCarteira()).categorias.find((c) => c.id === 2)?.apetiteDeclarado).toBe('baixo');
   });
 
   it('alterarJustificativa grava o texto', async () => {
     const fonte = fonteComo('cgov');
-    await fonte.alterarJustificativa(7, 'Nova justificativa');
-    expect((await fonte.carregarCarteira()).categorias.find((c) => c.id === 7)?.justificativaDar).toBe('Nova justificativa');
+    await fonte.alterarJustificativa(4, 'Nova justificativa');
+    expect((await fonte.carregarCarteira()).categorias.find((c) => c.id === 4)?.justificativaDar).toBe('Nova justificativa');
   });
 
   it('medição de KRI e status de ação não reabrem o risco aprovado', async () => {

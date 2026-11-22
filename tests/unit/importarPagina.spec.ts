@@ -89,7 +89,7 @@ describe('Página Importar riscos', () => {
     const { w } = await montar();
     await botao(w, 'Usar tabela de exemplo').trigger('click');
     const area = w.find('textarea');
-    await area.setValue((area.element as HTMLTextAreaElement).value.replace('| Socioambiental |', '| Operacional com interface de Integridade |'));
+    await area.setValue((area.element as HTMLTextAreaElement).value.replace('| Operacional |', '| Operacional com interface de Integridade |'));
     await botao(w, 'Ver prévia').trigger('click');
     expect(w.find('.mensagens--erro').text()).toContain('mista');
     expect(botao(w, 'Importar').attributes('disabled')).toBeDefined();

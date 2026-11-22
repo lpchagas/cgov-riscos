@@ -20,7 +20,10 @@ import { useToast } from '../../src/composables/useToast';
 import { simularImpactoDar, resumirImpactoDar } from '../../src/utils/darImpacto';
 import DeclaracaoApetiteDarView from '../../src/views/DeclaracaoApetiteDarView.vue';
 
-const SOCIOAMBIENTAL = 7; // RADAR-2026-003: residual 8,4 (Médio), apetite Baixo → Crítico
+// Operacional (apetite Moderado): o RADAR-2026-003 tem residual 8,4 (Médio) e NÃO é Crítico.
+// Baixar o apetite para Baixo é o que o faz passar a Crítico (a prévia deve avisar).
+const OPERACIONAL = 2;
+const LEGAL = 4; // categoria de apetite Baixo, sem riscos na demonstração
 
 describe('simularImpactoDar', () => {
   beforeEach(async () => {
@@ -29,22 +32,22 @@ describe('simularImpactoDar', () => {
     await useRiscosStore().carregar();
   });
 
-  it('prevê que o RADAR-2026-003 deixa de ser Crítico com apetite Moderado', () => {
+  it('prevê que o RADAR-2026-003 passa a ser Crítico se o apetite de Operacional baixar para Baixo', () => {
     const store = useRiscosStore();
-    const impacto = simularImpactoDar(store.riscos, SOCIOAMBIENTAL, 'moderado');
-    expect(impacto.deixamDeSerCriticos.map((m) => m.risco.codigoRadar)).toEqual(['RADAR-2026-003']);
-    expect(impacto.passamACriticos).toHaveLength(0);
-    expect(resumirImpactoDar(impacto)).toBe('1 risco deixa de ser Crítico.');
+    const impacto = simularImpactoDar(store.riscos, OPERACIONAL, 'baixo');
+    expect(impacto.passamACriticos.map((m) => m.risco.codigoRadar)).toEqual(['RADAR-2026-003']);
+    expect(impacto.deixamDeSerCriticos).toHaveLength(0);
+    expect(resumirImpactoDar(impacto)).toBe('1 risco passa a ser Crítico.');
   });
 
   it('a prévia bate com o que a store aplica (mesma regra oficial)', async () => {
     const store = useRiscosStore();
     for (const apetite of ['baixo', 'moderado', 'pendente_dar'] as const) {
-      const previsto = simularImpactoDar(store.riscos, SOCIOAMBIENTAL, apetite);
-      const esperadoCriticos = store.riscos.filter((r) => r.categoriaId === SOCIOAMBIENTAL && r.statusCritico === 'sim').length
+      const previsto = simularImpactoDar(store.riscos, OPERACIONAL, apetite);
+      const esperadoCriticos = store.riscos.filter((r) => r.categoriaId === OPERACIONAL && r.statusCritico === 'sim').length
         + previsto.passamACriticos.length - previsto.deixamDeSerCriticos.length;
-      await store.alterarApetiteCategoriaDAR(SOCIOAMBIENTAL, apetite);
-      const real = store.riscos.filter((r) => r.categoriaId === SOCIOAMBIENTAL && r.statusCritico === 'sim').length;
+      await store.alterarApetiteCategoriaDAR(OPERACIONAL, apetite);
+      const real = store.riscos.filter((r) => r.categoriaId === OPERACIONAL && r.statusCritico === 'sim').length;
       expect(real).toBe(esperadoCriticos);
     }
   });
@@ -80,40 +83,41 @@ describe('Página Apetite (DAR)', () => {
     return w;
   }
 
-  const grupoSocioambiental = (w: Awaited<ReturnType<typeof montar>>) =>
-    w.find('[role="radiogroup"][aria-label="Apetite da categoria Socioambiental"]');
+  const grupoPorCategoria = (w: Awaited<ReturnType<typeof montar>>, nome: string) =>
+    w.find(`[role="radiogroup"][aria-label="Apetite da categoria ${nome}"]`);
+  const grupoLegal = (w: Awaited<ReturnType<typeof montar>>) => grupoPorCategoria(w, 'Legal');
 
   it('mostra as 8 categorias, cada uma com o controle de apetite rotulado', async () => {
     const w = await montar();
     expect(w.findAll('.categoria')).toHaveLength(8);
-    expect(grupoSocioambiental(w).exists()).toBe(true);
+    expect(grupoLegal(w).exists()).toBe(true);
   });
 
   it('fora do perfil CGOV, os controles ficam desabilitados', async () => {
     useAuthStore().alternarPerfilDemo('gestor');
     const w = await montar();
-    expect(grupoSocioambiental(w).findAll('button').every((b) => b.attributes('disabled') !== undefined)).toBe(true);
+    expect(grupoLegal(w).findAll('button').every((b) => b.attributes('disabled') !== undefined)).toBe(true);
     expect(w.text()).toContain('Só a CGOV');
   });
 
   it('mudar o apetite abre a prévia; confirmar aplica; Desfazer volta', async () => {
     const w = await montar();
     const store = useRiscosStore();
-    const moderado = grupoSocioambiental(w).findAll('button').find((b) => b.text().includes('Moderado'))!;
-    await moderado.trigger('click');
+    const baixo = grupoPorCategoria(w, 'Operacional').findAll('button').find((b) => b.text().includes('Baixo'))!;
+    await baixo.trigger('click');
     await flushPromises();
 
     // A janela de prévia está aberta e o apetite AINDA não mudou.
     const dialogo = document.body.querySelector('[role="dialog"]')!;
-    expect(dialogo.textContent).toContain('1 risco deixa de ser Crítico');
-    expect(store.categorias.find((c) => c.id === SOCIOAMBIENTAL)!.apetiteDeclarado).toBe('baixo');
+    expect(dialogo.textContent).toContain('1 risco passa a ser Crítico');
+    expect(store.categorias.find((c) => c.id === OPERACIONAL)!.apetiteDeclarado).toBe('moderado');
 
     // Confirmar
     const confirmar = [...dialogo.querySelectorAll('button')].find((b) => b.textContent?.includes('Mudar apetite'))!;
     confirmar.click();
     await flushPromises();
-    expect(store.categorias.find((c) => c.id === SOCIOAMBIENTAL)!.apetiteDeclarado).toBe('moderado');
-    expect(store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!.statusCritico).toBe('nao');
+    expect(store.categorias.find((c) => c.id === OPERACIONAL)!.apetiteDeclarado).toBe('baixo');
+    expect(store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!.statusCritico).toBe('sim');
 
     // Aviso fixo: os riscos aprovados da categoria foram recalculados (e relidos).
     expect(w.text()).toContain('Os riscos aprovados da categoria foram recalculados pelo RADAR; os que passaram a Crítico voltaram para homologação.');
@@ -123,8 +127,8 @@ describe('Página Apetite (DAR)', () => {
     const aviso = toasts.value[toasts.value.length - 1];
     aviso.acao!.executar();
     await flushPromises(); // o Desfazer também vai à fonte de dados (assíncrono)
-    expect(store.categorias.find((c) => c.id === SOCIOAMBIENTAL)!.apetiteDeclarado).toBe('baixo');
-    expect(store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!.statusCritico).toBe('sim');
+    expect(store.categorias.find((c) => c.id === OPERACIONAL)!.apetiteDeclarado).toBe('moderado');
+    expect(store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!.statusCritico).toBe('nao');
     w.unmount();
   });
 });

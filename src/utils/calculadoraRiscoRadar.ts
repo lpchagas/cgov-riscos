@@ -62,29 +62,36 @@ export const FATORES_QUADRO_6: Record<
 
 /**
  * QUADRO 2 — AS 8 CATEGORIAS OFICIAIS DE RISCO DO ICMBio
+ *
+ * Fonte: Metodologia SEI 024421455, item 4.2.2. Grafia LITERAL do Quadro 2
+ * (ex.: "Financeiro/Orçamentário", "Reputação", "Riscos da visitação").
+ * Não existe categoria mista nem categoria fora desta lista.
  */
 export const CATEGORIAS_OFICIAIS_QUADRO_2 = [
-  'Estratégico',
   'Operacional',
-  'Orçamentário/Financeiro',
-  'Conformidade/Legal',
+  'Legal',
+  'Financeiro/Orçamentário',
+  'Reputação',
   'Integridade',
-  'Imagem/Reputação',
-  'Socioambiental',
-  'Tecnologia da Informação',
+  'Riscos da visitação',
+  'Ocupacionais',
+  'Privacidade e Proteção de Dados',
 ] as const;
 
 /**
- * QUADRO 3 — AS 6 SUBCATEGORIAS OBRIGATÓRIAS DE RISCOS À INTEGRIDADE
- * (Alinhadas à Portaria ICMBio nº 253/2026 — Programa Integra+)
+ * QUADRO 3 — AS 6 SUBCATEGORIAS DE RISCOS PARA A INTEGRIDADE
+ * (Metodologia SEI 024421455, item 4.2.2.1; Programa Integra+ — Portaria ICMBio nº 253/2026)
+ *
+ * Só o risco da categoria "Integridade" leva subcategoria, e ela deve ser uma
+ * destas 6, na grafia literal do Quadro 3.
  */
 export const SUBCATEGORIAS_INTEGRIDADE_QUADRO_3 = [
-  'Corrupção e Fraude',
-  'Conflito de Interesses e Nepotismo',
-  'Assédio Moral, Sexual e Discriminação',
-  'Vazamento ou Uso Indevido de Informação Restrita',
-  'Quebra de Imparcialidade ou Favorecimento Indevido',
-  'Desvio de Recursos Públicos ou Patrimoniais',
+  'Abuso de posição ou poder em favor de interesses privados',
+  'Nepotismo',
+  'Conflito de interesses',
+  'Pressão interna ou externa ilegal para influenciar agente público',
+  'Solicitação ou recebimento de vantagem indevida',
+  'Utilização de recursos públicos em favor de interesses privados',
 ] as const;
 
 /**

@@ -210,6 +210,29 @@ describe('Página Novo risco', () => {
       w.unmount();
     });
 
+    it('trocar Integridade por Operacional limpa a subcategoria', async () => {
+      const { salvarFicha } = await comFonte({});
+      const { w } = await montar();
+      await botao(w, 'Preencher com exemplo').trigger('click');
+      await w.find('form').trigger('submit'); // etapa 1 -> etapa 2 (Categoria)
+      await flushPromises();
+      const seletorCategoria = () => w.findAll('select').find((s) => s.html().includes('Riscos da visitação'))!;
+      await seletorCategoria().setValue(String(idCategoria('Integridade')));
+      const seletorSub = () => w.findAll('select').find((s) => s.html().includes('Nepotismo'))!;
+      await seletorSub().setValue('Nepotismo');
+      // Sai de Integridade: a subcategoria some do formulário...
+      await seletorCategoria().setValue(String(idCategoria('Operacional')));
+      // ...e, se a pessoa voltar para Integridade, o campo está vazio (não "ressuscita").
+      await seletorCategoria().setValue(String(idCategoria('Integridade')));
+      expect((seletorSub().element as HTMLSelectElement).value).toBe('');
+      // Segue por Operacional até salvar: a ficha montada não leva subcategoria.
+      await seletorCategoria().setValue(String(idCategoria('Operacional')));
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      expect(salvarFicha.mock.calls[0][0].subcategoriaIntegridade).toBeUndefined();
+      w.unmount();
+    });
+
     it('a prévia avisa que o valor oficial é calculado pelo RADAR', async () => {
       const { w } = await montar();
       expect(w.find('.previa').text()).toContain('Prévia — o valor oficial é calculado pelo RADAR ao salvar');
