@@ -72,7 +72,7 @@ describe('riscoDoBanco', () => {
     // A unidade dona vem do objeto (a tabela riscos não tem unidade_id).
     expect(f.unidadeId).toBe(fixture.objeto.unidade_id);
     expect(f.nomeObjetoCache).toBe(fixture.objeto.nome_objeto);
-    expect(f.categoriaNome).toBe('Conformidade/Legal');
+    expect(f.categoriaNome).toBe('Legal');
     // Valores calculados vêm GRAVADOS pelo banco (o front não refaz a conta).
     expect(f.nivelInerente).toBe(24);
     expect(f.classificacaoInerente).toBe('Extremo');
@@ -258,7 +258,6 @@ describe('demais conversores', () => {
     });
     const c = categoriaDoBanco(fixture.categoria);
     expect(c.apetiteDeclarado).toBe('baixo');
-    expect(c.subcategoriasPermitidas).toEqual([]);
     expect(categoriaDoBanco({ ...fixture.categoria, justificativa_dar: null }).justificativaDar).toBe('');
     const p = processoDoBanco(fixture.processo);
     expect(p).toEqual({

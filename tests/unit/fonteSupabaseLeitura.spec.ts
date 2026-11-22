@@ -53,10 +53,10 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
       id: `r${i}`,
       codigo_radar: `RADAR-X-${i}`,
       objeto_id: 'o1',
-      categoria_id: 1,
+      categoria_id: 2,
     }));
     const { cliente } = clienteFalso({
-      categorias_risco: [{ id: 1, nome: 'Estratégico' }],
+      categorias_risco: [{ id: 2, nome: 'Operacional' }],
       unidades: [{ id: 'u1', sigla: 'UC', nome: 'UC', tipo: 'uc' }],
       objetos_contexto: [{ id: 'o1', nome_objeto: 'Obj', unidade_id: 'u1' }],
       riscos,

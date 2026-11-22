@@ -22,7 +22,6 @@ import type {
   ObjetoContexto,
   UnidadeOrganizacional,
 } from '../types/radar.types';
-import { SUBCATEGORIAS_INTEGRIDADE_QUADRO_3 } from '../utils/calculadoraRiscoRadar';
 
 /**
  * Unidades Organizacionais representativas do ICMBio (com `coordenacao-geral`).
@@ -114,7 +113,6 @@ export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
     apetiteDeclarado: 'moderado',
     justificativaDar:
       'Processos operacionais toleram nível residual até Médio; níveis Alto e Extremo são críticos.',
-    subcategoriasPermitidas: [],
   },
   {
     id: 4,
@@ -123,7 +121,6 @@ export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
       'Eventos derivados de alterações legislativas ou normativas que podem comprometer as atividades da ICMBio',
     apetiteDeclarado: 'baixo',
     justificativaDar: 'Baixa tolerância a desvios normativos e sanções legais.',
-    subcategoriasPermitidas: [],
   },
   {
     id: 3,
@@ -133,7 +130,6 @@ export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
     apetiteDeclarado: 'baixo',
     justificativaDar:
       'Rigor fiscal e conformidade na execução de recursos públicos.',
-    subcategoriasPermitidas: [],
   },
   {
     id: 6,
@@ -143,7 +139,6 @@ export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
     apetiteDeclarado: 'baixo',
     justificativaDar:
       'Preservação da credibilidade técnico-científica e socioambiental da Autarquia.',
-    subcategoriasPermitidas: [],
   },
   {
     id: 5,
@@ -153,7 +148,6 @@ export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
     apetiteDeclarado: 'baixo',
     justificativaDar:
       'Apetite Baixo: qualquer risco residual acima de Baixo (Médio, Alto ou Extremo) é considerado Crítico.',
-    subcategoriasPermitidas: [...SUBCATEGORIAS_INTEGRIDADE_QUADRO_3],
   },
   // As 3 categorias abaixo entraram com o Quadro 2: nascem sem apetite
   // (`pendente_dar`) e sem justificativa; a CGOV decide na DAR.
@@ -164,7 +158,6 @@ export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
       'Eventos que podem comprometer a segurança dos visitantes durante atividades de uso público nas Unidades de Conservação, decorrentes de perigos inerentes ao ambiente natural ou das operações necessárias para a realização da visitação, tais como trilhas, atrativos, embarcações, atividades recreativas e serviços de apoio.',
     apetiteDeclarado: 'pendente_dar',
     justificativaDar: '',
-    subcategoriasPermitidas: [],
   },
   {
     id: 10,
@@ -173,7 +166,6 @@ export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
       'Eventos que podem comprometer a saúde, a integridade física ou a segurança dos servidores e colaboradores do ICMBio no desempenho de suas atividades institucionais.',
     apetiteDeclarado: 'pendente_dar',
     justificativaDar: '',
-    subcategoriasPermitidas: [],
   },
   {
     id: 11,
@@ -184,7 +176,6 @@ export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
       'Eventos que possam comprometer a proteção, a privacidade e a segurança dos dados pessoais tratados pelo ICMBio, tais como vazamentos de informações, acessos não autorizados, uso inadequado de dados, falhas nos controles de segurança ou descumprimento das disposições da Lei nº 13.709/2013 - Lei Geral de Proteção de Dados Pessoais (LGPD)',
     apetiteDeclarado: 'pendente_dar',
     justificativaDar: '',
-    subcategoriasPermitidas: [],
   },
 ];
 

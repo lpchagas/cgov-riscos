@@ -56,22 +56,30 @@ as $$
           0, 'Baixo', 0, 'Baixo', p_status);
 $$;
 
+-- Categorias "moderado" para C e G: depois da LAC-14 (2026-11-22) só a 2
+-- (Operacional) tem apetite 'moderado' na semente; a 1 (Estratégico) e a 8
+-- (Tecnologia da Informação), usadas antes, saíram do Quadro 2. Damos
+-- 'moderado' às categorias 9 (Riscos da visitação) e 10 (Ocupacionais), que
+-- nascem 'pendente_dar', só dentro deste teste (o rollback desfaz). Nenhum
+-- risco aprovado usa essas categorias, então a reavaliação não mexe em nada.
+update public.categorias_risco set apetite_declarado = 'moderado' where id in (9, 10);
+
 -- FLONA de Caçador (objeto 01): homologa gr@ (GR5).
 --   A: Médio, Operacional (2, moderado), APROVADO  → vira crítico → homologação
 --   B: Médio, Operacional, RASCUNHO                → não muda (não aprovado)
---   C: Médio, Estratégico (1, moderado), APROVADO  → não muda (outra categoria)
+--   C: Médio, Riscos da visitação (9, moderado), APROVADO → não muda (outra categoria)
 --   D: Baixo, Operacional, APROVADO                → continua aprovado, não crítico
 --   F: Médio, Orçamentário (3, baixo), APROVADO    → crítico; ao subir o apetite deixa de ser
---   G: Médio, TI (8, moderado), APROVADO           → moderado → pendente_dar (fica aprovado);
+--   G: Médio, Ocupacionais (10, moderado), APROVADO → moderado → pendente_dar (fica aprovado);
 --                                                    depois 1ª publicação pendente_dar → baixo (crítico)
 -- Presidência (objeto 73), enviado pelo próprio Presidente:
 --   E: Médio, Operacional, APROVADO → vira crítico, mas não há homologador efetivo
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-A', 2, 3, 2, 'aprovado');
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-B', 2, 3, 2, 'rascunho');
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-C', 2, 3, 1, 'aprovado');
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-C', 2, 3, 9, 'aprovado');
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-D', 1, 2, 2, 'aprovado');
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-F', 2, 3, 3, 'aprovado');
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-G', 2, 3, 8, 'aprovado');
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T073-G', 2, 3, 10, 'aprovado');
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000073', 'RADAR-T073-E', 2, 3, 2, 'aprovado');
 
 select
@@ -236,7 +244,7 @@ select pg_temp.sair();
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('cgov@radar.test');
 select lives_ok($$update public.categorias_risco set apetite_declarado = 'moderado' where id = 3$$,
-                'CGOV sobe o apetite da categoria Orçamentário/Financeiro (baixo → moderado)');
+                'CGOV sobe o apetite da categoria Financeiro/Orçamentário (baixo → moderado)');
 select pg_temp.sair();
 select is((select status_fluxo from public.riscos where id = :'r_f'), 'aprovado', 'F continua aprovado');
 select is((select is_critico from public.riscos where id = :'r_f'), false, 'F: is_critico = false');
@@ -253,8 +261,8 @@ select ok((select count(*) from public.auditoria_log
 --    a 1ª publicação da DAR que torna o risco crítico reabre
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 8$$,
-                'CGOV põe a categoria TI em pendente_dar (moderado → pendente_dar)');
+select lives_ok($$update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 10$$,
+                'CGOV põe a categoria Ocupacionais em pendente_dar (moderado → pendente_dar)');
 select pg_temp.sair();
 select is((select status_fluxo from public.riscos where id = :'r_g'), 'aprovado',
           'G (Médio) continua aprovado: pendente_dar não é Risco Crítico');
@@ -264,8 +272,8 @@ select is((select count(*)::int from public.historico_fluxo where risco_id = :'r
           'G: nenhuma linha de histórico');
 
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 8$$,
-                'CGOV publica a DAR da categoria TI (pendente_dar → baixo)');
+select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 10$$,
+                'CGOV publica a DAR da categoria Ocupacionais (pendente_dar → baixo)');
 select pg_temp.sair();
 select is((select status_fluxo from public.riscos where id = :'r_g'), 'em_homologacao_dir',
           'G vira Risco Crítico na 1ª publicação → em_homologacao_dir');

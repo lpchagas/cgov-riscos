@@ -231,8 +231,10 @@ select pg_temp.entrar_como('cgov@radar.test');
 select is(pg_temp.linhas_afetadas($$update public.perfis_usuarios set titular_chefia = true
                                      where email = 'servidor.gr@radar.test'$$),
           1, 'cgov torna servidor.gr titular (substituto em exercício)');
-select is(pg_temp.linhas_afetadas($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 1$$),
-          1, 'cgov muda o apetite da categoria Estratégico na DAR');
+-- Categoria 2 (Operacional, 'moderado' na semente). Antes era a 1
+-- (Estratégico), que saiu do Quadro 2 (LAC-14).
+select is(pg_temp.linhas_afetadas($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 2$$),
+          1, 'cgov muda o apetite da categoria Operacional na DAR');
 select pg_temp.sair();
 
 select is((select count(*)::int from public.auditoria_log
@@ -245,7 +247,7 @@ select is((select count(*)::int from public.auditoria_log
           'a troca de titularidade fica na trilha (antes/depois, quem fez, sem objeto)');
 select is((select count(*)::int from public.auditoria_log
             where tabela_afetada = 'categorias_risco' and operacao = 'UPDATE'
-              and dados_novos->>'id' = '1'
+              and dados_novos->>'id' = '2'
               and dados_anteriores->>'apetite_declarado' = 'moderado'
               and dados_novos->>'apetite_declarado' = 'baixo'
               and usuario_id = :'u_cgov'

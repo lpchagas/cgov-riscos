@@ -79,16 +79,18 @@ export function unidadeDoBanco(l: LinhaBanco): UnidadeOrganizacional {
   };
 }
 
-/** Linha de `categorias_risco` -> `CategoriaRisco` (subcategorias vêm como lista JSON). */
+/**
+ * Linha de `categorias_risco` -> `CategoriaRisco`.
+ * (As subcategorias do Quadro 3 não vêm mais aqui: desde a migração
+ * 20261122001 elas ficam na tabela `subcategorias_risco`.)
+ */
 export function categoriaDoBanco(l: LinhaBanco): CategoriaRisco {
-  const subs = Array.isArray(l.subcategorias_permitidas) ? l.subcategorias_permitidas.map(String) : [];
   return {
     id: numero(l.id),
     nome: texto(l.nome),
     descricaoNormativa: texto(l.descricao_normativa),
     apetiteDeclarado: (textoOpcional(l.apetite_declarado) ?? 'pendente_dar') as CategoriaRisco['apetiteDeclarado'],
     justificativaDar: texto(l.justificativa_dar),
-    subcategoriasPermitidas: subs,
   };
 }
 
