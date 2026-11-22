@@ -247,6 +247,14 @@ const ESTRATEGIAS: { valor: EstrategiaTratamento; rotulo: string }[] = [
 const categoria = computed(() => riscosStore.categorias.find((c) => c.id === d.value.categoriaId));
 const ehIntegridade = computed(() => categoria.value?.nome === 'Integridade');
 
+// Só a categoria Integridade tem subcategoria (Quadro 3). Se a pessoa escolheu
+// "Nepotismo" e depois trocou para "Operacional", a subcategoria antiga não
+// pode ficar escondida no formulário (nem voltar sozinha se ela retornar a
+// Integridade, nem ir parar no banco): zeramos o campo ao sair de Integridade.
+watch(ehIntegridade, (ehAgora) => {
+  if (!ehAgora) d.value.subcategoriaIntegridade = '';
+});
+
 // ---------------------------------------------------------------------------
 // PRÉVIA (calculadora oficial — o valor oficial vem do RADAR ao salvar)
 // ---------------------------------------------------------------------------

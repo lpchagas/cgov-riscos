@@ -21,8 +21,9 @@ Cada forma normal recebe um destes três resultados:
   O cartão está no [[quadro]], com a classe `#divida`.
 
 O ponto de partida foi o achado **E2** do diagnóstico [[2026-11-20-diagnostico-documentacao-radar]]. A
-estrutura analisada é a do [[der-logico]] (12 tabelas, estado final das migrações até `20261117001`).
-Nenhuma proposta abaixo foi aplicada: mudar o banco depende de plano autorizado e de nova migração.
+estrutura analisada é a do [[der-logico]] (13 tabelas, estado final das migrações até `20261122001`).
+As propostas abaixo continuam como foram escritas em 2026-11-21, **exceto a do § 2.1**, aplicada em 2026-11-22
+(migração `20261122001`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]); mudar o banco depende de plano autorizado e de nova migração.
 
 ## Resumo por tabela
 
@@ -37,7 +38,7 @@ naturais (`codigo_radar`, `email`, `proc_id`, `icmbio_id`, `nome` da categoria) 
 | `perfis_usuarios` | `id`; `email` | conforme | conforme | dívida (§ 3.10) |
 | `processos_cadeia_valor` | `id`; `proc_id` | conforme | conforme | dívida (§ 3.8) |
 | `objetos_contexto` | `id` | dívida (§ 2.7) | conforme | dívida (§ 2.5 e § 2.6) |
-| `categorias_risco` | `id`; `nome` | dívida (§ 2.1) | conforme | conforme |
+| `categorias_risco` | `id`; `nome` | conforme (dívida do § 2.1 resolvida em 2026-11-22) | conforme | conforme |
 | `riscos` | `id`; `codigo_radar` | dívida (§ 3.1) | conforme | desnormalização deliberada (ADR-0003, § 2.2 e § 3.2) e dívida (o fator do § 2.2, § 2.3, § 2.4 e § 2.6) |
 | `controles_existentes` | `id` | conforme | conforme | conforme |
 | `respostas_tratamento` | `id` | conforme | conforme | dívida (§ 2.6); `status_execucao` conforme (§ 3.5) |
@@ -64,7 +65,9 @@ as dependências **entre colunas que não são chave** (as que podem violar a 3F
 
 ## 2. Os pontos do diagnóstico E2
 
-### 2.1 `subcategorias_permitidas` em JSONB (1FN: dívida)
+### 2.1 `subcategorias_permitidas` em JSONB (1FN: dívida, resolvida em 2026-11-22)
+
+> **Resolvida em 2026-11-22** pela migração `20261122001` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]). A tabela `subcategorias_risco` existe (colunas `id`, `categoria_id`, `nome`, `descricao_normativa`, `ordem`, com `UNIQUE (categoria_id, nome)`) e a coluna JSONB saiu. **O desenho aplicado difere da proposta abaixo em um ponto:** o risco continua guardando o **nome** em `riscos.subcategoria_integridade` (não um `subcategoria_id`), e a chave estrangeira composta é `(categoria_id, subcategoria_integridade)` → `subcategorias_risco (categoria_id, nome)`, para não mudar a coluna que a tela, a importação e a trilha de auditoria já usam. Um gatilho (`trg_riscos_exige_subcategoria`) torna a subcategoria **obrigatória** na Integridade e **proibida** nas outras categorias. O texto e o diagrama abaixo são o registro da proposta original.
 
 **O problema.** `categorias_risco.subcategorias_permitidas` guarda **uma lista** dentro de uma célula
 (`jsonb`, ex.: `["Conflito de interesses", "Nepotismo"]`). Isso quebra a 1FN. Na prática, o banco não

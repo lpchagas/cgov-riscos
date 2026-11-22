@@ -4,10 +4,10 @@ O **DER lógico** (Diagrama Entidade-Relacionamento) é o desenho **do banco que
 tabela do PostgreSQL/Supabase, cada linha dentro da caixa é uma coluna com o seu tipo, e cada traço entre
 caixas é uma chave estrangeira. Ele traduz o [[mer-conceitual]] para tabelas.
 
-**De onde vem:** do **estado final das 12 migrações** de `supabase/migrations/` (de `20261109001` até
-`20261117001`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
-com as 12 migrações aplicadas (consulta ao `information_schema` e ao `pg_constraint`, só a estrutura, em
-2026-11-21). O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
+**De onde vem:** do **estado final das 13 migrações** de `supabase/migrations/` (de `20261109001` até
+`20261122001`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
+com as 12 primeiras migrações aplicadas (consulta ao `information_schema` e ao `pg_constraint`, só a estrutura, em
+2026-11-21); a 13ª (`20261122001`, tabela `subcategorias_risco`, chave estrangeira composta e fim da coluna `subcategorias_permitidas`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi acrescentada a partir do próprio arquivo da migração. O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
 migrações") reprova se uma tabela for criada numa migração e não aparecer aqui, ou o contrário.
 
 O documento anterior, [[modelo-dados-mer]], fica como histórico das migrações.
@@ -113,7 +113,13 @@ erDiagram
         text descricao_normativa
         text apetite_declarado "baixo, moderado, pendente_dar"
         text justificativa_dar "opcional"
-        jsonb subcategorias_permitidas "opcional, lista"
+    }
+    subcategorias_risco {
+        integer id PK "número sequencial"
+        integer categoria_id FK
+        text nome "UK com categoria_id"
+        text descricao_normativa
+        smallint ordem "posição no Quadro 3"
     }
     riscos {
         uuid id PK
@@ -126,7 +132,7 @@ erDiagram
         text objetivo_afetado
         text descricao_padrao
         integer categoria_id FK
-        text subcategoria_integridade "opcional"
+        text subcategoria_integridade "FK com categoria_id; obrigatória na Integridade"
         boolean teste_integridade_aplicavel
         text justificativa_nao_integridade "opcional"
         integer probabilidade "1 a 5"
@@ -196,6 +202,8 @@ erDiagram
 
     objetos_contexto ||--o{ riscos : "objeto_id (apagado o objeto, apaga os riscos)"
     categorias_risco ||--o{ riscos : "categoria_id"
+    categorias_risco ||--o{ subcategorias_risco : "categoria_id (não apaga categoria com subcategorias)"
+    subcategorias_risco |o--o{ riscos : "(categoria_id, subcategoria_integridade)"
     riscos ||--o{ controles_existentes : "risco_id (em cascata)"
     riscos ||--o{ respostas_tratamento : "risco_id (em cascata)"
     riscos ||--o{ indicadores_kri : "risco_id (em cascata)"
@@ -252,7 +260,7 @@ de `perfis_usuarios`, e fica vazio quando o administrador altera o banco direto.
 Em `historico_fluxo`, `usuario_nome` e `usuario_papel` são gravados como texto para mostrar quem agiu e
 com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 
-## Resumo das 12 tabelas
+## Resumo das 13 tabelas
 
 | Tabela | Bloco | Criada em | Chaves estrangeiras declaradas |
 | --- | --- | --- | --- |
@@ -261,7 +269,8 @@ com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 | `processos_cadeia_valor` | 1 | `20261115001` | `unidade_lider_id`, `unidade_supervisora_id` → `unidades` |
 | `objetos_contexto` | 1 | `20261109001` (`processo_id` em `20261115001`) | `unidade_id`, `macroprocesso_supervisor_id`, `diretoria_id` → `unidades`; `processo_id` → `processos_cadeia_valor` |
 | `categorias_risco` | 2 | `20261109001` | nenhuma |
-| `riscos` | 2 | `20261109001` | `objeto_id` → `objetos_contexto` (em cascata); `categoria_id` → `categorias_risco` |
+| `subcategorias_risco` | 2 | `20261122001` | `categoria_id` → `categorias_risco` |
+| `riscos` | 2 | `20261109001` | `objeto_id` → `objetos_contexto` (em cascata); `categoria_id` → `categorias_risco`; (`categoria_id`, `subcategoria_integridade`) → `subcategorias_risco` (`20261122001`) |
 | `controles_existentes` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
 | `respostas_tratamento` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
 | `indicadores_kri` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |

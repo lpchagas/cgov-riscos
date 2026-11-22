@@ -154,7 +154,13 @@ END $$;
 --    calcula inerente (Quadro 7), residual, classificação e criticidade.
 --    Como o gatilho NÃO deriva o fator a partir do nível de eficácia, o fator
 --    informado aqui segue o Quadro 6 (Inexistente 1,00 | Forte 0,50).
---    Nenhum risco 'pendente_dar': nenhuma categoria semeada tem esse apetite.
+--    Nenhum risco 'pendente_dar': nenhum usa as categorias 9 a 11 (as únicas
+--    sem apetite na DAR).
+--    Categorias (LAC-14, 2026-11-22): as antigas 1 (Estratégico, moderado) e
+--    7 (Socioambiental, baixo) saíram do Quadro 2. Os riscos que as usavam
+--    foram reclassificados à mão para uma categoria com o MESMO apetite, para
+--    a criticidade não mudar: 1 → 2 (Operacional, moderado) e 7 → 4 (Legal,
+--    baixo); o RADAR-DEMO-CENTRO (Baixo, não crítico) foi para a 2.
 -- ----------------------------------------------------------------------------
 -- (obj, código, P, I, evidência, eficácia, fator, categoria, fluxo)
 CREATE TEMP TABLE _demo_riscos (
@@ -163,13 +169,13 @@ CREATE TEMP TABLE _demo_riscos (
 ) ON COMMIT DROP;
 INSERT INTO _demo_riscos VALUES
   (1,  'RADAR-DEMO-UC-CT',  2, 2, false, 'Inexistente', 1.00, 2, 'rascunho'),         -- Baixo, não crítico
-  (2,  'RADAR-DEMO-UC-SCT', 4, 4, false, 'Inexistente', 1.00, 7, 'em_validacao_cg'),  -- Alto, crítico
+  (2,  'RADAR-DEMO-UC-SCT', 4, 4, false, 'Inexistente', 1.00, 4, 'em_validacao_cg'),  -- Alto, crítico
   (3,  'RADAR-DEMO-BASE',   3, 3, false, 'Inexistente', 1.00, 2, 'rascunho'),
   (4,  'RADAR-DEMO-CT',     3, 4, false, 'Inexistente', 1.00, 2, 'em_validacao_cg'),
-  (5,  'RADAR-DEMO-GR5',    2, 3, false, 'Inexistente', 1.00, 1, 'em_homologacao_dir'),
+  (5,  'RADAR-DEMO-GR5',    2, 3, false, 'Inexistente', 1.00, 2, 'em_homologacao_dir'),
   (6,  'RADAR-DEMO-COFIS',  4, 5, true,  'Forte',       0.50, 4, 'aprovado'),
   (7,  'RADAR-DEMO-CGPRO',  1, 2, false, 'Inexistente', 1.00, 2, 'aprovado'),
-  (8,  'RADAR-DEMO-CENTRO', 2, 2, false, 'Inexistente', 1.00, 7, 'rascunho'),
+  (8,  'RADAR-DEMO-CENTRO', 2, 2, false, 'Inexistente', 1.00, 2, 'rascunho'),
   (9,  'RADAR-2026-001',    3, 5, false, 'Inexistente', 1.00, 2, 'em_validacao_cg'),  -- Anexo II: 22 Extremo, crítico
   (10, 'RADAR-DEMO-AUDIT',  1, 1, false, 'Inexistente', 1.00, 2, 'rascunho');
 

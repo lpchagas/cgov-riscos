@@ -86,11 +86,11 @@ views e migrações). A coluna **Tela** entrou na Tarefa 18 (interface), a parti
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Metodologia 4.2.1 | RN-014 | RF-030 | UC-05 | `/riscos/novo` | Novo risco | `riscos` | `novoRiscoPagina.spec.ts` |
 | Metodologia 4.2.1 | RN-014 | RF-031 | UC-05 | `/riscos/novo` | Novo risco | — (descrição montada no navegador) | `calculadoraRiscoRadar.spec.ts`; pgTAP `020` bl. 10 |
-| Metodologia 4.2.2, Quadro 2 | RN-015 | RF-032 | UC-05 | `/riscos/novo` | Novo risco | `categorias_risco`; `riscos` | — (parcial, sem teste do trecho feito) |
+| Metodologia 4.2.2, Quadro 2 | RN-015 | RF-032 | UC-05 | `/riscos/novo` | Novo risco | `categorias_risco`; `riscos` | `calculadoraRiscoRadar.spec.ts`; `novoRiscoPagina.spec.ts`; pgTAP `090`; `schemaSql.spec.ts` |
 | Regra do sistema (AGENTS.md, regra 5) | RN-016 | RF-033 | UC-05 | `/riscos/novo` | Novo risco | — (regra no navegador: `calculadoraRiscoRadar.ts`) | `calculadoraRiscoRadar.spec.ts` |
 | Regra do sistema (AGENTS.md, regra 5) | RN-006 | RF-034 | UC-05 | `/riscos/novo` | Novo risco | `riscos` | `calculadoraRiscoRadar.spec.ts`; `novoRiscoPagina.spec.ts` |
 | Regra do sistema (AGENTS.md, regra 5) | RN-018 | RF-035 | UC-05 | `/riscos/novo` | Novo risco | `riscos` | `novoRiscoPagina.spec.ts` (parcial) |
-| Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-036 | UC-05 | `/riscos/novo` | Novo risco | `riscos` | `novoRiscoPagina.spec.ts` (parcial) |
+| Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-036 | UC-05 | `/riscos/novo` | Novo risco | `subcategorias_risco`; `riscos` | `novoRiscoPagina.spec.ts`; pgTAP `090`; `errosBanco.spec.ts` |
 | Metodologia 4.3, a, Quadro 4 | RN-011 | RF-037 | UC-06 | `/riscos/novo` | Novo risco | `riscos` | — (não iniciado, LAC-12) |
 | Metodologia 4.3, b, Quadro 5 | RN-012 | RF-038 | UC-06 | `/riscos/novo` | Novo risco | `riscos` | — (parcial, sem teste do trecho feito) |
 | Metodologia 4.3, c, e fórmula do residual / Regra do sistema (AGENTS.md, regra 4) | RN-003, RN-004 | RF-039 | UC-06 | `/riscos/novo` | Novo risco | `controles_existentes`; `salvar_ficha_risco` | pgTAP `050` bl. 8; `novoRiscoPagina.spec.ts` |
@@ -282,10 +282,10 @@ Nota 1 (RF-056): o risco `preliminar_cgov` nasce hoje no importador (`/importar`
 | FS-02.18; Contrato ("Na gravação") | — | RF-169 | UC-13 | `/importar` | Importar riscos | `salvar_ficha_risco`; `riscos` | `importarPagina.spec.ts`; `riscosStore.spec.ts` |
 | FS-02.18; Contrato ("Na gravação") | — | RF-170 | UC-13 | `/importar` | Importar riscos | `salvar_ficha_risco`; `riscos` | `importarPagina.spec.ts` |
 | Metodologia 4.2.1 | RN-014 | RF-171 | UC-13 | `/importar` | Importar riscos | — | — (parcial, sem teste do trecho feito) |
-| Metodologia 4.2.2, Quadro 2 | RN-015 | RF-172 | UC-13 | `/importar` | Importar riscos | — | — (parcial, sem teste do trecho feito) |
-| Metodologia 4.2.2, Quadro 2 | RN-015 | RF-173 | UC-13 | `/importar` | Importar riscos | `categorias_risco`; `riscos` | — (não iniciado, LAC-14) |
-| Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-174 | UC-13 | `/importar` | Importar riscos | `categorias_risco`; `riscos` | — (não iniciado, LAC-15) |
-| Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-175 | UC-13 | `/importar` | Importar riscos | `categorias_risco`; `riscos` | — (não iniciado, LAC-15) |
+| Metodologia 4.2.2, Quadro 2 | RN-015 | RF-172 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts`; `importarPagina.spec.ts` |
+| Metodologia 4.2.2, Quadro 2 | RN-015 | RF-173 | UC-13 | `/importar` | Importar riscos | `categorias_risco`; `riscos` | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` |
+| Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-174 | UC-13 | `/importar` | Importar riscos | `subcategorias_risco`; `riscos` | `importadorSkillMarkdown.spec.ts` |
+| Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-175 | UC-13 | `/importar` | Importar riscos | `subcategorias_risco`; `riscos` | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` |
 | Metodologia 4.3, a, Quadro 4 / Metodologia 4.3, b, Quadro 5 | RN-011, RN-012 | RF-176 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado, LAC-12) |
 | Metodologia 4.3, a, Quadro 4 / Metodologia 4.3, b, Quadro 5 | RN-011, RN-012 | RF-177 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
 | Regra do sistema (AGENTS.md, regra 4) | RN-004 | RF-178 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
@@ -374,7 +374,7 @@ arquivo de `supabase/tests/`.
 
 ## Cobertura
 
-Contagens feitas em 21/11/2026 sobre os catálogos. Para recontar à mão ou com script próprio:
+Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (RF-032, RF-036 e RF-172 a RF-175, LAC-14 e LAC-15). Para recontar à mão ou com script próprio:
 
 1. **RF por situação:** em [[requisitos-funcionais]], leia a coluna `Situação` de cada linha `RF-NNN`: começa por
    "implementado", "parcial" ou "não iniciado" (195 linhas).
@@ -388,12 +388,12 @@ Contagens feitas em 21/11/2026 sobre os catálogos. Para recontar à mão ou com
 | Medida | Quantidade | IDs |
 | --- | --- | --- |
 | Requisitos funcionais no catálogo | 195 | RF-001 a RF-195 |
-| RF implementados | 106 | — |
-| RF parciais | 13 | RF-032, RF-035, RF-036, RF-038, RF-048, RF-050, RF-063, RF-078, RF-094, RF-099, RF-162, RF-171, RF-172 |
-| RF não iniciados | 76 | ver as linhas "— (não iniciado, ...)" da matriz |
-| RF com teste citado (implementados e parciais com teste do trecho feito) | 111 | 106 implementados + 5 parciais (RF-035, RF-036, RF-048, RF-063, RF-099) |
+| RF implementados | 112 | — |
+| RF parciais | 10 | RF-035, RF-038, RF-048, RF-050, RF-063, RF-078, RF-094, RF-099, RF-162, RF-171 |
+| RF não iniciados | 73 | ver as linhas "— (não iniciado, ...)" da matriz |
+| RF com teste citado (implementados e parciais com teste do trecho feito) | 116 | 112 implementados + 4 parciais (RF-035, RF-048, RF-063, RF-099) |
 | RF implementados sem teste | 0 | nenhum |
-| RF parciais sem teste do trecho feito | 8 | RF-032, RF-038, RF-050, RF-078, RF-094, RF-162, RF-171, RF-172 |
+| RF parciais sem teste do trecho feito | 6 | RF-038, RF-050, RF-078, RF-094, RF-162, RF-171 |
 | RF sem caso de uso | 4 | RF-014, RF-054, RF-060, RF-189 |
 | RN sem nenhum RF | 8 | RN-059, RN-081, RN-101, RN-102, RN-103, RN-111, RN-113, RN-114 |
 | UC sem RF | 0 | todos os 26 casos de uso citam ao menos um RF |

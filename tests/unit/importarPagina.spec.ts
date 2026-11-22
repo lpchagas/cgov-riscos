@@ -89,7 +89,7 @@ describe('Página Importar riscos', () => {
     const { w } = await montar();
     await botao(w, 'Usar tabela de exemplo').trigger('click');
     const area = w.find('textarea');
-    await area.setValue((area.element as HTMLTextAreaElement).value.replace('| Socioambiental |', '| Operacional com interface de Integridade |'));
+    await area.setValue((area.element as HTMLTextAreaElement).value.replace('| Operacional |', '| Operacional com interface de Integridade |'));
     await botao(w, 'Ver prévia').trigger('click');
     expect(w.find('.mensagens--erro').text()).toContain('mista');
     expect(botao(w, 'Importar').attributes('disabled')).toBeDefined();
@@ -142,6 +142,23 @@ describe('Página Importar riscos', () => {
     expect(ultima.tom).toBe('perigo');
     expect(ultima.mensagem).not.toContain('Failed to fetch');
     expect(ultima.mensagem.length).toBeGreaterThan(0);
+  });
+
+  it('categoria que não existe no banco aparece na lista de erros da linha (sem trocar por Operacional)', async () => {
+    const store = useRiscosStore();
+    const antes = store.riscos.length;
+    // Simula um banco sem a categoria "Legal", mesmo ela sendo do Quadro 2.
+    store.categorias = store.categorias.filter((c) => c.nome !== 'Legal');
+    const { w } = await montar();
+    await w.find('textarea').setValue(tabelaCom(1).replace('| Operacional |', '| Legal |'));
+    await botao(w, 'Ver prévia').trigger('click');
+    await escolherObjeto(w);
+    await botao(w, 'Importar 1 risco').trigger('click');
+    await flushPromises();
+    const resultado = w.find('.resultado');
+    expect(resultado.text()).toContain('RSC-T-01');
+    expect(resultado.text()).toContain('A categoria "Legal" não existe no banco.');
+    expect(store.riscos.length).toBe(antes);
   });
 
   describe('importação parcial', () => {

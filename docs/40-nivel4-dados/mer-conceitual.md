@@ -39,6 +39,7 @@ ou mais objetos".
 | KRI | O Indicador-Chave de Risco que acompanha o risco, com fórmula, fonte, periodicidade, meta e limite de alerta. |
 | Medição | Cada leitura do KRI em uma data, que diz se passou do limite de alerta. |
 | Categoria / DAR | A categoria do risco (Quadro 2) e o apetite declarado para ela na Declaração de Apetite a Riscos (DAR). |
+| Subcategoria | Cada uma das 6 subcategorias do Quadro 3 da categoria Integridade; o risco de Integridade recebe exatamente uma (RN-017). Tabela `subcategorias_risco`, desde 2026-11-22. |
 | Movimentação do fluxo | Cada passo do risco no fluxo interno (enviar, validar, homologar, devolver, reabrir), com quem fez e o despacho. |
 | Registro de auditoria | A anotação automática de toda criação, alteração e exclusão nas tabelas da ficha, com o antes e o depois. |
 
@@ -68,6 +69,8 @@ erDiagram
     PROCESSO_CADEIA_VALOR |o--o{ OBJETO_GESTAO : "enquadra"
     OBJETO_GESTAO ||--o{ RISCO : "tem"
     CATEGORIA_DAR ||--o{ RISCO : "classifica e dá o apetite"
+    CATEGORIA_DAR ||--o{ SUBCATEGORIA : "tem"
+    SUBCATEGORIA |o--o{ RISCO : "detalha o risco de Integridade"
     RISCO ||--|{ CAUSA : "é provocado por"
     RISCO ||--|{ CONSEQUENCIA : "produz"
     RISCO ||--o{ CONTROLE : "é reduzido por"
@@ -104,6 +107,7 @@ erDiagram
 5. **Processo da Cadeia de Valor enquadra Objeto de gestão:** o objeto pode estar ligado a um processo ativo da Cadeia de Valor, ou a nenhum (RN-035).
 6. **Objeto de gestão tem Risco:** todo risco nasce de exatamente um objeto, e um objeto pode ter zero ou mais riscos.
 7. **Categoria / DAR classifica Risco:** todo risco tem exatamente uma categoria, a dominante (RN-015), e o apetite da categoria na DAR decide se o residual é **risco crítico** (RN-005).
+7a. **Subcategoria detalha Risco de Integridade:** o risco da categoria Integridade tem exatamente uma das 6 subcategorias do Quadro 3, e o de outra categoria não tem nenhuma (RN-017; banco, desde 2026-11-22).
 8. **Risco é provocado por Causa:** todo risco tem pelo menos uma causa (sintaxe do 4.2.1); hoje as causas ficam juntas em um texto só, ponto que a normalização (Tarefa 15) vai tratar.
 9. **Risco produz Consequência:** todo risco tem pelo menos uma consequência; hoje também ficam juntas em um texto só.
 10. **Risco é reduzido por Controle:** o risco pode ter zero ou mais controles; sem controle, a eficácia é Inexistente (fator 1,0).

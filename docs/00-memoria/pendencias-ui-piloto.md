@@ -17,8 +17,8 @@
 
 - **Achados:** 14 na classe **Agora**, 6 na classe **Decidir antes da D3** e 6 na classe **Depois**.
 - **Os 3 mais graves:**
-  1. **D3-01:** as 8 categorias gravadas no banco do piloto (nuvem) **não são as do Quadro 2**.
-  2. **D3-02:** as 6 subcategorias de Integridade **não são as do Quadro 3**.
+  1. **D3-01:** as 8 categorias do banco **não eram as do Quadro 2**. **Resolvida em 2026-11-22** no código, no banco local e, no mesmo dia, no banco do piloto na nuvem ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]).
+  2. **D3-02:** as 6 subcategorias de Integridade **não eram as do Quadro 3**. **Resolvida em 2026-11-22**, no mesmo ponto.
   3. **AG-01:** as telas dizem que "a Coordenação-Geral valida" e que "a Diretoria homologa", mas o banco segue a chefia imediata (decisões P4 e P-B1-1).
 - **O que está certo (conferido):**
   - Nenhuma tela usa a sigla "PGR". O único "PGR" do código é o código de erro `PGRST116` do Supabase, que não aparece na tela.
@@ -145,13 +145,15 @@
 ### AG-14 · Ajustes menores de texto e cor
 - Na DAR, o indicador "Apetite Moderado" aparece com tom de **aviso** (amarelo) e o "Baixo" com tom de **sucesso**. Isso sugere que "Moderado" é um problema, quando é só uma escolha do CIG. Proposta: os dois em tom neutro.
 - A descrição de "Novo risco" diz "contexto, categoria, análise e tratamento", mas a 1ª etapa se chama "Identificação". Proposta: alinhar os nomes.
-- O exemplo do Importar ([ImportadorSkillView.vue:50-51](../../src/views/ImportadorSkillView.vue#L50-L51)) usa a categoria "Socioambiental" e a subcategoria "Conflito de Interesses e Nepotismo". Corrigir junto com D3-01 e D3-02.
+- O exemplo do Importar ([ImportadorSkillView.vue:50-51](../../src/views/ImportadorSkillView.vue#L50-L51)) usa a categoria "Socioambiental" e a subcategoria "Conflito de Interesses e Nepotismo". **Resolvido em 2026-11-22** (exemplo trocado por categorias do Quadro 2 e por uma subcategoria do Quadro 3, junto com D3-01 e D3-02).
 
 ---
 
 ## 2. Decidir antes da D3 (banco, dados de referência ou regra)
 
 ### D3-01 · As categorias do banco não são as do Quadro 2 (já estão na nuvem)
+
+> **Resolvida em 2026-11-22**, no código e no banco local ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]; migração `20261122001`). A CGOV adotou o Quadro 2 ao pé da letra (opção (a)), com as grafias do Quadro 2 (opção (b)); o Anexo III vale só como sinônimo na importação. Riscos nas categorias que saem: a migração recusa e lista os códigos. **Falta** aplicar a migração na nuvem (Fase 2, **[AUTORIZAÇÃO]**). O texto abaixo é o registro do achado.
 - **Lacuna normativa:** LAC-14 em [[lacunas-norma-sistema]] (a severidade fica lá; este item continua sendo o dono da correção de interface).
 - **Onde:**
   - [supabase/seed.sql:6-15](../../supabase/seed.sql#L6-L15), o mesmo conteúdo que foi aplicado no banco do piloto na D1
@@ -168,6 +170,8 @@
   - Conferir o mapeamento de categorias do importador da skill.
 
 ### D3-02 · As subcategorias de Integridade não são as do Quadro 3
+
+> **Resolvida em 2026-11-22**, no código e no banco local ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]; migração `20261122001`). Vale o Quadro 3; o banco passou a **recusar** subcategoria fora da lista (tabela `subcategorias_risco`, chave estrangeira e gatilho), com a coluna JSONB removida. **Falta** aplicar na nuvem (Fase 2, **[AUTORIZAÇÃO]**). O texto abaixo é o registro do achado.
 - **Lacuna normativa:** LAC-15 em [[lacunas-norma-sistema]] (a severidade fica lá; este item continua sendo o dono da correção de interface).
 - **Onde:**
   - `SUBCATEGORIAS_INTEGRIDADE_QUADRO_3` em [calculadoraRiscoRadar.ts:81-88](../../src/utils/calculadoraRiscoRadar.ts#L81-L88) (arquivo protegido: só se altera com aval)

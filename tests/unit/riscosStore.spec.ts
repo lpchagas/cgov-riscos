@@ -220,13 +220,16 @@ describe('riscosStore assíncrona', () => {
     const store = useRiscosStore();
     await store.carregar();
     const socio = store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-003')!;
-    expect(socio.statusCritico).toBe('sim'); // residual Médio, apetite Baixo
+    expect(socio.statusCritico).toBe('nao'); // residual Médio, apetite Moderado (Operacional)
 
-    await store.alterarApetiteCategoriaDAR(socio.categoriaId, 'moderado');
+    await store.alterarApetiteCategoriaDAR(socio.categoriaId, 'baixo');
 
-    expect(relerRisco.mock.calls.map(([id]) => id)).toEqual([socio.id]);
-    expect(store.categorias.find((c) => c.id === socio.categoriaId)!.apetiteDeclarado).toBe('moderado');
-    expect(socio.statusCritico).toBe('nao'); // mesmo objeto, atualizado pela releitura
+    // Operacional tem 2 riscos na semente (001 e 003): relê os dois, e nenhum de outra categoria.
+    const daCategoria = store.riscos.filter((r) => r.categoriaId === socio.categoriaId).map((r) => r.id);
+    expect(daCategoria).toContain(socio.id);
+    expect(relerRisco.mock.calls.map(([id]) => id).sort()).toEqual([...daCategoria].sort());
+    expect(store.categorias.find((c) => c.id === socio.categoriaId)!.apetiteDeclarado).toBe('baixo');
+    expect(socio.statusCritico).toBe('sim'); // mesmo objeto, atualizado pela releitura
   });
 
   it('importar grava cada linha como preliminar e segue depois de uma recusa', async () => {

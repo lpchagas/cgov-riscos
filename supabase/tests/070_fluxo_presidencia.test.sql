@@ -52,7 +52,8 @@ values ('00000000-0000-4000-b000-000000000070', 'Unidade', 'Teste 070 — Assess
         :'presidencia', 'Objetivo de demonstração');
 
 -- inserir_risco: o gatilho de cálculo preenche o resto (P=2,I=2 → baixo, não crítico;
--- P=4,I=4 na categoria 7 → Alto, crítico — mesmos valores da semente).
+-- P=4,I=4 na categoria 4 (Legal; antes a 7, Socioambiental, que saiu do
+-- Quadro 2) → Alto, crítico — mesmos valores da semente).
 create or replace function pg_temp.inserir_risco(p_objeto uuid, p_codigo text, p_p int, p_i int,
                                                  p_cat int default 2)
 returns void
@@ -67,9 +68,9 @@ as $$
 $$;
 
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000070', 'RADAR-T070-A-NC', 2, 2);      -- Assessoria, não crítico
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000070', 'RADAR-T070-A-CR', 4, 4, 7);   -- Assessoria, crítico
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000070', 'RADAR-T070-A-CR', 4, 4, 4);   -- Assessoria, crítico
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-NC', 2, 2);      -- Presidência, não crítico
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-CR', 4, 4, 7);   -- Presidência, crítico
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-CR', 4, 4, 4);   -- Presidência, crítico
 
 select
   (select id from public.riscos where codigo_radar = 'RADAR-T070-A-NC') as a_nc,
@@ -140,7 +141,7 @@ select is((select status_fluxo from public.validar_risco(:'a_nc', 'Ficha consist
 -- 3. Risco da ASSESSORIA, crítico: GABIN valida, Presidente homologa
 -- ----------------------------------------------------------------------------
 select is((select is_critico from public.riscos where id = :'a_cr'), true,
-          'P=4, I=4 na categoria 7 é crítico (fora do apetite)');
+          'P=4, I=4 na categoria 4 é crítico (fora do apetite)');
 select pg_temp.entrar_como('gestor.assessoria@radar.test');
 select is((select status_fluxo from public.enviar_para_validacao(:'a_cr')), 'em_validacao_cg',
           'gestor da Assessoria envia o risco crítico');
@@ -190,7 +191,7 @@ select is(pg_temp.estado(:'p_dar'), 'em_validacao_cg', 'e o risco segue em valid
 
 -- 5c. Reabertura: o Presidente edita risco aprovado e crítico da Presidência
 select pg_temp.sair();
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-AP', 4, 4, 7);
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-AP', 4, 4, 4);
 select set_config('radar.fluxo', 'on', true);
 update public.riscos set status_fluxo = 'aprovado' where codigo_radar = 'RADAR-T070-P-AP';
 select set_config('radar.fluxo', '', true);
@@ -202,13 +203,13 @@ select throws_like($$update public.riscos set probabilidade = 3 where codigo_rad
 -- 5d. Reabertura pela criticidade NOVA (a de NEW, não a gravada)
 select pg_temp.sair();
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-A', 2, 2);   -- aprovado, não crítico
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-B', 4, 4, 7); -- aprovado, crítico
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000071', 'RADAR-T070-P-B', 4, 4, 4); -- aprovado, crítico
 select set_config('radar.fluxo', 'on', true);
 update public.riscos set status_fluxo = 'aprovado' where codigo_radar in ('RADAR-T070-P-A', 'RADAR-T070-P-B');
 select set_config('radar.fluxo', '', true);
 select pg_temp.entrar_como('presidente@radar.test');
 -- Caso A: a edição TORNA o risco crítico -> recusada (senão ficaria preso em validação).
-select throws_like($$update public.riscos set probabilidade = 4, impacto = 4, categoria_id = 7 where codigo_radar = 'RADAR-T070-P-A'$$,
+select throws_like($$update public.riscos set probabilidade = 4, impacto = 4, categoria_id = 4 where codigo_radar = 'RADAR-T070-P-A'$$,
                    'RADAR:%reabriria%homologaria%',
                    'caso A: edição que torna o risco crítico é recusada pelo Presidente');
 select is(pg_temp.estado((select id from public.riscos where codigo_radar = 'RADAR-T070-P-A')), 'aprovado',

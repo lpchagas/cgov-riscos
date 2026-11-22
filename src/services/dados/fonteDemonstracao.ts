@@ -202,6 +202,10 @@ export function criarFonteDemonstracao(
   function aplicarEntradas(r: FichaRisco, f: FichaParaSalvar): void {
     const objeto = objetos.find((o) => o.id === f.objetoId);
     if (!objeto) recusar('objeto não encontrado.');
+    // Categoria informada e desconhecida: recusa ANTES de mexer no risco
+    // (como a chave estrangeira do banco). Ex.: categoriaId 99 -> recusado.
+    const cat = f.categoriaId === undefined ? undefined : categorias.find((c) => c.id === f.categoriaId);
+    if (f.categoriaId !== undefined && !cat) recusar('categoria não encontrada.');
     r.objetoId = objeto.id;
     r.unidadeId = objeto.unidadeId;
     r.nomeObjetoCache = objeto.nomeObjeto;
@@ -215,14 +219,17 @@ export function criarFonteDemonstracao(
     if (f.eventoRisco !== undefined) r.eventoRisco = f.eventoRisco;
     if (f.consequencias !== undefined) r.consequencias = f.consequencias;
     if (f.objetivoAfetado !== undefined) r.objetivoAfetado = f.objetivoAfetado;
-    if (f.categoriaId !== undefined) {
-      const cat = categorias.find((c) => c.id === f.categoriaId);
-      if (cat) {
-        r.categoriaId = cat.id;
-        r.categoriaNome = cat.nome;
-      }
+    if (cat) {
+      r.categoriaId = cat.id;
+      r.categoriaNome = cat.nome;
     }
-    r.subcategoriaIntegridade = opcional(f.subcategoriaIntegridade, r.subcategoriaIntegridade);
+    // Subcategoria em branco = "sem subcategoria" (como o gatilho do banco,
+    // que grava texto em branco como nulo). Ex.: '' -> apaga; null -> apaga.
+    const sub = f.subcategoriaIntegridade;
+    r.subcategoriaIntegridade = opcional(
+      typeof sub === 'string' && !sub.trim() ? null : sub,
+      r.subcategoriaIntegridade ?? undefined
+    );
     if (f.testeIntegridadeAplicavel !== undefined) r.testeIntegridadeAplicavel = f.testeIntegridadeAplicavel;
     r.justificativaNaoIntegridade = opcional(f.justificativaNaoIntegridade, r.justificativaNaoIntegridade);
     if (f.probabilidade !== undefined) r.probabilidade = f.probabilidade;
@@ -343,7 +350,12 @@ export function criarFonteDemonstracao(
       // Ficha nova: valores padrão iguais aos da store de hoje.
       const objetoPadrao = objetos.find((o) => o.id === f.objetoId);
       if (!objetoPadrao) recusar('objeto não encontrado.');
-      const categoria = categorias.find((c) => c.id === (f.categoriaId ?? 2)) ?? categorias[1];
+      // Sem categoria na ficha nova: Operacional (id 2), o padrão de hoje.
+      // Categoria que não existe é RECUSADA (no banco, a chave estrangeira
+      // recusaria): nada de cair numa categoria qualquer sem ninguém ver.
+      // Ex.: categoriaId 99 -> "Categoria não encontrada."
+      const categoria = categorias.find((c) => c.id === (f.categoriaId ?? 2));
+      if (!categoria) recusar('categoria não encontrada.');
       const nova: FichaRisco = {
         id: novoId('risco'),
         codigoRadar: proximoCodigo(),
@@ -422,19 +434,28 @@ export function criarFonteDemonstracao(
      * 2º degrau: validação em 1 clique (comportamento de `aprovarEmUmCliqueCg`).
      * Risco Crítico (fora do apetite da DAR) sobe para a Diretoria; os demais
      * já ficam aprovados.
+     *
+     * Igual ao banco (`fn_fluxo_validar`, migração 20261115004): o risco cuja
+     * categoria ainda não tem apetite na DAR (`statusCritico = 'pendente_dar'`)
+     * também sobe para a Diretoria. Ex.: residual Médio (P=3, I=2 → 8) em
+     * "Ocupacionais", que nasce `pendente_dar`, não pode ficar aprovado antes de
+     * a DAR decidir o apetite dessa categoria.
      */
     async validar(id, parecer) {
       const r = acharRisco(id);
       if (r.statusFluxo !== 'em_validacao_cg') recusar('só se valida risco em validação');
-      r.statusFluxo = r.isCritico || r.statusCritico === 'sim' ? 'em_homologacao_dir' : 'aprovado';
+      const exigeHomologacao = r.isCritico || r.statusCritico === 'sim' || r.statusCritico === 'pendente_dar';
+      r.statusFluxo = exigeHomologacao ? 'em_homologacao_dir' : 'aprovado';
       registrar(
         r,
         'validacao_cg',
         'aprovado_1_clique',
         parecer ||
-          (r.statusFluxo === 'em_homologacao_dir'
-            ? 'Validado em 1 clique pela Coordenação-Geral e encaminhado à Diretoria por se tratar de Risco Crítico.'
-            : 'Aprovado em 1 clique pela Coordenação-Geral (Risco dentro do apetite da DAR).')
+          (r.statusFluxo !== 'em_homologacao_dir'
+            ? 'Aprovado em 1 clique pela Coordenação-Geral (Risco dentro do apetite da DAR).'
+            : r.statusCritico === 'pendente_dar' && !r.isCritico
+              ? 'Validado em 1 clique pela Coordenação-Geral e encaminhado à Diretoria: a categoria ainda não tem apetite declarado na DAR.'
+              : 'Validado em 1 clique pela Coordenação-Geral e encaminhado à Diretoria por se tratar de Risco Crítico.')
       );
     },
 

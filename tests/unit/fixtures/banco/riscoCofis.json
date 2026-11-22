@@ -77,11 +77,10 @@
   },
   "categoria": {
     "id": 4,
-    "nome": "Conformidade/Legal",
+    "nome": "Legal",
     "apetite_declarado": "baixo",
     "justificativa_dar": "Baixa tolerância a desvios normativos e sanções legais.",
-    "descricao_normativa": "Descumprimento de leis, portarias, instruções normativas ou determinações de órgãos de controle.",
-    "subcategorias_permitidas": []
+    "descricao_normativa": "Eventos derivados de alterações legislativas ou normativas que podem comprometer as atividades da ICMBio"
   },
   "objetoComProcesso": {
     "id": "00000000-0000-4000-b000-000000000002",

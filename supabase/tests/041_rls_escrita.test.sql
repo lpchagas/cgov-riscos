@@ -320,12 +320,13 @@ select is(pg_temp.linhas_afetadas($$update public.categorias_risco set justifica
 select pg_temp.entrar_como('cgov@radar.test');
 select is(pg_temp.linhas_afetadas($$update public.categorias_risco set justificativa_dar = 'Simulação da CGOV (teste 041)' where id = 2$$),
           1, 'cgov altera a DAR (simular e propor)');
--- SEM id explícito: o número vem da sequência categorias_risco_id_seq. O
--- supabase/seed.sql grava as 8 categorias com ids fixos (1 a 8) e, no fim,
--- acerta a sequência com setval — senão o 1º cadastro pegaria o id 1 e daria
--- erro de chave duplicada (23505).
-select lives_ok($$insert into public.categorias_risco (nome, descricao_normativa) values ('Categoria de teste 041', 'x')$$,
-                'cgov cria categoria (id automático, sem colidir com os ids 1 a 8 da semente)');
+-- Desde a LAC-14 (migração 20261122001) o nome da categoria só pode ser um
+-- dos 8 do Quadro 2 (CHECK categorias_risco_nome_quadro_2), e os 8 já estão
+-- gravados. Então nem a CGOV cria categoria nova: a RLS deixa, o CHECK
+-- recusa (23514). (O acerto do contador de ids, que este teste conferia,
+-- agora é conferido no 090: o próximo id é 12.)
+select throws_ok($$insert into public.categorias_risco (nome, descricao_normativa) values ('Categoria de teste 041', 'x')$$,
+                 '23514', null, 'cgov não cria categoria fora do Quadro 2 (CHECK do nome)');
 
 -- ----------------------------------------------------------------------------
 -- 9. perfis_usuarios: cada um lê a própria linha; só a CGOV lê e grava todas

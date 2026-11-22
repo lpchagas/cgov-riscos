@@ -5,9 +5,11 @@ valores aceitos, o que a coluna quer dizer em linguagem simples, a regra de neg�
 guarda **dado pessoal** (Lei nº 13.709/2018, LGPD). Ele completa o [[der-logico]], que mostra as ligações
 entre as tabelas, e a [[normalizacao]], que analisa as repetições.
 
-**De onde vem:** do banco local com as 12 migrações aplicadas (até `20261117001`), lido em 2026-11-21 no
-`information_schema` (colunas, tipos e nulos) e no `pg_constraint` (os valores dos `CHECK`). São **12
-tabelas e 138 colunas**. Os significados foram escritos a partir dos comentários das migrações e das regras
+**De onde vem:** do banco local com as 12 primeiras migrações aplicadas (até `20261117001`), lido em 2026-11-21 no
+`information_schema` (colunas, tipos e nulos) e no `pg_constraint` (os valores dos `CHECK`), e da 13ª migração
+(`20261122001`), acrescentada em 2026-11-22 a partir do próprio arquivo (a tabela `subcategorias_risco` e a
+saída de `categorias_risco.subcategorias_permitidas`). São **13 tabelas e 142 colunas** (138, mais as 5 da
+tabela nova, menos a coluna JSONB que saiu); o 142 foi conferido contando as linhas de colunas deste dicionário, não por nova leitura do banco. Os significados foram escritos a partir dos comentários das migrações e das regras
 de [[regras-negocio]].
 
 ## Como ler
@@ -107,11 +109,22 @@ O estado só muda pelas ações do fluxo e pelas reaberturas (RN-038). O fluxo i
 | Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `categorias_risco` | `id` | `integer` | não | chave primária, sequencial | Número da categoria. | — | não |
-| `categorias_risco` | `nome` | `text` | não | único | Nome da categoria (Quadro 2; alinhamento pendente, LAC-14). | RN-015 | não |
-| `categorias_risco` | `descricao_normativa` | `text` | não | — | Descrição da categoria segundo a Metodologia. | — | não |
+| `categorias_risco` | `nome` | `text` | não | único; `CHECK` com os 8 nomes do Quadro 2 (`categorias_risco_nome_quadro_2`) | Nome da categoria, na grafia do Quadro 2. | RN-015 | não |
+| `categorias_risco` | `descricao_normativa` | `text` | não | — | Descrição literal da categoria no Quadro 2 da Metodologia. | — | não |
 | `categorias_risco` | `apetite_declarado` | `text` | não | `baixo`, `moderado`, `pendente_dar` | Apetite da DAR para a categoria; `pendente_dar` enquanto não declarado. | RN-005, RN-008 a RN-010, RN-055, RN-056 | não |
 | `categorias_risco` | `justificativa_dar` | `text` | sim | — | Justificativa do apetite declarado. | — | não |
-| `categorias_risco` | `subcategorias_permitidas` | `jsonb` | sim | lista JSON; padrão `[]` | Lista das subcategorias aceitas (lista em JSON; ver normalização § 2.1). | RN-017 | não |
+
+### `subcategorias_risco`
+
+Criada pela migração `20261122001` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]); no lugar da coluna JSONB `categorias_risco.subcategorias_permitidas`, que saiu. Leitura por quem tem perfil ativo; ninguém logado grava (a lista muda só por migração).
+
+| Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `subcategorias_risco` | `id` | `integer` | não | chave primária, sequencial | Número da subcategoria. | — | não |
+| `subcategorias_risco` | `categoria_id` | `integer` | não | chave estrangeira para `categorias_risco` (não apaga categoria com subcategorias) | Categoria a que a subcategoria pertence (hoje só a Integridade). | RN-017 | não |
+| `subcategorias_risco` | `nome` | `text` | não | único com `categoria_id` | Nome da subcategoria, como no Quadro 3 (as 6 da Integridade). | RN-017 | não |
+| `subcategorias_risco` | `descricao_normativa` | `text` | não | — | Descrição literal da subcategoria no Quadro 3. | RN-017 | não |
+| `subcategorias_risco` | `ordem` | `smallint` | não | — | Posição da subcategoria no Quadro 3. | — | não |
 
 ### `riscos`
 
@@ -127,7 +140,7 @@ O estado só muda pelas ações do fluxo e pelas reaberturas (RN-038). O fluxo i
 | `riscos` | `objetivo_afetado` | `text` | não | — | Objetivo que o evento afeta. | RN-014 | não |
 | `riscos` | `descricao_padrao` | `text` | não | calculado pelo banco | Frase padrão do item 4.2.1, montada pelo gatilho ("Devido o(a)..."); não se informa. | RN-013, RN-014 | não |
 | `riscos` | `categoria_id` | `integer` | não | chave estrangeira para `categorias_risco` | Categoria dominante do risco. | RN-015, RN-016 | não |
-| `riscos` | `subcategoria_integridade` | `text` | sim | texto livre | Subcategoria do Quadro 3, para risco de Integridade (texto livre hoje, LAC-15). | RN-017 | não |
+| `riscos` | `subcategoria_integridade` | `text` | sim | chave estrangeira composta (`categoria_id`, `subcategoria_integridade`) para `subcategorias_risco`; o gatilho exige valor na Integridade e grava texto em branco (`''` ou só espaços) como nulo | Subcategoria do Quadro 3, para risco de Integridade; risco de outra categoria não pode ter. | RN-017 | não |
 | `riscos` | `teste_integridade_aplicavel` | `boolean` | não | verdadeiro ou falso | Se o objeto envolve decisão sobre beneficiário, licença ou autorização, fiscalização ou sanção, ou contratação ou atestação. | RN-006 | não |
 | `riscos` | `justificativa_nao_integridade` | `text` | sim | — | Por que o risco não foi classificado como Integridade quando o teste se aplica. | RN-018 | não |
 | `riscos` | `probabilidade` | `integer` | não | 1 a 5 | Probabilidade na escala do Quadro 4. | RN-011 | não |

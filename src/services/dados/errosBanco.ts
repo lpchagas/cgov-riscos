@@ -102,6 +102,11 @@ const DICIONARIO: Entrada[] = [
   ['deve ser um objeto JSON', 'Não foi possível enviar a ficha por um erro interno do RADAR. Tente de novo; se persistir, procure a CGOV.', 'desconhecido'],
   ['deve ser uma lista', 'Não foi possível enviar a ficha por um erro interno do RADAR. Tente de novo; se persistir, procure a CGOV.', 'desconhecido'],
   ['no máximo 1000 riscos', 'A consulta pediu riscos demais de uma vez (máximo de 1.000). Filtre a lista e tente de novo.', 'validacao'],
+  // --- Categorias e subcategorias (20261122001) ---
+  // Código 23514 (check_violation), que no plano B por código viraria a frase
+  // genérica "Algum campo está fora dos valores permitidos". Por isso fica AQUI.
+  // Ex.: rascunho da Integridade salvo sem subcategoria.
+  ['exige uma das subcategorias do Quadro 3', 'Risco da categoria Integridade precisa de uma das 6 subcategorias do Quadro 3. Escolha a subcategoria na etapa da categoria.', 'validacao'],
   ['não encontrado', 'Risco não encontrado.', 'nao_encontrado'], // "risco ... não encontrado"
 ];
 

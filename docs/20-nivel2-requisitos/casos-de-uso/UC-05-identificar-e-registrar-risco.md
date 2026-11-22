@@ -38,8 +38,8 @@ Na ficha do sistema, a identificação (este caso de uso), a análise (UC-06) e 
 - 1a. O gestor não escolhe objeto, ou falta causa, evento, consequência ou objetivo: o sistema não avança e diz o que falta.
 - 4a. O teste se aplica e o gestor escolhe a categoria Integridade: segue no 6 com a exigência de subcategoria.
 - 5a. O gestor tenta a categoria mista que junta Operacional e Integridade: o sistema recusa (RN-016).
-- 5b. A lista de categorias não é a do Quadro 2: hoje o sistema oferece categorias com outros nomes (LAC-14; não tratado pelo sistema; cartão no Kanban).
-- 6a. Categoria Integridade sem subcategoria: o sistema não avança e pede uma das 6 subcategorias (RN-017). Hoje a lista oferecida não é a do Quadro 3 (LAC-15; não tratado pelo sistema; cartão no Kanban).
+- 5b. A lista de categorias é a do Quadro 2 (LAC-14, resolvida em 2026-11-22; RN-015). O banco do piloto na nuvem ainda aguarda a migração (Fase 2).
+- 6a. Categoria Integridade sem subcategoria: o sistema não avança e pede uma das 6 subcategorias (RN-017). A lista oferecida é a do Quadro 3, e o banco recusa a gravação sem ela (LAC-15, resolvida em 2026-11-22). Ao trocar a categoria para outra que não Integridade, a tela limpa a subcategoria.
 - 6b. O teste se aplica, a categoria não é Integridade e falta a justificativa de pelo menos 10 caracteres: o sistema não avança (RN-018).
 - 8a. O banco recusa a gravação (por exemplo, objeto de outra unidade ou sessão vencida): nada é gravado e o sistema mostra o motivo.
 

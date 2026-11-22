@@ -35,8 +35,8 @@ import { apagarRiscosDeTeste, clienteServico, entrarComo, garantirSupabaseNoAr }
 const OBJ_UC_CT = '00000000-0000-4000-b000-000000000001';
 /** Categoria 2 = Operacional (apetite "moderado" na semente). */
 const CAT_OPERACIONAL = 2;
-/** Categoria 7 = Socioambiental (apetite "baixo" na semente). */
-const CAT_SOCIOAMBIENTAL = 7;
+/** Categoria 4 = Legal (apetite "baixo" na semente; a 7, Socioambiental, saiu com o Quadro 2). */
+const CAT_LEGAL = 4;
 
 /** Riscos e objetos criados pelo teste da vez (apagados no afterEach). */
 const riscosCriados: string[] = [];
@@ -127,11 +127,11 @@ describe('fonte Supabase — gravações e fluxo (Supabase local)', () => {
 
   it('ciclo completo: cria, apaga o "Por quê", envia, valida, homologa; histórico e atividade recente', async () => {
     const gestor = await fonteDe('gestor.uc@radar.test');
-    // P=4, I=4 na Socioambiental (apetite baixo) → Alto → Risco Crítico → exige homologação.
+    // P=4, I=4 na Legal (apetite baixo) → Alto → Risco Crítico → exige homologação.
     const { id, codigoRadar } = await criar(
       gestor,
       ficha({
-        categoriaId: CAT_SOCIOAMBIENTAL,
+        categoriaId: CAT_LEGAL,
         probabilidade: 4,
         impacto: 4,
         respostas: [

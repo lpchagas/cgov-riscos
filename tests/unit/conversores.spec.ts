@@ -16,6 +16,7 @@ import {
   eventoAuditoriaDoBanco,
   eventoFluxoDoBanco,
   fichaParaJson,
+  fichaDaSkillParaSalvar,
   fichaParaSalvarDeRisco,
   historicoDoBanco,
   objetoDoBanco,
@@ -71,7 +72,7 @@ describe('riscoDoBanco', () => {
     // A unidade dona vem do objeto (a tabela riscos não tem unidade_id).
     expect(f.unidadeId).toBe(fixture.objeto.unidade_id);
     expect(f.nomeObjetoCache).toBe(fixture.objeto.nome_objeto);
-    expect(f.categoriaNome).toBe('Conformidade/Legal');
+    expect(f.categoriaNome).toBe('Legal');
     // Valores calculados vêm GRAVADOS pelo banco (o front não refaz a conta).
     expect(f.nivelInerente).toBe(24);
     expect(f.classificacaoInerente).toBe('Extremo');
@@ -219,6 +220,17 @@ describe('fichaParaJson', () => {
   });
 });
 
+describe('fichaParaJson: subcategoria em branco', () => {
+  // Segunda ponta da mesma regra: mesmo que chegue '' ou só espaços, o JSON
+  // leva null ("sem subcategoria"), e o banco responde com a mensagem RADAR.
+  it("'' e '   ' viram null; texto de verdade passa como veio; ausente fica ausente", () => {
+    expect(fichaParaJson({ objetoId: 'obj-1', subcategoriaIntegridade: '' }).subcategoria_integridade).toBeNull();
+    expect(fichaParaJson({ objetoId: 'obj-1', subcategoriaIntegridade: '   ' }).subcategoria_integridade).toBeNull();
+    expect(fichaParaJson({ objetoId: 'obj-1', subcategoriaIntegridade: 'Nepotismo' }).subcategoria_integridade).toBe('Nepotismo');
+    expect(fichaParaJson({ objetoId: 'obj-1' })).not.toHaveProperty('subcategoria_integridade');
+  });
+});
+
 describe('soCamposCalculadosMudaram ("recalculado pela DAR")', () => {
   const antes = fixture.risco as Record<string, unknown>;
 
@@ -257,7 +269,6 @@ describe('demais conversores', () => {
     });
     const c = categoriaDoBanco(fixture.categoria);
     expect(c.apetiteDeclarado).toBe('baixo');
-    expect(c.subcategoriasPermitidas).toEqual([]);
     expect(categoriaDoBanco({ ...fixture.categoria, justificativa_dar: null }).justificativaDar).toBe('');
     const p = processoDoBanco(fixture.processo);
     expect(p).toEqual({
@@ -351,5 +362,39 @@ describe('demais conversores', () => {
       anteriores: { causas: 'a' },
       novos: { causas: 'b' },
     });
+  });
+});
+
+describe('fichaDaSkillParaSalvar (importação)', () => {
+  const linha = {
+    codigoRadar: 'RSC-X',
+    nomeObjeto: 'Objeto',
+    descricaoPadrao: '',
+    causas: 'c',
+    eventoRisco: 'e',
+    consequencias: 'q',
+    objetivoAfetado: 'o',
+    categoriaNome: 'Socioambiental',
+    probabilidade: 3,
+    impacto: 3,
+    controlesTexto: 'Inexistente',
+    possuiEvidenciaControle: false,
+    nivelEficaciaControle: 'Inexistente',
+    estrategiaTratamento: 'Mitigar',
+  } as unknown as Parameters<typeof fichaDaSkillParaSalvar>[0];
+  const categorias = [
+    categoriaDoBanco({ ...fixture.categoria, id: 2, nome: 'Operacional' }),
+    categoriaDoBanco({ ...fixture.categoria, id: 4, nome: 'Legal' }),
+  ];
+
+  it('fichaDaSkillParaSalvar recusa categoria desconhecida em vez de trocar por Operacional', () => {
+    expect(() => fichaDaSkillParaSalvar(linha, categorias, 'obj-1')).toThrow(
+      'RADAR: a categoria "Socioambiental" não existe no banco.'
+    );
+  });
+
+  it('acha a categoria sem diferença de maiúsculas', () => {
+    const ficha = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal' }, categorias, 'obj-1');
+    expect(ficha.categoriaId).toBe(4);
   });
 });

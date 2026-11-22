@@ -73,10 +73,10 @@ describe('carregarCarteira', () => {
     const a = fonteComo('cgov');
     const b = fonteComo('cgov');
     await a.salvarFicha({ objetoId: 'obj-anexo-ii', causas: 'só na fonte A' });
-    await a.alterarApetite(7, 'moderado');
+    await a.alterarApetite(4, 'moderado'); // categoria 4 = Legal (apetite baixo)
     const cb = await b.carregarCarteira();
     expect(cb.riscos).toHaveLength(RISCOS_SEMENTE_ANEXO_II.length);
-    expect(cb.categorias.find((c) => c.id === 7)?.apetiteDeclarado).toBe('baixo');
+    expect(cb.categorias.find((c) => c.id === 4)?.apetiteDeclarado).toBe('baixo');
   });
 });
 
@@ -113,6 +113,22 @@ describe('salvarFicha', () => {
     expect(r?.eventoRisco).toBe('evento');
     expect(r?.descricaoPadrao).toContain('depois');
     expect((await fonte.carregarCarteira()).riscos).toHaveLength(RISCOS_SEMENTE_ANEXO_II.length + 1);
+  });
+
+  // Sem conversão silenciosa: categoria desconhecida é recusada (no banco, a
+  // chave estrangeira recusaria). O padrão Operacional (id 2) só vale quando
+  // a ficha nova não diz a categoria.
+  it('categoria desconhecida é recusada, na ficha nova e na edição; sem categoria, nasce Operacional', async () => {
+    const fonte = fonteComo('gestor');
+    const nova = await erroDe(fonte.salvarFicha({ objetoId: 'obj-anexo-ii', categoriaId: 99 }));
+    expect(nova.message).toBe('Categoria não encontrada.');
+    expect((await fonte.carregarCarteira()).riscos).toHaveLength(RISCOS_SEMENTE_ANEXO_II.length);
+
+    const criado = await fonte.salvarFicha({ objetoId: 'obj-anexo-ii' });
+    expect((await fonte.relerRisco(criado.id))?.categoriaNome).toBe('Operacional');
+    const edicao = await erroDe(fonte.salvarFicha({ id: criado.id, objetoId: 'obj-anexo-ii', categoriaId: 99 }));
+    expect(edicao.message).toBe('Categoria não encontrada.');
+    expect((await fonte.relerRisco(criado.id))?.categoriaId).toBe(2);
   });
 
   it('ficha preliminar da CGOV nasce em preliminar_cgov', async () => {
@@ -170,6 +186,22 @@ describe('fluxo simulado', () => {
     const r = await fonte.relerRisco(id);
     expect(r?.statusFluxo).toBe('aprovado');
     expect(r?.historicoFluxo.at(-1)?.despachoTexto).toBe('De acordo.');
+  });
+
+  it("validar risco Médio em categoria 'pendente_dar' leva a em_homologacao_dir (igual ao banco)", async () => {
+    // Categoria 10 (Ocupacionais) nasce sem apetite na DAR. P=3, I=2 → 8 (Médio, Quadro 7).
+    const fonte = fonteComo('coordenador_geral');
+    const { id } = await fonte.salvarFicha({ objetoId: 'obj-anexo-ii', categoriaId: 10, probabilidade: 3, impacto: 2 });
+    await fonte.enviar(id);
+    const enviado = await fonte.relerRisco(id);
+    expect(enviado?.classificacaoResidual).toBe('Médio');
+    expect(enviado?.statusCritico).toBe('pendente_dar');
+    expect(enviado?.isCritico).toBe(false);
+    await fonte.validar(id);
+    const r = await fonte.relerRisco(id);
+    expect(r?.statusFluxo).toBe('em_homologacao_dir');
+    // O histórico não chama de "Risco Crítico" o que só está pendente da DAR.
+    expect(r?.historicoFluxo.at(-1)?.despachoTexto).toContain('ainda não tem apetite declarado na DAR');
   });
 
   it('homologar leva a aprovado', async () => {
@@ -259,19 +291,19 @@ describe('acoesNoFluxo (botões pelo perfil e pelo estado, como hoje)', () => {
 describe('DAR, monitoramento e objetos', () => {
   it('alterarApetite recalcula a criticidade na memória', async () => {
     const fonte = fonteComo('cgov');
-    // risco-socio-03: residual 8,4 (Médio) na categoria 7 (apetite baixo) → Crítico.
-    expect((await fonte.relerRisco('risco-socio-03'))?.statusCritico).toBe('sim');
-    await fonte.alterarApetite(7, 'moderado');
+    // risco-socio-03: residual 8,4 (Médio) na categoria 2, Operacional (apetite moderado) → não é Crítico.
+    expect((await fonte.relerRisco('risco-socio-03'))?.statusCritico).toBe('nao');
+    await fonte.alterarApetite(2, 'baixo');
     const r = await fonte.relerRisco('risco-socio-03');
-    expect(r?.statusCritico).toBe('nao');
-    expect(r?.isCritico).toBe(false);
-    expect((await fonte.carregarCarteira()).categorias.find((c) => c.id === 7)?.apetiteDeclarado).toBe('moderado');
+    expect(r?.statusCritico).toBe('sim');
+    expect(r?.isCritico).toBe(true);
+    expect((await fonte.carregarCarteira()).categorias.find((c) => c.id === 2)?.apetiteDeclarado).toBe('baixo');
   });
 
   it('alterarJustificativa grava o texto', async () => {
     const fonte = fonteComo('cgov');
-    await fonte.alterarJustificativa(7, 'Nova justificativa');
-    expect((await fonte.carregarCarteira()).categorias.find((c) => c.id === 7)?.justificativaDar).toBe('Nova justificativa');
+    await fonte.alterarJustificativa(4, 'Nova justificativa');
+    expect((await fonte.carregarCarteira()).categorias.find((c) => c.id === 4)?.justificativaDar).toBe('Nova justificativa');
   });
 
   it('medição de KRI e status de ação não reabrem o risco aprovado', async () => {

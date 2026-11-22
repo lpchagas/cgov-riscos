@@ -355,12 +355,13 @@ select is(pg_temp.linhas_afetadas($$delete from public.riscos where codigo_radar
 -- 8c. Reabertura por troca de CATEGORIA ou de OBJETO (correção da revisão final)
 -- ----------------------------------------------------------------------------
 -- Trocar a categoria muda o apetite da DAR que vale para o risco: um risco
--- Médio "dentro do apetite" (categoria Estratégico, moderado) pode virar
--- crítico numa categoria de apetite baixo (Conformidade/Legal). Isso precisa
+-- Médio "dentro do apetite" (categoria Operacional, moderado) pode virar
+-- crítico numa categoria de apetite baixo (Legal). (Até a LAC-14 o exemplo
+-- usava a categoria 1, Estratégico, que saiu do Quadro 2.) Isso precisa
 -- voltar à validação — senão ficaria aprovado e crítico sem homologação.
 select pg_temp.entrar_como('gestor.uc@radar.test');
--- P=3, I=2 → 8 (Médio); categoria 1 (Estratégico, moderado) → não crítico.
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T050-CAT', 3, 2, 1);
+-- P=3, I=2 → 8 (Médio); categoria 2 (Operacional, moderado) → não crítico.
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T050-CAT', 3, 2, 2);
 select (select id from public.riscos where codigo_radar = 'RADAR-T050-CAT') as r_cat \gset
 select is((select status_fluxo from public.enviar_para_validacao(:'r_cat')), 'em_validacao_cg',
           'risco Médio (não crítico) enviado');
@@ -376,8 +377,8 @@ select is((select is_critico from public.riscos where id = :'r_cat'), true,
 
 -- Mover o risco para o objeto de outra unidade muda quem valida: também reabre.
 select pg_temp.entrar_como('gestor.uc-sem-ct@radar.test');
--- P=2, I=2 → 5 (Baixo); categoria 1 → não crítico. Objeto 2 = FLONA do Tapajós.
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000002', 'RADAR-T050-OBJ', 2, 2, 1);
+-- P=2, I=2 → 5 (Baixo); categoria 2 → não crítico. Objeto 2 = FLONA do Tapajós.
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000002', 'RADAR-T050-OBJ', 2, 2, 2);
 select (select id from public.riscos where codigo_radar = 'RADAR-T050-OBJ') as r_obj \gset
 select is((select status_fluxo from public.enviar_para_validacao(:'r_obj')), 'em_validacao_cg',
           'risco da FLONA do Tapajós enviado');
@@ -437,7 +438,7 @@ select is((select p.email from public.historico_fluxo h join public.perfis_usuar
 --     crítico da BAV Belterra. A chefia da Base é a FLONA (ele mesmo) → sobe
 --     para a GR1.
 select pg_temp.entrar_como('gestor.uc-sem-ct@radar.test');
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000003', 'RADAR-T050-BAV', 2, 2, 1);
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000003', 'RADAR-T050-BAV', 2, 2, 2);
 select (select id from public.riscos where codigo_radar = 'RADAR-T050-BAV') as r_bav \gset
 select is((select status_fluxo from public.enviar_para_validacao(:'r_bav')), 'em_validacao_cg',
           'D1 (b): gestor.uc-sem-ct envia o risco não crítico da Base');
@@ -477,14 +478,12 @@ select is((select status_fluxo from public.homologar_risco(:'r_cgov', 'ok')), 'a
 -- ----------------------------------------------------------------------------
 -- 10. pendente_dar sobe para homologação; devolução com e sem motivo
 -- ----------------------------------------------------------------------------
--- Nenhuma categoria da semente tem apetite 'pendente_dar' (decisão R10 em decisoes-tecnicas-b1.md). Mudamos a
--- categoria 2 (Operacional) só dentro deste teste — o rollback desfaz.
-select pg_temp.sair();
-update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 2;
-
+-- Desde a LAC-14 (2026-11-22) a semente TEM categorias sem apetite na DAR:
+-- 9, 10 e 11 (as que entraram com o Quadro 2) nascem 'pendente_dar'. Usamos
+-- a 9 (Riscos da visitação); antes o teste mudava a categoria 2 para isso.
 select pg_temp.entrar_como('gestor.uc@radar.test');
 -- P=3, I=2 → 8 (Médio). Com a categoria sem apetite definido → pendente_dar.
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T050-PEND', 3, 2);
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T050-PEND', 3, 2, 9);
 select (select id from public.riscos where codigo_radar = 'RADAR-T050-PEND') as r_pend \gset
 select is((select status_critico from public.riscos where id = :'r_pend'), 'pendente_dar',
           'residual Médio em categoria sem apetite na DAR → pendente_dar');
@@ -520,13 +519,14 @@ select is((select status_fluxo from public.enviar_para_validacao(:'r_pend')), 'e
 -- precisa decidir com a criticidade ATUAL: agora o risco é crítico e sobe
 -- para homologação (não pode ser aprovado sem o 3º degrau).
 select pg_temp.entrar_como('gestor.uc@radar.test');
--- P=3, I=2 → 8 (Médio); categoria 8 (TI) tem apetite 'moderado' → não crítico.
-select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T050-DAR', 3, 2, 8);
+-- P=3, I=2 → 8 (Médio); categoria 2 (Operacional) tem apetite 'moderado' → não crítico.
+-- (Antes era a 8, Tecnologia da Informação, que saiu do Quadro 2 na LAC-14.)
+select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000001', 'RADAR-T050-DAR', 3, 2, 2);
 select (select id from public.riscos where codigo_radar = 'RADAR-T050-DAR') as r_dar \gset
 select is((select status_fluxo from public.enviar_para_validacao(:'r_dar')), 'em_validacao_cg',
           'risco Médio dentro do apetite enviado para validação');
 select pg_temp.sair();
-update public.categorias_risco set apetite_declarado = 'baixo' where id = 8;
+update public.categorias_risco set apetite_declarado = 'baixo' where id = 2;
 select pg_temp.entrar_como('ct@radar.test');
 select is((select status_fluxo from public.validar_risco(:'r_dar', 'ok')), 'em_homologacao_dir',
           'apetite mudou depois do envio: a validação usa a criticidade ATUAL e sobe para homologação');

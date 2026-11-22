@@ -7,6 +7,8 @@ import {
   calcularRiscoCompletoRadar,
   gerarSintaxePadraoRisco,
   validarRegraIntegridade,
+  CATEGORIAS_OFICIAIS_QUADRO_2,
+  SUBCATEGORIAS_INTEGRIDADE_QUADRO_3,
 } from '../../src/utils/calculadoraRiscoRadar';
 
 describe('Motor Matemático RADAR — Metodologia SEI 024421455 e Skill cgov-gestao-riscos-v4', () => {
@@ -102,5 +104,48 @@ describe('Motor Matemático RADAR — Metodologia SEI 024421455 e Skill cgov-ges
     expect(frase).toBe(
       'Devido o(a) concentração do conhecimento em um único servidor, poderá ocorrer o(a) afastamento do servidor responsável, ocasionando o(a) paralisação do processo e impactando o alcance do execução contínua das atividades da unidade.'
     );
+  });
+});
+
+describe('Listas oficiais: Quadro 2 (categorias) e Quadro 3 (subcategorias de Integridade)', () => {
+  it('Quadro 2: as 8 categorias, na grafia literal', () => {
+    expect([...CATEGORIAS_OFICIAIS_QUADRO_2]).toEqual([
+      'Operacional',
+      'Legal',
+      'Financeiro/Orçamentário',
+      'Reputação',
+      'Integridade',
+      'Riscos da visitação',
+      'Ocupacionais',
+      'Privacidade e Proteção de Dados',
+    ]);
+  });
+
+  it('Quadro 3: as 6 subcategorias, na grafia literal', () => {
+    expect([...SUBCATEGORIAS_INTEGRIDADE_QUADRO_3]).toEqual([
+      'Abuso de posição ou poder em favor de interesses privados',
+      'Nepotismo',
+      'Conflito de interesses',
+      'Pressão interna ou externa ilegal para influenciar agente público',
+      'Solicitação ou recebimento de vantagem indevida',
+      'Utilização de recursos públicos em favor de interesses privados',
+    ]);
+  });
+
+  it.each([
+    'Estratégico',
+    'Socioambiental',
+    'Tecnologia da Informação',
+    'Conformidade/Legal',
+    'Imagem/Reputação',
+    'Orçamentário/Financeiro',
+  ])('categoria que saiu é recusada: %s', (nome) => {
+    expect(validarRegraIntegridade({ categoriaNome: nome, testeIntegridadeAplicavel: false }).valido).toBe(false);
+  });
+
+  it('Riscos da visitação é aceita', () => {
+    expect(
+      validarRegraIntegridade({ categoriaNome: 'Riscos da visitação', testeIntegridadeAplicavel: false }).valido
+    ).toBe(true);
   });
 });

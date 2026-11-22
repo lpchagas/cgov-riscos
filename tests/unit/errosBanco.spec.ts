@@ -149,3 +149,24 @@ describe('mensagens 22023 da migração 20261117001 (ficha e ações)', () => {
     expect(traduzirErroBanco({ code: '22023', message: mensagens[3] }).tipo).toBe('estado');
   });
 });
+
+describe('mensagens 23514 da migração 20261122001 (categorias e subcategorias)', () => {
+  // Cópia fiel do RAISE EXCEPTION de fn_exige_subcategoria (o % vira o nome da
+  // categoria). O código é 23514 (check_violation), que no plano B por código
+  // viraria a frase genérica "Algum campo está fora dos valores permitidos".
+  const mensagem = 'RADAR: risco da categoria Integridade exige uma das subcategorias do Quadro 3.';
+
+  it('rascunho da Integridade sem subcategoria vira frase legível, não a genérica do 23514', () => {
+    const e = traduzirErroBanco({ code: '23514', message: mensagem });
+    expect(e.message).toBe(
+      'Risco da categoria Integridade precisa de uma das 6 subcategorias do Quadro 3. Escolha a subcategoria na etapa da categoria.'
+    );
+    expect(e.message).not.toMatch(/fora dos valores permitidos|RADAR:/);
+    expect(e.tipo).toBe('validacao');
+  });
+
+  it('CHECK sem prefixo RADAR continua na frase genérica do 23514', () => {
+    const e = traduzirErroBanco({ code: '23514', message: 'new row for relation "categorias_risco" violates check constraint' });
+    expect(e.message).toBe('Algum campo está fora dos valores permitidos. Revise o preenchimento.');
+  });
+});

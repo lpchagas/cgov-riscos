@@ -257,7 +257,15 @@ export function dadosParaFicha(
     consequencias: d.consequencias,
     objetivoAfetado: d.objetivo,
     categoriaId: d.categoriaId ?? undefined,
-    subcategoriaIntegridade: ehIntegridade ? d.subcategoriaIntegridade : undefined,
+    // Subcategoria só na Integridade. Fora dela, ou em branco ('' ou espaços),
+    // vai null EXPLÍCITO ("sem subcategoria"), nunca '' nem undefined:
+    //   - '' iria para a chave estrangeira e voltaria um erro genérico (23503);
+    //   - undefined some do JSON, e na EDIÇÃO a salvar_ficha_risco mantém o
+    //     valor antigo: Integridade/Nepotismo → Operacional ficaria (2, 'Nepotismo').
+    // Com null, o banco apaga a subcategoria (ou, na Integridade, responde
+    // "RADAR: ... exige uma das subcategorias do Quadro 3").
+    // Ex.: Operacional -> null; Integridade + '' -> null; Integridade + 'Nepotismo' -> 'Nepotismo'.
+    subcategoriaIntegridade: ehIntegridade && d.subcategoriaIntegridade.trim() ? d.subcategoriaIntegridade : null,
     testeIntegridadeAplicavel: d.decideSobreTerceiros,
     justificativaNaoIntegridade: d.justificativaNaoIntegridade || undefined,
     probabilidade: d.probabilidade ?? undefined,

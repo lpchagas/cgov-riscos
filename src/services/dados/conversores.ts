@@ -79,16 +79,18 @@ export function unidadeDoBanco(l: LinhaBanco): UnidadeOrganizacional {
   };
 }
 
-/** Linha de `categorias_risco` -> `CategoriaRisco` (subcategorias vêm como lista JSON). */
+/**
+ * Linha de `categorias_risco` -> `CategoriaRisco`.
+ * (As subcategorias do Quadro 3 não vêm mais aqui: desde a migração
+ * 20261122001 elas ficam na tabela `subcategorias_risco`.)
+ */
 export function categoriaDoBanco(l: LinhaBanco): CategoriaRisco {
-  const subs = Array.isArray(l.subcategorias_permitidas) ? l.subcategorias_permitidas.map(String) : [];
   return {
     id: numero(l.id),
     nome: texto(l.nome),
     descricaoNormativa: texto(l.descricao_normativa),
     apetiteDeclarado: (textoOpcional(l.apetite_declarado) ?? 'pendente_dar') as CategoriaRisco['apetiteDeclarado'],
     justificativaDar: texto(l.justificativa_dar),
-    subcategoriasPermitidas: subs,
   };
 }
 
@@ -436,7 +438,10 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
   copiarSeDefinido(json, 'consequencias', f.consequencias);
   copiarSeDefinido(json, 'objetivo_afetado', f.objetivoAfetado);
   copiarSeDefinido(json, 'categoria_id', f.categoriaId);
-  copiarSeDefinido(json, 'subcategoria_integridade', f.subcategoriaIntegridade);
+  // Subcategoria em branco ('' ou só espaços) vai como null ("sem
+  // subcategoria"). Ex.: '' -> null; 'Nepotismo' -> 'Nepotismo'; ausente -> omitida.
+  const sub = f.subcategoriaIntegridade;
+  copiarSeDefinido(json, 'subcategoria_integridade', typeof sub === 'string' && !sub.trim() ? null : sub);
   copiarSeDefinido(json, 'teste_integridade_aplicavel', f.testeIntegridadeAplicavel);
   copiarSeDefinido(json, 'justificativa_nao_integridade', f.justificativaNaoIntegridade);
   copiarSeDefinido(json, 'probabilidade', f.probabilidade);
@@ -503,7 +508,8 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
  */
 export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
   // Opcional ausente no front (undefined) vira null: "sem valor" no banco.
-  const ouNulo = (v: string | undefined) => v ?? null;
+  // (A subcategoria pode já vir null: "sem subcategoria" dito de propósito.)
+  const ouNulo = (v: string | null | undefined) => v ?? null;
   // Nos FILHOS (ação 5W2H), texto opcional ausente OU em branco também vira
   // null: assim o banco APAGA o valor antigo (chave omitida = "manter").
   // Ex.: '   ' -> null; 'Reduzir fraudes' -> 'Reduzir fraudes'.
@@ -550,6 +556,8 @@ export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
  * demonstração). Os valores calculados da skill também são descartados — a
  * fonte recalcula a partir de P, I, eficácia e evidência.
  *
+ * Categoria que não existe no banco: LANÇA erro (nunca troca por outra).
+ *
  * Ex.: fichaDaSkillParaSalvar(linha, categorias, 'obj-1', 'Ponto Focal')
  *   -> { objetoId: 'obj-1', preliminarCgov: true, probabilidade: 3, ... }
  */
@@ -559,8 +567,12 @@ export function fichaDaSkillParaSalvar(
   objetoId: string,
   responsavelNome = 'Ponto Focal 1ª Linha (A validar)'
 ): FichaParaSalvar {
-  const categoria =
-    categorias.find((c) => c.nome.toLowerCase() === item.categoriaNome.toLowerCase()) ?? categorias[1] ?? categorias[0];
+  const categoria = categorias.find((c) => c.nome.toLowerCase() === item.categoriaNome.toLowerCase());
+  // Sem conversão silenciosa: categoria que o banco não tem NÃO vira "Operacional".
+  // O erro "RADAR: ..." aparece na lista de erros da linha na tela de importação.
+  if (!categoria) {
+    throw new Error(`RADAR: a categoria "${item.categoriaNome}" não existe no banco.`);
+  }
   const temControle = Boolean(item.controlesTexto) && item.controlesTexto !== 'Inexistente';
   return {
     objetoId,
@@ -570,7 +582,7 @@ export function fichaDaSkillParaSalvar(
     eventoRisco: item.eventoRisco,
     consequencias: item.consequencias,
     objetivoAfetado: item.objetivoAfetado,
-    categoriaId: categoria?.id,
+    categoriaId: categoria.id,
     subcategoriaIntegridade: item.subcategoriaIntegridade,
     probabilidade: item.probabilidade,
     impacto: item.impacto,

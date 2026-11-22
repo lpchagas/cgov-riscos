@@ -12,7 +12,7 @@
  * O nível residual de cada ficha não muda com a DAR — só a criticidade muda.
  *
  * Exemplo (dados de demonstração):
- *   RADAR-2026-003 tem residual 8,4 (Médio) na categoria Socioambiental.
+ *   Um risco com residual 8,4 (Médio) numa categoria de apetite Baixo é Crítico:
  *   Apetite Baixo    → Médio supera Baixo → Crítico.
  *   Apetite Moderado → Médio cabe em Moderado → deixa de ser Crítico.
  */

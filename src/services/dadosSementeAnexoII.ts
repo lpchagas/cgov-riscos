@@ -22,7 +22,6 @@ import type {
   ObjetoContexto,
   UnidadeOrganizacional,
 } from '../types/radar.types';
-import { SUBCATEGORIAS_INTEGRIDADE_QUADRO_3 } from '../utils/calculadoraRiscoRadar';
 
 /**
  * Unidades Organizacionais representativas do ICMBio (com `coordenacao-geral`).
@@ -107,82 +106,76 @@ export const UNIDADES_SEMENTE: UnidadeOrganizacional[] = [
  */
 export const CATEGORIAS_QUADRO_2_SEMENTE: CategoriaRisco[] = [
   {
-    id: 1,
-    nome: 'Estratégico',
-    descricaoNormativa:
-      'Eventos que afetam objetivos estratégicos e a missão institucional do ICMBio.',
-    apetiteDeclarado: 'moderado',
-    justificativaDar:
-      'Admite-se risco residual até Médio em iniciativas estratégicas sob monitoramento.',
-    subcategoriasPermitidas: [],
-  },
-  {
     id: 2,
     nome: 'Operacional',
     descricaoNormativa:
-      'Falhas, deficiências ou inadequações em processos internos, pessoas ou sistemas.',
+      'Eventos que podem comprometer as atividades da ICMBio, normalmente associados a falhas, deficiência ou inadequação de processos internos, pessoas, infraestrutura e sistemas',
     apetiteDeclarado: 'moderado',
     justificativaDar:
       'Processos operacionais toleram nível residual até Médio; níveis Alto e Extremo são críticos.',
-    subcategoriasPermitidas: [],
-  },
-  {
-    id: 3,
-    nome: 'Orçamentário/Financeiro',
-    descricaoNormativa:
-      'Eventos que comprometem a execução orçamentária, financeira ou contratual.',
-    apetiteDeclarado: 'baixo',
-    justificativaDar:
-      'Rigor fiscal e conformidade na execução de recursos públicos.',
-    subcategoriasPermitidas: [],
   },
   {
     id: 4,
-    nome: 'Conformidade/Legal',
+    nome: 'Legal',
     descricaoNormativa:
-      'Descumprimento de leis, portarias, instruções normativas ou determinações de órgãos de controle.',
+      'Eventos derivados de alterações legislativas ou normativas que podem comprometer as atividades da ICMBio',
     apetiteDeclarado: 'baixo',
     justificativaDar: 'Baixa tolerância a desvios normativos e sanções legais.',
-    subcategoriasPermitidas: [],
+  },
+  {
+    id: 3,
+    nome: 'Financeiro/Orçamentário',
+    descricaoNormativa:
+      'Eventos que podem comprometer a capacidade da ICMBio de contar com os recursos orçamentários e financeiros necessários à realização de suas atividades, ou eventos que possam comprometer a própria execução orçamentária, como atrasos no cronograma de licitações',
+    apetiteDeclarado: 'baixo',
+    justificativaDar:
+      'Rigor fiscal e conformidade na execução de recursos públicos.',
+  },
+  {
+    id: 6,
+    nome: 'Reputação',
+    descricaoNormativa:
+      'Eventos que podem comprometer a confiança da sociedade em relação à capacidade do ICMBio em cumprir sua missão institucional, interferem diretamente na imagem da autarquia',
+    apetiteDeclarado: 'baixo',
+    justificativaDar:
+      'Preservação da credibilidade técnico-científica e socioambiental da Autarquia.',
   },
   {
     id: 5,
     nome: 'Integridade',
     descricaoNormativa:
-      'Vulnerabilidades relacionadas a corrupção, fraude, nepotismo, conflito de interesses ou assédio (Portaria ICMBio nº 253/2026 — Integra+).',
+      'Eventos que podem favorecer ou facilitar a ocorrência de práticas de corrupção, fraudes, irregularidades e/ou desvios éticos e de conduta, podendo comprometer os objetivos da instituição',
     apetiteDeclarado: 'baixo',
     justificativaDar:
       'Apetite Baixo: qualquer risco residual acima de Baixo (Médio, Alto ou Extremo) é considerado Crítico.',
-    subcategoriasPermitidas: [...SUBCATEGORIAS_INTEGRIDADE_QUADRO_3],
+  },
+  // As 3 categorias abaixo entraram com o Quadro 2: nascem sem apetite
+  // (`pendente_dar`) e sem justificativa; a CGOV decide na DAR.
+  {
+    id: 9,
+    nome: 'Riscos da visitação',
+    descricaoNormativa:
+      'Eventos que podem comprometer a segurança dos visitantes durante atividades de uso público nas Unidades de Conservação, decorrentes de perigos inerentes ao ambiente natural ou das operações necessárias para a realização da visitação, tais como trilhas, atrativos, embarcações, atividades recreativas e serviços de apoio.',
+    apetiteDeclarado: 'pendente_dar',
+    justificativaDar: '',
   },
   {
-    id: 6,
-    nome: 'Imagem/Reputação',
+    id: 10,
+    nome: 'Ocupacionais',
     descricaoNormativa:
-      'Eventos que abalam a credibilidade e a confiança da sociedade no ICMBio.',
-    apetiteDeclarado: 'baixo',
-    justificativaDar:
-      'Preservação da credibilidade técnico-científica e socioambiental da Autarquia.',
-    subcategoriasPermitidas: [],
+      'Eventos que podem comprometer a saúde, a integridade física ou a segurança dos servidores e colaboradores do ICMBio no desempenho de suas atividades institucionais.',
+    apetiteDeclarado: 'pendente_dar',
+    justificativaDar: '',
   },
   {
-    id: 7,
-    nome: 'Socioambiental',
+    id: 11,
+    nome: 'Privacidade e Proteção de Dados',
+    // Texto literal do Quadro 2 (a "Lei nº 13.709/2013" é erro material da
+    // minuta: a LGPD é de 2018; não corrigir aqui, ver matriz-regras-regime-b).
     descricaoNormativa:
-      'Eventos que impactam ecossistemas, unidades de conservação ou populações tradicionais.',
-    apetiteDeclarado: 'baixo',
-    justificativaDar: 'Missão finalística de conservação da biodiversidade.',
-    subcategoriasPermitidas: [],
-  },
-  {
-    id: 8,
-    nome: 'Tecnologia da Informação',
-    descricaoNormativa:
-      'Indisponibilidade de sistemas, incidentes cibernéticos ou perda de dados institucionais.',
-    apetiteDeclarado: 'moderado',
-    justificativaDar:
-      'Sistemas suportam risco residual até Médio com plano de contingência ativo.',
-    subcategoriasPermitidas: [],
+      'Eventos que possam comprometer a proteção, a privacidade e a segurança dos dados pessoais tratados pelo ICMBio, tais como vazamentos de informações, acessos não autorizados, uso inadequado de dados, falhas nos controles de segurança ou descumprimento das disposições da Lei nº 13.709/2013 - Lei Geral de Proteção de Dados Pessoais (LGPD)',
+    apetiteDeclarado: 'pendente_dar',
+    justificativaDar: '',
   },
 ];
 
@@ -420,7 +413,7 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
       'Devido o(a) ausência de segregação formal de funções na revisão de processos sancionadores e falta de declaração automatizada de impedimento no SEI, poderá ocorrer o(a) atuação de servidor em instrução de auto de infração com potencial conflito de interesses ou pressão externa indevida, ocasionando o(a) nulidade processual, prescrição da pretensão punitiva e dano severo à credibilidade institucional do ICMBio e impactando o alcance do integridade e efetividade da fiscalização ambiental (Programa Integra+ — Portaria ICMBio nº 253/2026).',
     categoriaId: 5,
     categoriaNome: 'Integridade',
-    subcategoriaIntegridade: 'Conflito de Interesses e Nepotismo',
+    subcategoriaIntegridade: 'Conflito de interesses',
     testeIntegridadeAplicavel: true,
     probabilidade: 2,
     justificativaProbabilidade:
@@ -536,8 +529,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
       'conservação da biodiversidade e qualidade da experiência de visitação nas UCs',
     descricaoPadrao:
       'Devido o(a) atraso na consolidação dos relatórios de monitoramento de impacto em trilhas de alta visitação, poderá ocorrer o(a) emissão de autorização de evento com capacidade de carga desatualizada em área sensível da UC, ocasionando o(a) degradação pontual de habitat e necessidade de suspensão temporária de atrativos e impactando o alcance do conservação da biodiversidade e qualidade da experiência de visitação nas UCs.',
-    categoriaId: 7,
-    categoriaNome: 'Socioambiental',
+    categoriaId: 2,
+    categoriaNome: 'Operacional',
     testeIntegridadeAplicavel: true,
     justificativaNaoIntegridade:
       'A vulnerabilidade decorre de defasagem técnica nos parâmetros biofísicos de capacidade de carga, sem indício de favorecimento ilícito ou desvio ético.',
@@ -554,14 +547,15 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     possuiEvidenciaControle: true,
     nivelEficaciaControle: 'Satisfatório',
     fatorControle: 0.6,
-    // 14 × 0,6 = 8,4 → Médio (Quadro 8). Continua Crítico porque o apetite
-    // da categoria Socioambiental na DAR é Baixo e Médio o ultrapassa.
+    // 14 × 0,6 = 8,4 → Médio (Quadro 8). Na categoria Operacional o apetite da
+    // DAR é Moderado e Médio cabe nele: este risco NÃO é Crítico. (Valores
+    // conferidos rodando o motor `calcularRiscoCompletoRadar`.)
     nivelResidual: 8.4,
     classificacaoResidual: 'Médio',
-    statusCritico: 'sim',
-    isCritico: true,
+    statusCritico: 'nao',
+    isCritico: false,
     memoriaCalculo:
-      'P=2 e I=4 → Inerente = 14 (Alto, Quadro 7) × Fator 0,6 (Satisfatório, com evidência comprovada, Quadro 6) = Residual 8,4 (Médio, Quadro 8) → Crítico frente à DAR (baixo): SIM',
+      'P=2 e I=4 → Inerente = 14 (Alto, Quadro 7) × Fator 0,6 (Satisfatório, com evidência comprovada, Quadro 6) = Residual 8,4 (Médio, Quadro 8) → Crítico frente à DAR (moderado): NAO',
     origemPreliminarCgov: false,
     statusFluxo: 'aprovado',
     estrategiaPrincipal: 'Mitigar',
@@ -634,19 +628,13 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         acao: 'aprovado_1_clique',
         usuarioNome: 'Coordenador-Geral (2º Degrau — CG)',
         usuarioPapel: 'coordenador_geral',
+        // Operacional tem apetite Moderado na DAR: o residual 8,4 (Médio) cabe
+        // nele, então o risco NÃO é crítico e a aprovação da CG encerra o
+        // fluxo, sem homologação da Diretoria (spec 7.1; migração 20261115004).
+        // Por isso não há um 3º registro de homologação.
         despachoTexto:
-          'Aprovado em 1 clique pela CG e encaminhado à Diretoria (Residual 8,4 = Médio, acima do apetite Baixo da DAR — Risco Crítico).',
+          'Aprovado em 1 clique pela CG para compor o Plano de Gestão de Riscos do ICMBio (Residual 8,4 = Médio, dentro do apetite Moderado da DAR da categoria Operacional: não é Risco Crítico e não exige homologação da Diretoria).',
         criadoEm: '2026-11-06T15:30:00Z',
-      },
-      {
-        id: 'hist-socio-3',
-        etapa: 'homologacao_diretoria',
-        acao: 'aprovado_1_clique',
-        usuarioNome: 'Diretor Setorial (3º Degrau — Diretoria)',
-        usuarioPapel: 'diretor',
-        despachoTexto:
-          'Homologado em 1 clique para compor o Plano de Gestão de Riscos do ICMBio.',
-        criadoEm: '2026-11-07T16:45:00Z',
       },
     ],
   },
