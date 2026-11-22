@@ -8,6 +8,7 @@
   },
   "description": "Sistema Web de Gestão de Riscos do ICMBio — RADAR (Rede de Avaliação, Diagnóstico e Ação em Riscos)",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",

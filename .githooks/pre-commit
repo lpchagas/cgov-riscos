@@ -1,0 +1,82 @@
+#!/bin/sh
+# =============================================================================
+# Verificação automática antes de cada commit (hook "pre-commit" do git)
+# =============================================================================
+# O que é: um script que o próprio git roda sempre que alguém faz
+# "git commit" (você, o Claude Code ou o Antigravity). Se ele terminar com
+# erro, o commit NÃO acontece, e você vê o motivo na tela.
+#
+# Por que existe: as checagens mecânicas (tipos do TypeScript e testes) não
+# precisam de inteligência artificial. Rodando aqui, elas não gastam tokens
+# do Claude, e os revisores (Claude e CodeRabbit) podem focar na lógica e
+# nas regras do Regime B.
+#
+# Como é instalado: o "npm ci" (ou "npm install") roda o script "prepare" do
+# package.json, que executa "git config core.hooksPath .githooks". Assim o
+# git passa a procurar hooks nesta pasta, nos dois computadores.
+#
+# Regras de economia:
+#   - Quando tudo passa, o script fica CALADO (nenhuma linha de saída), para
+#     não encher a conversa do Claude com centenas de linhas de teste.
+#   - Commit só de documentação (pasta docs/ ou arquivos .md): roda apenas o
+#     teste que protege a estrutura dos documentos (cerca de 2 segundos).
+#   - Qualquer outro arquivo: checagem de tipos (vue-tsc) + todos os testes
+#     unitários (cerca de 15 segundos).
+#
+# Atenção: os testes rodam sobre os arquivos como estão na pasta, e não só
+# sobre o que foi marcado com "git add". Na prática dá no mesmo, porque o
+# normal é fazer commit de tudo o que foi alterado.
+#
+# Emergência (use com parcimônia e diga no commit por quê):
+#   git commit --no-verify
+# =============================================================================
+
+# Lista TODOS os arquivos deste commit, inclusive os apagados. Apagar código
+# também pode quebrar o sistema: se apagar src/utils/x.ts e outro arquivo
+# ainda o importar, a checagem de tipos precisa rodar para pegar o erro.
+arquivos=$(git diff --cached --name-only)
+
+# Nada marcado para o commit: não há o que verificar.
+[ -z "$arquivos" ] && exit 0
+
+# Arquivo temporário para guardar a saída das ferramentas. Ele é apagado no
+# fim, aconteça o que acontecer ("trap ... EXIT").
+registro=$(mktemp)
+trap 'rm -f "$registro"' EXIT
+
+# Função auxiliar: mostra um resumo curto da falha e bloqueia o commit.
+#   $1 = nome da etapa que falhou; $2 = quantas linhas finais mostrar.
+falhou() {
+  echo "pre-commit: FALHOU em \"$1\". O commit foi bloqueado." >&2
+  echo "----- resumo da saída -----" >&2
+  # Se o vitest reprovou algum teste, mostra só a partir da seção
+  # "Failed Tests" (é onde está o erro). Caso contrário, tira as linhas de
+  # teste aprovado ("✓") e os avisos do npm, e mostra as últimas linhas.
+  if grep -q 'Failed Tests' "$registro"; then
+    sed -n '/Failed Tests/,$p' "$registro" | tail -n "$2" >&2
+  else
+    grep -v -e '✓' -e '^npm notice' "$registro" | tail -n "$2" >&2
+  fi
+  echo "---------------------------" >&2
+  echo "Corrija e tente de novo. Para ver tudo: rode o mesmo comando à mão." >&2
+  exit 1
+}
+
+# Decide o tipo de commit: se ALGUM arquivo não for documentação, é um
+# commit "de código". Exemplos:
+#   docs/adr/0017-x.md, CLAUDE.md          -> só documentação
+#   src/utils/calculadoraRiscoRadar.ts     -> código
+if echo "$arquivos" | grep -qvE '^docs/|\.md$'; then
+  # 1) Checagem de tipos do TypeScript e dos componentes Vue.
+  npx vue-tsc --noEmit >"$registro" 2>&1 || falhou "npx vue-tsc --noEmit" 30
+  # 2) Testes unitários.
+  npx vitest run >"$registro" 2>&1 || falhou "npx vitest run" 60
+else
+  # Só documentação: basta o teste da estrutura dos documentos (sequência
+  # dos ADRs, seções obrigatórias, IDs e siglas proibidas como "PGR").
+  npx vitest run tests/unit/documentacao.spec.ts >"$registro" 2>&1 \
+    || falhou "npx vitest run tests/unit/documentacao.spec.ts" 60
+fi
+
+# Tudo certo: sai em silêncio e o git segue com o commit.
+exit 0
