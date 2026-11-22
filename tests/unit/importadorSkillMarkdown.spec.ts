@@ -188,4 +188,41 @@ describe('Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4', () => 
     expect(r.fichas).toHaveLength(0);
     expect(r.erros[0]).toContain('não concordam');
   });
+
+  // --------------------------------------------------------------------------
+  // LAC-13: linha crítica não pode vir com a estratégia "Aceitar"
+  // --------------------------------------------------------------------------
+  /** Monta uma linha com P, I, apetite (col. 13) e estratégia (col. 15) à escolha. */
+  const linhaTrava = (id: string, p: number, i: number, apetite: string, estrategia: string) =>
+    `| ${id} | Objeto | Devido a causa, poderá ocorrer evento, ocasionando consequência e impactando o objetivo. | Operacional | ${p} | ${i} | 0 | x | Inexistente | Inexistente (1,0) | 0 | x | ${apetite} | x | ${estrategia} | KRI |`;
+
+  it('recusa linha crítica com Aceitar e mantém as demais (LAC-13)', () => {
+    const md = [
+      CABECALHO,
+      linhaTrava('R-01', 5, 5, 'baixo', 'Aceitar'),
+      linhaTrava('R-02', 5, 5, 'baixo', 'Mitigar'),
+      linhaTrava('R-03', 1, 1, 'baixo', 'Aceitar'),
+    ].join('\n');
+    const r = importarTabelaMarkdownSkill(md);
+    expect(r.fichas.map((f) => f.codigoRadar)).toEqual(['R-02', 'R-03']);
+    expect(r.erros).toHaveLength(1);
+    expect(r.erros[0].startsWith('Linha R-01: risco crítico (residual 25')).toBe(true);
+    expect(r.erros[0]).toContain('fora do apetite da DAR');
+    expect(r.erros[0]).toContain(
+      'não pode ter a estratégia "Aceitar"; escolha Mitigar, Compartilhar ou Evitar na tabela da skill.'
+    );
+  });
+
+  it('DAR pendente também trava o Aceitar (LAC-13)', () => {
+    const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-04', 1, 3, 'pendente', 'Aceitar')].join('\n'));
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros).toHaveLength(1);
+    expect(r.erros[0]).toContain('com DAR pendente');
+  });
+
+  it.each(['aceitar', ' Aceitar ', 'Aceitar o risco'])('recusa a grafia "%s" em linha crítica (LAC-13)', (g) => {
+    const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-05', 5, 5, 'baixo', g)].join('\n'));
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros).toHaveLength(1);
+  });
 });
