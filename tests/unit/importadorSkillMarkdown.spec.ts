@@ -136,4 +136,49 @@ describe('Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4', () => 
     expect(r.erros).toHaveLength(1);
     expect(r.fichas).toHaveLength(0);
   });
+
+  // --------------------------------------------------------------------------
+  // Probabilidade e impacto pelos Quadros 4 e 5, sem conversão silenciosa (RF-176, RF-177)
+  // --------------------------------------------------------------------------
+  /** Monta uma linha mudando só as colunas P e I (o resto é válido). */
+  const linhaComPI = (id: string, p: string, i: string) =>
+    `| ${id} | Objeto | Devido a causa, poderá ocorrer evento, ocasionando consequência e impactando o objetivo. | Operacional | ${p} | ${i} | 9 | Médio | Inexistente | Inexistente (1,0) | 9 | Médio | moderado | não | Mitigar | KRI |`;
+
+  it('reconhece "Provável" e "Alto" sem número (RF-176)', () => {
+    const r = importarTabelaMarkdownSkill(`${CABECALHO}\n${linhaComPI('RSC-N1', 'Provável', 'Alto')}`);
+    expect(r.erros).toHaveLength(0);
+    expect(r.fichas[0].probabilidade).toBe(3);
+    expect(r.fichas[0].impacto).toBe(4);
+    expect(r.fichas[0].nivelInerente).toBe(18);
+  });
+
+  it('recusa P vazio, 0, 6 e ilegível sem converter (RF-177)', () => {
+    const linhas = [
+      linhaComPI('RSC-A', '', '3'),
+      linhaComPI('RSC-B', '0', '3'),
+      linhaComPI('RSC-C', '6', '3'),
+      linhaComPI('RSC-D', 'abc', '3'),
+      linhaComPI('RSC-OK', '3', '3'),
+    ].join('\n');
+    const r = importarTabelaMarkdownSkill(`${CABECALHO}\n${linhas}`);
+    expect(r.fichas).toHaveLength(1);
+    expect(r.erros).toHaveLength(4);
+    expect(r.erros[0]).toBe(
+      'Linha RSC-A: probabilidade inválida (""): célula vazia. Use 1 a 5 ou um nome do Quadro 4: (1) Raro; (2) Pouco provável; (3) Provável; (4) Muito provável; (5) Praticamente certo.'
+    );
+  });
+
+  it('recusa impacto fora de 1 a 5', () => {
+    const r = importarTabelaMarkdownSkill(`${CABECALHO}\n${linhaComPI('RSC-X', '3', '-1')}`);
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros).toEqual([
+      'Linha RSC-X: impacto inválido ("-1"): fora de 1 a 5. Use 1 a 5 ou um nome do Quadro 5: (1) Muito baixo; (2) Baixo; (3) Médio; (4) Alto; (5) Muito alto.',
+    ]);
+  });
+
+  it('recusa número e nome que não concordam', () => {
+    const r = importarTabelaMarkdownSkill(`${CABECALHO}\n${linhaComPI('RSC-Y', '3 — Raro', '3')}`);
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros[0]).toContain('não concordam');
+  });
 });

@@ -33,6 +33,17 @@ import {
   SUBCATEGORIAS_INTEGRIDADE_QUADRO_3,
   validarRegraIntegridade,
 } from './calculadoraRiscoRadar';
+import {
+  ESCALA_IMPACTO_QUADRO_5,
+  ESCALA_PROBABILIDADE_QUADRO_4,
+  lerNivelDaCelula,
+  type NivelDescrito,
+} from './escalasProbabilidadeImpacto';
+
+/** Monta a lista da mensagem de erro, ex.: "(1) Raro; (2) Pouco provável; ...". */
+function listarEscala(escala: readonly NivelDescrito<number>[]): string {
+  return escala.map((n) => `(${n.valor}) ${n.nome}`).join('; ');
+}
 
 /**
  * Compara dois textos sem ligar para maiúsculas/minúsculas e para espaços.
@@ -332,8 +343,24 @@ export function importarTabelaMarkdownSkill(
       continue;
     }
 
-    const pNum = Math.min(5, Math.max(1, parseInt(colunas[4], 10) || 3)) as NivelProbabilidade;
-    const iNum = Math.min(5, Math.max(1, parseInt(colunas[5], 10) || 3)) as NivelImpacto;
+    // P e I vêm dos Quadros 4 e 5: aceita número (1 a 5), nome ("Provável") ou os dois.
+    // Célula vazia, fora de 1 a 5 ou ilegível NÃO vira 3: a linha é recusada.
+    const leituraP = lerNivelDaCelula(colunas[4] ?? '', ESCALA_PROBABILIDADE_QUADRO_4);
+    if (!leituraP.ok) {
+      erros.push(
+        `Linha ${codigoRadar}: probabilidade inválida ("${colunas[4] ?? ''}"): ${leituraP.motivo}. Use 1 a 5 ou um nome do Quadro 4: ${listarEscala(ESCALA_PROBABILIDADE_QUADRO_4)}.`
+      );
+      continue;
+    }
+    const leituraI = lerNivelDaCelula(colunas[5] ?? '', ESCALA_IMPACTO_QUADRO_5);
+    if (!leituraI.ok) {
+      erros.push(
+        `Linha ${codigoRadar}: impacto inválido ("${colunas[5] ?? ''}"): ${leituraI.motivo}. Use 1 a 5 ou um nome do Quadro 5: ${listarEscala(ESCALA_IMPACTO_QUADRO_5)}.`
+      );
+      continue;
+    }
+    const pNum: NivelProbabilidade = leituraP.nivel;
+    const iNum: NivelImpacto = leituraI.nivel;
     const controlesTexto = colunas[8] || 'Inexistente';
     const eficaciaTexto = colunas[9] || 'Inexistente (1,0)';
     const apetiteTexto = colunas[12] || apetitePadrao;
