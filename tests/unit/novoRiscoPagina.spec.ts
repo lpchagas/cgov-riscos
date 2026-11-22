@@ -337,10 +337,19 @@ describe('Página Novo risco', () => {
       // Etapa 3: P, I e o controle existente vêm da ficha.
       for (let i = 0; i < 2; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
       expect(w.find('[aria-current="step"]').text()).toContain('Análise');
-      // P e I são dois grupos de botões de opção; cada um tem o seu valor marcado.
-      expect(w.find(`input[type=radio][value="${risco.probabilidade}"]:checked`).exists()).toBe(true);
-      expect(w.find(`input[type=radio][value="${risco.impacto}"]:checked`).exists()).toBe(true);
-      expect(w.findAll('input[type=radio]:checked')).toHaveLength(2);
+      // P e I são dois grupos de botões de opção; cada grupo (achado pela legenda)
+      // tem o SEU valor marcado — assim, trocar P com I na edição reprova o teste.
+      const marcadoNoGrupo = (legenda: string) => {
+        // `:scope > legend`: só a legenda do PRÓPRIO fieldset (a etapa também é um fieldset).
+        const grupo = w.findAll('fieldset').find((f) =>
+          f.element.querySelector(':scope > legend')?.textContent?.trim().startsWith(legenda));
+        expect(grupo, `grupo "${legenda}"`).toBeTruthy();
+        const marcados = grupo!.findAll('input[type=radio]:checked');
+        expect(marcados).toHaveLength(1);
+        return (marcados[0].element as HTMLInputElement).value;
+      };
+      expect(marcadoNoGrupo('Probabilidade')).toBe(String(risco.probabilidade));
+      expect(marcadoNoGrupo('Impacto')).toBe(String(risco.impacto));
       expect(textareas()).toContain(risco.controlesExistentes[0].descricaoControle);
       // Etapa 4: ação e KRI.
       await w.find('form').trigger('submit'); await flushPromises();

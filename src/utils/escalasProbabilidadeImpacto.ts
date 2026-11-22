@@ -81,6 +81,11 @@ export function lerNivelDaCelula<N extends number>(
   const texto = celula.trim();
   if (texto === '') return { ok: false, motivo: 'célula vazia' };
 
+  // Decimal sem parte inteira (".5", "-.5", ",5"): sem esta checagem, o ponto
+  // sumiria como separador e ".5" viraria o nível 5 (conversão silenciosa,
+  // proibida pelo RF-177). "3." continua aceito: o ponto não vem antes de dígito.
+  if (/(^|[^\d])[.,]\d/.test(texto)) return { ok: false, motivo: 'número decimal' };
+
   // Números na célula: "3,5" e "2 a 3" têm dois, então são recusados.
   const numeros = texto.match(/-?\d+/g) ?? [];
   if (numeros.length > 1) return { ok: false, motivo: 'mais de um número' };

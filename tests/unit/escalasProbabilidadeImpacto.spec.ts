@@ -55,6 +55,13 @@ describe('escalas dos Quadros 4 e 5', () => {
     });
   });
 
+  // Revisão da PR #15: ".5" virava 5 e "-.5" também (o ponto sumia como separador).
+  it.each(['.5', '-.5', ',5', 'Provável .5'])('recusa o decimal sem parte inteira "%s"', (celula) => {
+    expect(lerNivelDaCelula(celula, ESCALA_PROBABILIDADE_QUADRO_4)).toEqual({
+      ok: false, motivo: 'número decimal',
+    });
+  });
+
   it('explica que "3.5" tem mais de um número', () => {
     expect(lerNivelDaCelula('3.5', ESCALA_PROBABILIDADE_QUADRO_4)).toEqual({ ok: false, motivo: 'mais de um número' });
   });
