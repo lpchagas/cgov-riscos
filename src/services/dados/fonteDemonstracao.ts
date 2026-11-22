@@ -379,6 +379,13 @@ export function criarFonteDemonstracao(
           try {
             exigirTrava(r);
           } catch (e) {
+            // Volta a ficha ao que era. Object.assign só copia as chaves da
+            // cópia; um campo opcional que a ficha não tinha e que entrou
+            // agora (ex.: justificativaProbabilidade) precisa ser apagado.
+            const ficha = r as unknown as Record<string, unknown>;
+            for (const chave of Object.keys(ficha)) {
+              if (!(chave in antes)) delete ficha[chave];
+            }
             Object.assign(r, antes);
             throw e;
           }

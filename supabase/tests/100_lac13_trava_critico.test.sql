@@ -2,8 +2,11 @@
 -- TESTE DA LAC-13 (pgTAP) — risco crítico não aceita "Aceitar" e exige ação
 -- ============================================================================
 -- EXPLICAÇÃO DIDÁTICA:
--- Pela Metodologia (4.5 e Anexo III), o Risco Crítico (fora do apetite da DAR,
--- ou com a DAR ainda pendente na categoria) precisa de TRATAMENTO:
+-- Pela Metodologia (4.5 e Anexo III), o Risco Crítico (residual fora do
+-- apetite da DAR) precisa de TRATAMENTO. Por regra do sistema (decisão do
+-- responsável, 2026-11-22), a mesma trava vale quando a DAR da categoria
+-- ainda está pendente (status_critico = 'pendente_dar'), que pela norma não
+-- é risco crítico. A trava exige:
 --   - a estratégia principal não pode ser "Aceitar" (RN-019 / RF-049);
 --   - a ficha precisa de pelo menos uma ação 5W2H que não seja "Aceitar"
 --     (RN-020 / RF-050).

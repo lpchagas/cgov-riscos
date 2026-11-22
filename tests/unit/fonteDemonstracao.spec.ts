@@ -447,6 +447,26 @@ describe('trava do risco crítico (LAC-13)', () => {
     expect(depois?.statusFluxo).toBe('aprovado');
   });
 
+  // Achado do CodeRabbit (PR #16): na recusa, um campo opcional que a ficha
+  // não tinha (ex.: justificativaProbabilidade) também não pode ficar gravado.
+  it('na recusa, campo opcional novo enviado junto com Aceitar não fica na ficha', async () => {
+    const fonte = fonteComo('coordenador_geral');
+    const { id } = await fonte.salvarFicha(critica('Mitigar', [acao('Mitigar')]));
+    await fonte.enviar(id);
+    await fonte.validar(id);
+    await fonte.homologar(id);
+    expect((await fonte.relerRisco(id))?.justificativaProbabilidade).toBeUndefined();
+    await erroDe(
+      fonte.salvarFicha({
+        id,
+        objetoId: 'obj-anexo-ii',
+        estrategiaPrincipal: 'Aceitar',
+        justificativaProbabilidade: 'Texto rejeitado',
+      })
+    );
+    expect((await fonte.relerRisco(id))?.justificativaProbabilidade).toBeUndefined();
+  });
+
   it('salvar rascunho crítico com Aceitar continua livre', async () => {
     const fonte = fonteComo('gestor');
     const { id } = await fonte.salvarFicha(critica('Aceitar'));
