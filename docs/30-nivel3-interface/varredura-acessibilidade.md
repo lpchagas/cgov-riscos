@@ -8,8 +8,8 @@ tags: [acessibilidade, wcag, axe-core, playwright, testes]
 
 # Varredura de acessibilidade do RADAR (`npm run test:a11y`)
 
-> **Em uma frase:** um único comando abre o RADAR num navegador de verdade, passa por **(16 + 4) telas ×
-> 5 larguras × 3 temas = 300 combinações** e **reprova** se encontrar qualquer problema de
+> **Em uma frase:** um único comando abre o RADAR num navegador de verdade, passa por **(16 + 5) telas ×
+> 5 larguras × 3 temas = 315 combinações** e **reprova** se encontrar qualquer problema de
 > acessibilidade (WCAG 2.2, níveis A e AA) ou se alguma página rolar para o lado.
 
 ## 1. O que é isso, sem jargão
@@ -44,10 +44,10 @@ npm run test:a11y
 O que acontece:
 
 1. O Playwright sobe o servidor do RADAR sozinho, na porta **5199** (não precisa rodar `npm run dev`).
-2. Roda **314 testes**: as 300 combinações (as larguras são 360, **390**, 768, 1280 e 1920; o 390 entrou na etapa C), 4 *autoverificações* (seção 6), o teste do menu do gestor e 9 testes de navegador do Painel no celular (`painelCelular.a11y.ts`, etapa C). Leva cerca de 6 minutos.
-3. No fim, desliga o servidor e mostra o placar, por exemplo `314 passed (5.8m)`.
+2. Roda **329 testes**: as 315 combinações (as larguras são 360, **390**, 768, 1280 e 1920; o 390 entrou na etapa C; a etapa 3 do formulário, `novo-etapa3`, entrou com a LAC-12), 4 *autoverificações* (seção 6), o teste do menu do gestor e 9 testes de navegador do Painel no celular (`painelCelular.a11y.ts`, etapa C). Leva cerca de 6 minutos.
+3. No fim, desliga o servidor e mostra o placar, por exemplo `329 passed`.
 
-Resultado esperado hoje: **314 passed**. Qualquer `failed` reprova o comando.
+Resultado esperado hoje: **329 passed**. Qualquer `failed` reprova o comando.
 
 **Rodar só uma parte** (o filtro `-g` procura no nome do teste; as partes do nome são separadas por espaço):
 
@@ -119,7 +119,7 @@ mudar, atualize aqui também; senão o teste falha com "não mostrou o título e
 ## 6. Por que existem as 4 "autoverificações"
 
 Um teste que nunca falha não prova nada. Se o axe-core deixasse de carregar, todas as telas dariam
-"0 violações" e pareceria que está tudo certo. Por isso, antes das 300 combinações:
+"0 violações" e pareceria que está tudo certo. Por isso, antes das 315 combinações:
 
 - **"o axe acusa uma imagem sem texto alternativo"** coloca de propósito uma imagem sem descrição
   no Painel e exige que o axe a acuse;
@@ -130,7 +130,7 @@ Um teste que nunca falha não prova nada. Se o axe-core deixasse de carregar, to
 - **"ficha de risco inexistente não passa por engano"** abre a Ficha de um risco que não existe
   ("Risco não encontrado") e exige que a varredura reprove.
 
-Além disso, cada teste das 300 combinações confere quatro coisas antes de rodar o axe:
+Além disso, cada teste das 315 combinações confere quatro coisas antes de rodar o axe:
 1. o `<h1>` tem o título **exato** da tela;
 2. o endereço final é o pedido (sem redirecionamento);
 3. a aba certa está selecionada, quando a tela abre numa aba;

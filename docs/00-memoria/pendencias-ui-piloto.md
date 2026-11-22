@@ -63,6 +63,9 @@
 - **Proposta:** trocar por "nível" em todos esses lugares (inclusive no texto do leitor de tela).
 
 ### AG-04 · Nomes e percentuais da escala de Probabilidade
+
+> **Resolvida em 2026-11-22** (LAC-12; commits ae208c7 a d3c2420). As escalas dos Quadros 4 e 5 ficam numa fonte única (`src/utils/escalasProbabilidadeImpacto.ts`); a etapa 3 do formulário usa o `GrupoOpcoesDescritas` (botões de opção com a descrição visível); o eixo da matriz lê Raro a Praticamente certo. O texto abaixo é o registro do achado.
+
 - **Lacuna normativa:** LAC-12 em [[lacunas-norma-sistema]] (a severidade fica lá; este item continua sendo o dono da correção de interface).
 - **Onde:**
   - [FormularioRiscoView.vue:219-225](../../src/views/FormularioRiscoView.vue#L219-L225), com "1 — Muito baixa (menos de 10%)" e outras

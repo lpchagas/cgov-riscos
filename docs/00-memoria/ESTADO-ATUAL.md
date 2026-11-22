@@ -36,9 +36,9 @@ Branch de trabalho: `claude/icmbio-risk-policy-modeling-q840ho`.
 | `npm test` (Vitest, inclui o teste da documentação) | 54 arquivos, 661 testes, todos passando (2026-11-22, depois da triagem do CodeRabbit e do Codex na PR #14). |
 | `npm run build` (`vue-tsc` + Vite) | ok. |
 | `npm run test:db` (pgTAP) | 18 arquivos, 883 testes, `PASS` (2026-11-22, com a migração `20261122001` e o teste `090`, já com as correções da revisão de fim da Fase 1; rodado com o Postgres local 17.11.0.006, ver a pendência do ambiente local na seção 5: a nuvem roda o Postgres 17.6.1.104). **Re-medir** na próxima mudança de banco. |
-| `npm run test:a11y` | Última medição: 0 violações em 300 combinações (etapa C). |
-| Documentação | 115 RN, 195 RF (112 implementados, 10 parciais, 73 não iniciados), 51 RNF, 26 casos de uso, 19 ADRs, 13 migrações no DER. |
-| Kanban | 71 cartões: 64 no Backlog, 3 em "Pronto para iniciar" e 4 concluídos (LAC-11, LAC-14, LAC-15 e a dívida das subcategorias em JSONB). |
+| `npm run test:a11y` | Última medição: 0 violações em 300 combinações (etapa C); desde a LAC-12 a varredura cobre 315 combinações ((16 + 5) telas × 5 larguras × 3 temas, com a etapa 3 do formulário) e 329 testes. **Re-medir.** |
+| Documentação | 115 RN, 195 RF (115 implementados, 10 parciais, 70 não iniciados), 51 RNF, 26 casos de uso, 19 ADRs, 13 migrações no DER. |
+| Kanban | 71 cartões: 64 no Backlog, 2 em "Pronto para iniciar" e 5 concluídos (LAC-11, LAC-12, LAC-14, LAC-15 e a dívida das subcategorias em JSONB). |
 
 **Pendente de prova real:** as mudanças da cópia (um único `pg_dump`, parcial exclusivo, TLS obrigatório na
 nuvem) passaram nos testes, mas a primeira prova completa do [[guia-copia-restauracao]] (seção 8) ainda não
@@ -46,11 +46,10 @@ rodou com Docker.
 
 ## 4. Próximo trabalho
 
-Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto para iniciar":
+Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto para iniciar" (a LAC-12 foi concluída em 2026-11-22, só no código, sem migração):
 
-1. LAC-12 — rótulos da probabilidade do Quadro 4 (RF-037, RF-176);
-2. LAC-13 — "Aceitar" proibido e ação obrigatória no risco crítico (RF-049, RF-050);
-3. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
+1. LAC-13 — "Aceitar" proibido e ação obrigatória no risco crítico (RF-049, RF-050);
+2. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
    KRI (RF-102) tem cartão próprio e espera o desenho P-02.
 
 Cada uma muda banco ou regra: antes do código, é preciso um **plano autorizado** pelo responsável
