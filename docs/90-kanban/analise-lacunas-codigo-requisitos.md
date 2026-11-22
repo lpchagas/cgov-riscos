@@ -26,7 +26,7 @@ A ordem segue o plano (Tarefa 19, Step 1) e o [[0017-lacunas-que-bloqueiam-homol
    carga real.
 2. **Dívida de dados que muda o esquema**: fazer antes de crescer a base do piloto, para não migrar duas
    vezes. A subcategoria em JSONB foi resolvida junto com a LAC-15 em 2026-11-22 (tabela `subcategorias_risco`,
-   no código e no banco local; a aplicação no banco do piloto na nuvem segue pendente, na Fase 2 do plano).
+   no código, no banco local e no banco do piloto na nuvem).
 3. **O restante**: as 8 lacunas omissas ainda abertas (LAC-01, 02, 04 a 07, 09 e 10), que passam à frente
    quando a portaria for publicada (classe `#normativo`), os ajustes funcionais, os testes que faltam, o
    Figma e a documentação.
@@ -45,8 +45,8 @@ porque trata da pendência que persiste depois da cobrança).
 
 | Cartão | RF | Tabelas | Coluna |
 | --- | --- | --- | --- |
-| LAC-14 — 8 categorias do Quadro 2 | RF-032, RF-173 | `categorias_risco`, `riscos` | Concluído em 2026-11-22 (código e banco local; nuvem na Fase 2) |
-| LAC-15 — 6 subcategorias do Quadro 3 (com a dívida da subcategoria em JSONB) | RF-036, RF-174, RF-175 | `subcategorias_risco`, `riscos` | Concluído em 2026-11-22 (código e banco local; nuvem na Fase 2) |
+| LAC-14 — 8 categorias do Quadro 2 | RF-032, RF-173 | `categorias_risco`, `riscos` | Concluído em 2026-11-22 (código, banco local e nuvem do piloto) |
+| LAC-15 — 6 subcategorias do Quadro 3 (com a dívida da subcategoria em JSONB) | RF-036, RF-174, RF-175 | `subcategorias_risco`, `riscos` | Concluído em 2026-11-22 (código, banco local e nuvem do piloto) |
 | LAC-12 — rótulos do Quadro 4 | RF-037, RF-176 | — (rótulos no front e no importador) | Pronto para iniciar |
 | LAC-13 — "Aceitar" e ação obrigatória no risco crítico | RF-049, RF-050 | `riscos`, `respostas_tratamento` | Pronto para iniciar |
 | LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-109, RF-183, RF-184 | `indicadores_kri`, `medicoes_kri` | Pronto para iniciar |
@@ -111,7 +111,6 @@ A conferência achou 4 pendências da D1 (Task 6, banco na nuvem) que só estava
 
 - Os cartões de "Pronto para iniciar" mudam banco e regras (LAC-13 e LAC-03 mexem no fluxo, LAC-12 nos rótulos
   do front e do importador): cada um precisa de plano autorizado antes do código (`AGENTS.md`). A LAC-14 e a
-  LAC-15 foram concluídas em 2026-11-22 no código e no banco local; falta aplicar a migração no banco do piloto
-  na nuvem (Fase 2 do plano, com **[AUTORIZAÇÃO]** a cada passo).
+  LAC-15 foram concluídas em 2026-11-22 no código, no banco local e no banco do piloto na nuvem.
 - A grafia final das 8 categorias do Quadro 2 (D3-01) e a regra para as categorias e subcategorias já gravadas
   foram decididas em 2026-11-22 ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]): Quadro 2 literal e recusa com reclassificação, sem conversão.

@@ -100,6 +100,10 @@
 | 2026-11-20 | Dados de referência (`seed.sql`) | Ok, aplicado pelo Claude via MCP (`execute_sql`, numa transação), com autorização. 8 categorias (ids 1 a 8; Integridade com 6 subcategorias); contador em 8; `auditoria_log` = 8 (a trilha registra as inclusões da DAR, como no local). |
 | 2026-11-20 | Auth | Cadastro avulso **desligado** pelo responsável (estava ligado); login anônimo já estava desligado. Conferido pelo endereço público `/auth/v1/settings` (seção 7.4). Detalhe: a mudança só vale depois de clicar em **Save changes**. |
 | 2026-11-20 | Conferência final (Task 6) | Ok. Nuvem igual ao local: 12 tabelas com as mesmas colunas, 49 políticas de RLS; 1 função a mais (`rls_auto_enable`, da Supabase). *Advisors*: nenhuma tabela sem RLS; avisos registrados na seção 7.5. |
+| 2026-11-22 | Conferência antes da migração `20261122001` (só leitura, LAC-14 e LAC-15) | Ok, pelo Claude via MCP, com autorização: 0 riscos; categorias ids 1 a 8 antigas; coluna JSONB presente; `subcategorias_risco` ausente; `auditoria_log` = 8; 12 migrações, a última `20261117001`. |
+| 2026-11-22 | `db push --linked` (1ª tentativa) | **Recusado no primeiro comando**, sem gravar nada: `LOCK TABLE can only be used in transaction blocks` (25P01). O `db push` manda o arquivo num lote só, sem `BEGIN`, e o `LOCK TABLE` solto não é aceito assim. Conferido por leitura: nuvem igual a antes. Corrigido no commit `cbbe8c3` (trava dentro de um bloco `DO`). |
+| 2026-11-22 | `db push --linked` (2ª tentativa) | Ok, rodado pelo responsável: só a `20261122001` listada e aplicada (`Finished supabase db push.`). |
+| 2026-11-22 | Conferência depois da migração (só leitura) | Ok: 8 categorias (2 Operacional, 3 Financeiro/Orçamentário, 4 Legal, 5 Integridade, 6 Reputação, com o apetite de antes; 9, 10 e 11 com `pendente_dar`); 6 subcategorias da Integridade; coluna JSONB ausente; `CHECK` dos nomes, chave estrangeira e gatilho `trg_riscos_exige_subcategoria` presentes; contador em 11; 0 riscos; `auditoria_log` = 19 (11 novas de `categorias_risco`: 3 exclusões, 3 inclusões e 5 alterações, todas sem usuário). |
 | *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
 
 > [!note] Proteção da própria Supabase
@@ -229,7 +233,7 @@ colado no SQL Editor (seção 5.1).
 
 ### 7.1.1 Alinhar as categorias e subcategorias do piloto ao Quadro 2 e ao Quadro 3 **[AUTORIZAÇÃO]**
 
-> **Situação em 2026-11-22: não aplicado na nuvem.** A migração `20261122001` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) está feita e testada **só no banco local**. A Fase 2 do plano (aplicar no piloto) espera a autorização do responsável, passo a passo. Nada foi mudado na nuvem.
+> **Situação em 2026-11-22: aplicado na nuvem.** A migração `20261122001` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi aplicada no piloto na Fase 2 do plano, passo a passo e com autorização; a 1ª tentativa do `db push` foi recusada sem gravar nada (trava fora de bloco `DO`). Resultado e conferência no histórico da seção 4.
 
 > **Antes, uma ressalva sobre a versão do Postgres.** A nuvem roda o Postgres **17.6.1.104**, o mesmo que o `supabase link` grava em `supabase/.temp/postgres-version`. Com essa imagem no computador local, o teste pgTAP `030_alcance.test.sql` (perto da linha 124) derrubou o Postgres (segmentation fault) e levou junto o resto da rodada. Os testes desta fase rodaram com a versão `17.11.0.006`. A migração em si não depende disso, mas a causa **ainda não foi investigada** (veja a pendência no [[ESTADO-ATUAL]]).
 
@@ -297,7 +301,9 @@ Exemplo: a revisão da interface pede um **campo novo** numa tabela.
    autorização, conforme o `AGENTS.md`).
 2. Criar a migração nova em `supabase/migrations/` (número maior que o último), com comentários
    didáticos.
-3. Testar **no local**: `npm run db:reset && npm run test:db` e `npm test`.
+3. Testar **no local**: `npm run db:reset && npm run test:db` e `npm test`. Não troque o `db:reset` por um teste
+   do trecho novo dentro de um `BEGIN`: o `db push` roda o arquivo sem `BEGIN`, e comandos como `LOCK TABLE`
+   solto passam num caso e falham no outro (aconteceu em 2026-11-22, seção 4).
 4. Commit na branch de trabalho.
 5. Na nuvem **[AUTORIZAÇÃO]**: `npx supabase db push --linked --dry-run` (deve listar **só** a migração
    nova) e depois `npx supabase db push --linked`.

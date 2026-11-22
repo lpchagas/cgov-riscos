@@ -17,7 +17,7 @@
 
 - **Achados:** 14 na classe **Agora**, 6 na classe **Decidir antes da D3** e 6 na classe **Depois**.
 - **Os 3 mais graves:**
-  1. **D3-01:** as 8 categorias do banco **não eram as do Quadro 2**. **Resolvida em 2026-11-22** no código e no banco local ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]); falta aplicar na nuvem (Fase 2, **[AUTORIZAÇÃO]**).
+  1. **D3-01:** as 8 categorias do banco **não eram as do Quadro 2**. **Resolvida em 2026-11-22** no código, no banco local e, no mesmo dia, no banco do piloto na nuvem ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]).
   2. **D3-02:** as 6 subcategorias de Integridade **não eram as do Quadro 3**. **Resolvida em 2026-11-22**, no mesmo ponto.
   3. **AG-01:** as telas dizem que "a Coordenação-Geral valida" e que "a Diretoria homologa", mas o banco segue a chefia imediata (decisões P4 e P-B1-1).
 - **O que está certo (conferido):**

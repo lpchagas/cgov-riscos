@@ -173,6 +173,6 @@ Ordem obrigatória dentro da migração (uma transação):
 
 ### Task 5: Aplicar a migração no banco do piloto
 
-- [ ] **Step 1 [AUTORIZAÇÃO]:** conferência só de leitura no projeto `cgov-riscos-v3.0`: `select count(*) from riscos;` e `select id, nome from categorias_risco order by id;`. Esperado: 0 riscos e os ids 1 a 8 antigos. Se houver risco, parar e mostrar os códigos ao responsável.
-- [ ] **Step 2 [AUTORIZAÇÃO]:** `npx supabase db push` (sem `--include-seed`), conferindo que a lista mostra só a `20261122001`.
-- [ ] **Step 3:** conferir de novo (leitura): 8 categorias com os ids 2 a 6 e 9 a 11, 6 subcategorias, coluna JSONB ausente, linhas novas em `auditoria_log`. Registrar resultado e data no histórico do [[guia-supabase-nuvem]] e no ESTADO-ATUAL; commit `docs(nuvem): migração das categorias aplicada no piloto`.
+- [x] **Step 1 [AUTORIZAÇÃO]:** conferência só de leitura no projeto `cgov-riscos-v3.0`: `select count(*) from riscos;` e `select id, nome from categorias_risco order by id;`. Esperado: 0 riscos e os ids 1 a 8 antigos. Se houver risco, parar e mostrar os códigos ao responsável.
+- [x] **Step 2 [AUTORIZAÇÃO]:** `npx supabase db push` (sem `--include-seed`), conferindo que a lista mostra só a `20261122001`.
+- [x] **Step 3:** conferir de novo (leitura): 8 categorias com os ids 2 a 6 e 9 a 11, 6 subcategorias, coluna JSONB ausente, linhas novas em `auditoria_log`. Registrar resultado e data no histórico do [[guia-supabase-nuvem]] e no ESTADO-ATUAL; commit `docs(nuvem): migração das categorias aplicada no piloto`.
