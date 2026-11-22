@@ -223,7 +223,13 @@ export function criarFonteDemonstracao(
       r.categoriaId = cat.id;
       r.categoriaNome = cat.nome;
     }
-    r.subcategoriaIntegridade = opcional(f.subcategoriaIntegridade, r.subcategoriaIntegridade);
+    // Subcategoria em branco = "sem subcategoria" (como o gatilho do banco,
+    // que grava texto em branco como nulo). Ex.: '' -> apaga; null -> apaga.
+    const sub = f.subcategoriaIntegridade;
+    r.subcategoriaIntegridade = opcional(
+      typeof sub === 'string' && !sub.trim() ? null : sub,
+      r.subcategoriaIntegridade ?? undefined
+    );
     if (f.testeIntegridadeAplicavel !== undefined) r.testeIntegridadeAplicavel = f.testeIntegridadeAplicavel;
     r.justificativaNaoIntegridade = opcional(f.justificativaNaoIntegridade, r.justificativaNaoIntegridade);
     if (f.probabilidade !== undefined) r.probabilidade = f.probabilidade;

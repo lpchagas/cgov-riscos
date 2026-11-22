@@ -508,7 +508,8 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
  */
 export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
   // Opcional ausente no front (undefined) vira null: "sem valor" no banco.
-  const ouNulo = (v: string | undefined) => v ?? null;
+  // (A subcategoria pode já vir null: "sem subcategoria" dito de propósito.)
+  const ouNulo = (v: string | null | undefined) => v ?? null;
   // Nos FILHOS (ação 5W2H), texto opcional ausente OU em branco também vira
   // null: assim o banco APAGA o valor antigo (chave omitida = "manter").
   // Ex.: '   ' -> null; 'Reduzir fraudes' -> 'Reduzir fraudes'.

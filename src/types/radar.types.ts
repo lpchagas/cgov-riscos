@@ -286,7 +286,12 @@ export interface FichaRisco {
   // Categorização e Programa Integra+ (Quadros 2 e 3 / Portaria 253/2026):
   categoriaId: number;
   categoriaNome: string;
-  subcategoriaIntegridade?: string;
+  /**
+   * Subcategoria do Quadro 3 (só na Integridade). `null` = "sem subcategoria"
+   * dito de propósito: na edição, vira `subcategoria_integridade: null` no
+   * JSON e o banco APAGA o valor antigo (chave omitida = manter).
+   */
+  subcategoriaIntegridade?: string | null;
   testeIntegridadeAplicavel: boolean;
   justificativaNaoIntegridade?: string;
 

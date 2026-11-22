@@ -21,6 +21,7 @@ import { definirFonteParaTeste, useRiscosStore } from '../../src/stores/riscosSt
 import { criarFonteDemonstracao } from '../../src/services/dados';
 import type { FonteDados } from '../../src/services/dados/tipos';
 import { ErroRadar } from '../../src/services/dados/errosBanco';
+import { fichaParaJson } from '../../src/services/dados/conversores';
 import { useToast } from '../../src/composables/useToast';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import { dadosDeRisco, dadosExemplo, dadosParaFicha, dadosVazios, validarEtapa } from '../../src/utils/formularioRisco';
@@ -75,14 +76,24 @@ describe('dadosParaFicha (edição)', () => {
     ]);
   });
 
-  // Subcategoria em branco é "sem subcategoria": vai como undefined (o banco
+  // Subcategoria em branco é "sem subcategoria": vai como null (o banco
   // grava nulo e o gatilho devolve a mensagem RADAR), nunca como ''. Com '',
   // o par (5, '') iria para a chave estrangeira e voltaria um erro genérico.
   it('Integridade com subcategoria em branco não leva \'\' para a ficha', () => {
     const base = { ...dadosExemplo('obj-1'), categoriaId: idCategoria('Integridade') };
-    expect(dadosParaFicha({ ...base, subcategoriaIntegridade: '' }, { ehIntegridade: true }).subcategoriaIntegridade).toBeUndefined();
-    expect(dadosParaFicha({ ...base, subcategoriaIntegridade: '   ' }, { ehIntegridade: true }).subcategoriaIntegridade).toBeUndefined();
+    expect(dadosParaFicha({ ...base, subcategoriaIntegridade: '' }, { ehIntegridade: true }).subcategoriaIntegridade).toBeNull();
+    expect(dadosParaFicha({ ...base, subcategoriaIntegridade: '   ' }, { ehIntegridade: true }).subcategoriaIntegridade).toBeNull();
     expect(dadosParaFicha({ ...base, subcategoriaIntegridade: 'Nepotismo' }, { ehIntegridade: true }).subcategoriaIntegridade).toBe('Nepotismo');
+  });
+
+  // A própria ficha montada já diz "sem subcategoria" com null explícito
+  // (e não com undefined), para o JSON nunca depender de quem a monta depois.
+  it('fora da Integridade ou em branco: a ficha leva null explícito e o JSON, subcategoria_integridade: null', () => {
+    const operacional = dadosParaFicha({ ...dadosExemplo('obj-1'), categoriaId: idCategoria('Operacional'), subcategoriaIntegridade: 'Nepotismo' }, { ehIntegridade: false });
+    expect(operacional.subcategoriaIntegridade).toBeNull();
+    expect(fichaParaJson({ objetoId: 'obj-1', ...operacional } as Parameters<typeof fichaParaJson>[0])).toHaveProperty('subcategoria_integridade', null);
+    const emBranco = dadosParaFicha({ ...dadosExemplo('obj-1'), categoriaId: idCategoria('Integridade'), subcategoriaIntegridade: '  ' }, { ehIntegridade: true });
+    expect(emBranco.subcategoriaIntegridade).toBeNull();
   });
 
   it('risco novo: filhos sem id (vazio) e objeto escolhido', () => {
@@ -220,6 +231,24 @@ describe('Página Novo risco', () => {
       w.unmount();
     });
 
+    // EDIÇÃO (Review Focus 2): na salvar_ficha_risco, chave OMITIDA = "manter o
+    // valor antigo" (jsonb_populate_record). Se a troca Integridade → Operacional
+    // não mandasse subcategoria_integridade: null, o banco manteria (2,
+    // 'Nepotismo') e a chave estrangeira recusaria com 23503 (erro genérico).
+    it('edição: trocar um risco de Integridade (Nepotismo) para Operacional manda subcategoria_integridade: null', async () => {
+      const { store, salvarFicha } = await comFonte({});
+      const base = { ...dadosExemplo('obj-anexo-ii'), categoriaId: idCategoria('Integridade'), subcategoriaIntegridade: 'Nepotismo' };
+      const criado = await store.salvarOuAtualizarRisco(dadosParaFicha(base, { ehIntegridade: true }));
+      expect(criado.subcategoriaIntegridade).toBe('Nepotismo');
+
+      const editado = { ...dadosDeRisco(criado), categoriaId: idCategoria('Operacional'), subcategoriaIntegridade: '' };
+      await store.salvarOuAtualizarRisco(dadosParaFicha(editado, { ehIntegridade: false, existente: criado }));
+      const pacote = salvarFicha.mock.calls[1][0];
+      expect(pacote.id).toBe(criado.id);
+      expect(fichaParaJson(pacote)).toHaveProperty('subcategoria_integridade', null);
+      expect(store.obterRiscoPorId(criado.id)!.subcategoriaIntegridade).toBeUndefined();
+    });
+
     it('trocar Integridade por Operacional limpa a subcategoria', async () => {
       const { salvarFicha } = await comFonte({});
       const { w } = await montar();
@@ -235,11 +264,12 @@ describe('Página Novo risco', () => {
       // ...e, se a pessoa voltar para Integridade, o campo está vazio (não "ressuscita").
       await seletorCategoria().setValue(String(idCategoria('Integridade')));
       expect((seletorSub().element as HTMLSelectElement).value).toBe('');
-      // Segue por Operacional até salvar: a ficha montada não leva subcategoria.
+      // Segue por Operacional até salvar: a ficha montada diz "sem subcategoria"
+      // com null explícito (assim o JSON leva subcategoria_integridade: null).
       await seletorCategoria().setValue(String(idCategoria('Operacional')));
       for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
       expect(salvarFicha).toHaveBeenCalledTimes(1);
-      expect(salvarFicha.mock.calls[0][0].subcategoriaIntegridade).toBeUndefined();
+      expect(salvarFicha.mock.calls[0][0].subcategoriaIntegridade).toBeNull();
       w.unmount();
     });
 

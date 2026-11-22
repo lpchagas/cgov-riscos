@@ -33,7 +33,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(41);
+select plan(43);
 
 -- ----------------------------------------------------------------------------
 -- 1. Estrutura e conteúdo
@@ -161,7 +161,26 @@ select f.id as r_ficha_op
 select f.id as r_ficha
   from public.salvar_ficha_risco(pg_temp.ficha_integridade('Conflito de interesses')) as f
 \gset
+
+-- EDIÇÃO (Review Focus 2): na salvar_ficha_risco, chave OMITIDA = "manter o
+-- valor antigo" (jsonb_populate_record). Por isso o front manda
+-- subcategoria_integridade: null ao trocar a Integridade por outra categoria.
+select f.id as r_ficha_edicao
+  from public.salvar_ficha_risco(pg_temp.ficha_integridade('Nepotismo')) as f
+\gset
+-- Sem a chave: o banco mantém 'Nepotismo' e a chave estrangeira recusa (2, 'Nepotismo').
+select throws_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$,
+                   (pg_temp.ficha_integridade('Nepotismo') - 'subcategoria_integridade')
+                   || jsonb_build_object('id', :'r_ficha_edicao', 'categoria_id', 2)),
+                 '23503', null,
+                 'edição Integridade → Operacional OMITINDO subcategoria_integridade: mantém Nepotismo e a chave recusa');
+-- Com null explícito: grava, e a subcategoria fica nula.
+select public.salvar_ficha_risco(pg_temp.ficha_integridade(null)
+         || jsonb_build_object('id', :'r_ficha_edicao', 'categoria_id', 2));
 select pg_temp.sair();
+select results_eq(format($$select categoria_id, subcategoria_integridade from public.riscos where id = %L$$, :'r_ficha_edicao'),
+                  $$ values (2, null::text) $$,
+                  'edição Integridade → Operacional com subcategoria_integridade: null grava Operacional sem subcategoria');
 select is((select subcategoria_integridade from public.riscos where id = :'r_ficha'), 'Conflito de interesses',
           'salvar_ficha_risco: Integridade com Conflito de interesses gravada');
 select is((select subcategoria_integridade from public.riscos where id = :'r_ficha_op'), null,
@@ -301,7 +320,7 @@ create temp table _semente_sub as
 -- mudaram). Para gravar os nomes antigos, o CHECK novo sai (o rollback do
 -- fim o devolve). Os riscos de teste deste arquivo saem antes, senão a chave
 -- estrangeira não deixaria apagar as subcategorias.
-delete from public.riscos where codigo_radar like 'RADAR-T090-%' or id in (:'r_ficha', :'r_ficha_op');
+delete from public.riscos where codigo_radar like 'RADAR-T090-%' or id in (:'r_ficha', :'r_ficha_op', :'r_ficha_edicao');
 alter table public.categorias_risco drop constraint categorias_risco_nome_quadro_2;
 delete from public.subcategorias_risco;
 delete from public.categorias_risco where id in (9, 10, 11);
