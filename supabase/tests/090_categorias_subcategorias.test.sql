@@ -16,7 +16,8 @@
 --   4. a recusa chega pela salvar_ficha_risco como mensagem "RADAR: ..."
 --      legível (Review Focus 1);
 --   5. subcategorias_risco: quem tem perfil lê; ninguém logado grava;
---   6. a TRAVA (bloco 1 da migração) para se houver risco na categoria 7;
+--   6. a TRAVA (bloco 1 da migração) para se houver risco na categoria 7, da
+--      Integridade sem subcategoria ou com subcategoria fora da Integridade;
 --   7. o ALINHAMENTO (bloco 3 da migração) sobre a semente antiga (ids 1 a 8,
 --      como está na nuvem) chega ao mesmo resultado do seed.sql e grava a
 --      trilha em auditoria_log sem usuário (Review Focus 5).
@@ -32,7 +33,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(34);
+select plan(36);
 
 -- ----------------------------------------------------------------------------
 -- 1. Estrutura e conteúdo
@@ -188,6 +189,10 @@ BEGIN
     INTO v_codigos
     FROM public.riscos AS r
    WHERE r.categoria_id IN (1, 7, 8)
+      -- Integridade sem subcategoria (o gatilho do bloco 4 recusaria a próxima gravação).
+      OR (r.categoria_id = 5 AND r.subcategoria_integridade IS NULL)
+      -- Subcategoria fora da Integridade (a chave do bloco 4 não aceitaria a linha).
+      OR (r.categoria_id <> 5 AND r.subcategoria_integridade IS NOT NULL)
       OR (r.subcategoria_integridade IS NOT NULL
           AND r.subcategoria_integridade NOT IN (
             'Abuso de posição ou poder em favor de interesses privados',
@@ -198,7 +203,7 @@ BEGIN
             'Utilização de recursos públicos em favor de interesses privados'));
 
   IF v_codigos IS NOT NULL THEN
-    RAISE EXCEPTION 'RADAR: há riscos em categoria que sai do Quadro 2 (Estratégico, Socioambiental ou Tecnologia da Informação) ou com subcategoria fora do Quadro 3: %; reclassifique esses riscos antes de aplicar esta migração (decisão de 2026-11-22).', v_codigos
+    RAISE EXCEPTION 'RADAR: há riscos em categoria que sai do Quadro 2 (Estratégico, Socioambiental ou Tecnologia da Informação) ou com subcategoria fora do Quadro 3, da Integridade sem subcategoria ou com subcategoria fora da Integridade: %; reclassifique esses riscos antes de aplicar esta migração (decisão de 2026-11-22).', v_codigos
       USING ERRCODE = 'check_violation';
   END IF;
 END;
@@ -288,6 +293,25 @@ select pg_temp.inserir_risco('RADAR-T090-TRAVA', 7, null);
 select throws_like($$select pg_temp.travar_reclassificacao()$$, '%RADAR-T090-TRAVA%',
                    'trava: risco na categoria 7 para a migração e o código aparece na mensagem');
 delete from public.riscos where codigo_radar = 'RADAR-T090-TRAVA';
+
+-- Integridade sem subcategoria: no estado antigo não há linhas em
+-- subcategorias_risco, então o gatilho deixa gravar (como na nuvem hoje).
+select pg_temp.inserir_risco('RADAR-T090-TRAVA-INT', 5, null);
+select throws_like($$select pg_temp.travar_reclassificacao()$$, '%RADAR-T090-TRAVA-INT%',
+                   'trava: risco da Integridade sem subcategoria para a migração');
+delete from public.riscos where codigo_radar = 'RADAR-T090-TRAVA-INT';
+
+-- Subcategoria fora da Integridade: na nuvem a coluna aceitava texto livre,
+-- mas aqui a chave estrangeira já existe e recusaria a linha. Para recriar a
+-- linha antiga, desligamos gatilhos e chaves (session_replication_role =
+-- replica) SÓ neste INSERT e religamos logo depois (o rollback desfaz tudo).
+set local session_replication_role = replica;
+select pg_temp.inserir_risco('RADAR-T090-TRAVA-OP', 2, 'Nepotismo');
+set local session_replication_role = origin;
+select throws_like($$select pg_temp.travar_reclassificacao()$$, '%RADAR-T090-TRAVA-OP%',
+                   'trava: risco Operacional com subcategoria para a migração');
+delete from public.riscos where codigo_radar = 'RADAR-T090-TRAVA-OP';
+
 select lives_ok($$select pg_temp.travar_reclassificacao()$$,
                 'trava: sem risco em categoria que sai, a migração segue (caso da nuvem)');
 
@@ -295,6 +319,14 @@ select lives_ok($$select pg_temp.travar_reclassificacao()$$,
 create temp table _audit_antes as select id from public.auditoria_log;
 create temp table _hist_antes as select count(*)::int as n from public.historico_fluxo;
 
+-- ATENÇÃO: aqui o bloco 3 roda sobre o esquema DEPOIS da migração (com a
+-- chave riscos_subcategoria_fk, o gatilho trg_riscos_exige_subcategoria e sem
+-- a coluna subcategorias_permitidas), e não sobre o esquema antigo, como na
+-- nuvem. O resultado é o mesmo: o bloco 3 só grava em categorias_risco
+-- (nome, descrição, apetite, justificativa) e em subcategorias_risco; não
+-- cita a coluna removida, não grava em riscos (então o gatilho não dispara) e
+-- nenhum risco usa as categorias 1, 7 e 8 apagadas (a chave não interfere).
+-- Só o CHECK dos nomes atrapalharia, e por isso ele foi retirado acima.
 select lives_ok($$select pg_temp.alinhar_categorias_quadro_2()$$,
                 'alinhamento roda sobre as 8 categorias antigas, sem usuário logado');
 select results_eq(

@@ -44,9 +44,13 @@
 -- ----------------------------------------------------------------------------
 -- 1. TRAVA DE RECLASSIFICAÇÃO (antes de mexer em qualquer coisa)
 -- ----------------------------------------------------------------------------
--- Se existir risco numa categoria que vai sair (1, 7 ou 8) ou com subcategoria
--- fora das 6 do Quadro 3, a migração PARA com erro e lista os códigos. Nada é
--- trocado de categoria sem decisão humana.
+-- A migração PARA com erro e lista os códigos se existir risco:
+--   - numa categoria que vai sair (1, 7 ou 8);
+--   - da Integridade (5) sem subcategoria;
+--   - de outra categoria COM subcategoria;
+--   - com subcategoria fora das 6 do Quadro 3.
+-- Ou seja: toda linha que as garantias do bloco 4 recusariam. Nada é trocado
+-- de categoria ou de subcategoria sem decisão humana.
 -- Ex.: RADAR-2026-010 na categoria 7 → "RADAR: ... RADAR-2026-010 ...".
 -- Na nuvem (conferido em 2026-11-22) não há nenhum risco, então ela não dispara.
 -- ATENÇÃO: o teste supabase/tests/090_categorias_subcategorias.test.sql tem uma
@@ -59,6 +63,10 @@ BEGIN
     INTO v_codigos
     FROM public.riscos AS r
    WHERE r.categoria_id IN (1, 7, 8)
+      -- Integridade sem subcategoria (o gatilho do bloco 4 recusaria a próxima gravação).
+      OR (r.categoria_id = 5 AND r.subcategoria_integridade IS NULL)
+      -- Subcategoria fora da Integridade (a chave do bloco 4 não aceitaria a linha).
+      OR (r.categoria_id <> 5 AND r.subcategoria_integridade IS NOT NULL)
       OR (r.subcategoria_integridade IS NOT NULL
           AND r.subcategoria_integridade NOT IN (
             'Abuso de posição ou poder em favor de interesses privados',
@@ -69,7 +77,7 @@ BEGIN
             'Utilização de recursos públicos em favor de interesses privados'));
 
   IF v_codigos IS NOT NULL THEN
-    RAISE EXCEPTION 'RADAR: há riscos em categoria que sai do Quadro 2 (Estratégico, Socioambiental ou Tecnologia da Informação) ou com subcategoria fora do Quadro 3: %; reclassifique esses riscos antes de aplicar esta migração (decisão de 2026-11-22).', v_codigos
+    RAISE EXCEPTION 'RADAR: há riscos em categoria que sai do Quadro 2 (Estratégico, Socioambiental ou Tecnologia da Informação) ou com subcategoria fora do Quadro 3, da Integridade sem subcategoria ou com subcategoria fora da Integridade: %; reclassifique esses riscos antes de aplicar esta migração (decisão de 2026-11-22).', v_codigos
       USING ERRCODE = 'check_violation';
   END IF;
 END $$;
