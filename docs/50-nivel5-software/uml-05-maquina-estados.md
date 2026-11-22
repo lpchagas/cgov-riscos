@@ -33,7 +33,7 @@ stateDiagram-v2
   em_homologacao_dir --> aprovado : homologado [titular do homologador efetivo]
   em_homologacao_dir --> devolvido : devolvido_ajuste [homologador efetivo, motivo obrigatório]
   em_homologacao_dir --> devolvido : devolvido_ajuste [CGOV, só se sem homologador efetivo]
-  aprovado --> em_validacao_cg : reaberto_mudanca_nota [edição de P, I, controle (evidência ou eficácia), tratamento 5W2H, definição do KRI, categoria ou objeto, ou mudança de criticidade; recusa se não houver validador efetivo]
+  aprovado --> em_validacao_cg : reaberto_mudanca_nota [edição de P, I, controle (evidência ou eficácia), tratamento 5W2H, definição do KRI, categoria ou objeto, ou mudança de criticidade, com recusa se não houver validador efetivo]
   aprovado --> em_homologacao_dir : reaberto_mudanca_dar [a mudança da DAR faz o risco virar Crítico]
 ```
 
