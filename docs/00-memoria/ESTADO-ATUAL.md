@@ -12,7 +12,7 @@
 | Implementação (etapas A, B1, B2, B1.1, B3 e C) | Mescladas na `main` (PRs #7 e #8, 2026-11-16). |
 | Etapa D — piloto da Sede (D0/D1) | **Em curso.** D1, Tasks 1 a 6 feitas: build em modo real, CSP única, pacote de publicação, Registro de Decisão, cópia cifrada e banco do piloto na nuvem, conferido ([[guia-supabase-nuvem]], [[decisoes-tecnicas-d]]). Próxima: Task 7 (front publicado, **[AUTORIZAÇÃO]**). A Task 8 e a Fase 0 precisam do desktop institucional. A D2 (login por senha temporária) ainda vai ser desenhada. |
 | Etapa D — homologação na CGTI | Só depois das 6 lacunas que bloqueiam a homologação (LAC-03, 08, 12, 13, 14 e 15), pelo [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti\|ADR-0017]]. |
-| Reestruturação da documentação em 5 níveis | **Fases 0 a 5 mescladas** (PRs #9 a #12; a #12 em 2026-11-22, merge `8b1fa55`). **Fase 6 (Tarefa 19) concluída na branch**; a PR "Fase 6: Fechamento e retomada da implementação" vai ser aberta para a `main` (merge só a pedido). |
+| Reestruturação da documentação em 5 níveis | **Fases 0 a 5 mescladas** (PRs #9 a #12; a #12 em 2026-11-22, merge `8b1fa55`). **Fase 6 (Tarefa 19) concluída na branch**; **PR #13** ("Fase 6: Fechamento e retomada da implementação") aberta para a `main` (merge só a pedido). |
 
 Branch de trabalho: `claude/icmbio-risk-policy-modeling-q840ho`.
 
