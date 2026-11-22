@@ -1,7 +1,7 @@
 /**
  * Varredura de acessibilidade do RADAR (axe-core + Playwright).
  *
- * Rode com: `npm run test:a11y` (guia: docs/04-ux/varredura-acessibilidade.md).
+ * Rode com: `npm run test:a11y` (guia: docs/30-nivel3-interface/varredura-acessibilidade.md).
  *
  * Como os testes são montados: três laços, um dentro do outro.
  *

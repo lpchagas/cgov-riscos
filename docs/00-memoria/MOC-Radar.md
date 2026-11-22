@@ -36,7 +36,9 @@ Pasta `docs/20-nivel2-requisitos/` (ver o `README.md` dela): [[ERS-radar]] (docu
 
 ## 3. Nível 3 — Interface (Reformulação 2026-11)
 
-Hoje em `docs/04-ux/`; a Tarefa 18 do plano renomeia a pasta para `docs/30-nivel3-interface/` e acrescenta o mapa tela ↔ caso de uso ↔ Figma.
+Pasta `docs/30-nivel3-interface/` (ver o `README.md` dela; até a Tarefa 18 a pasta se chamava `04-ux`).
+
+- [[mapa-telas]] — Mapa tela ↔ caso de uso ↔ perfil ↔ Figma: as 15 telas de hoje e as 11 telas a prototipar (P-01 a P-11).
 
 - [[design-system]] — Tokens, componentes e resultados medidos das Fases 1 a 4.
 - [[diagnostico-ui-2026-11]] — Diagnóstico inicial (heurísticas, WCAG e microcopy).

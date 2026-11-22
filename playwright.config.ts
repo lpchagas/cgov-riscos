@@ -5,7 +5,7 @@
  * Aqui o Playwright abre um navegador de verdade (Chromium), visita cada tela do RADAR e
  * pede ao axe-core que procure problemas de acessibilidade.
  *
- * Guia completo: docs/04-ux/varredura-acessibilidade.md
+ * Guia completo: docs/30-nivel3-interface/varredura-acessibilidade.md
  */
 import { defineConfig, devices } from '@playwright/test';
 
