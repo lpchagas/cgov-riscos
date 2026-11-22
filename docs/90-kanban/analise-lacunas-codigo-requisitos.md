@@ -10,8 +10,8 @@ Tarefa 10 e nas revisões seguintes. Em 2026-11-22, os **195 RF** estão assim:
 
 | Situação | Quantos | O que significa |
 | --- | --- | --- |
-| implementado | 115 | O código faz, e há teste que prova (unidade, banco ou integração). |
-| parcial | 10 | O código faz só uma parte, ou faz tudo mas **falta o teste** que prova. |
+| implementado | 116 | O código faz, e há teste que prova (unidade, banco ou integração). |
+| parcial | 9 | O código faz só uma parte, ou faz tudo mas **falta o teste** que prova. |
 | não iniciado | 70 | Não há tabela, campo, função nem tela para aquilo. |
 
 Esta análise não muda nenhum RF, nem `src/`, nem as migrações: ela só liga cada RF pendente a um cartão.
@@ -78,7 +78,7 @@ do catálogo o põe na LAC-02, e ele ficou lá.
 
 | RF | Situação | Cartão |
 | --- | --- | --- |
-| RF-035, RF-038, RF-048, RF-099 | parcial: o código faz, falta o teste | `[dívida] Testes que faltam` (novo) |
+| RF-035, RF-048, RF-099 | parcial: o código faz, falta o teste | `[dívida] Testes que faltam` (novo) |
 | RF-162, RF-171 | parcial: o código faz, falta o teste | cartão do importador (prioridade 1); o RF-172 foi implementado em 2026-11-22, com a LAC-14 |
 | RF-178 a RF-182, RF-185 a RF-188, RF-194 | não iniciado | cartão do importador (prioridade 1); o RF-177 foi implementado em 2026-11-22, com a LAC-12; o RF-183 e o RF-184 estão no cartão da LAC-03 |
 | RF-063 | parcial: falta o teste pgTAP da unidade sem chefia | `[dívida] Teste pgTAP para a recusa do envio…` |

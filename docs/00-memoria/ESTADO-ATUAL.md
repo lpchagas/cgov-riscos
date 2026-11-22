@@ -37,7 +37,7 @@ Branch de trabalho: `claude/icmbio-risk-policy-modeling-q840ho`.
 | `npm run build` (`vue-tsc` + Vite) | ok. |
 | `npm run test:db` (pgTAP) | 18 arquivos, 883 testes, `PASS` (2026-11-22, com a migração `20261122001` e o teste `090`, já com as correções da revisão de fim da Fase 1; rodado com o Postgres local 17.11.0.006, ver a pendência do ambiente local na seção 5: a nuvem roda o Postgres 17.6.1.104). **Re-medir** na próxima mudança de banco. |
 | `npm run test:a11y` | 329 testes passaram, 0 violações em 315 combinações ((16 + 5) telas × 5 larguras × 3 temas, com a etapa 3 do formulário), medido em 2026-11-22, depois da LAC-12. |
-| Documentação | 115 RN, 195 RF (115 implementados, 10 parciais, 70 não iniciados), 51 RNF, 26 casos de uso, 19 ADRs, 13 migrações no DER. |
+| Documentação | 115 RN, 195 RF (116 implementados, 9 parciais, 70 não iniciados), 51 RNF, 26 casos de uso, 19 ADRs, 13 migrações no DER. |
 | Kanban | 71 cartões: 64 no Backlog, 2 em "Pronto para iniciar" e 5 concluídos (LAC-11, LAC-12, LAC-14, LAC-15 e a dívida das subcategorias em JSONB). |
 
 **Pendente de prova real:** as mudanças da cópia (um único `pg_dump`, parcial exclusivo, TLS obrigatório na

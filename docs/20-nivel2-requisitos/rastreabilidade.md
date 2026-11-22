@@ -92,7 +92,7 @@ views e migrações). A coluna **Tela** entrou na Tarefa 18 (interface), a parti
 | Regra do sistema (AGENTS.md, regra 5) | RN-018 | RF-035 | UC-05 | `/riscos/novo` | Novo risco | `riscos` | `novoRiscoPagina.spec.ts` (parcial) |
 | Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-036 | UC-05 | `/riscos/novo` | Novo risco | `subcategorias_risco`; `riscos` | `novoRiscoPagina.spec.ts`; pgTAP `090`; `errosBanco.spec.ts` |
 | Metodologia 4.3, a, Quadro 4 | RN-011 | RF-037 | UC-06 | `/riscos/novo` | Novo risco | `riscos` | `escalasProbabilidadeImpacto.spec.ts`; `novoRiscoPagina.spec.ts`; `componentesUi.spec.ts` |
-| Metodologia 4.3, b, Quadro 5 | RN-012 | RF-038 | UC-06 | `/riscos/novo` | Novo risco | `riscos` | — (parcial, sem teste do trecho feito) |
+| Metodologia 4.3, b, Quadro 5 | RN-012 | RF-038 | UC-06 | `/riscos/novo` | Novo risco | `riscos` | `escalasProbabilidadeImpacto.spec.ts`; `novoRiscoPagina.spec.ts` |
 | Metodologia 4.3, c, e fórmula do residual / Regra do sistema (AGENTS.md, regra 4) | RN-003, RN-004 | RF-039 | UC-06 | `/riscos/novo` | Novo risco | `controles_existentes`; `salvar_ficha_risco` | pgTAP `050` bl. 8; `novoRiscoPagina.spec.ts` |
 | Regra do sistema (AGENTS.md, regra 4) | RN-004 | RF-040 | UC-06 | `/riscos/novo` | Novo risco | `controles_existentes`; `salvar_ficha_risco` | `novoRiscoPagina.spec.ts` |
 | Metodologia 4.3, Quadro 7 | RN-001 | RF-041 | UC-06 | `/riscos/novo` | Novo risco | `calcular_nivel_inerente_q7` | `calculadoraRiscoRadar.spec.ts`; pgTAP `000` bl. 1 |
@@ -388,12 +388,12 @@ Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (
 | Medida | Quantidade | IDs |
 | --- | --- | --- |
 | Requisitos funcionais no catálogo | 195 | RF-001 a RF-195 |
-| RF implementados | 115 | — |
-| RF parciais | 10 | RF-035, RF-038, RF-048, RF-050, RF-063, RF-078, RF-094, RF-099, RF-162, RF-171 |
+| RF implementados | 116 | — |
+| RF parciais | 9 | RF-035, RF-048, RF-050, RF-063, RF-078, RF-094, RF-099, RF-162, RF-171 |
 | RF não iniciados | 70 | ver as linhas "— (não iniciado, ...)" da matriz |
-| RF com teste citado (implementados e parciais com teste do trecho feito) | 119 | 115 implementados + 4 parciais (RF-035, RF-048, RF-063, RF-099) |
+| RF com teste citado (implementados e parciais com teste do trecho feito) | 120 | 116 implementados + 4 parciais (RF-035, RF-048, RF-063, RF-099) |
 | RF implementados sem teste | 0 | nenhum |
-| RF parciais sem teste do trecho feito | 6 | RF-038, RF-050, RF-078, RF-094, RF-162, RF-171 |
+| RF parciais sem teste do trecho feito | 5 | RF-050, RF-078, RF-094, RF-162, RF-171 |
 | RF sem caso de uso | 4 | RF-014, RF-054, RF-060, RF-189 |
 | RN sem nenhum RF | 8 | RN-059, RN-081, RN-101, RN-102, RN-103, RN-111, RN-113, RN-114 |
 | UC sem RF | 0 | todos os 26 casos de uso citam ao menos um RF |

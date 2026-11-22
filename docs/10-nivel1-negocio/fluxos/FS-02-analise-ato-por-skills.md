@@ -162,7 +162,7 @@ Conferido no código em 21/11/2026. O importador lê **por posição** (1ª colu
 - **Tabela do Regime A** (13 colunas, sem "Objeto de GR"): as colunas ficam deslocadas e a linha é recusada por categoria inválida, com mensagem que não fala de regime.
 - **Erros (bloqueiam tudo):** categoria fora do Quadro 2 (e dos 3 sinônimos do Anexo III); categoria mista; Integridade sem subcategoria ou com subcategoria fora do Quadro 3. Sem nenhuma linha válida e sem erro: "Nenhuma linha de risco encontrada".
 - **Avisos (não bloqueiam):** só um tipo, a frase fora da sintaxe.
-- **Silêncios (sem erro nem aviso):** P ou I sem número (vira 3), estratégia desconhecida (vira Mitigar), evidência deduzida por palavra (com acento), trava de evidência acionada, inerente ou residual da skill diferente do recálculo.
+- **Silêncios (sem erro nem aviso):** estratégia desconhecida (vira Mitigar), evidência deduzida por palavra (com acento), trava de evidência acionada, inerente ou residual da skill diferente do recálculo.
 - **Na gravação:** recusa do banco (ex.: permissão) recusa só aquela linha; a tela mostra "N de M importados" e oferece reimportar só as recusadas, sem duplicar as que entraram.
 - **Nome da skill:** o código e a tela chamam a skill de `cgov-gestao-riscos-v4`; no plugin ela se chama `cgov-gestao-riscos`.
 
