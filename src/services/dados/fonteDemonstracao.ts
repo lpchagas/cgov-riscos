@@ -51,6 +51,7 @@ import {
   UNIDADES_SEMENTE,
 } from '../dadosSementeAnexoII';
 import { calcularRiscoCompletoRadar, gerarSintaxePadraoRisco } from '../../utils/calculadoraRiscoRadar';
+import { verificarTravaRiscoCritico, type ResultadoTrava } from '../../utils/travaRiscoCritico';
 import { capacidades, PAPEIS } from '../../utils/acessoPorPerfil';
 import { CHAVE_PERFIL_DEMO, PERFIS_DEMO_ICMBIO, type PerfilUsuarioDemo } from '../../stores/authStore';
 import { ErroRadar, MENSAGEM_REDE, traduzirErroBanco } from './errosBanco';
@@ -98,6 +99,39 @@ function recusar(trechoDoBanco: string): never {
 function naoEncontrado(frase: string): never {
   throw new ErroRadar(`${frase}. Atualize a página.`, 'nao_encontrado');
 }
+
+/**
+ * LAC-13: aplica a trava do risco crítico a uma ficha (mesma regra do banco).
+ * Risco crítico ('sim' ou 'pendente_dar') não aceita a estratégia "Aceitar" e
+ * exige pelo menos uma ação 5W2H que não seja "Aceitar".
+ */
+function travaDaFicha(r: FichaRisco): ResultadoTrava {
+  return verificarTravaRiscoCritico({
+    statusCritico: r.statusCritico,
+    estrategiaPrincipal: r.estrategiaPrincipal,
+    estrategiasDasAcoes: r.respostasTratamento.map((a) => a.estrategia),
+  });
+}
+
+/**
+ * Recusa a ficha se ela não passa na trava, com o texto do banco (que o
+ * dicionário de `errosBanco.ts` traduz para `MENSAGEM_TRAVA_CRITICO`).
+ * `sufixo` é o complemento de validar/homologar. Ex.: ' Devolva a ficha à unidade para ajuste.'
+ */
+function exigirTrava(r: FichaRisco, sufixo = ''): void {
+  const t = travaDaFicha(r);
+  if (t.ok) return;
+  const motivo =
+    t.motivo === 'aceitar_em_critico'
+      ? 'a estratégia "Aceitar" não é permitida'
+      : 'falta uma ação de tratamento (5W2H)';
+  recusar(
+    `o risco ${r.codigoRadar} é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: ${motivo}.${sufixo}`
+  );
+}
+
+/** Complemento do texto quando a recusa ocorre em validar/homologar. */
+const SUFIXO_DEVOLVA = ' Devolva a ficha à unidade para ajuste.';
 
 /** Estados em que a ficha está travada (em decisão da chefia). */
 const TRAVADOS: StatusFluxoRisco[] = ['em_validacao_cg', 'em_homologacao_dir'];
@@ -333,8 +367,29 @@ export function criarFonteDemonstracao(
         if (TRAVADOS.includes(r.statusFluxo)) {
           recusar(`a ficha do risco ${r.codigoRadar} está travada`);
         }
+        // LAC-13: rascunho, devolvido e preliminar continuam livres. Nos demais
+        // estados (hoje, só o aprovado chega aqui) a ficha não pode ficar
+        // crítica com "Aceitar". Guardamos uma cópia e, se a trava recusar,
+        // devolvemos a ficha ao que era: nada muda na recusa.
+        const estavaLivre = ENVIAVEIS.includes(r.statusFluxo);
+        const antes = copiar(r);
         aplicarEntradas(r, f);
         recalcular(r);
+        if (!estavaLivre) {
+          try {
+            exigirTrava(r);
+          } catch (e) {
+            // Volta a ficha ao que era. Object.assign só copia as chaves da
+            // cópia; um campo opcional que a ficha não tinha e que entrou
+            // agora (ex.: justificativaProbabilidade) precisa ser apagado.
+            const ficha = r as unknown as Record<string, unknown>;
+            for (const chave of Object.keys(ficha)) {
+              if (!(chave in antes)) delete ficha[chave];
+            }
+            Object.assign(r, antes);
+            throw e;
+          }
+        }
         if (r.statusFluxo === 'aprovado') {
           r.statusFluxo = 'em_validacao_cg';
           registrar(
@@ -413,6 +468,7 @@ export function criarFonteDemonstracao(
     async enviar(id) {
       const r = acharRisco(id);
       if (!ENVIAVEIS.includes(r.statusFluxo)) recusar('só se envia rascunho ou devolvido');
+      exigirTrava(r); // LAC-13: antes de mudar o estado
       r.statusFluxo = 'em_validacao_cg';
       registrar(
         r,
@@ -444,6 +500,7 @@ export function criarFonteDemonstracao(
     async validar(id, parecer) {
       const r = acharRisco(id);
       if (r.statusFluxo !== 'em_validacao_cg') recusar('só se valida risco em validação');
+      exigirTrava(r, SUFIXO_DEVOLVA); // LAC-13: ficha antiga com "Aceitar" tem de ser devolvida
       const exigeHomologacao = r.isCritico || r.statusCritico === 'sim' || r.statusCritico === 'pendente_dar';
       r.statusFluxo = exigeHomologacao ? 'em_homologacao_dir' : 'aprovado';
       registrar(
@@ -463,6 +520,7 @@ export function criarFonteDemonstracao(
     async homologar(id, parecer) {
       const r = acharRisco(id);
       if (r.statusFluxo !== 'em_homologacao_dir') recusar('só se homologa risco em homologação');
+      exigirTrava(r, SUFIXO_DEVOLVA); // LAC-13
       r.statusFluxo = 'aprovado';
       registrar(
         r,
@@ -557,6 +615,7 @@ export function criarFonteDemonstracao(
     async alterarApetite(categoriaId, apetite) {
       const cat = categorias.find((c) => c.id === categoriaId);
       if (!cat) naoEncontrado('Categoria não encontrada');
+      const apetiteAnterior = cat.apetiteDeclarado;
       cat.apetiteDeclarado = apetite;
       for (const r of riscos) {
         if (r.categoriaId !== categoriaId) continue;
@@ -570,6 +629,18 @@ export function criarFonteDemonstracao(
         r.statusCritico = c.statusCritico;
         r.isCritico = c.isCritico;
         r.memoriaCalculo = c.memoriaCalculo;
+        // LAC-13: risco aprovado que passou a crítico e está com "Aceitar" (ou
+        // sem ação de tratamento) não pode continuar aprovado: volta para a
+        // unidade. Os demais mantêm o comportamento de hoje da demonstração.
+        if (r.statusFluxo === 'aprovado' && !travaDaFicha(r).ok) {
+          r.statusFluxo = 'devolvido';
+          registrar(
+            r,
+            'reabertura_nota',
+            'devolvido_mudanca_dar',
+            `DAR alterada: categoria ${cat.nome} com apetite ${apetiteAnterior} → ${apetite}. O risco aprovado (residual ${r.nivelResidual}, ${r.classificacaoResidual}) passou a Risco Crítico e está com a estratégia "Aceitar" ou sem ação de tratamento, que a Metodologia não permite para risco crítico. Voltou para a unidade escolher outra estratégia e incluir a ação.`
+          );
+        }
       }
     },
 

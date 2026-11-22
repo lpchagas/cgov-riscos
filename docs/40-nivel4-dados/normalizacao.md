@@ -369,7 +369,7 @@ erDiagram
    livre, sem regra para comparar. Hoje é marcado à mão (LAC-03).
 7. **`riscos.estrategia_principal` × `respostas_tratamento.estrategia` (conforme).** Uma é a resposta
    escolhida para o risco; a outra, a estratégia de cada ação. Podem ser diferentes, então não há
-   dependência funcional. A regra "risco crítico não aceita Aceitar" é a LAC-13.
+   dependência funcional. A regra "risco crítico não aceita Aceitar" é a LAC-13, resolvida no código em 2026-11-22: não é restrição de coluna, e sim a função `fn_trava_risco_critico` (migração `20261122002`), porque depende do `status_critico` do risco e da lista de ações.
 8. **`processos_cadeia_valor.macroprocesso` (3FN: dívida).** O nome do macroprocesso depende do seu código
    (`macro_id → macroprocesso`) e se repete em cada processo do mesmo macroprocesso. A carga da Cadeia de
    Valor grava os dois juntos, então hoje eles não divergem. A proposta é uma tabela de macroprocessos.

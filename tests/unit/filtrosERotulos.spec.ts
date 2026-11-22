@@ -100,9 +100,10 @@ describe('Rótulos de unidade e de histórico do fluxo', () => {
   it('toda ação do histórico tem rótulo e a da DAR cita "DAR"', () => {
     const acoes = [
       'submetido', 'assumido', 'validado', 'validado_e_homologado', 'homologado',
-      'devolvido_ajuste', 'reaberto_mudanca_nota', 'reaberto_mudanca_dar', 'aprovado_1_clique',
+      'devolvido_ajuste', 'reaberto_mudanca_nota', 'reaberto_mudanca_dar', 'devolvido_mudanca_dar', 'aprovado_1_clique',
     ];
     expect(Object.keys(ROTULOS_ACAO_HISTORICO).sort()).toEqual([...acoes].sort());
     expect(ROTULOS_ACAO_HISTORICO.reaberto_mudanca_dar).toContain('DAR');
+    expect(ROTULOS_ACAO_HISTORICO.devolvido_mudanca_dar).toContain('DAR');
   });
 });

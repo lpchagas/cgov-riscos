@@ -34,6 +34,12 @@ select
   (select id from auth.users where email = 'presidente@radar.test') as u_presidente
 \gset
 
+-- LAC-13 (migração 20261122002): os riscos da semente não têm ações 5W2H, e o
+-- risco crítico sem ação não anda mais no fluxo. Este teste prova OUTRAS
+-- regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava é
+-- provada em 100_lac13_trava_critico.test.sql.
+select pg_temp.dar_tratamento_a_todos();
+
 -- Objeto na Presidência (para o caso "sem homologador efetivo").
 insert into public.objetos_contexto (id, tipo_objeto, nome_objeto, unidade_id, objetivo_estrategico_associado)
 values ('00000000-0000-4000-b000-000000000073', 'Unidade', 'Teste 073 — Presidência',
@@ -54,6 +60,8 @@ as $$
   values (p_codigo, p_objeto, 'Responsável de demonstração', 'causa de teste', 'evento de teste',
           'consequência de teste', 'objetivo de teste', 'x', p_cat, p_p, p_i,
           0, 'Baixo', 0, 'Baixo', p_status);
+  -- LAC-13: tratamento mínimo (ver pg_temp.dar_tratamento em ajudantes.psql).
+  select pg_temp.dar_tratamento(r.id) from public.riscos r where r.codigo_radar = p_codigo;
 $$;
 
 -- Categorias "moderado" para C e G: depois da LAC-14 (2026-11-22) só a 2

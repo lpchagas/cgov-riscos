@@ -26,8 +26,10 @@ import type {
   NivelEficaciaControle,
   NivelImpacto,
   NivelProbabilidade,
+  StatusCriticidadeDAR,
 } from '../types/radar.types';
 import { validarRegraIntegridade } from './calculadoraRiscoRadar';
+import { exigeTratamento } from './travaRiscoCritico';
 
 /** Todos os campos do assistente (o que a pessoa digita). */
 export interface DadosNovoRisco {
@@ -100,11 +102,26 @@ export function dadosExemplo(objetoId = ''): DadosNovoRisco {
 
 const obrigatorio = (valor: string, minimo = 3) => valor.trim().length >= minimo;
 
+/** Erro da etapa 4 quando a pessoa escolhe "Aceitar" para um risco crítico (LAC-13). */
+export const ERRO_ACEITAR_RISCO_CRITICO =
+  'Risco crítico não pode ser aceito: escolha Mitigar, Compartilhar ou Evitar (Metodologia 4.5 e Anexo III).';
+
 /**
  * Valida UMA etapa. Ex.: etapa 1 com "causas" vazio →
  *   { causas: 'Descreva as causas (o que pode provocar o evento).' }
+ *
+ * `statusCritico` (opcional) é a criticidade da PRÉVIA (calculadora oficial).
+ * Só a etapa 4 usa: se o risco é crítico ('sim' ou 'pendente_dar'), "Aceitar"
+ * é recusado e a ação 5W2H vira obrigatória (LAC-13). Sem ele, nada muda.
+ *   Ex.: etapa 4, "Aceitar", statusCritico 'sim' →
+ *        { estrategia: 'Risco crítico não pode ser aceito: …', acaoOQue: …, acaoQuem: …, acaoPrazo: … }
  */
-export function validarEtapa(etapa: number, d: DadosNovoRisco, categorias: CategoriaRisco[]): ErrosEtapa {
+export function validarEtapa(
+  etapa: number,
+  d: DadosNovoRisco,
+  categorias: CategoriaRisco[],
+  statusCritico?: StatusCriticidadeDAR
+): ErrosEtapa {
   const erros: ErrosEtapa = {};
 
   if (etapa === 1) {
@@ -142,7 +159,11 @@ export function validarEtapa(etapa: number, d: DadosNovoRisco, categorias: Categ
   }
 
   if (etapa === 4) {
-    if (d.estrategia !== 'Aceitar') {
+    // Risco crítico (fora do apetite da DAR, ou com DAR pendente) precisa de
+    // tratamento: "Aceitar" não vale e a ação 5W2H é obrigatória.
+    const exige = statusCritico !== undefined && exigeTratamento(statusCritico);
+    if (exige && d.estrategia === 'Aceitar') erros.estrategia = ERRO_ACEITAR_RISCO_CRITICO;
+    if (d.estrategia !== 'Aceitar' || exige) {
       if (!obrigatorio(d.acaoOQue)) erros.acaoOQue = 'Descreva a ação (o quê).';
       if (!obrigatorio(d.acaoQuem)) erros.acaoQuem = 'Informe o responsável (quem).';
       if (!d.acaoPrazo) erros.acaoPrazo = 'Informe o prazo (quando).';

@@ -3,6 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { traduzirErroBanco, ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
+import { MENSAGEM_TRAVA_CRITICO } from '../../src/utils/travaRiscoCritico';
 
 describe('traduzirErroBanco', () => {
   it('traduz a trava da ficha', () => {
@@ -12,6 +13,21 @@ describe('traduzirErroBanco', () => {
     });
     expect(e.tipo).toBe('estado');
     expect(e.message).toBe('Este risco está em validação ou homologação e não pode ser editado agora. Peça à chefia que o devolva para ajuste.');
+  });
+
+  it('traduz a trava do risco crítico (LAC-13, código 23514)', () => {
+    // Mensagem do banco (migração 20261122002) ao enviar ficha crítica com "Aceitar".
+    const e = traduzirErroBanco({
+      code: '23514',
+      message: 'RADAR: o risco RADAR-2026-004 é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: a estratégia "Aceitar" não é permitida.',
+    });
+    expect(e.message).toBe(MENSAGEM_TRAVA_CRITICO);
+    expect(e.tipo).toBe('validacao');
+    // A variante de validar/homologar ("Devolva a ficha...") cai na mesma frase.
+    expect(traduzirErroBanco({
+      code: '23514',
+      message: 'RADAR: o risco RADAR-2026-004 é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: falta uma ação de tratamento (5W2H). Devolva a ficha à unidade para ajuste.',
+    }).message).toBe(MENSAGEM_TRAVA_CRITICO);
   });
 
   it('cai no código quando o trecho é desconhecido', () => {

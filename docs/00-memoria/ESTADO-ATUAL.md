@@ -33,12 +33,12 @@ Branch de trabalho: `claude/icmbio-risk-policy-modeling-q840ho`.
 
 | Verificação | Resultado |
 | --- | --- |
-| `npm test` (Vitest, inclui o teste da documentação) | 55 arquivos, 703 testes, todos passando (2026-11-22, depois da LAC-12). |
+| `npm test` (Vitest, inclui o teste da documentação) | Vitest: 759 testes, todos passando (2026-11-22, depois da LAC-13). |
 | `npm run build` (`vue-tsc` + Vite) | ok. |
-| `npm run test:db` (pgTAP) | 18 arquivos, 883 testes, `PASS` (2026-11-22, com a migração `20261122001` e o teste `090`, já com as correções da revisão de fim da Fase 1; rodado com o Postgres local 17.11.0.006, ver a pendência do ambiente local na seção 5: a nuvem roda o Postgres 17.6.1.104). **Re-medir** na próxima mudança de banco. |
+| `npm run test:db` (pgTAP) | 19 arquivos, 937 testes, `PASS` (2026-11-22, depois da LAC-13, com as migrações `20261122002` e `20261122003` e o teste `100`; a medição anterior, de 18 arquivos e 883 testes, foi feita com a migração `20261122001` e o teste `090`, já com as correções da revisão de fim da Fase 1; rodado com o Postgres local 17.11.0.006, ver a pendência do ambiente local na seção 5: a nuvem roda o Postgres 17.6.1.104). **Re-medir** na próxima mudança de banco. |
 | `npm run test:a11y` | 329 testes passaram, 0 violações em 315 combinações ((17 + 4) telas × 5 larguras × 3 temas, com a etapa 3 do formulário), medido em 2026-11-22, depois da LAC-12. |
-| Documentação | 115 RN, 195 RF (116 implementados, 9 parciais, 70 não iniciados), 51 RNF, 26 casos de uso, 19 ADRs, 13 migrações no DER. |
-| Kanban | 71 cartões: 64 no Backlog, 2 em "Pronto para iniciar" e 5 concluídos (LAC-11, LAC-12, LAC-14, LAC-15 e a dívida das subcategorias em JSONB). |
+| Documentação | 115 RN, 195 RF (118 implementados, 8 parciais, 69 não iniciados), 51 RNF, 26 casos de uso, 19 ADRs, 15 migrações em `supabase/migrations/` (o DER lista as 13 que mudam a estrutura; a `20261122002` só troca funções e a `20261122003` só acrescenta um gatilho). |
+| Kanban | 71 cartões: 64 no Backlog, 1 em "Pronto para iniciar", 1 em "Homologação CGOV" (LAC-13) e 5 concluídos (LAC-11, LAC-12, LAC-14, LAC-15 e a dívida das subcategorias em JSONB). |
 
 **Pendente de prova real:** as mudanças da cópia (um único `pg_dump`, parcial exclusivo, TLS obrigatório na
 nuvem) passaram nos testes, mas a primeira prova completa do [[guia-copia-restauracao]] (seção 8) ainda não
@@ -46,15 +46,16 @@ rodou com Docker.
 
 ## 4. Próximo trabalho
 
-Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto para iniciar" (a LAC-12 foi concluída em 2026-11-22, só no código, sem migração):
+Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto para iniciar" (a LAC-12 foi concluída em 2026-11-22, só no código, sem migração; a LAC-13 está implementada no código e na coluna "Homologação CGOV", já aplicada na nuvem do piloto em 2026-11-22):
 
-1. LAC-13 — "Aceitar" proibido e ação obrigatória no risco crítico (RF-049, RF-050);
-2. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
+1. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
    KRI (RF-102) tem cartão próprio e espera o desenho P-02.
 
-Cada uma muda banco ou regra: antes do código, é preciso um **plano autorizado** pelo responsável
+A LAC-03 muda banco e regra: antes do código, é preciso um **plano autorizado** pelo responsável
 (`AGENTS.md`). A LAC-08 (rito da DAR) espera os desenhos P-01 e P-10 no Figma, aprovados pela CGOV. Em paralelo, a
 etapa D segue com a Task 7 da D1.
+
+**LAC-13 (trava do "Aceitar" no risco crítico): implementada no código em 2026-11-22; aplicada na nuvem do piloto em 2026-11-22.** Regra única em `src/utils/travaRiscoCritico.ts`; formulário (etapa 4, opção desabilitada com ajuda), importador (recusa a linha), banco (migração `20261122002_lac13_trava_aceitar_critico.sql`: `fn_trava_risco_critico` nos envoltórios de `enviar_para_validacao`, `validar_risco` e `homologar_risco`; trava embutida em `salvar_ficha_risco`; `fn_dar_reavaliar_aprovados` devolve à unidade; 2ª migração `20261122003_lac13_gatilho_estrategia_critico.sql`, achado da revisão final: o gatilho `trg_riscos_trava_aceitar_critico` recusa o UPDATE direto em `riscos` que põe "Aceitar" em risco crítico fora do rascunho, devolvido e preliminar) e demonstração; pgTAP `100_lac13_trava_critico.test.sql`. Decisões do responsável (2026-11-22): o Pendente de DAR também trava; DAR alterada devolve à unidade. Sobras conhecidas: `acoes_no_fluxo` ainda diz "sim" em `pode_enviar`, `pode_validar` e `pode_homologar` para risco crítico sem tratamento (o clique é recusado com mensagem) e os riscos críticos de `supabase/seed-demonstracao.sql` não têm ação (só local). A migração `20261122002` já foi aplicada na nuvem do piloto em 2026-11-22 (registro no [[guia-supabase-nuvem]]); a `20261122003`: aplicada na nuvem do piloto em 2026-11-22.
 
 **Fase 2 da LAC-14 e da LAC-15 (nuvem do piloto): feita em 2026-11-22.** A migração `20261122001` está no
 projeto `cgov-riscos-v3.0`, conferida por leitura (8 categorias do Quadro 2, 6 subcategorias, coluna JSONB

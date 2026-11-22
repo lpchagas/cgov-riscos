@@ -26,6 +26,7 @@ import { useToast } from '../../src/composables/useToast';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import { dadosDeRisco, dadosExemplo, dadosParaFicha, dadosVazios, validarEtapa } from '../../src/utils/formularioRisco';
 import type { FichaRisco } from '../../src/types/radar.types';
+import { ajudaTravaCritico } from '../../src/utils/travaRiscoCritico';
 import BrBreadcrumb from '../../src/components/govbr/BrBreadcrumb.vue';
 import FormularioRiscoView from '../../src/views/FormularioRiscoView.vue';
 
@@ -497,6 +498,104 @@ describe('Página Novo risco', () => {
       await flushPromises();
       expect(salvarFicha).toHaveBeenCalledTimes(1);
       expect(salvarFicha.mock.calls[0][0].kris).toHaveLength(0); // a semente tem 1 KRI neste risco
+      w.unmount();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // LAC-13 — risco crítico não pode ser "Aceito" (Metodologia 4.5 e Anexo III)
+  // -------------------------------------------------------------------------
+  // P = 5 e I = 5 com controle Inexistente → Inerente 25 × 1,0 = Residual 25
+  // (Extremo). Residual Alto ou Extremo está sempre fora do apetite da DAR,
+  // então o risco é crítico (status 'sim') em qualquer categoria.
+  describe('Risco crítico na etapa 4 (LAC-13)', () => {
+    afterEach(() => definirFonteParaTeste(null));
+    const ERRO_ACEITAR = 'Risco crítico não pode ser aceito: escolha Mitigar, Compartilhar ou Evitar (Metodologia 4.5 e Anexo III).';
+    type VmFormulario = { d: { probabilidade: number | null; impacto: number | null; eficacia: string; estrategia: string } };
+    const seletorEstrategia = (w: ReturnType<typeof mount>) => w.findAll('select').find((s) => s.find('option[value="Aceitar"]').exists())!;
+
+    /** Risco novo, preenchido com o exemplo, parado na etapa 3 (Análise). */
+    async function ateEtapa3() {
+      const montado = await montar();
+      await botao(montado.w, 'Preencher com exemplo').trigger('click');
+      for (let i = 0; i < 2; i++) { await montado.w.find('form').trigger('submit'); await flushPromises(); }
+      expect(montado.w.find('[aria-current="step"]').text()).toContain('Análise');
+      return montado;
+    }
+
+    it('"Aceitar" fica desabilitado, com ajuda ligada por aria-describedby, e a ação 5W2H aparece', async () => {
+      const { w } = await ateEtapa3();
+      const vm = w.vm as unknown as VmFormulario;
+      vm.d.probabilidade = 5; vm.d.impacto = 5; vm.d.eficacia = 'Inexistente';
+      await flushPromises();
+      await w.find('form').trigger('submit'); await flushPromises();
+      expect(w.find('[aria-current="step"]').text()).toContain('Tratamento');
+
+      const seletor = seletorEstrategia(w);
+      const aceitar = seletor.find('option[value="Aceitar"]');
+      expect(aceitar.attributes('disabled')).toBeDefined();
+      expect(aceitar.text()).toBe('Aceitar — indisponível: risco crítico precisa de tratamento');
+
+      // A ajuda é anunciada junto com a lista (aria-describedby → <p id>).
+      const ids = (seletor.attributes('aria-describedby') ?? '').split(' ').filter(Boolean);
+      const textos = ids.map((id) => document.getElementById(id)?.textContent?.trim());
+      expect(textos).toContain(ajudaTravaCritico('sim'));
+
+      // O bloco da ação aparece — mesmo que o valor guardado ainda seja "Aceitar".
+      expect(w.text()).toContain('Ação — o quê');
+      vm.d.estrategia = 'Aceitar';
+      await flushPromises();
+      expect(w.text()).toContain('Ação — o quê');
+      w.unmount();
+    });
+
+    it('edição de ficha crítica com "Aceitar": "Salvar alterações" mostra o erro e não grava', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      // Mesma carteira da demonstração, mas o risco aprovado vira crítico e "Aceito".
+      const carregarCarteira: FonteDados['carregarCarteira'] = async () => {
+        const carteira = await base.carregarCarteira();
+        return {
+          ...carteira,
+          riscos: carteira.riscos.map((r) => r.id === 'risco-socio-03'
+            ? { ...r, probabilidade: 5, impacto: 5, nivelEficaciaControle: 'Inexistente', possuiEvidenciaControle: false, estrategiaPrincipal: 'Aceitar' }
+            : r),
+        };
+      };
+      definirFonteParaTeste({ ...base, salvarFicha, carregarCarteira });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+
+      const { w } = await montar('/riscos/novo?editar=risco-socio-03');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(w.find('[aria-current="step"]').text()).toContain('Tratamento');
+      expect(w.text()).toContain(ERRO_ACEITAR);
+      expect(salvarFicha).not.toHaveBeenCalled();
+      // O formulário não troca a estratégia sozinho: a pessoa decide.
+      expect((seletorEstrategia(w).element as HTMLSelectElement).value).toBe('Aceitar');
+      w.unmount();
+    });
+
+    it('escolheu "Aceitar" num risco baixo e depois subiu P e I: "Salvar e enviar" recusa', async () => {
+      const { w } = await ateEtapa3();
+      const store = useRiscosStore();
+      const antes = store.riscos.length;
+      const vm = w.vm as unknown as VmFormulario;
+      vm.d.probabilidade = 1; vm.d.impacto = 1; vm.d.eficacia = 'Inexistente';
+      await flushPromises();
+      await w.find('form').trigger('submit'); await flushPromises();
+      await seletorEstrategia(w).setValue('Aceitar');
+
+      await botao(w, 'Voltar').trigger('click'); await flushPromises();
+      vm.d.probabilidade = 5; vm.d.impacto = 5;
+      await flushPromises();
+      await w.find('form').trigger('submit'); await flushPromises();
+      expect(w.find('[aria-current="step"]').text()).toContain('Tratamento');
+
+      await w.find('form').trigger('submit'); await flushPromises(); // "Salvar e enviar"
+      expect(w.text()).toContain(ERRO_ACEITAR);
+      expect(store.riscos.length).toBe(antes);
       w.unmount();
     });
   });

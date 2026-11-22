@@ -39,6 +39,7 @@ import {
   lerNivelDaCelula,
   type NivelDescrito,
 } from './escalasProbabilidadeImpacto';
+import { exigeTratamento } from './travaRiscoCritico';
 
 /** Monta a lista da mensagem de erro, ex.: "(1) Raro; (2) Pouco provável; ...". */
 function listarEscala(escala: readonly NivelDescrito<number>[]): string {
@@ -380,6 +381,19 @@ export function importarTabelaMarkdownSkill(
       apetiteCategoria,
     });
 
+    // Trava da LAC-13: risco crítico (fora do apetite da DAR ou com DAR pendente)
+    // não pode vir com "Aceitar". A linha é recusada, como nas outras validações.
+    // Ex.: P=5, I=5, sem controle -> residual 25; "Aceitar" é recusado.
+    const estrategia = normalizarEstrategia(estrategiaTexto);
+    if (estrategia === 'Aceitar' && exigeTratamento(calculo.statusCritico)) {
+      const situacao = calculo.statusCritico === 'sim' ? 'fora do apetite da DAR' : 'com DAR pendente';
+      const residual = String(calculo.nivelResidual).replace('.', ',');
+      erros.push(
+        `Linha ${codigoRadar}: risco crítico (residual ${residual}, ${calculo.classificacaoResidual}, ${situacao}) não pode ter a estratégia "Aceitar"; escolha Mitigar, Compartilhar ou Evitar na tabela da skill.`
+      );
+      continue;
+    }
+
     const bowTie = extrairBowTieDaSintaxe(descricaoPadrao);
     if (!bowTie.extraidoComSucesso) {
       avisos.push(
@@ -409,7 +423,7 @@ export function importarTabelaMarkdownSkill(
       classificacaoResidual: calculo.classificacaoResidual,
       apetiteCategoria,
       statusCritico: calculo.statusCritico,
-      estrategiaTratamento: normalizarEstrategia(estrategiaTexto),
+      estrategiaTratamento: estrategia,
       kriSugerido,
       memoriaCalculo: calculo.memoriaCalculo,
       origemPreliminarCgov: true,

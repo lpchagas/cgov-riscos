@@ -40,6 +40,12 @@ select
   (select id from auth.users where email = 'gestor.uc@radar.test') as u_gestor_uc
 \gset
 
+-- LAC-13 (migração 20261122002): os riscos da semente não têm ações 5W2H, e o
+-- risco crítico sem ação não anda mais no fluxo. Este teste prova OUTRAS
+-- regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava é
+-- provada em 100_lac13_trava_critico.test.sql.
+select pg_temp.dar_tratamento_a_todos();
+
 -- ----------------------------------------------------------------------------
 -- 1. Estrutura
 -- ----------------------------------------------------------------------------

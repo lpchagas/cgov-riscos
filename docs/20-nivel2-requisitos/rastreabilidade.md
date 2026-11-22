@@ -103,8 +103,8 @@ views e migrações). A coluna **Tela** entrou na Tarefa 18 (interface), a parti
 | Regra do sistema (decisão B3-8) | RN-013 | RF-046 | UC-06 | `/riscos/novo` | Novo risco | — (prévia no navegador) | `novoRiscoPagina.spec.ts` |
 | Regra do sistema (decisão B3-9) | RN-099 | RF-047 | UC-05, UC-12 | `/riscos/novo` | Novo risco | `salvar_ficha_risco`; `riscos` | pgTAP `081` (a)/(b); `fonteDemonstracao.spec.ts` |
 | Metodologia 4.5.1 | RN-020 | RF-048 | UC-07 | `/riscos/novo` | Novo risco | `riscos` | `conversores.spec.ts` (parcial) |
-| Política art. 8º, § 2º; Metodologia 4.5 / Metodologia 4.5.1 | RN-019, RN-020 | RF-049 | UC-07 | `/riscos/novo` | Novo risco | `riscos`; `respostas_tratamento` | — (não iniciado, LAC-13) |
-| Política art. 8º, § 2º; Metodologia 4.5 | RN-019 | RF-050 | UC-07 | `/riscos/novo` | Novo risco | `riscos`; `respostas_tratamento` | — (parcial, sem teste do trecho feito) |
+| Política art. 8º, § 2º; Metodologia 4.5 / Metodologia 4.5.1 | RN-019, RN-020 | RF-049 | UC-07 | `/riscos/novo` | Novo risco | `riscos`; `respostas_tratamento` | `travaRiscoCritico.spec.ts`; `formularioRisco.spec.ts`; `importadorSkillMarkdown.spec.ts`; pgTAP `100_lac13_trava_critico.test.sql` (LAC-13, implementado no código) |
+| Política art. 8º, § 2º; Metodologia 4.5 | RN-019 | RF-050 | UC-07 | `/riscos/novo` | Novo risco | `riscos`; `respostas_tratamento` | `travaRiscoCritico.spec.ts`; `formularioRisco.spec.ts`; pgTAP `100_lac13_trava_critico.test.sql` (LAC-13, implementado no código) |
 | Política art. 8º, § 2º; Metodologia 4.5 | RN-019 | RF-051 | UC-07 | `/riscos/novo` | Novo risco | `respostas_tratamento` | `conversores.spec.ts`; `integracao/fonteSupabaseGravacao.spec.ts` |
 | Matriz §7, linha "Riscos — lista" | — | RF-052 | UC-20 | `/riscos` | Riscos (lista) | — (filtros no navegador) | `filtrosERotulos.spec.ts`; `objetosPagina.spec.ts` |
 | Metodologia item 2, V; Política art. 8º, § 1º | RN-005 | RF-053 | UC-20 | `/riscos` | Riscos (lista) | `riscos` | `filtrosERotulos.spec.ts` |

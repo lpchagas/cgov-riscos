@@ -49,6 +49,7 @@ import {
   type ErrosEtapa,
 } from '../utils/formularioRisco';
 import { ROTULOS_APETITE } from '../utils/darImpacto';
+import { ajudaTravaCritico, exigeTratamento } from '../utils/travaRiscoCritico';
 import FormField from '../components/ui/FormField.vue';
 import GrupoOpcoesDescritas from '../components/ui/GrupoOpcoesDescritas.vue';
 import type { OpcaoDescrita } from '../components/ui/tipos';
@@ -280,6 +281,26 @@ const calculo = computed(() => {
 });
 
 // ---------------------------------------------------------------------------
+// TRAVA DO RISCO CRÍTICO (LAC-13 — Metodologia 4.5 e Anexo III)
+// ---------------------------------------------------------------------------
+// Risco crítico = fora do apetite da DAR ('sim') ou com DAR pendente
+// ('pendente_dar'). Ele precisa de tratamento: na etapa 4, "Aceitar" fica
+// desabilitado (com o rótulo explicando por quê), a ajuda aparece ligada à
+// lista e o bloco da ação 5W2H fica sempre visível.
+// Atenção: NÃO trocamos `d.estrategia` sozinhos. Se a ficha já vinha com
+// "Aceitar", o valor fica, e a validação mostra o erro para a pessoa decidir.
+// Ex.: P = 5, I = 5, controle Inexistente → Residual 25 (Extremo) → 'sim'.
+const exigeTratamentoCritico = computed(() => !!calculo.value && exigeTratamento(calculo.value.statusCritico));
+const ajudaEstrategia = computed(() => (calculo.value ? ajudaTravaCritico(calculo.value.statusCritico) ?? undefined : undefined));
+const opcoesEstrategia = computed(() =>
+  ESTRATEGIAS.map((o) =>
+    o.valor === 'Aceitar' && exigeTratamentoCritico.value
+      ? { ...o, rotulo: 'Aceitar — indisponível: risco crítico precisa de tratamento', desabilitada: true }
+      : { ...o, desabilitada: false }
+  )
+);
+
+// ---------------------------------------------------------------------------
 // NAVEGAÇÃO ENTRE ETAPAS
 // ---------------------------------------------------------------------------
 async function focarPrimeiroErro(): Promise<void> {
@@ -288,7 +309,7 @@ async function focarPrimeiroErro(): Promise<void> {
 }
 
 function validar(): boolean {
-  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias);
+  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico);
   if (Object.keys(erros.value).length) {
     focarPrimeiroErro();
     return false;
@@ -339,7 +360,7 @@ async function salvar(enviar: boolean): Promise<void> {
   const fichaCompleta = enviar || (modoEdicao.value && !!status && !['rascunho', 'devolvido', 'preliminar_cgov'].includes(status));
   const etapasParaValidar = fichaCompleta ? [1, 2, 3, 4] : [1];
   for (const n of etapasParaValidar) {
-    const e = validarEtapa(n, d.value, riscosStore.categorias);
+    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico);
     if (Object.keys(e).length) {
       etapa.value = n;
       erros.value = e;
@@ -544,12 +565,13 @@ async function salvar(enviar: boolean): Promise<void> {
             <fieldset v-else class="etapa">
               <h2 class="etapa__titulo" tabindex="-1">Tratamento</h2>
               <p class="etapa__ajuda">O plano de ação segue o 5W2H. Você pode completar os detalhes depois, na ficha.</p>
-              <FormField rotulo="Estratégia" v-slot="{ attrs }">
+              <!-- Risco crítico (LAC-13): a ajuda vira um <p id> que o FormField liga à lista por aria-describedby. -->
+              <FormField rotulo="Estratégia" :ajuda="ajudaEstrategia" :erro="erros.estrategia" v-slot="{ attrs }">
                 <select v-bind="attrs" v-model="d.estrategia">
-                  <option v-for="o in ESTRATEGIAS" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
+                  <option v-for="o in opcoesEstrategia" :key="o.valor" :value="o.valor" :disabled="o.desabilitada">{{ o.rotulo }}</option>
                 </select>
               </FormField>
-              <template v-if="d.estrategia !== 'Aceitar'">
+              <template v-if="d.estrategia !== 'Aceitar' || exigeTratamentoCritico">
                 <FormField rotulo="Ação — o quê" :erro="erros.acaoOQue" obrigatorio v-slot="{ attrs }">
                   <textarea v-bind="attrs" v-model="d.acaoOQue" rows="2"></textarea>
                 </FormField>

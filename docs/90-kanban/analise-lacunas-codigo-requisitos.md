@@ -48,7 +48,7 @@ porque trata da pendência que persiste depois da cobrança).
 | LAC-14 — 8 categorias do Quadro 2 | RF-032, RF-173 | `categorias_risco`, `riscos` | Concluído em 2026-11-22 (código, banco local e nuvem do piloto) |
 | LAC-15 — 6 subcategorias do Quadro 3 (com a dívida da subcategoria em JSONB) | RF-036, RF-174, RF-175 | `subcategorias_risco`, `riscos` | Concluído em 2026-11-22 (código, banco local e nuvem do piloto) |
 | LAC-12 — escalas dos Quadros 4 e 5 | RF-037, RF-176, RF-177 | — (front e importador, sem migração) | Concluído em 2026-11-22 (código) |
-| LAC-13 — "Aceitar" e ação obrigatória no risco crítico | RF-049, RF-050 | `riscos`, `respostas_tratamento` | Pronto para iniciar |
+| LAC-13 — "Aceitar" e ação obrigatória no risco crítico | RF-049, RF-050 | `riscos`, `respostas_tratamento` | Homologação CGOV (implementado no código, no banco local e na nuvem do piloto em 2026-11-22) |
 | LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-109, RF-183, RF-184 | `indicadores_kri`, `medicoes_kri` | Pronto para iniciar |
 | LAC-03 — alerta do KRI (prazo de 10 dias úteis) | RF-102 | `medicoes_kri` | Backlog (depois do Figma P-02) |
 | LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois dos desenhos P-01 e P-10 no Figma; o P-10 cobre o RF-130) |

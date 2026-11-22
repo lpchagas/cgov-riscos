@@ -20,6 +20,7 @@ import {
   CATEGORIAS_QUADRO_2_SEMENTE,
 } from '../../src/services/dadosSementeAnexoII';
 import { calcularRiscoCompletoRadar } from '../../src/utils/calculadoraRiscoRadar';
+import { verificarTravaRiscoCritico } from '../../src/utils/travaRiscoCritico';
 
 describe('Dados de demonstração coerentes com os Quadros 6, 7 e 8 e a DAR', () => {
   // `it.each` gera um teste por risco, com o código RADAR no nome do teste,
@@ -72,5 +73,21 @@ describe('Dados de demonstração coerentes com os Quadros 6, 7 e 8 e a DAR', ()
       expect(h.etapa, `${h.id}: risco não crítico não passa pela Diretoria`).not.toBe('homologacao_diretoria');
       expect(h.despachoTexto ?? '', `${h.id}: despacho diz que é crítico`).not.toMatch(/acima do apetite|—\s*Risco Crítico/);
     }
+  });
+
+  // LAC-13: a trava do risco crítico vale também para a semente. Ficha
+  // aprovada, em validação ou em homologação não pode estar crítica com
+  // "Aceitar" nem sem ação de tratamento (5W2H) que não seja "Aceitar".
+  it.each(
+    RISCOS_SEMENTE_ANEXO_II.filter((r) =>
+      ['aprovado', 'em_validacao_cg', 'em_homologacao_dir'].includes(r.statusFluxo)
+    ).map((r) => [r.codigoRadar, r] as const)
+  )('%s: passa na trava do risco crítico (LAC-13)', (_codigo, risco) => {
+    const resultado = verificarTravaRiscoCritico({
+      statusCritico: risco.statusCritico,
+      estrategiaPrincipal: risco.estrategiaPrincipal,
+      estrategiasDasAcoes: risco.respostasTratamento.map((a) => a.estrategia),
+    });
+    expect(resultado).toEqual({ ok: true });
   });
 });

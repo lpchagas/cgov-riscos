@@ -32,7 +32,7 @@ Gestor de riscos (1ª linha) da unidade dona do risco.
 ## Fluxos alternativos e de exceção
 
 - 1a. O risco não é crítico: tratamento e KRI não são exigidos (RN-082). O gestor pode registrar a estratégia "Aceitar"; segue no passo 6.
-- 3a. O gestor escolhe "Aceitar" para risco crítico: a norma não permite (RN-020). Hoje o sistema aceita e dispensa a ação de tratamento (não tratado pelo sistema; cartão LAC-13 no Kanban).
+- 3a. O gestor escolhe "Aceitar" para risco crítico: a norma não permite (RN-020). Desde a LAC-13 (2026-11-22, implementado no código e no banco; migração aplicada na nuvem do piloto no mesmo dia) o sistema trava: na etapa 4 a opção "Aceitar" fica desabilitada, com texto de ajuda, e a ação 5W2H passa a ser obrigatória (`travaRiscoCritico.ts`, `validarEtapa`); no banco, `fn_trava_risco_critico` recusa o envio, a validação e a homologação (migração `20261122002`). Vale para o risco crítico (`status_critico` `sim`) e, por regra do sistema, para o risco com DAR pendente (`pendente_dar`), que não é risco crítico pela norma (decisão do responsável, 2026-11-22: o Pendente de DAR também trava). O rascunho continua livre, e a ficha pode ser devolvida sempre.
 - 4a. A estratégia não é "Aceitar" e falta o quê, o responsável ou o prazo da ação: o sistema não avança e diz o que falta.
 - 5a. O KRI é gravado sem fonte, meta e limite de alerta definidos: hoje o sistema grava "A definir" nesses dados (RN-083; não tratado pelo sistema; cartão LAC-03 no Kanban).
 - 5b. O risco crítico fica sem KRI: a norma exige (RN-082), mas hoje o sistema grava e deixa enviar (não tratado pelo sistema; cartão LAC-03 no Kanban).

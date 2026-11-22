@@ -56,6 +56,12 @@ select
   (select id from public.unidades where icmbio_id = '10.0000') as presidencia
 \gset
 
+-- LAC-13 (migração 20261122002): os riscos da semente não têm ações 5W2H, e o
+-- risco crítico sem ação não anda mais no fluxo. Este teste prova OUTRAS
+-- regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava é
+-- provada em 100_lac13_trava_critico.test.sql.
+select pg_temp.dar_tratamento_a_todos();
+
 -- KRI e resposta de tratamento no risco APROVADO da CGPRO. Como o risco já
 -- está aprovado, criar um KRI nele REABRIRIA o fluxo. Por isso o administrador
 -- liga o sinal das funções do fluxo só durante a preparação.
@@ -102,6 +108,8 @@ as $$
      nivel_inerente, classificacao_inerente, nivel_residual, classificacao_residual, status_fluxo)
   values (p_codigo, p_objeto, 'Responsável de demonstração', 'causa de teste', 'evento de teste',
           'consequência de teste', 'objetivo de teste', 'x', p_cat, p_p, p_i, 0, 'Baixo', 0, 'Baixo', p_status);
+  -- LAC-13: tratamento mínimo (ver pg_temp.dar_tratamento em ajudantes.psql).
+  select pg_temp.dar_tratamento(r.id) from public.riscos r where r.codigo_radar = p_codigo;
 $$;
 
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000050', 'RADAR-T050-PRES', 2, 2);

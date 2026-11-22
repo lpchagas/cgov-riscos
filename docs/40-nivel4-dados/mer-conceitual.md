@@ -111,7 +111,7 @@ erDiagram
 8. **Risco é provocado por Causa:** todo risco tem pelo menos uma causa (sintaxe do 4.2.1); hoje as causas ficam juntas em um texto só, ponto que a normalização (Tarefa 15) vai tratar.
 9. **Risco produz Consequência:** todo risco tem pelo menos uma consequência; hoje também ficam juntas em um texto só.
 10. **Risco é reduzido por Controle:** o risco pode ter zero ou mais controles; sem controle, a eficácia é Inexistente (fator 1,0).
-11. **Risco é tratado por Resposta / Ação:** o risco pode ter zero ou mais ações 5W2H; o risco crítico deve ter pelo menos uma (RN-019), regra que o banco ainda não impõe (LAC-13).
+11. **Risco é tratado por Resposta / Ação:** o risco pode ter zero ou mais ações 5W2H; o risco crítico deve ter pelo menos uma (RN-019), regra que o banco impõe desde a LAC-13 (`fn_trava_risco_critico`, migração `20261122002`: sem "Aceitar" e com ao menos uma ação, ao enviar, validar e homologar; aplicada na nuvem do piloto em 2026-11-22).
 12. **Risco é monitorado por KRI:** o risco pode ter zero ou mais KRIs; cada KRI pertence a um único risco (o grupo de riscos correlatos do 4.7.1 ainda não existe, LAC-03).
 13. **KRI registra Medição:** cada medição pertence a exatamente um KRI, que pode ter zero ou mais medições.
 14. **Risco tramita por Movimentação do fluxo:** cada movimentação é de exatamente um risco, e o risco acumula zero ou mais movimentações, em ordem.
