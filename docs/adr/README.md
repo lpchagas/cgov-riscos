@@ -32,6 +32,8 @@ problema, o que foi decidido e o que isso custa. Usamos o modelo de Michael Nyga
 | [[0014-entregar-em-conteiner-docker-com-nginx]] | Entregar à CGTI em contêiner Docker com Nginx | Accepted |
 | [[0015-fluxo-hibrido-figma-codigo-com-code-connect]] | Fluxo híbrido Figma ↔ código com Code Connect | Accepted |
 | [[0016-diagramas-em-mermaid-sem-c4]] | Diagramas em Mermaid, UML sem Modelo C4, casos de uso em `flowchart` | Accepted |
+| [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti]] | Fechar as lacunas que bloqueiam a homologação antes de levar o RADAR à CGTI | Accepted |
+| [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1]] | Manter o fluxo interno de 3 degraus como etapa anterior à comunicação do item 4.6.1 | Accepted |
 
 ## Decisões antigas
 

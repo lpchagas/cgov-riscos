@@ -61,7 +61,7 @@ O RADAR **não** é, e não será nesta etapa:
 - **Ferramenta do Programa de Gestão para Resultados e Inovação.** O programa é outro assunto (Portaria ICMBio nº 1.572/2023). Escreve-se sempre por extenso, nunca por sigla, para não confundir com o Plano de Gestão de Riscos.
 - **Calculadora do risco de entrega do PGD.** O risco operacional de entregas individuais do PGD pertence ao projeto `pgd-icmbio`, como distingue a skill (design v2.0, §3.2).
 - **Canal de e-mail para servidores antes da aprovação da CGTI.** Em desenvolvimento só se usa o Mailpit; envio real só ao responsável, com o aval dele ([[AGENTS]], regras do piloto).
-- **Guardião de dados pessoais além do necessário.** O sistema guarda só o que o login e o perfil exigem (nome, e-mail institucional, unidade, perfil). A matrícula é ignorada na importação das atribuições (`npm run sync:atribuicoes`, [[ESTADO-ATUAL]], etapa B2). A base legal do piloto é o Registro de Decisão da CGOV (LGPD), com retenção máxima de 6 meses (D0-4 e D0-5, [[2026-11-17-etapa-d0-d1-piloto-sede-design]]).
+- **Guardião de dados pessoais além do necessário.** O sistema guarda só o que o login e o perfil exigem (nome, e-mail institucional, unidade, perfil). A matrícula é ignorada na importação das atribuições (`npm run sync:atribuicoes`, [[historico-etapas]], etapa B2). A base legal do piloto é o Registro de Decisão da CGOV (LGPD), com retenção máxima de 6 meses (D0-4 e D0-5, [[2026-11-17-etapa-d0-d1-piloto-sede-design]]).
 - **Robô de IA dentro do site.** A skill roda fora do sistema; o RADAR recebe o resultado.
 - **Cálculo pela fórmula antiga.** Nunca P × I nem P + I: o Quadro 7 é uma tabela fixa de 25 células.
 
@@ -78,7 +78,7 @@ Fonte do que existe: [[ESTADO-ATUAL]]. Não há prazos prometidos.
 | B2 | Login por link de e-mail só para convidados, perfis, tela Usuários e perfis (só CGOV) e Edge Function `gerenciar-acesso`. |
 | B3 | Telas lendo e gravando no banco (Painel, Riscos, Ficha, Novo risco, Importar, Aprovações, Objetos, Monitoramento, DAR, Auditoria). |
 | C | Painel pensado para o celular (blocos recolhíveis, alvos de toque de 44 px). |
-| D1 | Trazida para esta branch (merge `66f974a`, [[ESTADO-ATUAL]]). Pelos guias da D1: banco do piloto na nuvem com as 12 migrações aplicadas e conferidas em 2026-11-20 ([[guia-supabase-nuvem]]); scripts de cópia cifrada prontos, mas a **primeira prova completa com o `age` ainda está pendente**, então a cópia não deve ser contada como testada ([[guia-copia-restauracao]]). |
+| D1 | Trazida para esta branch (merge `66f974a`, [[historico-etapas]]). Pelos guias da D1: banco do piloto na nuvem com as 12 migrações aplicadas e conferidas em 2026-11-20 ([[guia-supabase-nuvem]]); scripts de cópia cifrada prontos, mas a **primeira prova completa com o `age` ainda está pendente**, então a cópia não deve ser contada como testada ([[guia-copia-restauracao]]). |
 
 ### Em curso: piloto da Sede (D0 a D5)
 

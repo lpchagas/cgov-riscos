@@ -17,7 +17,10 @@ Cada lacuna tem **uma de 3 severidades**:
 - **melhoria** — automação ou conforto sobre algo que a norma não exige que seja feito no sistema.
 
 **Regra de desempate:** se a lacuna tem uma parte que contradiz a norma e outra que é só omissão, vale a
-parte que contradiz (bloqueia homologação). A LAC-11 fica como importante, condicionada à decisão da CGOV.
+parte que contradiz (bloqueia homologação). A LAC-11 ficou como importante até a decisão da CGOV de
+2026-11-22 ([[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]): o fluxo interno fica como
+etapa anterior à comunicação do 4.6.1, e a lacuna está resolvida. A ordem entre as lacunas e a
+homologação na CGTI está no [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti|ADR-0017]].
 
 A frase que diz se a lacuna é **contradição** ou **omissão** está no fim da célula "O que a norma exige". As lacunas LAC-01 a
 LAC-11 vêm do diagnóstico aprovado ([[2026-11-20-diagnostico-documentacao-radar]] §5.4); as LAC-12 a
@@ -68,7 +71,7 @@ texto limpo), **texto da minuta** (regra da minuta que o saneamento não alterou
 | **LAC-08** | F1-02, F2-02, F5-06, F5-13, LS-02 | F1.03; F2.01; F3.03; F3.07; F3.10; F3.11; FS-01.11 | texto saneado (rito do 4.6.4 a 4.6.7); prazo da CGOV e regra do F5-13: decisão não aplicada; o que vale enquanto não há DAR: aberto (F1-02, F2-02) |
 | **LAC-09** | F4-05, F4-12, F4-16, LS-06 | F4.06 a F4.08 | texto saneado (Política art. 15, IX; 4.7.2); gatilho e periodicidade da cobrança: aberto (F4-12) |
 | **LAC-10** | F4-08, F4-13 | F1.08; F4.03 | texto saneado (4.7); quem verifica a reavaliação dos riscos não críticos: aberto (F4-13) |
-| **LAC-11** | F3-04 | FS-01.01 a FS-01.12 (entre F1.06 e F1.07; antes do F3.02) | aberto (decisão da CGOV pendente; diagnóstico §5.2, B2) |
+| **LAC-11** | F3-04 | FS-01.01 a FS-01.12 (entre F1.06 e F1.07; antes do F3.02) | resolvido em 2026-11-22: o fluxo interno fica como etapa anterior ao 4.6.1 ([[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]; diagnóstico §5.2, B2) |
 | **LAC-12** | nenhum alerta (conferência da [[matriz-regras-regime-b]] §6; pendência AG-04) | F1.02 | texto da minuta (Quadro 4), sem alteração no saneamento |
 | **LAC-13** | F2-05, LS-03 | F2.02; F2.05 a F2.10 | texto da minuta (Tabela 8 e Anexo III); aceitação excepcional e alçada para "Evitar": aberto (F2-05, LS-03) |
 | **LAC-14** | nenhum alerta (conferência da [[matriz-regras-regime-b]] §4; pendência D3-01) | F1.01; F2.02 | texto da minuta (Quadro 2 e Anexo III); grafia final das categorias: aberto (decisão da CGOV, D3-01) |

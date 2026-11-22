@@ -519,7 +519,7 @@ Cada catálogo (RN, RF, RNF) é uma tabela Markdown cujas **duas primeiras colun
 
 1. ~~Acesso às fontes da Tarefa 1~~ — **decidido (2026-11-20):** pasta do Drive adicionada à sessão local na extensão do Claude Code no VS Code.
 2. ~~Onde fica o quadro Kanban~~ — **decidido (2026-11-20):** Markdown no Obsidian com o plugin Kanban (ADR-0002).
-3. **Etapa D antes ou depois das lacunas normativas** (Tarefa 19, Step 2). Até lá, a D segue (decidido em 2026-11-20: a etapa D não é suspensa; diagnóstico §5.3).
+3. ~~Etapa D antes ou depois das lacunas normativas~~ — **decidido (2026-11-22):** as 6 lacunas que bloqueiam a homologação (LAC-03, 08, 12, 13, 14 e 15) entram antes da CGTI; as omissões, depois; o piloto da Sede segue em paralelo (ADR-0017).
 4. ~~Base da branch~~ — **decidido (2026-11-20):** a `feat/d1-ambiente-piloto` foi mesclada nesta branch (`66f974a`).
 5. **Onde fica o "um clique" da análise de atos pelas skills (FS-02):** skill orquestradora no plugin × botão no RADAR. Decisão da CGOV, registrada em ADR (cartão criado na Tarefa 7b).
-6. **Destino do fluxo interno de 3 degraus (LAC-11):** mantê-lo como etapa interna anterior à comunicação do 4.6.1 ou adaptá-lo ao rito das minutas. Decisão da CGOV, a tomar na Tarefa 7 ou na Tarefa 19.
+6. ~~Destino do fluxo interno de 3 degraus (LAC-11)~~ — **decidido (2026-11-22):** fica como etapa interna anterior à comunicação do 4.6.1 (ADR-0018).

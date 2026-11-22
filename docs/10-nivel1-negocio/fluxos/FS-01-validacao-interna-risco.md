@@ -116,7 +116,7 @@ Não há dispositivo nas minutas para nenhuma destas atividades: a coluna "Regra
 
 ## Alertas e lacunas
 
-- **LAC-11** — fluxo interno de 3 degraus sem base nas minutas; a CGOV decide se ele fica antes do 4.6.1 (diagnóstico §5.4).
+- **LAC-11** — fluxo interno de 3 degraus sem base nas minutas; a CGOV decidiu, em 2026-11-22, que ele fica antes do 4.6.1, como controle de qualidade da unidade ([[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]; diagnóstico §5.4).
 - **F3-04** — "o fluxo do aplicativo não tem base nas minutas" (aberto, [[registro-alertas-f4-f5]]).
 - **F3-02** (resolvido no texto saneado) — a devolução da norma é da CGOV na consolidação (F3.04), com 10 dias úteis; a devolução do RADAR é da chefia ou do homologador, sem prazo (impacto anotado no registro; LAC-01).
 - **F5-12** (aberto) — o número de devoluções não é limitado (`devolver_risco`; LAC-01).

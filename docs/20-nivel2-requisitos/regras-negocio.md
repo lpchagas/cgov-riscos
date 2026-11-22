@@ -102,8 +102,8 @@ Numeração fixada no plano de reestruturação. O cálculo segue o Regime B (mi
 
 ## 6. Fluxo interno de validação (FS-01)
 
-Fluxo sem base nas minutas ([[FS-01-validacao-interna-risco]]): a CGOV ainda decide se ele fica como
-etapa anterior ao item 4.6.1 (LAC-11, alerta F3-04).
+Fluxo sem base nas minutas ([[FS-01-validacao-interna-risco]]). A CGOV decidiu, em 2026-11-22, mantê-lo como
+etapa anterior ao item 4.6.1 (LAC-11, alerta F3-04; [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]).
 
 | ID | Enunciado | Tipo | Origem | Implementação | Teste |
 | --- | --- | --- | --- | --- | --- |
@@ -216,8 +216,8 @@ Pontos abertos que **ainda não são regra**: não têm ID e não podem ser cita
 decididos, entram no catálogo com o rótulo de origem correspondente.
 
 - **Prazo para definir o KRI do risco que passa a ser crítico depois do Plano** (F4-10; LAC-03).
-- **Manter ou não o fluxo interno de 3 degraus** (RN-037 a RN-054) como etapa anterior ao item 4.6.1
-  (F3-04; LAC-11, decisão da CGOV pendente).
+- ~~**Manter ou não o fluxo interno de 3 degraus** (RN-037 a RN-054) como etapa anterior ao item 4.6.1~~
+  (F3-04; LAC-11): **decidido em 2026-11-22**, fica como etapa anterior ao 4.6.1 ([[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1|ADR-0018]]).
 - **O que vale para a criticidade enquanto não há DAR** (F1-02, F2-02): o `pendente_dar` (RN-010) é regra
   provisória do sistema.
 - **Trava de evidência no texto da norma** (F2-04) e **quem confere as evidências dos controles** (LS-01).
