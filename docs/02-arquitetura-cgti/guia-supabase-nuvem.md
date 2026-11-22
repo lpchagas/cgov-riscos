@@ -107,6 +107,7 @@
 | 2026-11-22 | Conferência antes da migração `20261122002` (só leitura, LAC-13) | Ok, pelo Claude via MCP, com autorização: 0 riscos na nuvem, logo nenhum risco crítico (ou Pendente de DAR) com "Aceitar" ou sem ação, em nenhuma situação do fluxo. Nada a decidir caso a caso. |
 | 2026-11-22 | `db push --linked` (LAC-13) | Ok, pelo Claude, com autorização: prévia (`--dry-run`) listou só a `20261122002`; aplicada (`Finished supabase db push.`). |
 | 2026-11-22 | Conferência depois da migração (só leitura) | Ok: 14 migrações, a última `20261122002`; as 4 funções novas presentes (`fn_trava_risco_critico` e as 3 `fn_base_*`); `authenticated` **não** executa `fn_base_validar_risco`, mas executa `validar_risco`; `salvar_ficha_risco` continua `SECURITY INVOKER`. |
+| 2026-11-22 | `db push --linked` (LAC-13, 2ª migração) | Ok, pelo Claude, com autorização: prévia listou só a `20261122003` (gatilho `trg_riscos_trava_aceitar_critico`, achado da revisão final); aplicada (`Finished supabase db push.`). Conferido por leitura: 15 migrações, a última `20261122003`; gatilho presente em `riscos`; 0 riscos. |
 | *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
 
 > [!note] Proteção da própria Supabase
