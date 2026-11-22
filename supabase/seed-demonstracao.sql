@@ -201,6 +201,59 @@ SELECT r.codigo,
        r.fluxo
   FROM _demo_riscos r;
 
+-- ----------------------------------------------------------------------------
+-- 5b. Tratamento mínimo dos riscos CRÍTICOS (LAC-13 e LAC-03)
+-- ----------------------------------------------------------------------------
+-- EXPLICAÇÃO DIDÁTICA:
+-- O risco crítico (fora do apetite da DAR ou, por regra do sistema, com DAR
+-- pendente) só anda no fluxo (enviar, validar, homologar) com:
+--   - estratégia diferente de "Aceitar" (os riscos acima ficam com o padrão,
+--     Mitigar);
+--   - pelo menos uma ação 5W2H que não seja "Aceitar" (LAC-13);
+--   - pelo menos um KRI COMPLETO ligado (nome, fórmula, fonte, periodicidade,
+--     limite de alerta e responsável; a meta é opcional) (LAC-03).
+-- Sem isso, os riscos críticos da demonstração ficariam presos (ex.: o
+-- RADAR-2026-001, em validação, não poderia ser validado). Aqui cada risco
+-- crítico ganha UMA ação e UM KRI do próprio objeto, ligado a ele.
+-- Os valores são de DEMONSTRAÇÃO (dados fictícios), escritos de propósito
+-- aqui; o sistema em si nunca inventa valor de KRI.
+-- O sinal radar.fluxo fica ligado só nesta transação: incluir a ação e o KRI
+-- não reabre o aprovado nem é recusado nos riscos em validação/homologação.
+SELECT set_config('radar.fluxo', 'on', true);
+
+INSERT INTO public.respostas_tratamento
+  (risco_id, estrategia, acao_o_que, justificativa_por_que, local_onde, responsavel_quem,
+   prazo_quando, procedimento_como)
+SELECT r.id, 'Mitigar',
+       'elaborar o manual do processo e capacitar um substituto',
+       'reduzir a dependência de um único servidor',
+       'na própria unidade', 'Chefia da unidade', date '2027-06-30',
+       'oficina com a equipe e registro do passo a passo no SEI'
+  FROM public.riscos r
+ WHERE r.status_critico IN ('sim', 'pendente_dar');
+
+-- Um KRI por risco crítico (o nome leva o código, para achar o par na ligação).
+INSERT INTO public.indicadores_kri
+  (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade,
+   meta_alvo, limite_alerta, responsavel_medicao)
+SELECT r.objeto_id,
+       '% de entregas do processo atrasadas (' || r.codigo_radar || ')',
+       'entregas atrasadas no mês / entregas previstas no mês × 100',
+       'planilha de acompanhamento da unidade', 'Mensal',
+       '0%', '> 10%', 'Chefia da unidade'
+  FROM public.riscos r
+ WHERE r.status_critico IN ('sim', 'pendente_dar');
+
+INSERT INTO public.kri_riscos (kri_id, risco_id)
+SELECT k.id, r.id
+  FROM public.riscos r
+  JOIN public.indicadores_kri k
+    ON k.objeto_id = r.objeto_id
+   AND k.nome_indicador = '% de entregas do processo atrasadas (' || r.codigo_radar || ')'
+ WHERE r.status_critico IN ('sim', 'pendente_dar');
+
+SELECT set_config('radar.fluxo', '', true);
+
 COMMIT;
 
 -- ----------------------------------------------------------------------------

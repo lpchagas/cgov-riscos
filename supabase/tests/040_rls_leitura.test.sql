@@ -63,12 +63,18 @@ select r.id, 'Mitigar', 'Ação de demonstração (teste 040)', 'Gestor de Risco
        'Procedimento de demonstração'
   from public.riscos r;
 
+-- LAC-03: o KRI é do OBJETO e se liga ao risco por kri_riscos. O nome leva o
+-- id do risco só para achar o par da ligação logo abaixo.
 insert into public.indicadores_kri
-  (risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo,
+  (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo,
    limite_alerta, responsavel_medicao)
-select r.id, 'KRI de demonstração (teste 040)', 'a / b', 'Planilha de demonstração', 'Mensal',
+select r.objeto_id, 'KRI de demonstração (teste 040) ' || r.id, 'a / b', 'Planilha de demonstração', 'Mensal',
        '0', '1', 'Gestor de Riscos'
   from public.riscos r;
+insert into public.kri_riscos (kri_id, risco_id)
+select k.id, r.id
+  from public.riscos r
+  join public.indicadores_kri k on k.nome_indicador = 'KRI de demonstração (teste 040) ' || r.id;
 
 insert into public.medicoes_kri (kri_id, valor_apurado)
 select k.id, '0' from public.indicadores_kri k;
@@ -150,10 +156,11 @@ select u.email,
            where c.risco_id in (select r.risco_id from _ref_riscos r where r.email = u.email)),
          (select count(*) from public.respostas_tratamento t
            where t.risco_id in (select r.risco_id from _ref_riscos r where r.email = u.email)),
+         -- LAC-03: o KRI (e a medição dele) é lido pelo OBJETO do KRI.
          (select count(*) from public.indicadores_kri k
-           where k.risco_id in (select r.risco_id from _ref_riscos r where r.email = u.email)),
+           where k.objeto_id in (select r.objeto_id from _ref_objetos r where r.email = u.email)),
          (select count(*) from public.medicoes_kri m join public.indicadores_kri k on k.id = m.kri_id
-           where k.risco_id in (select r.risco_id from _ref_riscos r where r.email = u.email)),
+           where k.objeto_id in (select r.objeto_id from _ref_objetos r where r.email = u.email)),
          (select count(*) from public.historico_fluxo h
            where h.risco_id in (select r.risco_id from _ref_riscos r where r.email = u.email)))
   from auth.users u

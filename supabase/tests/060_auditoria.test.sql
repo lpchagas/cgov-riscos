@@ -117,17 +117,19 @@ select is((select objeto_id from public.auditoria_log
             where registro_id = '00000000-0000-4000-e000-000000000060' and operacao = 'INSERT'), :'o_uc_ct'::uuid,
           'respostas_tratamento: objeto_id vem do risco');
 
-insert into public.indicadores_kri (id, risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
-values ('00000000-0000-4000-d000-000000000060', :'r_uc_ct', 'KRI 060', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor');
+-- LAC-03: o KRI é do objeto (objeto_id na própria linha) e se liga ao risco.
+insert into public.indicadores_kri (id, objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
+values ('00000000-0000-4000-d000-000000000060', :'o_uc_ct', 'KRI 060', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor');
+insert into public.kri_riscos (kri_id, risco_id) values ('00000000-0000-4000-d000-000000000060', :'r_uc_ct');
 select is((select objeto_id from public.auditoria_log
             where registro_id = '00000000-0000-4000-d000-000000000060' and operacao = 'INSERT'), :'o_uc_ct'::uuid,
-          'indicadores_kri: objeto_id vem do risco');
+          'indicadores_kri: objeto_id vem do próprio KRI');
 
 insert into public.medicoes_kri (id, kri_id, valor_apurado)
 values ('00000000-0000-4000-f000-000000000060', '00000000-0000-4000-d000-000000000060', '3');
 select is((select objeto_id from public.auditoria_log
             where registro_id = '00000000-0000-4000-f000-000000000060' and operacao = 'INSERT'), :'o_uc_ct'::uuid,
-          'medicoes_kri: objeto_id vem do KRI e depois do risco');
+          'medicoes_kri: objeto_id vem do KRI');
 
 delete from public.medicoes_kri where id = '00000000-0000-4000-f000-000000000060';
 select is((select objeto_id from public.auditoria_log

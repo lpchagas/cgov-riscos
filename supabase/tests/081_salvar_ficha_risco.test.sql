@@ -32,7 +32,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(52);
+select plan(53);
 
 -- Ano corrente pelo horário de Brasília (o mesmo que a função usa), o maior
 -- NNN entre os códigos RADAR-<4 dígitos>-<NNN> já gravados, e ids da semente.
@@ -108,7 +108,7 @@ select is((select status_fluxo from public.riscos where id = :'r_a'), 'rascunho'
 select is((select codigo_radar from public.riscos where id = :'r_a'), :'cod_a', '(a) código devolvido é o gravado');
 select is((select count(*)::int from public.controles_existentes where risco_id = :'r_a'), 2, '(a) 2 controles gravados');
 select is((select count(*)::int from public.respostas_tratamento where risco_id = :'r_a'), 1, '(a) 1 resposta gravada');
-select is((select count(*)::int from public.indicadores_kri where risco_id = :'r_a'), 1, '(a) 1 KRI gravado');
+select is((select count(*)::int from public.kri_riscos where risco_id = :'r_a'), 1, '(a) 1 KRI gravado e ligado ao risco');
 select is((select custo_quanto from public.respostas_tratamento where risco_id = :'r_a'), 'Sem custo adicional',
           '(a) coluna omitida do filho recebe o valor padrão da tabela');
 select is((select count(*)::int from public.controles_existentes where risco_id = :'r_a' and possui_evidencia_comprovada),
@@ -128,7 +128,7 @@ select cmp_ok(substring(:'cod_a2' from '(\d+)$')::int, '>', substring(:'cod_a' f
 select pg_temp.sair();
 select (select id from public.controles_existentes where risco_id = :'r_a' and possui_evidencia_comprovada) as c_fica,
        (select id from public.respostas_tratamento where risco_id = :'r_a') as resp_a,
-       (select id from public.indicadores_kri where risco_id = :'r_a') as kri_a
+       (select kri_id from public.kri_riscos where risco_id = :'r_a') as kri_a
 \gset
 
 select pg_temp.entrar_como('gestor.uc@radar.test');
@@ -151,8 +151,10 @@ select is((select evidencia_funcionamento from public.controles_existentes where
 select is((select count(*)::int from public.controles_existentes
             where risco_id = :'r_a' and descricao_controle = 'Checklist da rotina'), 0,
           'sincroniza: controle que saiu da lista foi apagado');
-select is((select count(*)::int from public.indicadores_kri where risco_id = :'r_a'), 0,
-          'sincroniza: lista vazia apaga todos os KRIs');
+select is((select count(*)::int from public.kri_riscos where risco_id = :'r_a'), 0,
+          'sincroniza: lista vazia desliga todos os KRIs');
+select is((select count(*)::int from public.indicadores_kri where id = :'kri_a'), 0,
+          'sincroniza: o KRI que ficou sem nenhum risco (órfão) foi apagado');
 select is((select count(*)::int from public.respostas_tratamento where id = :'resp_a'), 1,
           'sincroniza: chave ausente (respostas) não mexe naquele grupo');
 select is((select causas from public.riscos where id = :'r_a'), 'falta de manual revisada',

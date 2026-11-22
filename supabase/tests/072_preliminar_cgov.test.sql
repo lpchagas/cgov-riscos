@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(34);
+select plan(36);
 
 -- Ids da semente: riscos comuns (rascunho) de OUTRAS unidades.
 select
@@ -52,10 +52,15 @@ select
 insert into public.controles_existentes (id, risco_id, descricao_controle, evidencia_funcionamento)
 values ('00000000-0000-4000-c000-000000000072', :'r_uc_ct', 'Controle do risco comum', 'Evidência'),
        ('00000000-0000-4000-c000-000000000073', :'p1', 'Controle do preliminar (sementeado)', 'Evidência');
+-- LAC-03: o KRI é do OBJETO (aqui, os dois são da FLONA de Caçador, objeto 01)
+-- e se liga ao risco por kri_riscos.
 insert into public.indicadores_kri
-  (id, risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
-values ('00000000-0000-4000-d000-000000000072', :'r_uc_ct', 'KRI do risco comum', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor'),
-       ('00000000-0000-4000-d000-000000000073', :'p1', 'KRI do preliminar', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor');
+  (id, objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
+values ('00000000-0000-4000-d000-000000000072', '00000000-0000-4000-b000-000000000001', 'KRI do risco comum', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor'),
+       ('00000000-0000-4000-d000-000000000073', '00000000-0000-4000-b000-000000000001', 'KRI do preliminar', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor');
+insert into public.kri_riscos (kri_id, risco_id)
+values ('00000000-0000-4000-d000-000000000072', :'r_uc_ct'),
+       ('00000000-0000-4000-d000-000000000073', :'p1');
 insert into public.respostas_tratamento
   (id, risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
 values ('00000000-0000-4000-e000-000000000072', :'r_uc_ct', 'Mitigar', 'Ação do risco comum', 'Gestor', '2026-12-31', 'Procedimento'),
@@ -79,10 +84,13 @@ select lives_ok(format($$insert into public.respostas_tratamento
 select is(pg_temp.linhas_afetadas($$update public.respostas_tratamento set acao_o_que = 'revista'
   where id = '00000000-0000-4000-e000-000000000074'$$), 1, 'CGOV altera resposta do preliminar');
 
-select lives_ok(format($$insert into public.indicadores_kri
-  (id, risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
-  values ('00000000-0000-4000-d000-000000000074', %L, 'KRI novo da CGOV', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor')$$, :'p1'),
-  'CGOV cria KRI no preliminar');
+select lives_ok($$insert into public.indicadores_kri
+  (id, objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
+  values ('00000000-0000-4000-d000-000000000074', '00000000-0000-4000-b000-000000000001', 'KRI novo da CGOV', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor')$$,
+  'CGOV cria KRI no objeto do preliminar');
+select lives_ok(format($$insert into public.kri_riscos (kri_id, risco_id)
+  values ('00000000-0000-4000-d000-000000000074', %L)$$, :'p1'),
+  'CGOV liga o KRI novo ao preliminar');
 select is(pg_temp.linhas_afetadas($$update public.indicadores_kri set nome_indicador = 'revisto'
   where id = '00000000-0000-4000-d000-000000000074'$$), 1, 'CGOV altera KRI do preliminar');
 
@@ -114,8 +122,14 @@ select throws_ok(format($$insert into public.controles_existentes (risco_id, des
   values (%L, 'invasão', 'x')$$, :'r_uc_ct'), '42501', null, 'CGOV NÃO cria controle em risco comum');
 select throws_ok(format($$insert into public.respostas_tratamento (risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
   values (%L, 'Mitigar', 'invasão', 'x', '2026-12-31', 'x')$$, :'r_uc_ct'), '42501', null, 'CGOV NÃO cria resposta em risco comum');
-select throws_ok(format($$insert into public.indicadores_kri (risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
-  values (%L, 'invasão', 'a', 'b', 'Mensal', '0', '1', 'x')$$, :'r_uc_ct'), '42501', null, 'CGOV NÃO cria KRI em risco comum');
+-- LAC-03: o KRI é do objeto. Num objeto SEM risco preliminar (FLONA do
+-- Tapajós), a CGOV não cria KRI; no objeto do preliminar, ela cria, mas não
+-- liga o KRI a um risco comum.
+select throws_ok($$insert into public.indicadores_kri (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
+  values ('00000000-0000-4000-b000-000000000002', 'invasão', 'a', 'b', 'Mensal', '0', '1', 'x')$$, '42501', null,
+  'CGOV NÃO cria KRI em objeto sem risco preliminar');
+select throws_ok(format($$insert into public.kri_riscos (kri_id, risco_id)
+  values ('00000000-0000-4000-d000-000000000073', %L)$$, :'r_uc_ct'), '42501', null, 'CGOV NÃO liga KRI a risco comum');
 select throws_ok($$insert into public.medicoes_kri (kri_id, valor_apurado)
   values ('00000000-0000-4000-d000-000000000072', '1')$$, '42501', null, 'CGOV NÃO cria medição em KRI de risco comum');
 select is(pg_temp.linhas_afetadas($$update public.controles_existentes set descricao_controle = 'invasão'
@@ -134,9 +148,10 @@ select throws_ok(format($$update public.controles_existentes set risco_id = %L
 select throws_ok(format($$update public.respostas_tratamento set risco_id = %L
   where id = '00000000-0000-4000-e000-000000000073'$$, :'r_uc_ct'), '42501', null,
   'CGOV NÃO move resposta do preliminar para risco comum');
-select throws_ok(format($$update public.indicadores_kri set risco_id = %L
-  where id = '00000000-0000-4000-d000-000000000073'$$, :'r_uc_ct'), '42501', null,
-  'CGOV NÃO move KRI do preliminar para risco comum');
+-- LAC-03: a ligação não se altera (sem UPDATE em kri_riscos): 42501.
+select throws_ok(format($$update public.kri_riscos set risco_id = %L
+  where kri_id = '00000000-0000-4000-d000-000000000073'$$, :'r_uc_ct'), '42501', null,
+  'CGOV NÃO move a ligação do KRI do preliminar para risco comum');
 -- E no sentido inverso: puxar filho de risco comum para o preliminar (USING falha: 0 linhas).
 select is(pg_temp.linhas_afetadas(format($$update public.controles_existentes set risco_id = %L
   where id = '00000000-0000-4000-c000-000000000072'$$, :'p1')), 0,

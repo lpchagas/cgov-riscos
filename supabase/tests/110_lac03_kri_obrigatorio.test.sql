@@ -12,11 +12,13 @@
 --   - ligar ou desligar um KRI é "mexer na ficha" do risco ligado (reabre o
 --     aprovado; é recusado em validação ou homologação);
 --   - quando a última ligação some, o KRI e as medições dele são apagados.
--- Esta é a 1ª parte (Tarefa 2): estrutura, funções de "KRI completo",
--- gatilhos e RLS. A trava do risco crítico com o KRI vem na Tarefa 3.
+-- Seções 1 a 8 (Tarefa 2): estrutura, funções de "KRI completo", gatilhos e
+-- RLS. Seções 9 a 16 (Tarefa 3): a trava do risco crítico passa a exigir um
+-- KRI completo (3º motivo), salvar_ficha_risco liga o KRI do objeto, a
+-- definição de KRI compartilhado trava/reabre TODOS os riscos ligados, a DAR
+-- devolve com o motivo real e a coluna antiga risco_id sai.
 --
--- Este teste roda DEPOIS da migração, sobre a semente de demonstração (que
--- não tem KRIs). A cópia dos dados antigos (risco_id → kri_riscos) foi provada
+-- Este teste roda DEPOIS da migração, sobre a semente de demonstração. A cópia dos dados antigos (risco_id → kri_riscos) foi provada
 -- à mão no banco local (Step 4b do plano; números na mensagem do commit).
 --
 -- Objetos usados (semente): A = ...b000-000000000001 (FLONA de Caçador,
@@ -29,7 +31,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(53);
+select plan(110);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -183,22 +185,12 @@ select is((select count(*)::int from public.medicoes_kri where kri_id = :'k_g'),
 -- ----------------------------------------------------------------------------
 -- 5. Excluir rascunho que compartilha KRI com um aprovado
 -- ----------------------------------------------------------------------------
--- O KRI nasce do jeito antigo (risco_id = o rascunho), como os KRIs copiados
--- pela migração. A ponte da Tarefa 2 preenche objeto_id e cria a ligação.
+-- O KRI do objeto é ligado aos dois riscos (o rascunho e o aprovado).
 select pg_temp.inserir_risco('T110-A-RASC2', :'obj_a', 'rascunho') as r_rasc \gset
 select pg_temp.inserir_risco('T110-A-APROV', :'obj_a', 'aprovado') as r_aprov \gset
-insert into public.indicadores_kri
-  (risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, limite_alerta, responsavel_medicao)
-values (:'r_rasc', 'T110 KRI antigo', 'a / b', 'Planilha', 'Mensal', '> 1', 'Chefia');
-select (select id from public.indicadores_kri where nome_indicador = 'T110 KRI antigo') as k_old \gset
-select is((select objeto_id from public.indicadores_kri where id = :'k_old'), :'obj_a'::uuid,
-          '5. KRI gravado só com risco_id ganha o objeto_id do risco (ponte)');
-select is((select count(*)::int from public.kri_riscos where kri_id = :'k_old' and risco_id = :'r_rasc'), 1,
-          '5. KRI gravado só com risco_id ganha a ligação ao risco (ponte)');
+select pg_temp.inserir_kri('T110 KRI de dois riscos', :'obj_a') as k_old \gset
+select pg_temp.ligar_sem_fluxo(:'k_old', :'r_rasc');
 select pg_temp.ligar_sem_fluxo(:'k_old', :'r_aprov');
--- Ponte: o risco_id antigo não se troca mais (quem manda é kri_riscos).
-select throws_ok(format($$update public.indicadores_kri set risco_id = %L where id = %L$$, :'r_aprov', :'k_old'),
-                 '42501', null, '5. trocar o risco_id antigo do KRI é recusado (42501)');
 
 delete from public.riscos where id = :'r_rasc';
 select is((select count(*)::int from public.kri_riscos where kri_id = :'k_old' and risco_id = :'r_aprov'), 1,
@@ -266,6 +258,322 @@ select is((select count(*)::int from public.auditoria_log
             where tabela_afetada = 'kri_riscos' and operacao = 'INSERT'
               and dados_novos ->> 'kri_id' = :'k_a' and objeto_id = :'obj_a'), 1,
           '8. a ligação do KRI ao risco fica na trilha, com o objeto A');
+
+-- ----------------------------------------------------------------------------
+-- 9. A coluna antiga e a ponte saíram (Tarefa 3)
+-- ----------------------------------------------------------------------------
+select hasnt_column('public', 'indicadores_kri', 'risco_id', '9. indicadores_kri não tem mais a coluna risco_id');
+select hasnt_trigger('public', 'indicadores_kri', 'trg_kris_ponte_preenche_objeto', '9. a ponte (preenche objeto) saiu');
+select hasnt_trigger('public', 'indicadores_kri', 'trg_kris_ponte_liga_risco', '9. a ponte (liga risco) saiu');
+select has_trigger('public', 'indicadores_kri', 'trg_kris_trava_reabertura', '9. o KRI continua com o gatilho de trava e reabertura');
+-- Nenhuma função viva lê indicadores_kri.risco_id: nem escrito por extenso,
+-- nem por um apelido (ex.: "indicadores_kri AS k" ... "k.risco_id"), nem pelo
+-- NEW/OLD de um gatilho da tabela. (A lista à mão está no relatório da Tarefa 3.)
+select is((select string_agg(p.proname, ', ' order by p.proname)
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public' and p.prosrc ~* 'indicadores_kri\.risco_id'),
+          null, '9. nenhuma função cita indicadores_kri.risco_id');
+select is((select string_agg(p.proname, ', ' order by p.proname)
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public'
+              and p.prosrc ~* 'indicadores_kri\s+(as\s+)?([a-z_][a-z0-9_]*)\M.*\m\2\.risco_id'),
+          null, '9. nenhuma função lê risco_id por um apelido de indicadores_kri');
+select is((select string_agg(distinct p.proname, ', ')
+             from pg_trigger t join pg_proc p on p.oid = t.tgfoid
+            where t.tgrelid = 'public.indicadores_kri'::regclass and not t.tgisinternal
+              and p.prosrc ~ '(NEW|OLD)\.risco_id'),
+          null, '9. nenhum gatilho de indicadores_kri lê NEW/OLD.risco_id');
+-- Sobra da LAC-13: a linha da categoria fica presa (FOR SHARE) antes de ler o apetite.
+select ok(pg_get_functiondef('public.fn_base_enviar_para_validacao(uuid)'::regprocedure) like '%FOR SHARE%',
+          '9. fn_base_enviar_para_validacao trava a categoria (FOR SHARE)');
+select ok(pg_get_functiondef('public.fn_base_validar_risco(uuid, text)'::regprocedure) like '%FOR SHARE%',
+          '9. fn_base_validar_risco trava a categoria (FOR SHARE)');
+select ok(pg_get_functiondef('public.fn_base_homologar_risco(uuid, text)'::regprocedure) like '%FOR SHARE%',
+          '9. fn_base_homologar_risco trava a categoria (FOR SHARE)');
+-- A ligação só se cria ou se apaga: ninguém logado faz UPDATE em kri_riscos.
+select is(has_table_privilege('authenticated', 'public.kri_riscos', 'update'), false,
+          '9. authenticated não tem UPDATE em kri_riscos');
+
+-- ----------------------------------------------------------------------------
+-- 10. Enviar, validar e homologar: o risco crítico precisa de KRI completo
+-- ----------------------------------------------------------------------------
+-- inserir_critico(código, estado): risco crítico (P=4, I=4 → 21,00, Extremo,
+-- fora do apetite da DAR) no objeto A, com Mitigar e UMA ação 5W2H, sem KRI.
+-- (Extremo é a faixa 18 a 25; "crítico" é estar fora do apetite da DAR.)
+create or replace function pg_temp.inserir_critico(p_codigo text, p_status text, p_cat int default 2,
+                                                   p_p int default 4, p_i int default 4)
+returns uuid
+language plpgsql
+as $$
+declare
+  v_id uuid;
+begin
+  insert into public.riscos
+    (codigo_radar, objeto_id, responsavel_risco_nome, causas, evento_risco, consequencias,
+     objetivo_afetado, descricao_padrao, categoria_id, probabilidade, impacto,
+     nivel_inerente, classificacao_inerente, nivel_residual, classificacao_residual,
+     status_fluxo, estrategia_principal)
+  values (p_codigo, '00000000-0000-4000-b000-000000000001', 'Responsável de demonstração',
+          'causa de teste', 'evento de teste', 'consequência de teste', 'objetivo de teste', 'x',
+          p_cat, p_p, p_i, 0, 'Baixo', 0, 'Baixo', 'rascunho', 'Mitigar')
+  returning id into v_id;
+  insert into public.respostas_tratamento
+    (risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
+  values (v_id, 'Mitigar', 'ação de teste', 'Chefia', '2027-06-30', 'como de teste');
+  if p_status <> 'rascunho' then
+    perform public.fn_fluxo_mudar_estado(v_id, p_status);
+  end if;
+  return v_id;
+end;
+$$;
+
+select pg_temp.inserir_critico('T110-CRIT-ENV', 'rascunho') as rc_env,
+       pg_temp.inserir_critico('T110-CRIT-VAL', 'em_validacao_cg') as rc_val,
+       pg_temp.inserir_critico('T110-CRIT-HOM', 'em_homologacao_dir') as rc_hom,
+       pg_temp.inserir_risco('T110-A-OUTRO', :'obj_a', 'rascunho') as r_outro
+\gset
+select is((select status_critico from public.riscos where id = :'rc_env'), 'sim',
+          '10. (conferência) o risco de partida é crítico');
+
+-- Sem KRI: o envio é recusado com o 3º motivo (texto fixo).
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(format($$select public.enviar_para_validacao(%L)$$, :'rc_env'), '23514',
+                 'RADAR: o risco T110-CRIT-ENV é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: falta um KRI completo (nome, fórmula, fonte, periodicidade, limite de alerta e responsável).',
+                 '10. enviar crítico com Mitigar + ação e SEM KRI é recusado (23514)');
+select pg_temp.sair();
+
+-- Com KRI incompleto (sem fonte dos dados): continua recusado.
+insert into public.indicadores_kri (objeto_id, nome_indicador, formula_calculo, periodicidade, limite_alerta, responsavel_medicao)
+values (:'obj_a', 'T110 KRI incompleto', 'a / b', 'Mensal', '> 1', 'Chefia');
+select (select id from public.indicadores_kri where nome_indicador = 'T110 KRI incompleto') as k_inc \gset
+select pg_temp.ligar_sem_fluxo(:'k_inc', :'rc_env');
+select pg_temp.ligar_sem_fluxo(:'k_inc', :'rc_hom');
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_like(format($$select public.enviar_para_validacao(%L)$$, :'rc_env'),
+                   '%falta um KRI completo%', '10. com KRI incompleto o envio continua recusado');
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'rc_env'), 'rascunho',
+          '10. o risco continua em rascunho');
+
+-- KRI completo COMPARTILHADO com outro risco do mesmo objeto: passa.
+select pg_temp.inserir_kri('T110 KRI completo compartilhado', :'obj_a') as k_comp \gset
+select pg_temp.ligar_sem_fluxo(:'k_comp', :'r_outro');
+select pg_temp.ligar_sem_fluxo(:'k_comp', :'rc_env');
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select lives_ok(format($$select public.enviar_para_validacao(%L)$$, :'rc_env'),
+                '10. com KRI completo compartilhado, o envio passa');
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'rc_env'), 'em_validacao_cg',
+          '10. o risco foi para em_validacao_cg');
+
+-- Validar e homologar sem KRI completo: recusa e orienta a devolver.
+select pg_temp.entrar_como('ct@radar.test');
+select throws_like(format($$select public.validar_risco(%L, 'ok')$$, :'rc_val'),
+                   '%falta um KRI completo%Devolva a ficha à unidade para ajuste.',
+                   '10. validar crítico sem KRI é recusado e orienta a devolver');
+select lives_ok(format($$select public.validar_risco(%L, 'ok')$$, :'rc_env'),
+                '10. validar crítico com KRI completo compartilhado passa');
+select pg_temp.entrar_como('gr@radar.test');
+select throws_like(format($$select public.homologar_risco(%L, 'ok')$$, :'rc_hom'),
+                   '%falta um KRI completo%Devolva a ficha à unidade para ajuste.',
+                   '10. homologar crítico com KRI incompleto é recusado e orienta a devolver');
+select lives_ok(format($$select public.homologar_risco(%L, 'ok')$$, :'rc_env'),
+                '10. homologar crítico com KRI completo compartilhado passa');
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'rc_env'), 'aprovado',
+          '10. o risco com KRI completo chegou a aprovado');
+
+-- ----------------------------------------------------------------------------
+-- 11. salvar_ficha_risco: liga o KRI do objeto e não apaga KRI de outro risco
+-- ----------------------------------------------------------------------------
+-- Aprovado crítico com o único KRI completo: tirar o KRI da ficha é recusado.
+select pg_temp.inserir_critico('T110-CRIT-APR', 'rascunho') as rc_apr \gset
+select pg_temp.inserir_kri('T110 KRI único do aprovado', :'obj_a') as k_apr \gset
+select pg_temp.ligar_sem_fluxo(:'k_apr', :'rc_apr');
+select (public.fn_fluxo_mudar_estado(:'rc_apr', 'aprovado')).id as ok_apr \gset
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_like(format($$select public.salvar_ficha_risco(%L::jsonb)$$,
+                          jsonb_build_object('id', :'rc_apr', 'kris', '[]'::jsonb)),
+                   '%falta um KRI completo%', '11. tirar o único KRI completo de um aprovado crítico é recusado');
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'rc_apr'), 'aprovado',
+          '11. a ficha continua aprovada');
+select is((select count(*)::int from public.kri_riscos where risco_id = :'rc_apr' and kri_id = :'k_apr'), 1,
+          '11. a ligação do KRI continua');
+
+-- apenasLigar: liga um KRI que já existe no objeto, SEM mudar a definição.
+select pg_temp.inserir_risco('T110-A-LIGA', :'obj_a', 'rascunho') as r_liga \gset
+select pg_temp.inserir_kri('T110 KRI do objeto B', :'obj_b') as k_b \gset
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select lives_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$, jsonb_build_object(
+                  'id', :'r_liga',
+                  'kris', jsonb_build_array(jsonb_build_object('id', :'k_comp', 'apenasLigar', true,
+                                                               'nome_indicador', 'nome trocado')))),
+                '11. apenasLigar de KRI do mesmo objeto é aceito');
+select pg_temp.sair();
+select is((select count(*)::int from public.kri_riscos where kri_id = :'k_comp' and risco_id = :'r_liga'), 1,
+          '11. apenasLigar criou a ligação');
+select is((select nome_indicador from public.indicadores_kri where id = :'k_comp'), 'T110 KRI completo compartilhado',
+          '11. apenasLigar não mudou a definição do KRI');
+select is((select status_fluxo from public.riscos where id = :'rc_env'), 'aprovado',
+          '11. o aprovado que já usava o KRI não foi reaberto');
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$, jsonb_build_object(
+                   'id', :'r_liga',
+                   'kris', jsonb_build_array(jsonb_build_object('id', :'k_b', 'apenasLigar', true)))),
+                 '22023', null, '11. apenasLigar de KRI de outro objeto é recusado (22023)');
+
+-- Tirar da ficha um KRI que outro risco ainda usa: só desliga (o KRI fica).
+select lives_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$,
+                       jsonb_build_object('id', :'r_liga', 'kris', '[]'::jsonb)),
+                '11. a ficha sem o KRI compartilhado é gravada');
+select pg_temp.sair();
+select is((select count(*)::int from public.kri_riscos where kri_id = :'k_comp')
+          || '/' || (select count(*)::int from public.indicadores_kri where id = :'k_comp'), '2/1',
+          '11. o KRI compartilhado só foi desligado deste risco: continua, com as outras 2 ligações');
+
+-- Item sem id: KRI novo, do objeto do risco, já ligado a ele.
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select f.id as ok_ficha from public.salvar_ficha_risco(jsonb_build_object('id', :'r_liga', 'kris', jsonb_build_array(
+         jsonb_build_object('nome_indicador', 'T110 KRI novo pela ficha', 'formula_calculo', 'a / b')))) as f \gset
+select pg_temp.sair();
+select is((select k.objeto_id::text || '/' || count(l.*)::text
+             from public.indicadores_kri k left join public.kri_riscos l on l.kri_id = k.id and l.risco_id = :'r_liga'
+            where k.nome_indicador = 'T110 KRI novo pela ficha' group by k.objeto_id),
+          :'obj_a' || '/1', '11. KRI novo da ficha é do objeto do risco e já nasce ligado');
+
+-- ----------------------------------------------------------------------------
+-- 12. Definição de KRI compartilhado: trava e reabre TODOS os riscos ligados
+-- ----------------------------------------------------------------------------
+select pg_temp.inserir_risco('T110-A-APROV3', :'obj_a', 'aprovado') as r_ap3,
+       pg_temp.inserir_risco('T110-A-APROV4', :'obj_a', 'aprovado') as r_ap4,
+       pg_temp.inserir_risco('T110-A-APROV5', :'obj_a', 'aprovado') as r_ap5
+\gset
+select pg_temp.inserir_kri('T110 KRI com risco em validação', :'obj_a') as k_sh \gset
+select pg_temp.ligar_sem_fluxo(:'k_sh', :'r_val');
+select pg_temp.ligar_sem_fluxo(:'k_sh', :'r_ap3');
+select pg_temp.inserir_kri('T110 KRI de dois aprovados', :'obj_a') as k_sh2 \gset
+select pg_temp.ligar_sem_fluxo(:'k_sh2', :'r_ap4');
+select pg_temp.ligar_sem_fluxo(:'k_sh2', :'r_ap5');
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_like(format($$update public.indicadores_kri set formula_calculo = 'nova fórmula' where id = %L$$, :'k_sh'),
+                   '%travada%', '12. alterar KRI compartilhado com um risco em validação é recusado (ficha travada)');
+select is(pg_temp.linhas_afetadas(format($$update public.indicadores_kri set formula_calculo = formula_calculo where id = %L$$, :'k_sh')),
+          1, '12. UPDATE que não muda nada continua livre');
+select lives_ok(format($$update public.indicadores_kri set formula_calculo = 'nova fórmula' where id = %L$$, :'k_sh2'),
+                '12. alterar KRI de dois aprovados passa');
+select lives_ok(format($$insert into public.indicadores_kri (objeto_id, nome_indicador) values (%L, 'T110 KRI solto')$$, :'obj_a'),
+                '12. criar KRI (ainda sem ligação) é livre');
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'r_ap3'), 'aprovado',
+          '12. o outro risco (aprovado) do KRI recusado não mudou');
+select is((select formula_calculo from public.indicadores_kri where id = :'k_sh'), 'atrasados / total',
+          '12. a definição do KRI recusado não mudou');
+select is((select string_agg(status_fluxo, ',' order by codigo_radar) from public.riscos where id in (:'r_ap4', :'r_ap5')),
+          'em_validacao_cg,em_validacao_cg', '12. os dois aprovados do KRI alterado reabriram');
+
+-- ----------------------------------------------------------------------------
+-- 13. kri_riscos: sem UPDATE; desligar reabre ou trava; órfão pelo gestor
+-- ----------------------------------------------------------------------------
+select pg_temp.inserir_risco('T110-A-APROV6', :'obj_a', 'aprovado') as r_ap6,
+       pg_temp.inserir_risco('T110-A-RASC6', :'obj_a', 'rascunho') as r_ra6
+\gset
+select pg_temp.ligar_sem_fluxo(:'k_sh', :'r_ap6');
+select pg_temp.inserir_kri('T110 KRI órfão', :'obj_a') as k_orf \gset
+select pg_temp.ligar_sem_fluxo(:'k_orf', :'r_ra6');
+insert into public.medicoes_kri (kri_id, valor_apurado) values (:'k_orf', '1%');
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(format($$update public.kri_riscos set risco_id = %L where kri_id = %L and risco_id = %L$$,
+                        :'r_ra6', :'k_sh', :'r_ap6'),
+                 '42501', null, '13. UPDATE em kri_riscos pelo gestor é recusado (42501)');
+select lives_ok(format($$delete from public.kri_riscos where kri_id = %L and risco_id = %L$$, :'k_sh', :'r_ap6'),
+                '13. o gestor desliga o KRI do risco aprovado');
+select is((select status_fluxo from public.riscos where id = :'r_ap6'), 'em_validacao_cg',
+          '13. desligar o KRI de um aprovado o reabre (em_validacao_cg)');
+select throws_like(format($$delete from public.kri_riscos where kri_id = %L and risco_id = %L$$, :'k_sh', :'r_val'),
+                   '%travada%', '13. desligar o KRI de risco em validação é recusado (ficha travada)');
+select lives_ok(format($$delete from public.kri_riscos where kri_id = %L$$, :'k_orf'),
+                '13. o gestor desliga a última ligação do KRI');
+select pg_temp.sair();
+select is((select count(*)::int from public.indicadores_kri where id = :'k_orf')
+          + (select count(*)::int from public.medicoes_kri where kri_id = :'k_orf'), 0,
+          '13. o KRI órfão e a medição foram apagados (gestor comum, não o administrador)');
+
+-- ----------------------------------------------------------------------------
+-- 14. DAR: o aprovado que não passa na trava volta com o motivo real
+-- ----------------------------------------------------------------------------
+-- Categorias 11 e 9 nascem 'pendente_dar'; damos 'moderado' só dentro do teste.
+update public.categorias_risco set apetite_declarado = 'moderado' where id in (9, 11);
+-- A: já crítico (21,00) na categoria 11, Mitigar + ação, SEM KRI.
+-- B: o mesmo, COM KRI completo. C: Médio (9,00) na categoria 9, sem KRI.
+select pg_temp.inserir_critico('T110-DAR-A', 'aprovado', 11) as rd_a,
+       pg_temp.inserir_critico('T110-DAR-B', 'rascunho', 11) as rd_b,
+       pg_temp.inserir_critico('T110-DAR-C', 'aprovado', 9, 2, 3) as rd_c
+\gset
+select pg_temp.ligar_sem_fluxo(pg_temp.inserir_kri('T110 KRI do DAR-B', :'obj_a'), :'rd_b');
+select (public.fn_fluxo_mudar_estado(:'rd_b', 'aprovado')).id as ok_b \gset
+select is((select string_agg(status_critico, ',' order by codigo_radar) from public.riscos
+            where id in (:'rd_a', :'rd_b', :'rd_c')), 'sim,sim,nao',
+          '14. ponto de partida: A e B já críticos; C dentro do apetite');
+
+select pg_temp.entrar_como('cgov@radar.test');
+select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 11$$,
+                '14. a mudança da DAR (moderado → baixo) termina sem exceção');
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'rd_a'), 'devolvido',
+          '14. A (já crítico, sem KRI) volta para a unidade (devolvido)');
+select is((select despacho_texto from public.historico_fluxo where risco_id = :'rd_a' and acao = 'devolvido_mudanca_dar'),
+          (select format('DAR alterada: categoria %s com apetite moderado → baixo. O risco aprovado (residual %s, %s, fora do apetite da DAR) não passa na trava do risco crítico: falta um KRI completo (nome, fórmula, fonte, periodicidade, limite de alerta e responsável). Voltou para a unidade ajustar.',
+                         c.nome, r.nivel_residual, r.classificacao_residual)
+             from public.riscos r join public.categorias_risco c on c.id = r.categoria_id where r.id = :'rd_a'),
+          '14. A: o histórico traz o texto fixo com o motivo real');
+select is((select count(*)::int from public.historico_fluxo
+            where risco_id = :'rd_a' and despacho_texto like '%passou a Risco Crítico%'), 0,
+          '14. A: o histórico não diz "passou a Risco Crítico" (ele já era crítico)');
+select is((select status_fluxo from public.riscos where id = :'rd_b'), 'aprovado',
+          '14. B (já crítico, com KRI completo) continua aprovado');
+
+select pg_temp.entrar_como('cgov@radar.test');
+select lives_ok($$update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 9$$,
+                '14. a categoria 9 passa a pendente_dar sem exceção');
+select pg_temp.sair();
+select is((select status_fluxo || '/' || status_critico from public.riscos where id = :'rd_c'), 'devolvido/pendente_dar',
+          '14. C (DAR pendente, sem KRI) volta para a unidade');
+select ok((select despacho_texto like '%(residual %, com DAR pendente; por regra do sistema, a trava do risco crítico também se aplica) não passa na trava do risco crítico: falta um KRI completo%'
+             from public.historico_fluxo where risco_id = :'rd_c' and acao = 'devolvido_mudanca_dar'),
+          '14. C: o histórico diz que a trava vale por regra do sistema');
+select is((select count(*)::int from public.historico_fluxo
+            where risco_id = :'rd_c' and despacho_texto like '%Metodologia%'), 0,
+          '14. C: o histórico não atribui à Metodologia a regra da DAR pendente');
+
+-- ----------------------------------------------------------------------------
+-- 15. ler_auditoria entende kri_riscos (sem indicadores_kri.risco_id)
+-- ----------------------------------------------------------------------------
+select pg_temp.entrar_como('cgov@radar.test');
+select is((select a.codigo_radar from public.ler_auditoria(p_tabela => 'kri_riscos', p_limite => 100) a
+            where a.operacao = 'INSERT' and a.dados_novos ->> 'kri_id' = :'k_a'),
+          'T110-A-RASC', '15. a linha da ligação mostra o código do risco ligado');
+select is((select a.codigo_radar from public.ler_auditoria(p_tabela => 'medicoes_kri', p_limite => 100) a
+            where a.operacao = 'INSERT' and a.dados_novos ->> 'kri_id' = :'k_a'),
+          'T110-A-RASC', '15. a medição de KRI com um só risco mostra o código desse risco');
+select pg_temp.sair();
+
+-- ----------------------------------------------------------------------------
+-- 16. Consulta dos aprovados antigos fora da regra (vai para o guia)
+-- ----------------------------------------------------------------------------
+select pg_temp.inserir_critico('T110-ANTIGO', 'aprovado') as rc_antigo \gset
+select ok(:'rc_antigo'::uuid in (select id from public.riscos
+                                  where status_fluxo = 'aprovado' and status_critico in ('sim', 'pendente_dar')
+                                    and public.fn_trava_risco_critico(id) is not null),
+          '16. o aprovado crítico sem KRI aparece na consulta');
+select ok(:'rc_apr'::uuid not in (select id from public.riscos
+                                   where status_fluxo = 'aprovado' and status_critico in ('sim', 'pendente_dar')
+                                     and public.fn_trava_risco_critico(id) is not null),
+          '16. o aprovado crítico com KRI completo não aparece');
 
 select * from finish();
 rollback;

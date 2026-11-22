@@ -181,7 +181,6 @@ erDiagram
     indicadores_kri {
         uuid id PK
         uuid objeto_id FK "LAC-03: o KRI é do objeto"
-        uuid risco_id FK "ponte até a 2ª parte da LAC-03; sai depois"
         text nome_indicador
         text formula_calculo "opcional"
         text fonte_dados "opcional"
@@ -281,7 +280,7 @@ com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 | `riscos` | 2 | `20261109001` | `objeto_id` → `objetos_contexto` (em cascata); `categoria_id` → `categorias_risco`; (`categoria_id`, `subcategoria_integridade`) → `subcategorias_risco` (`20261122001`) |
 | `controles_existentes` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
 | `respostas_tratamento` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
-| `indicadores_kri` | 2 | `20261109001` (`objeto_id` em `20261122004`) | `objeto_id` → `objetos_contexto` (em cascata); `risco_id` → `riscos` (anula; ponte da LAC-03, sai na 2ª parte) |
+| `indicadores_kri` | 2 | `20261109001` (`objeto_id` em `20261122004`) | `objeto_id` → `objetos_contexto` (em cascata); a ligação aos riscos fica em `kri_riscos` (`risco_id` saiu em `20261122004`) |
 | `kri_riscos` | 2 | `20261122004` | `kri_id` → `indicadores_kri` (em cascata); `risco_id` → `riscos` (em cascata) |
 | `medicoes_kri` | 2 | `20261109001` | `kri_id` → `indicadores_kri` (em cascata) |
 | `historico_fluxo` | 3 | `20261109001` (`usuario_id` e `sequencia` em `20261115004`) | `risco_id` → `riscos` (em cascata) |

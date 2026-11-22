@@ -108,16 +108,19 @@ $$;
 
 -- ----------------------------------------------------------------------------
 -- dar_tratamento(risco): inclui UMA ação 5W2H (Mitigar) no risco, se ele ainda
--- não tem nenhuma ação que não seja "Aceitar".
+-- não tem nenhuma ação que não seja "Aceitar", e UM KRI completo do objeto
+-- ligado a ele, se ele ainda não tem nenhum (LAC-03).
 -- ----------------------------------------------------------------------------
 -- Por que existe? Desde a LAC-13 (migração 20261122002), o risco crítico só
 -- anda no fluxo (enviar, validar, homologar) com estratégia diferente de
--- "Aceitar" e com pelo menos uma ação de tratamento. Os testes do fluxo que
--- são anteriores à LAC-13 testam OUTRAS regras (quem valida, quem homologa...)
--- e usam riscos sem ação. Este ajudante dá a eles o tratamento mínimo, para
--- que continuem testando o que testavam. A trava em si é provada no 100.
--- O sinal radar.fluxo fica ligado só durante o INSERT: incluir a ação não
--- deve reabrir (aprovado) nem ser recusado (em validação) pela trava da ficha.
+-- "Aceitar" e com pelo menos uma ação de tratamento; desde a LAC-03
+-- (20261122004), também com pelo menos um KRI completo. Os testes do fluxo que
+-- são anteriores a elas testam OUTRAS regras (quem valida, quem homologa...)
+-- e usam riscos sem ação nem KRI. Este ajudante dá a eles o tratamento mínimo,
+-- para que continuem testando o que testavam. A trava em si é provada no 100
+-- e no 110.
+-- O sinal radar.fluxo fica ligado só durante os INSERTs: incluir a ação ou o
+-- KRI não deve reabrir (aprovado) nem ser recusado (em validação) pela trava.
 -- Ex.: select pg_temp.dar_tratamento(id) from public.riscos;
 create or replace function pg_temp.dar_tratamento(p_risco uuid)
 returns void
@@ -125,22 +128,34 @@ language plpgsql
 as $$
 declare
   v_sinal text := coalesce(current_setting('radar.fluxo', true), '');
+  v_kri   uuid;
 begin
-  if exists (select 1 from public.respostas_tratamento t
-              where t.risco_id = p_risco and t.estrategia <> 'Aceitar') then
-    return;
-  end if;
   perform set_config('radar.fluxo', 'on', true);
-  insert into public.respostas_tratamento
-    (risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
-  values (p_risco, 'Mitigar', 'ação de tratamento de demonstração', 'Chefia da unidade',
-          '2027-06-30', 'procedimento de demonstração');
+  if not exists (select 1 from public.respostas_tratamento t
+                  where t.risco_id = p_risco and t.estrategia <> 'Aceitar') then
+    insert into public.respostas_tratamento
+      (risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
+    values (p_risco, 'Mitigar', 'ação de tratamento de demonstração', 'Chefia da unidade',
+            '2027-06-30', 'procedimento de demonstração');
+  end if;
+  if not exists (select 1 from public.kri_riscos l
+                   join public.indicadores_kri k on k.id = l.kri_id
+                  where l.risco_id = p_risco and public.fn_kri_completo(k)) then
+    insert into public.indicadores_kri
+      (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade,
+       limite_alerta, responsavel_medicao)
+    select r.objeto_id, 'KRI de demonstração (tratamento mínimo)', 'atrasados / total',
+           'Planilha da unidade', 'Mensal', '> 10%', 'Chefia da unidade'
+      from public.riscos r where r.id = p_risco
+    returning id into v_kri;
+    insert into public.kri_riscos (kri_id, risco_id) values (v_kri, p_risco);
+  end if;
   perform set_config('radar.fluxo', v_sinal, true);
 end;
 $$;
 
 -- dar_tratamento_a_todos(): o mesmo, para todos os riscos que existem agora
--- (ex.: os da semente de demonstração, que não têm ações).
+-- (ex.: os da semente de demonstração; só os críticos dela têm ação e KRI).
 create or replace function pg_temp.dar_tratamento_a_todos()
 returns void
 language sql

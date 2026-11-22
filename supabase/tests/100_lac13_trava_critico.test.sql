@@ -36,6 +36,9 @@ select plan(54);
 -- ficha(responsável, P, I, estratégia, respostas): ficha nova para
 -- salvar_ficha_risco. O "responsável" é único por caso e serve para achar o
 -- risco depois (o código RADAR-<ano>-<NNN> é gerado pela função).
+-- LAC-03 (20261122004): toda ficha leva UM KRI completo, para este arquivo
+-- continuar provando só os dois motivos da LAC-13 ("Aceitar" e falta de ação).
+-- O 3º motivo (KRI completo) é provado em 110_lac03_kri_obrigatorio.test.sql.
 create or replace function pg_temp.ficha(p_resp text, p_p int, p_i int, p_estrategia text, p_respostas jsonb)
 returns jsonb
 language sql
@@ -51,7 +54,11 @@ as $$
     'probabilidade', p_p,
     'impacto', p_i,
     'estrategia_principal', p_estrategia,
-    'respostas', p_respostas);
+    'respostas', p_respostas,
+    'kris', jsonb_build_array(jsonb_build_object(
+      'nome_indicador', 'retrabalho por mês', 'formula_calculo', 'retrabalhos / rotinas',
+      'fonte_dados', 'planilha da unidade', 'periodicidade', 'Mensal',
+      'limite_alerta', '> 2', 'responsavel_medicao', 'Chefia da unidade')));
 $$;
 
 -- Uma ação 5W2H válida, com a estratégia pedida.
@@ -71,14 +78,16 @@ $$;
 -- risco inserido direto pelo administrador. Nasce em rascunho (a ação pode
 -- ser incluída sem reabrir nada) e depois vai ao estado pedido por
 -- fn_fluxo_mudar_estado — simula a ficha que já estava no caminho ANTES da
--- migração. Devolve o id.
+-- migração. Devolve o id. Com ação (p_com_acao), o risco também ganha UM KRI
+-- completo ligado (LAC-03), para só os motivos da LAC-13 estarem em jogo.
 create or replace function pg_temp.inserir_risco(p_codigo text, p_p int, p_i int, p_cat int,
                                                  p_estrategia text, p_com_acao boolean, p_status text)
 returns uuid
 language plpgsql
 as $$
 declare
-  v_id uuid;
+  v_id  uuid;
+  v_kri uuid;
 begin
   insert into public.riscos
     (codigo_radar, objeto_id, responsavel_risco_nome, causas, evento_risco, consequencias,
@@ -93,6 +102,11 @@ begin
     insert into public.respostas_tratamento
       (risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
     values (v_id, 'Mitigar', 'ação de teste', 'Chefia', '2027-06-30', 'como de teste');
+    insert into public.indicadores_kri
+      (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, limite_alerta, responsavel_medicao)
+    values ('00000000-0000-4000-b000-000000000001', 'KRI de teste', 'a / b', 'Planilha', 'Mensal', '> 1', 'Chefia')
+    returning id into v_kri;
+    insert into public.kri_riscos (kri_id, risco_id) values (v_kri, v_id);
   end if;
   if p_status <> 'rascunho' then
     perform public.fn_fluxo_mudar_estado(v_id, p_status);
@@ -257,7 +271,7 @@ select is((select count(*)::int from public.historico_fluxo
             where risco_id = :'r8a' and etapa = 'reabertura_nota' and acao = 'devolvido_mudanca_dar'), 1,
           '8. A: uma linha devolvido_mudanca_dar no histórico');
 select ok((select despacho_texto like 'DAR alterada: categoria % com apetite moderado → baixo.%'
-                  and despacho_texto like '%Voltou para a unidade escolher outra estratégia e incluir a ação.'
+                  and despacho_texto like '%não passa na trava do risco crítico: a estratégia "Aceitar" não é permitida. Voltou para a unidade ajustar.'
              from public.historico_fluxo where risco_id = :'r8a' and acao = 'devolvido_mudanca_dar'),
           '8. A: o texto do histórico explica a mudança da DAR e o que fazer');
 select is((select count(*)::int from public.historico_fluxo where risco_id = :'r8a' and acao = 'reaberto_mudanca_dar'), 0,
