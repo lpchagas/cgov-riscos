@@ -10,6 +10,8 @@ se chamava `04-ux`; os nomes dos arquivos não mudaram, por isso os wikilinks co
   do Code Connect; e as telas a prototipar (P-01 a P-11).
 - [[design-system]] — tokens, componentes e resultados medidos das Fases 1 a 4 da reformulação.
 - [[diagnostico-ui-2026-11]] — diagnóstico inicial (heurísticas, WCAG e microcopy).
+- [[revisao-govbr-ds-2026-11]] — revisão de aderência ao GovBR-DS (tokens, formulário, tabelas), base do
+  próximo plano.
 - [[manual-fluxo-figma-vscode]] — como editar no Figma e levar a mudança para o código.
 - [[varredura-acessibilidade]] — `npm run test:a11y`: como rodar e ler a varredura axe-core.
 - `capturas/` — capturas de tela de antes e depois das fases da reformulação.
