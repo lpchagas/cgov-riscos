@@ -67,6 +67,15 @@ async function abrirTela(page: Page, tela: Tela, tema: Tema): Promise<void> {
   }
 
   await expect(page.locator('html'), 'o tema não foi aplicado').toHaveAttribute('data-theme', tema);
+
+  // Telas de assistente: avança etapa por etapa e confere que chegou (o título da etapa recebe o foco).
+  for (let i = 0; i < (tela.avancarEtapas ?? 0); i++) {
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.getByRole('heading', { level: 2 }).first()).toBeFocused();
+  }
+  if (tela.avancarEtapas) {
+    await expect(page.getByRole('group', { name: /Probabilidade/ }), 'a etapa 3 não abriu').toBeVisible();
+  }
 }
 
 /**
@@ -180,7 +189,7 @@ test('menu do gestor não mostra ferramentas da CGOV', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// As 300 combinações ((16 + 4) telas × 5 larguras × 3 temas).
+// As 315 combinações ((17 + 4) telas × 5 larguras × 3 temas).
 // ---------------------------------------------------------------------------------------------
 for (const tema of TEMAS) {
   test.describe(tema, () => {

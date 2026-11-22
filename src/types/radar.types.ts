@@ -17,11 +17,13 @@
 
 /**
  * Escala de Probabilidade do Quadro 4 da Metodologia RADAR (1 a 5):
- * 1 = Muito baixa (< 10%)
- * 2 = Baixa (10% a 30%)
- * 3 = Média (31% a 60%)
- * 4 = Alta (61% a 90%)
- * 5 = Muito alta (> 90%)
+ * 1 = Raro
+ * 2 = Pouco provável
+ * 3 = Provável
+ * 4 = Muito provável
+ * 5 = Praticamente certo
+ * O Quadro 4 não traz percentuais. Nomes e descrições literais ficam em
+ * `src/utils/escalasProbabilidadeImpacto.ts`.
  */
 export type NivelProbabilidade = 1 | 2 | 3 | 4 | 5;
 

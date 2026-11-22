@@ -15,7 +15,7 @@
  * ACESSIBILIDADE (novidade da reformulação):
  * - Cada célula é um <button> de verdade: funciona com Tab + Enter/Espaço.
  * - `aria-pressed` diz ao leitor de tela qual célula está selecionada.
- * - O `aria-label` lê a célula inteira: "Probabilidade 3 (Média), impacto 5
+ * - O `aria-label` lê a célula inteira: "Probabilidade 3 (Provável), impacto 5
  *   (Muito alto): nota 22, Extremo, 1 risco".
  * - A cor nunca é a única pista: a nota e a quantidade aparecem escritas.
  *
@@ -27,6 +27,11 @@ import { computed } from 'vue';
 import type { FichaRisco, NivelImpacto, NivelProbabilidade } from '../../types/radar.types';
 import { MATRIZ_QUADRO_7, classificarNivelRisco } from '../../utils/calculadoraRiscoRadar';
 import { SUFIXO_CSS_CLASSE_RISCO } from '../../utils/rotulosInterface';
+import {
+  ESCALA_IMPACTO_QUADRO_5,
+  ESCALA_PROBABILIDADE_QUADRO_4,
+  nomeDoNivel,
+} from '../../utils/escalasProbabilidadeImpacto';
 import { chaveCelula, contarRiscosPorCelula } from '../../utils/painelResumo';
 
 const props = defineProps<{
@@ -41,21 +46,10 @@ const emit = defineEmits<{
 const IMPACTOS_DO_TOPO_PARA_BAIXO: NivelImpacto[] = [5, 4, 3, 2, 1];
 const PROBABILIDADES: NivelProbabilidade[] = [1, 2, 3, 4, 5];
 
-// Nomes das escalas (Quadros 4 e 5 da Metodologia).
-const NOME_IMPACTO: Record<NivelImpacto, string> = {
-  5: 'Muito alto',
-  4: 'Alto',
-  3: 'Médio',
-  2: 'Baixo',
-  1: 'Muito baixo',
-};
-const NOME_PROBABILIDADE: Record<NivelProbabilidade, string> = {
-  1: 'Muito baixa',
-  2: 'Baixa',
-  3: 'Média',
-  4: 'Alta',
-  5: 'Muito alta',
-};
+// Nomes literais dos Quadros 4 e 5, lidos do módulo único das escalas.
+// Ex.: nomePorProbabilidade(1) -> "Raro"; nomePorImpacto(5) -> "Muito alto".
+const nomePorProbabilidade = (p: NivelProbabilidade) => nomeDoNivel(ESCALA_PROBABILIDADE_QUADRO_4, p);
+const nomePorImpacto = (i: NivelImpacto) => nomeDoNivel(ESCALA_IMPACTO_QUADRO_5, i);
 
 // Conta uma única vez por mudança na lista (e não 25 vezes por desenho).
 const contagem = computed(() => contarRiscosPorCelula(props.riscos));
@@ -72,7 +66,7 @@ function celula(p: NivelProbabilidade, i: NivelImpacto) {
     selecionada,
     classeCss: `matriz__celula--${SUFIXO_CSS_CLASSE_RISCO[classe]}`,
     rotulo:
-      `Probabilidade ${p} (${NOME_PROBABILIDADE[p]}), impacto ${i} (${NOME_IMPACTO[i]}): ` +
+      `Probabilidade ${p} (${nomePorProbabilidade(p)}), impacto ${i} (${nomePorImpacto(i)}): ` +
       `nota ${nota}, ${classe}, ${quantidade} ${quantidade === 1 ? 'risco' : 'riscos'}`,
   };
 }
@@ -86,7 +80,7 @@ function celula(p: NivelProbabilidade, i: NivelImpacto) {
       <template v-for="i in IMPACTOS_DO_TOPO_PARA_BAIXO" :key="`linha-${i}`">
         <span class="matriz__rotulo-linha" aria-hidden="true">
           <strong>{{ i }}</strong>
-          <span class="matriz__nome-escala">{{ NOME_IMPACTO[i] }}</span>
+          <span class="matriz__nome-escala">{{ nomePorImpacto(i) }}</span>
         </span>
         <button
           v-for="p in PROBABILIDADES"
@@ -110,7 +104,7 @@ function celula(p: NivelProbabilidade, i: NivelImpacto) {
       <span aria-hidden="true"></span>
       <span v-for="p in PROBABILIDADES" :key="`coluna-${p}`" class="matriz__rotulo-coluna" aria-hidden="true">
         <strong>{{ p }}</strong>
-        <span class="matriz__nome-escala">{{ NOME_PROBABILIDADE[p] }}</span>
+        <span class="matriz__nome-escala">{{ nomePorProbabilidade(p) }}</span>
       </span>
     </div>
     <p class="matriz__eixo-x" aria-hidden="true">Probabilidade</p>
@@ -157,6 +151,10 @@ function celula(p: NivelProbabilidade, i: NivelImpacto) {
 }
 
 .matriz__rotulo-coluna {
+  /* Deixa "Praticamente certo" quebrar dentro da coluna em vez de estourá-la. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+  hyphens: auto; /* a página é lang="pt-BR": hifeniza "Praticamente" ao quebrar */
   padding-top: var(--esp-1);
   text-align: center;
   font-size: var(--texto-sm);

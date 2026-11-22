@@ -11,7 +11,7 @@
 | --- | --- |
 | Implementação (etapas A, B1, B2, B1.1, B3 e C) | Mescladas na `main` (PRs #7 e #8, 2026-11-16). |
 | Etapa D — piloto da Sede (D0/D1) | **Em curso.** D1, Tasks 1 a 6 feitas: build em modo real, CSP única, pacote de publicação, Registro de Decisão, cópia cifrada e banco do piloto na nuvem, conferido ([[guia-supabase-nuvem]], [[decisoes-tecnicas-d]]). Próxima: Task 7 (front publicado, **[AUTORIZAÇÃO]**). A Task 8 e a Fase 0 precisam do desktop institucional. A D2 (login por senha temporária) ainda vai ser desenhada. |
-| LAC-14 e LAC-15 — categorias do Quadro 2 e subcategorias do Quadro 3 | **Fases 1 e 2 feitas (código, banco local e banco do piloto na nuvem), na branch de trabalho; PR #14 aberta, sem merge.** Entregue em 2026-11-22: listas literais no front, importador sem conversão silenciosa, migração `20261122001` (tabela `subcategorias_risco`, chave estrangeira, gatilho e trava de reclassificação), sementes e testes pgTAP `090` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica\|ADR-0019]]). Aplicada no banco do piloto em 2026-11-22, com autorização a cada passo, e conferida por leitura ([[guia-supabase-nuvem]] §4 e §7.1.1). |
+| LAC-14 e LAC-15 — categorias do Quadro 2 e subcategorias do Quadro 3 | **Concluída.** Fases 1 e 2 feitas (código, banco local e banco do piloto na nuvem) e mescladas na `main` (PR #14, "Fase 1: Categorias do Quadro 2 e subcategorias do Quadro 3", em 2026-11-22, merge `ef7fb9e`, depois de 2 rodadas do CodeRabbit e 1 do Codex). Entregue em 2026-11-22: listas literais no front, importador sem conversão silenciosa, migração `20261122001` (tabela `subcategorias_risco`, chave estrangeira, gatilho e trava de reclassificação), sementes e testes pgTAP `090` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica\|ADR-0019]]). Aplicada no banco do piloto em 2026-11-22, com autorização a cada passo, e conferida por leitura ([[guia-supabase-nuvem]] §4 e §7.1.1). |
 | Etapa D — homologação na CGTI | Só depois das 6 lacunas que bloqueiam a homologação (LAC-03, 08, 12, 13, 14 e 15; a LAC-14 e a LAC-15 já estão resolvidas no código, no banco local e na nuvem do piloto), pelo [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti\|ADR-0017]]. |
 | Reestruturação da documentação em 5 níveis | **Concluída.** Fases 0 a 6 mescladas na `main` (PRs #9 a #13; a #13, "Fase 6: Fechamento e retomada da implementação", em 2026-11-22, merge `4be60d7`, depois de 3 rodadas do CodeRabbit e do Codex). |
 
@@ -33,12 +33,12 @@ Branch de trabalho: `claude/icmbio-risk-policy-modeling-q840ho`.
 
 | Verificação | Resultado |
 | --- | --- |
-| `npm test` (Vitest, inclui o teste da documentação) | 54 arquivos, 661 testes, todos passando (2026-11-22, depois da triagem do CodeRabbit e do Codex na PR #14). |
+| `npm test` (Vitest, inclui o teste da documentação) | 55 arquivos, 703 testes, todos passando (2026-11-22, depois da LAC-12). |
 | `npm run build` (`vue-tsc` + Vite) | ok. |
 | `npm run test:db` (pgTAP) | 18 arquivos, 883 testes, `PASS` (2026-11-22, com a migração `20261122001` e o teste `090`, já com as correções da revisão de fim da Fase 1; rodado com o Postgres local 17.11.0.006, ver a pendência do ambiente local na seção 5: a nuvem roda o Postgres 17.6.1.104). **Re-medir** na próxima mudança de banco. |
-| `npm run test:a11y` | Última medição: 0 violações em 300 combinações (etapa C). |
-| Documentação | 115 RN, 195 RF (112 implementados, 10 parciais, 73 não iniciados), 51 RNF, 26 casos de uso, 19 ADRs, 13 migrações no DER. |
-| Kanban | 71 cartões: 64 no Backlog, 3 em "Pronto para iniciar" e 4 concluídos (LAC-11, LAC-14, LAC-15 e a dívida das subcategorias em JSONB). |
+| `npm run test:a11y` | 329 testes passaram, 0 violações em 315 combinações ((17 + 4) telas × 5 larguras × 3 temas, com a etapa 3 do formulário), medido em 2026-11-22, depois da LAC-12. |
+| Documentação | 115 RN, 195 RF (116 implementados, 9 parciais, 70 não iniciados), 51 RNF, 26 casos de uso, 19 ADRs, 13 migrações no DER. |
+| Kanban | 71 cartões: 64 no Backlog, 2 em "Pronto para iniciar" e 5 concluídos (LAC-11, LAC-12, LAC-14, LAC-15 e a dívida das subcategorias em JSONB). |
 
 **Pendente de prova real:** as mudanças da cópia (um único `pg_dump`, parcial exclusivo, TLS obrigatório na
 nuvem) passaram nos testes, mas a primeira prova completa do [[guia-copia-restauracao]] (seção 8) ainda não
@@ -46,11 +46,10 @@ rodou com Docker.
 
 ## 4. Próximo trabalho
 
-Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto para iniciar":
+Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. Em "Pronto para iniciar" (a LAC-12 foi concluída em 2026-11-22, só no código, sem migração):
 
-1. LAC-12 — rótulos da probabilidade do Quadro 4 (RF-037, RF-176);
-2. LAC-13 — "Aceitar" proibido e ação obrigatória no risco crítico (RF-049, RF-050);
-3. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
+1. LAC-13 — "Aceitar" proibido e ação obrigatória no risco crítico (RF-049, RF-050);
+2. LAC-03 — KRI obrigatório e completo no risco crítico (RF-094 a RF-097, RF-109, RF-183, RF-184); o alerta do
    KRI (RF-102) tem cartão próprio e espera o desenho P-02.
 
 Cada uma muda banco ou regra: antes do código, é preciso um **plano autorizado** pelo responsável
@@ -60,8 +59,7 @@ etapa D segue com a Task 7 da D1.
 **Fase 2 da LAC-14 e da LAC-15 (nuvem do piloto): feita em 2026-11-22.** A migração `20261122001` está no
 projeto `cgov-riscos-v3.0`, conferida por leitura (8 categorias do Quadro 2, 6 subcategorias, coluna JSONB
 removida, 11 linhas novas na trilha). A 1ª tentativa do `db push` foi recusada sem gravar nada, por causa da
-trava de escrita fora de um bloco `DO`; corrigida no commit `cbbe8c3` ([[guia-supabase-nuvem]] §4). Falta o
-merge da PR #14, que depende de pedido do responsável.
+trava de escrita fora de um bloco `DO`; corrigida no commit `cbbe8c3` ([[guia-supabase-nuvem]] §4). PR #14 mesclada na `main` em 2026-11-22 (merge `ef7fb9e`).
 
 ## 5. Pendências abertas para o responsável
 

@@ -24,6 +24,11 @@ const DataTable = DataTableGenerico as any;
 import SegmentedControl from '../../src/components/ui/SegmentedControl.vue';
 import Chip from '../../src/components/ui/Chip.vue';
 import StatCard from '../../src/components/ui/StatCard.vue';
+import GrupoOpcoesDescritasGenerico from '../../src/components/ui/GrupoOpcoesDescritas.vue';
+
+// Componente genérico (`generic="V"`): apagamos o tipo só aqui, como no DataTable.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const GrupoOpcoesDescritas = GrupoOpcoesDescritasGenerico as any;
 
 describe('RiskBadge', () => {
   it('mostra ícone + texto + valor com vírgula (não depende só da cor)', () => {
@@ -172,5 +177,105 @@ describe('StatCard compacto', () => {
       global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } },
     });
     expect(comLink.text()).toContain('Ver lista');
+  });
+});
+
+describe('GrupoOpcoesDescritas', () => {
+  const opcoes = [1, 2, 3, 4, 5].map((n) => ({ valor: n, rotulo: `Nível ${n}`, descricao: `Descrição ${n}` }));
+  const base = { opcoes, legenda: 'Probabilidade' };
+
+  it('mostra a legenda e 5 radios nativos, nenhum marcado sem valor', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null } });
+    expect(w.find('legend').text()).toContain('Probabilidade');
+    const radios = w.findAll('input[type="radio"]');
+    expect(radios).toHaveLength(5);
+    expect(radios.every((r) => !(r.element as HTMLInputElement).checked)).toBe(true);
+  });
+
+  it('marcar o 3º emite update:modelValue com 3', async () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null } });
+    await w.findAll('input[type="radio"]')[2].setValue(true);
+    expect(w.emitted('update:modelValue')![0]).toEqual([3]);
+  });
+
+  it('com modelValue 2, o 2º radio fica marcado', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: 2 } });
+    const radios = w.findAll('input[type="radio"]').map((r) => (r.element as HTMLInputElement).checked);
+    expect(radios).toEqual([false, true, false, false, false]);
+  });
+
+  it('com erro: role=alert, aria-describedby no fieldset e aria-invalid em todo radio', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null, erro: 'Escolha' } });
+    const alerta = w.find('[role="alert"]');
+    expect(alerta.text()).toContain('Escolha');
+    expect(w.find('fieldset').attributes('aria-describedby')!.split(' ')).toContain(alerta.attributes('id'));
+    for (const r of w.findAll('input[type="radio"]')) expect(r.attributes('aria-invalid')).toBe('true');
+  });
+
+  it('sem erro, não há aria-invalid; obrigatório avisa o leitor de tela', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null, obrigatorio: true } });
+    expect(w.find('input').attributes('aria-invalid')).toBeUndefined();
+    expect(w.find('legend').text()).toContain('(obrigatório)');
+  });
+
+  it('cada radio descreve-se pela própria descrição e, com erro, também pelo erro e pela ajuda', () => {
+    const w = mount(GrupoOpcoesDescritas, {
+      props: { ...base, modelValue: null, erro: 'Escolha', ajuda: 'Dica' },
+    });
+    const idErro = w.find('[role="alert"]').attributes('id')!;
+    const idAjuda = w.find('p.grupo__ajuda').attributes('id')!;
+    w.findAll('input[type="radio"]').forEach((r, i) => {
+      const ids = r.attributes('aria-describedby')!.split(' ');
+      const desc = w.findAll('.grupo__descricao')[i];
+      expect(ids).toContain(desc.attributes('id'));
+      expect(ids).toContain(idErro);
+      expect(ids).toContain(idAjuda);
+      expect(desc.text()).toBe(`Descrição ${i + 1}`);
+    });
+  });
+
+  it('radios têm `required` nativo quando obrigatório (e nunca aria-required)', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null, obrigatorio: true } });
+    for (const r of w.findAll('input[type="radio"]')) {
+      expect((r.element as HTMLInputElement).required).toBe(true);
+      expect(r.attributes('aria-required')).toBeUndefined();
+    }
+    const sem = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null } });
+    expect((sem.find('input').element as HTMLInputElement).required).toBe(false);
+  });
+
+  it('o nome acessível (texto do label) é só o rótulo, sem a descrição', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null } });
+    const labels = w.findAll('label');
+    expect(labels[3].text()).toBe('Nível 4');
+    expect(labels[3].text()).not.toContain('Descrição 4');
+  });
+
+  it('a descrição de cada opção fica dentro do cartão da opção', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null } });
+    const cartoes = w.findAll('.grupo__opcao');
+    expect(cartoes).toHaveLength(5);
+    expect(cartoes[3].text()).toContain('Nível 4');
+    expect(cartoes[3].text()).toContain('Descrição 4');
+    expect(cartoes[3].find('input[type="radio"]').exists()).toBe(true);
+  });
+
+  it('dois grupos na mesma tela usam names diferentes (senão um desmarca o outro)', () => {
+    // Dois `mount` separados seriam dois apps (cada um com seu contador de useId);
+    // por isso os dois grupos entram juntos, no mesmo app, como numa tela real.
+    const w = mount({
+      components: { GrupoOpcoesDescritas },
+      data: () => ({ base, a: null, b: null }),
+      template: '<div><GrupoOpcoesDescritas v-bind="base" v-model="a" /><GrupoOpcoesDescritas v-bind="base" v-model="b" /></div>',
+    });
+    const [nomeA, nomeB] = w.findAll('fieldset').map((f) => f.find('input[type="radio"]').attributes('name'));
+    expect(nomeA).toBeTruthy();
+    expect(nomeA).not.toBe(nomeB);
+  });
+
+  it('com ajuda, o fieldset aponta para o texto de ajuda', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null, ajuda: 'Dica' } });
+    const idAjuda = w.find('fieldset').attributes('aria-describedby')!;
+    expect(w.find(`#${idAjuda}`).text()).toBe('Dica');
   });
 });

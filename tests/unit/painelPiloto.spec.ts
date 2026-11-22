@@ -147,8 +147,17 @@ describe('MatrizCalorAssimetrica', () => {
   it('o nome acessível diz nota, nível e quantidade de riscos', () => {
     const w = mount(MatrizCalorAssimetrica, { props: { riscos: semente() } });
     expect(rotulo(w, 3, 5).attributes('aria-label')).toBe(
-      'Probabilidade 3 (Média), impacto 5 (Muito alto): nota 22, Extremo, 1 risco'
+      'Probabilidade 3 (Provável), impacto 5 (Muito alto): nota 22, Extremo, 1 risco'
     );
+  });
+
+  it('os eixos usam os nomes do Quadro 4 e do Quadro 5', () => {
+    const w = mount(MatrizCalorAssimetrica, { props: { riscos: [] } });
+    expect(w.text()).toContain('Raro');
+    expect(w.text()).toContain('Praticamente certo');
+    expect(rotulo(w, 1, 5).attributes('aria-label')).toMatch(/^Probabilidade 1 \(Raro\), impacto 5 \(Muito alto\)/);
+    expect(w.text()).not.toContain('Muito baixa');
+    expect(w.text()).not.toContain('Média');
   });
 
   it('marca a célula escolhida com aria-pressed e avisa o clique', async () => {
@@ -224,7 +233,7 @@ describe('Painel (página)', () => {
 
   it('escolher uma célula mostra os riscos dela e o link para a lista filtrada', async () => {
     const w = await montarPainel();
-    await w.find('button[aria-label^="Probabilidade 2 (Baixa), impacto 4"]').trigger('click');
+    await w.find('button[aria-label^="Probabilidade 2 (Pouco provável), impacto 4"]').trigger('click');
     const resultado = w.find('[role="status"]');
     expect(resultado.text()).toContain('nota 14 (Alto)');
     expect(resultado.text()).toContain('RADAR-2026-003');

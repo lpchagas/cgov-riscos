@@ -32,7 +32,7 @@ Gestor de riscos (1ª linha) da unidade dona do risco.
 
 ## Fluxos alternativos e de exceção
 
-- 1a. A escala é mostrada com nomes e percentuais que não são os do Quadro 4 (LAC-12): o gestor escolhe pelo número (não tratado pelo sistema; cartão no Kanban).
+- 1a. A escala de probabilidade (Quadro 4) e a de impacto (Quadro 5) aparecem na etapa 3 como botões de opção, cada um com o nome e a descrição literais da minuta (LAC-12, resolvida em 2026-11-22).
 - 3a. **Eficácia acima de Fraco sem evidência.** O gestor escolhe Mediano, Satisfatório ou Forte e não marca evidência comprovada: a prévia avisa a trava, e o banco grava a eficácia como Fraco, com fator 0,9 (RN-004). Exemplo: inerente 15 com "Forte" sem evidência dá residual 15 × 0,9 = 13,5 (Alto), e não 15 × 0,5 = 7,5 (Médio). Teste: `supabase/tests/000`, item 3.
 - 3b. O gestor marca evidência e não diz onde ela está: o sistema não avança (RF-040).
 - 3c. Eficácia diferente de Inexistente sem descrição do controle: o sistema pede a descrição.

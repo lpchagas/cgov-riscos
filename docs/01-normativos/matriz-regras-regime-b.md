@@ -88,7 +88,7 @@ Fonte: Metodologia, item 4.3, a.
 | (4) Muito provável | Evento usual, de ocorrência habitual, com histórico conhecido amplamente por parte dos gestores e operadores do processo. |
 | (5) Praticamente certo | Evento repetitivo e constante, de ocorrência numerosa, com histórico disponível ou não, mas evidente para os que conhecem o processo. |
 
-**Como o RADAR usa:** o número de 1 a 5 vai para `riscos.probabilidade` e, junto com o impacto, entra na tabela fixa do Quadro 7 (seção 1). **Atenção:** o formulário (`FormularioRiscoView.vue`) e os tipos (`radar.types.ts`) rotulam a escala como "Muito baixa (menos de 10%)" a "Muito alta (mais de 90%)". Esses nomes e percentuais **não estão no Quadro 4**, que usa Raro a Praticamente certo e descrições pelo histórico do evento. O número gravado é o mesmo; só o rótulo diverge.
+**Como o RADAR usa:** o número de 1 a 5 vai para `riscos.probabilidade` e, junto com o impacto, entra na tabela fixa do Quadro 7 (seção 1). A escala exibida usa os nomes e as descrições literais do Quadro 4, sem percentuais, guardados numa fonte única (`src/utils/escalasProbabilidadeImpacto.ts`): o formulário (etapa 3), o eixo da matriz e o importador leem dela (LAC-12, resolvida em 2026-11-22).
 
 ## 7. Escala de impacto (Quadro 5)
 

@@ -6,7 +6,7 @@
  *   - Nova largura de tela ou novo tema? Acrescente em `LARGURAS` ou `TEMAS`.
  *
  * O total de testes é a multiplicação das três listas:
- *   (16 + 4) telas × 5 larguras × 3 temas = 300 combinações.
+ *   (17 + 4) telas × 5 larguras × 3 temas = 315 combinações.
  *   As 4 telas a mais são os estados "carregando" e "erro" do Painel e de Riscos (Etapa B3).
  */
 
@@ -39,6 +39,11 @@ export interface Tela {
    * ANTES da página abrir (como o perfil), na chave `CHAVE_ESTADO_DEMO`.
    */
   estadoDemo?: 'carregando' | 'erro';
+  /**
+   * Quantas vezes clicar em "Continuar" depois de abrir a tela (opcional), para varrer uma
+   * etapa do assistente. Ex.: 2 cliques no "Editar risco" levam à etapa 3 (Análise).
+   */
+  avancarEtapas?: number;
 }
 
 /**
@@ -79,6 +84,8 @@ export const TELAS: Tela[] = [
   // Ficha de um risco da semente (Caso de Controle do Anexo II), na aba inicial e na aba Bow Tie.
   { nome: 'ficha', rota: '/riscos/risco-anexo-ii-01', titulo: RISCO_DEMONSTRACAO },
   { nome: 'ficha-bowtie', rota: '/riscos/risco-anexo-ii-01?aba=bowtie', titulo: RISCO_DEMONSTRACAO, aba: 'Bow Tie' },
+  // Etapa 3 (Análise) do formulário, com os botões de opção dos Quadros 4 e 5. Abre a ficha da semente.
+  { nome: 'novo-etapa3', rota: '/riscos/novo?editar=risco-anexo-ii-01', titulo: 'Editar risco RADAR-2026-001', avancarEtapas: 2 },
   { nome: 'novo', rota: '/riscos/novo', titulo: 'Novo risco' },
   { nome: 'objetos', rota: '/objetos', titulo: 'Objetos de gestão' },
   // Monitoramento tem duas abas com conteúdos bem diferentes (KRIs e Plano de ação).
