@@ -154,6 +154,7 @@ function celula(p: NivelProbabilidade, i: NivelImpacto) {
   /* Deixa "Praticamente certo" quebrar dentro da coluna em vez de estourá-la. */
   min-width: 0;
   overflow-wrap: anywhere;
+  hyphens: auto; /* a página é lang="pt-BR": hifeniza "Praticamente" ao quebrar */
   padding-top: var(--esp-1);
   text-align: center;
   font-size: var(--texto-sm);

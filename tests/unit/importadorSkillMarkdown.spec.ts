@@ -168,6 +168,13 @@ describe('Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4', () => 
     );
   });
 
+  it('recusa P "-" com erro de linha, sem lançar exceção', () => {
+    const r = importarTabelaMarkdownSkill(`${CABECALHO}\n${linhaComPI('RSC-T', '-', '3')}`);
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros).toHaveLength(1);
+    expect(r.erros[0]).toContain('célula sem número nem nome');
+  });
+
   it('recusa impacto fora de 1 a 5', () => {
     const r = importarTabelaMarkdownSkill(`${CABECALHO}\n${linhaComPI('RSC-X', '3', '-1')}`);
     expect(r.fichas).toHaveLength(0);

@@ -40,12 +40,23 @@ describe('escalas dos Quadros 4 e 5', () => {
   it.each([
     ['3', 3], ['Provável', 3], ['provavel', 3], [' PROVÁVEL ', 3], ['3 — Provável', 3],
     ['3 - Provável', 3], ['Provável (3)', 3], ['3 (Provável)', 3], ['Praticamente certo', 5],
+    ['3 \u2013 Provável', 3], ['3.', 3], ['Provável.', 3], ['3: Provável', 3],
   ])('lê "%s" como %i', (celula, esperado) => {
     expect(lerNivelDaCelula(celula, ESCALA_PROBABILIDADE_QUADRO_4)).toEqual({ ok: true, nivel: esperado });
   });
 
-  it.each(['', '0', '6', '-1', '3,5', '2 a 3', 'abc', 'Média', '3 — Raro'])('recusa "%s"', (celula) => {
+  it.each(['', '0', '6', '-1', '3,5', '2 a 3', 'abc', 'Média', '3 — Raro', '3.5'])('recusa "%s"', (celula) => {
     expect(lerNivelDaCelula(celula, ESCALA_PROBABILIDADE_QUADRO_4).ok).toBe(false);
+  });
+
+  it.each(['-', '\u2014', '()'])('recusa célula sem número nem nome "%s" sem lançar erro', (celula) => {
+    expect(lerNivelDaCelula(celula, ESCALA_PROBABILIDADE_QUADRO_4)).toEqual({
+      ok: false, motivo: 'célula sem número nem nome',
+    });
+  });
+
+  it('explica que "3.5" tem mais de um número', () => {
+    expect(lerNivelDaCelula('3.5', ESCALA_PROBABILIDADE_QUADRO_4)).toEqual({ ok: false, motivo: 'mais de um número' });
   });
 
   it('explica a divergência entre número e nome', () => {

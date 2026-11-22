@@ -92,11 +92,13 @@ export function lerNivelDaCelula<N extends number>(
     if (!porNumero) return { ok: false, motivo: 'fora de 1 a 5' };
   }
 
-  // O que sobra sem dígitos e sem separadores (— - ( )) é o nome.
-  const nomeBruto = normalizarNome(texto.replace(/[\d\u2014\-()]/g, ' '));
+  // O que sobra sem dígitos e sem separadores (— – - ( ) . :) é o nome.
+  // Ex.: "3 – Provável", "3: Provável" e "Provável." viram "provavel".
+  const nomeBruto = normalizarNome(texto.replace(/[\d\u2014\u2013\-().:]/g, ' '));
   if (nomeBruto === '') {
     // Só número (já validado acima).
-    return { ok: true, nivel: (porNumero as NivelDescrito<N>).valor };
+    if (!porNumero) return { ok: false, motivo: 'célula sem número nem nome' };
+    return { ok: true, nivel: porNumero.valor };
   }
 
   const porNome = escala.find((n) => normalizarNome(n.nome) === nomeBruto);

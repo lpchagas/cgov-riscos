@@ -16,7 +16,9 @@
  *   - o navegador já cuida do teclado (setas mudam a opção, Tab entra e sai do
  *     grupo): não reimplementamos nada;
  *   - o `<fieldset>` + `<legend>` dão ao grupo o nome que o leitor de tela lê;
- *   - o `<label>` envolve o rádio, então clicar em qualquer parte do texto marca a opção.
+ *   - o `<label>` envolve o rádio e o rótulo, então clicar no nome marca a opção;
+ *     a descrição fica fora do label (não entra no nome acessível) e é ligada ao
+ *     rádio por `aria-describedby`.
  *
  * Ligações de acessibilidade (mesmo padrão do `FormField`):
  *   - `aria-describedby` no fieldset → anuncia a ajuda e o erro;
@@ -54,6 +56,19 @@ const idErro = computed(() => `${idBase.value}-erro`);
 const descritores = computed(
   () => [props.ajuda ? idAjuda.value : '', props.erro ? idErro.value : ''].filter(Boolean).join(' ') || undefined,
 );
+
+/** Id da descrição da opção de posição `indice` (ligado ao rádio por aria-describedby). */
+function idDescricao(indice: number): string {
+  return `${idBase.value}-desc-${indice}`;
+}
+
+/**
+ * Ids que o leitor de tela lê junto com o rádio: a descrição da opção, a ajuda
+ * e o erro do grupo. Assim o erro é anunciado quando o foco cai no 1º rádio.
+ */
+function descritoresDaOpcao(indice: number): string {
+  return [idDescricao(indice), descritores.value].filter(Boolean).join(' ');
+}
 </script>
 
 <template>
@@ -65,26 +80,30 @@ const descritores = computed(
     </legend>
     <p v-if="ajuda" :id="idAjuda" class="grupo__ajuda">{{ ajuda }}</p>
 
-    <label
-      v-for="opcao in opcoes"
+    <div
+      v-for="(opcao, indice) in opcoes"
       :key="String(opcao.valor)"
       class="grupo__opcao"
       :class="{ 'grupo__opcao--marcada': opcao.valor === modelValue }"
     >
-      <input
-        type="radio"
-        class="grupo__radio"
-        :name="idBase"
-        :value="opcao.valor"
-        :checked="opcao.valor === modelValue"
-        :aria-invalid="erro ? 'true' : undefined"
-        @change="emit('update:modelValue', opcao.valor)"
-      />
-      <span class="grupo__texto">
+      <!-- O label envolve só o rádio e o rótulo: o nome acessível é "3 — Provável".
+           A descrição é um irmão com id, lido como descrição (aria-describedby). -->
+      <label class="grupo__label">
+        <input
+          type="radio"
+          class="grupo__radio"
+          :name="idBase"
+          :value="opcao.valor"
+          :checked="opcao.valor === modelValue"
+          :required="obrigatorio || undefined"
+          :aria-invalid="erro ? 'true' : undefined"
+          :aria-describedby="descritoresDaOpcao(indice)"
+          @change="emit('update:modelValue', opcao.valor)"
+        />
         <strong class="grupo__rotulo">{{ opcao.rotulo }}</strong>
-        <span class="grupo__descricao">{{ opcao.descricao }}</span>
-      </span>
-    </label>
+      </label>
+      <span :id="idDescricao(indice)" class="grupo__descricao">{{ opcao.descricao }}</span>
+    </div>
 
     <p v-if="erro" :id="idErro" class="grupo__erro" role="alert">
       <i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>
@@ -123,11 +142,11 @@ const descritores = computed(
   color: var(--texto-secundario);
 }
 
-/* Cada opção é um cartão clicável com o rádio à esquerda. */
+/* Cada opção é um cartão: rádio + rótulo (clicáveis) e a descrição abaixo. */
 .grupo__opcao {
   display: flex;
-  align-items: flex-start;
-  gap: var(--esp-3);
+  flex-direction: column;
+  gap: 2px;
   min-height: var(--alvo-minimo);
   padding: var(--esp-2) var(--esp-3);
   border: 1px solid var(--borda-forte);
@@ -145,17 +164,16 @@ const descritores = computed(
   border-color: var(--cor-primaria);
 }
 
-.grupo__radio {
-  flex: none;
-  margin-top: 3px;
+.grupo__label {
+  display: flex;
+  align-items: center;
+  gap: var(--esp-3);
+  min-width: 0;
+  cursor: pointer;
 }
 
-.grupo__texto {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  overflow-wrap: anywhere;
+.grupo__radio {
+  flex: none;
 }
 
 .grupo__rotulo {
@@ -165,6 +183,9 @@ const descritores = computed(
 }
 
 .grupo__descricao {
+  /* Alinha a descrição com o texto do rótulo (largura do rádio + espaço). */
+  padding-left: calc(var(--esp-3) + 13px);
+  overflow-wrap: anywhere;
   font-size: var(--texto-sm);
   color: var(--texto-secundario);
 }

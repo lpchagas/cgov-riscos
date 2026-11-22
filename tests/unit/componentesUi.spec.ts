@@ -218,13 +218,46 @@ describe('GrupoOpcoesDescritas', () => {
     expect(w.find('legend').text()).toContain('(obrigatório)');
   });
 
-  it('a descrição de cada opção fica dentro do label dela', () => {
+  it('cada radio descreve-se pela própria descrição e, com erro, também pelo erro e pela ajuda', () => {
+    const w = mount(GrupoOpcoesDescritas, {
+      props: { ...base, modelValue: null, erro: 'Escolha', ajuda: 'Dica' },
+    });
+    const idErro = w.find('[role="alert"]').attributes('id')!;
+    const idAjuda = w.find('p.grupo__ajuda').attributes('id')!;
+    w.findAll('input[type="radio"]').forEach((r, i) => {
+      const ids = r.attributes('aria-describedby')!.split(' ');
+      const desc = w.findAll('.grupo__descricao')[i];
+      expect(ids).toContain(desc.attributes('id'));
+      expect(ids).toContain(idErro);
+      expect(ids).toContain(idAjuda);
+      expect(desc.text()).toBe(`Descrição ${i + 1}`);
+    });
+  });
+
+  it('radios têm `required` nativo quando obrigatório (e nunca aria-required)', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null, obrigatorio: true } });
+    for (const r of w.findAll('input[type="radio"]')) {
+      expect((r.element as HTMLInputElement).required).toBe(true);
+      expect(r.attributes('aria-required')).toBeUndefined();
+    }
+    const sem = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null } });
+    expect((sem.find('input').element as HTMLInputElement).required).toBe(false);
+  });
+
+  it('o nome acessível (texto do label) é só o rótulo, sem a descrição', () => {
     const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null } });
     const labels = w.findAll('label');
-    expect(labels).toHaveLength(5);
-    expect(labels[3].text()).toContain('Nível 4');
-    expect(labels[3].text()).toContain('Descrição 4');
-    expect(labels[3].find('input[type="radio"]').exists()).toBe(true);
+    expect(labels[3].text()).toBe('Nível 4');
+    expect(labels[3].text()).not.toContain('Descrição 4');
+  });
+
+  it('a descrição de cada opção fica dentro do cartão da opção', () => {
+    const w = mount(GrupoOpcoesDescritas, { props: { ...base, modelValue: null } });
+    const cartoes = w.findAll('.grupo__opcao');
+    expect(cartoes).toHaveLength(5);
+    expect(cartoes[3].text()).toContain('Nível 4');
+    expect(cartoes[3].text()).toContain('Descrição 4');
+    expect(cartoes[3].find('input[type="radio"]').exists()).toBe(true);
   });
 
   it('dois grupos na mesma tela usam names diferentes (senão um desmarca o outro)', () => {

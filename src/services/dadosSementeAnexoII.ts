@@ -280,7 +280,7 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     testeIntegridadeAplicavel: false,
     probabilidade: 3,
     justificativaProbabilidade:
-      'Probabilidade Média (3): processo depende atualmente de um único ponto focal sem documentação de backup.',
+      'Probabilidade Provável (3): processo depende atualmente de um único ponto focal sem documentação de backup.',
     impacto: 5,
     justificativaImpacto:
       'Impacto Muito Alto (5): a interrupção paralisa entregas críticas da unidade sem alternativa imediata.',
@@ -417,7 +417,7 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     testeIntegridadeAplicavel: true,
     probabilidade: 2,
     justificativaProbabilidade:
-      'Probabilidade Baixa (2): há supervisão hierárquica, mas sem trava sistêmica de impedimento.',
+      'Probabilidade Pouco provável (2): há supervisão hierárquica, mas sem trava sistêmica de impedimento.',
     impacto: 5,
     justificativaImpacto:
       'Impacto Muito Alto (5): compromete a integridade decisória e a imagem institucional.',
@@ -536,7 +536,7 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
       'A vulnerabilidade decorre de defasagem técnica nos parâmetros biofísicos de capacidade de carga, sem indício de favorecimento ilícito ou desvio ético.',
     probabilidade: 2,
     justificativaProbabilidade:
-      'Probabilidade Baixa (2): ocorre apenas em picos sazonais de alta temporada.',
+      'Probabilidade Pouco provável (2): ocorre apenas em picos sazonais de alta temporada.',
     impacto: 4,
     justificativaImpacto:
       'Impacto Alto (4): afeta área sensível de conservação (P=2, I=4 -> Inerente 14 no Quadro 7).',
