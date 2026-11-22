@@ -4,10 +4,10 @@ O **DER lógico** (Diagrama Entidade-Relacionamento) é o desenho **do banco que
 tabela do PostgreSQL/Supabase, cada linha dentro da caixa é uma coluna com o seu tipo, e cada traço entre
 caixas é uma chave estrangeira. Ele traduz o [[mer-conceitual]] para tabelas.
 
-**De onde vem:** do **estado final das 12 migrações** de `supabase/migrations/` (de `20261109001` até
-`20261117001`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
-com as 12 migrações aplicadas (consulta ao `information_schema` e ao `pg_constraint`, só a estrutura, em
-2026-11-21). O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
+**De onde vem:** do **estado final das 13 migrações** de `supabase/migrations/` (de `20261109001` até
+`20261122001`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
+com as 12 primeiras migrações aplicadas (consulta ao `information_schema` e ao `pg_constraint`, só a estrutura, em
+2026-11-21); a 13ª (`20261122001`, tabela `subcategorias_risco`, chave estrangeira composta e fim da coluna `subcategorias_permitidas`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi acrescentada a partir do próprio arquivo da migração. O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
 migrações") reprova se uma tabela for criada numa migração e não aparecer aqui, ou o contrário.
 
 O documento anterior, [[modelo-dados-mer]], fica como histórico das migrações.

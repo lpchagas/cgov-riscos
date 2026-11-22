@@ -217,19 +217,29 @@ Resultado real (2026-11-20): a pergunta apareceu com a lista das 12 migrações;
 
 ### 7.1 Dados de referência **[AUTORIZAÇÃO]**
 
-Aplicar **só** o `supabase/seed.sql`: as 8 categorias do sistema, com as subcategorias de Integridade, o apetite padrão da DAR e o acerto do contador (`setval`, para a próxima categoria ser a 9).
-Em 2026-11-20 foi aplicado pelo Claude via MCP, numa transação (`begin ... commit`); também pode ser
+Aplicar **só** o `supabase/seed.sql`: as 8 categorias do Quadro 2, com as 6 subcategorias de Integridade do Quadro 3, o apetite padrão da DAR e o acerto do contador (`setval`, para a próxima categoria ser a 12).
+**Atenção ao que está na nuvem:** o `seed.sql` foi trocado em 2026-11-22 (LAC-14 e LAC-15). Em 2026-11-20 foi aplicado, na nuvem, o **seed antigo** (categorias 1 a 8, do sistema antigo); o banco do piloto **não** é refeito por este arquivo, e sim alinhado pela migração `20261122001`, na seção 7.1.1. O `seed.sql` novo vale para um banco novo (por exemplo, `db:reset` local). Aquele seed antigo foi aplicado pelo Claude via MCP, numa transação (`begin ... commit`); o seed novo também pode ser
 colado no SQL Editor (seção 5.1).
 
-> **Atenção:** essas categorias e subcategorias **não são** as dos Quadros 2 e 3 da Metodologia (sobram
-> Estratégico, Socioambiental e Tecnologia da Informação; faltam Riscos da visitação, Ocupacionais e
-> Privacidade e Proteção de Dados). O alinhamento é decisão pendente da CGOV (D3-01 e D3-02 em
-> [[pendencias-ui-piloto]]; LAC-14 e LAC-15 em [[lacunas-norma-sistema]]).
+- Resultado de 2026-11-20 (seed antigo): `setval` = 8; 8 linhas em `categorias_risco`; **8 linhas em `auditoria_log`** (a trilha de
+  auditoria registra as inclusões da DAR; no local acontece o mesmo). Numa nuvem nova com o seed atual, o esperado é
+  `setval` = 11, 8 categorias (ids 2 a 6 e 9 a 11) e 6 subcategorias.
+- O comentário no topo do `seed.sql` foi corrigido em 2026-11-22: o arquivo traz só as categorias e as
+  subcategorias; as unidades vêm do importador e os dados de demonstração, do `seed-demonstracao.sql`.
 
-- Esperado: `setval` = 8; 8 linhas em `categorias_risco`; **8 linhas em `auditoria_log`** (a trilha de
-  auditoria registra as inclusões da DAR; no local acontece o mesmo).
-- O comentário no topo do `seed.sql` fala em "unidades" e "caso Anexo II", mas o arquivo só tem as
-  categorias (comentário desatualizado, a corrigir).
+### 7.1.1 Alinhar as categorias e subcategorias do piloto ao Quadro 2 e ao Quadro 3 **[AUTORIZAÇÃO]**
+
+> **Situação em 2026-11-22: não aplicado na nuvem.** A migração `20261122001` ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) está feita e testada **só no banco local**. A Fase 2 do plano (aplicar no piloto) espera a autorização do responsável, passo a passo. Nada foi mudado na nuvem.
+
+> **Antes, uma ressalva sobre a versão do Postgres.** A nuvem roda o Postgres **17.6.1.104**, o mesmo que o `supabase link` grava em `supabase/.temp/postgres-version`. Com essa imagem no computador local, o teste pgTAP `030_alcance.test.sql` (perto da linha 124) derrubou o Postgres (segmentation fault) e levou junto o resto da rodada. Os testes desta fase rodaram com a versão `17.11.0.006`. A migração em si não depende disso, mas a causa **ainda não foi investigada** (veja a pendência no [[ESTADO-ATUAL]]).
+
+O que a migração faz, em uma transação: (1) **recusa** com erro, listando os `codigo_radar`, se houver risco nas categorias 1, 7 ou 8, com subcategoria fora do Quadro 3, de Integridade sem subcategoria ou com subcategoria fora da Integridade; (2) cria `subcategorias_risco`; (3) alinha as categorias existentes (nome e descrição dos ids 2 a 6, apaga os ids 1, 7 e 8, cria os ids 9 a 11 como `pendente_dar`, cria as 6 subcategorias, `setval` = 11); (4) remove a coluna JSONB e liga o `CHECK`, a chave estrangeira e o gatilho. Não toca no apetite das categorias 2 a 6.
+
+Passos (cada um pede o aval na hora, e o 3 é só leitura):
+
+1. **[AUTORIZAÇÃO]** Conferência de leitura no projeto `cgov-riscos-v3.0`: `select count(*) from riscos;` e `select id, nome from categorias_risco order by id;`. Esperado: 0 riscos e os ids 1 a 8 antigos. Se houver risco, **parar** e mostrar os códigos ao responsável.
+2. **[AUTORIZAÇÃO]** `npx supabase db push` (sem `--include-seed`), conferindo na lista que só a `20261122001` vai ser aplicada.
+3. Conferir de novo (leitura): 8 categorias com os ids 2 a 6 e 9 a 11; 6 subcategorias; coluna JSONB ausente; linhas novas em `auditoria_log` (3 exclusões, 3 inclusões e 5 alterações de categoria, mais as 6 inclusões de subcategoria, sem usuário logado). Registrar o resultado e a data no histórico da seção 4.
 
 ### 7.2 Desligar o cadastro avulso **[AUTORIZAÇÃO]**
 

@@ -82,6 +82,7 @@ Pasta `docs/50-nivel5-software/` (ver o `README.md` dela): diagramas UML em Merm
 - [[0001-registrar-decisoes-em-adr-nygard]] — Por que registramos decisões em ADRs; os arquivos `decisoes-tecnicas-*` ficam congelados como histórico.
 - [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti]] — As 6 lacunas que contradizem a norma vêm antes da homologação na CGTI; o piloto segue.
 - [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1]] — O fluxo interno de 3 degraus fica como etapa anterior ao item 4.6.1 (LAC-11 resolvida).
+- [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica]] — Categorias do Quadro 2 e subcategorias do Quadro 3 literais; a migração recusa o que precisa de reclassificação (LAC-14 e LAC-15 resolvidas).
 
 ## Kanban
 
