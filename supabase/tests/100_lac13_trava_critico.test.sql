@@ -22,7 +22,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(46);
+select plan(54);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -236,6 +236,12 @@ select pg_temp.inserir_risco('RADAR-T100-DAR-A', 2, 3, 9, 'Aceitar', false, 'apr
 select is((select string_agg(status_critico, ',' order by codigo_radar) from public.riscos
             where id in (:'r8a', :'r8b', :'r8c')), 'nao,nao,nao',
           '8. ponto de partida: os três estão dentro do apetite (moderado)');
+-- D: aprovado ANTIGO que já era crítico (P=4, I=4 → 21,00, Extremo) e está
+-- com "Aceitar" (ficha anterior à LAC-13). O recálculo da DAR não muda a
+-- estratégia, então o gatilho da 20261122003 não o barra: a DAR termina.
+select pg_temp.inserir_risco('RADAR-T100-DAR-D', 4, 4, 9, 'Aceitar', false, 'aprovado') as r8d \gset
+select is((select status_critico || '/' || status_fluxo from public.riscos where id = :'r8d'), 'sim/aprovado',
+          '8. D: ponto de partida, aprovado antigo crítico com "Aceitar"');
 
 select pg_temp.entrar_como('cgov@radar.test');
 select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 9$$,
@@ -259,6 +265,8 @@ select is((select count(*)::int from public.historico_fluxo where risco_id = :'r
           '8. B: uma linha reaberto_mudanca_dar');
 select is((select status_fluxo from public.riscos where id = :'r8c'), 'aprovado',
           '8. C (Baixo, "Aceitar") não é crítico e continua aprovado');
+select is((select status_fluxo from public.riscos where id = :'r8d'), 'devolvido',
+          '8. D (antigo, já crítico, "Aceitar"): a DAR terminou e o devolveu à unidade');
 
 -- ----------------------------------------------------------------------------
 -- 9. DAR: moderado → pendente_dar
@@ -292,6 +300,32 @@ select is(has_function_privilege('authenticated', 'public.validar_risco(uuid, te
           '10. authenticated continua executando validar_risco');
 select is((select prosecdef from pg_proc where oid = 'public.salvar_ficha_risco(jsonb)'::regprocedure), false,
           '10. salvar_ficha_risco continua SECURITY INVOKER (a RLS de quem grava vale)');
+
+-- ----------------------------------------------------------------------------
+-- 11. UPDATE DIRETO na tabela (revisão final; migração 20261122003)
+-- ----------------------------------------------------------------------------
+-- A RLS deixa quem escreve na unidade alterar riscos direto (sem
+-- salvar_ficha_risco). Mudar só a estratégia não reabre o aprovado, então o
+-- gatilho trg_riscos_trava_aceitar_critico é que recusa "Aceitar" no crítico.
+select pg_temp.inserir_risco('RADAR-T100-DIR-APR', 4, 4, 2, 'Mitigar', true,  'aprovado') as r11a,
+       pg_temp.inserir_risco('RADAR-T100-DIR-RAS', 4, 4, 2, 'Mitigar', false, 'rascunho') as r11r,
+       pg_temp.inserir_risco('RADAR-T100-DIR-NC',  1, 2, 2, 'Mitigar', false, 'aprovado') as r11n
+\gset
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(format($$update public.riscos set estrategia_principal = 'Aceitar' where id = %L$$, :'r11a'), '23514',
+                 pg_temp.msg(:'r11a', 'a estratégia "Aceitar" não é permitida', false),
+                 '11. UPDATE direto para "Aceitar" num aprovado crítico é recusado (23514)');
+select is(pg_temp.linhas_afetadas(format($$update public.riscos set estrategia_principal = 'Aceitar' where id = %L$$, :'r11r')),
+          1, '11. o mesmo UPDATE num rascunho crítico passa (rascunho é livre)');
+select is(pg_temp.linhas_afetadas(format($$update public.riscos set estrategia_principal = 'Aceitar' where id = %L$$, :'r11n')),
+          1, '11. o mesmo UPDATE num aprovado NÃO crítico passa');
+select pg_temp.sair();
+select is((select status_fluxo || '/' || estrategia_principal from public.riscos where id = :'r11a'),
+          'aprovado/Mitigar', '11. o aprovado crítico ficou como estava');
+select is((select status_fluxo || '/' || estrategia_principal from public.riscos where id = :'r11n'),
+          'aprovado/Aceitar', '11. o aprovado não crítico continua aprovado, agora com "Aceitar"');
+select is(has_function_privilege('authenticated', 'public.fn_trava_aceitar_critico_direto()', 'execute'), false,
+          '11. ninguém logado executa a função do gatilho');
 
 select * from finish();
 rollback;
