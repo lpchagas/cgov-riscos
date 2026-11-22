@@ -21,6 +21,8 @@
  *   -> "Este risco está em validação ou homologação e não pode ser editado agora. ..."
  */
 
+import { MENSAGEM_TRAVA_CRITICO } from '../../utils/travaRiscoCritico';
+
 /** Frase de falha de rede (a mesma usada no login, na etapa B2). */
 export const MENSAGEM_REDE = 'Não foi possível falar com o RADAR. Verifique sua conexão e tente de novo.';
 
@@ -107,6 +109,12 @@ const DICIONARIO: Entrada[] = [
   // genérica "Algum campo está fora dos valores permitidos". Por isso fica AQUI.
   // Ex.: rascunho da Integridade salvo sem subcategoria.
   ['exige uma das subcategorias do Quadro 3', 'Risco da categoria Integridade precisa de uma das 6 subcategorias do Quadro 3. Escolha a subcategoria na etapa da categoria.', 'validacao'],
+  // --- Trava do risco crítico (LAC-13, 20261122002) ---
+  // Também 23514: precisa vir antes do plano B por código. Casa nas duas
+  // variantes (envio/gravação e validação/homologação, que pede a devolução).
+  // Ex.: "RADAR: o risco RADAR-2026-004 é crítico (...) e precisa de tratamento:
+  // a estratégia "Aceitar" não é permitida."
+  ['é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento', MENSAGEM_TRAVA_CRITICO, 'validacao'],
   ['não encontrado', 'Risco não encontrado.', 'nao_encontrado'], // "risco ... não encontrado"
 ];
 

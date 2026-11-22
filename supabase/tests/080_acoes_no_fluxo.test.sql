@@ -44,6 +44,12 @@ select
   (select id from public.riscos where codigo_radar = 'RADAR-DEMO-UC-SCT') as r_uc_sct
 \gset
 
+-- LAC-13 (migração 20261122002): os riscos da semente não têm ações 5W2H, e o
+-- risco crítico sem ação não anda mais no fluxo. Este teste prova OUTRAS
+-- regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava é
+-- provada em 100_lac13_trava_critico.test.sql.
+select pg_temp.dar_tratamento_a_todos();
+
 -- Objeto na Presidência (para os casos "sem homologador efetivo").
 insert into public.objetos_contexto (id, tipo_objeto, nome_objeto, unidade_id, objetivo_estrategico_associado)
 values ('00000000-0000-4000-b000-000000000080', 'Unidade', 'Teste 080 — Presidência',
@@ -77,6 +83,7 @@ select
   pg_temp.inserir_risco('00000000-0000-4000-b000-000000000080', 'RADAR-T080-PRES-VAL', 4, 4, 'em_validacao_cg')     as r_pres_val,
   pg_temp.inserir_risco('00000000-0000-4000-b000-000000000080', 'RADAR-T080-PRES-HOM', 4, 4, 'em_homologacao_dir')  as r_pres_hom
 \gset
+select pg_temp.dar_tratamento_a_todos();   -- LAC-13: tratamento mínimo aos riscos criados acima
 
 -- Os dois últimos foram "enviados" pelo próprio Presidente (linha de envio no histórico).
 insert into public.historico_fluxo (risco_id, etapa, acao, usuario_nome, usuario_papel, despacho_texto, usuario_id)
@@ -265,6 +272,7 @@ select throws_ok(format($$select * from public.acoes_no_fluxo(array[%L::uuid])$$
 select pg_temp.sair();
 select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000080', 'RADAR-T080-PRES-APR', 4, 4, 'aprovado') as r_pres_apr
 \gset
+select pg_temp.dar_tratamento(:'r_pres_apr');   -- LAC-13: tratamento mínimo
 select pg_temp.entrar_como('presidente@radar.test');
 select is((select pode_editar from public.acoes_no_fluxo(array[:'r_pres_apr'::uuid])), false,
   'presidente@: aprovado crítico da Presidência → pode_editar = false (reabertura seria recusada)');

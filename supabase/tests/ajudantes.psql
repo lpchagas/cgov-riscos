@@ -105,3 +105,45 @@ begin
   return v_linhas;
 end;
 $$;
+
+-- ----------------------------------------------------------------------------
+-- dar_tratamento(risco): inclui UMA ação 5W2H (Mitigar) no risco, se ele ainda
+-- não tem nenhuma ação que não seja "Aceitar".
+-- ----------------------------------------------------------------------------
+-- Por que existe? Desde a LAC-13 (migração 20261122002), o risco crítico só
+-- anda no fluxo (enviar, validar, homologar) com estratégia diferente de
+-- "Aceitar" e com pelo menos uma ação de tratamento. Os testes do fluxo que
+-- são anteriores à LAC-13 testam OUTRAS regras (quem valida, quem homologa...)
+-- e usam riscos sem ação. Este ajudante dá a eles o tratamento mínimo, para
+-- que continuem testando o que testavam. A trava em si é provada no 100.
+-- O sinal radar.fluxo fica ligado só durante o INSERT: incluir a ação não
+-- deve reabrir (aprovado) nem ser recusado (em validação) pela trava da ficha.
+-- Ex.: select pg_temp.dar_tratamento(id) from public.riscos;
+create or replace function pg_temp.dar_tratamento(p_risco uuid)
+returns void
+language plpgsql
+as $$
+declare
+  v_sinal text := coalesce(current_setting('radar.fluxo', true), '');
+begin
+  if exists (select 1 from public.respostas_tratamento t
+              where t.risco_id = p_risco and t.estrategia <> 'Aceitar') then
+    return;
+  end if;
+  perform set_config('radar.fluxo', 'on', true);
+  insert into public.respostas_tratamento
+    (risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
+  values (p_risco, 'Mitigar', 'ação de tratamento de demonstração', 'Chefia da unidade',
+          '2027-06-30', 'procedimento de demonstração');
+  perform set_config('radar.fluxo', v_sinal, true);
+end;
+$$;
+
+-- dar_tratamento_a_todos(): o mesmo, para todos os riscos que existem agora
+-- (ex.: os da semente de demonstração, que não têm ações).
+create or replace function pg_temp.dar_tratamento_a_todos()
+returns void
+language sql
+as $$
+  select pg_temp.dar_tratamento(r.id) from public.riscos r;
+$$;
