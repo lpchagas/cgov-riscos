@@ -8,6 +8,9 @@ import {
 import {
   contarFormato,
   importarTabelaMarkdownSkill,
+  lerEvidencia,
+  lerNumeroSkill,
+  lerSimNao,
   normalizarCategoriaImportada,
   normalizarSubcategoriaImportada,
 } from '../../src/utils/importadorSkillMarkdown';
@@ -287,7 +290,8 @@ describe('Importador: versão da linha (16 ou 18 colunas), linhas ignoradas e Re
     expect(r.fichas).toHaveLength(3);
     expect(r.formato).toBe('18');
     expect(r.fichas.every((f) => f.formatoColunas === 18)).toBe(true);
-    expect(r.fichas.every((f) => f.testeIntegridadeAplicavel === false)).toBe(true);
+    // Tarefa 2: a col. 17 passou a ser lida (R-01 e R-02 "Sim", R-03 "Não").
+    expect(r.fichas.map((f) => f.testeIntegridadeAplicavel)).toEqual([true, true, false]);
   });
 
   it('fixture de 16 colunas: formato "16"', () => {
@@ -328,5 +332,341 @@ describe('Importador: versão da linha (16 ou 18 colunas), linhas ignoradas e Re
     expect(contarFormato([f(16), f(16)])).toBe('16');
     expect(contarFormato([f(18)])).toBe('18');
     expect(contarFormato([f(16), f(18)])).toBe('misto');
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Tarefa 2 (primeira carga): regras por coluna, avisos do que antes era silêncio
+// ----------------------------------------------------------------------------
+describe('Importador: descrição, evidência, trava, cálculo, estratégia e Teste de Integridade', () => {
+  const fixture = (nome: string) =>
+    readFileSync(resolve(__dirname, 'fixtures/skill', nome), 'utf-8');
+
+  /**
+   * Monta UMA linha da matriz com valores padrão válidos (dados de demonstração).
+   * Padrão: P=1, I=1 (inerente 1, Baixo), sem controle, residual 1, "Mitigar".
+   * Se `teste` for informado, a linha ganha as cols. 17 e 18 (formato de 18).
+   * Ex.: montarLinha({ p: '3', i: '4', inerente: '18', residual: '18' })
+   */
+  const montarLinha = (o: {
+    id?: string;
+    descricao?: string;
+    categoria?: string;
+    p?: string;
+    i?: string;
+    inerente?: string;
+    controles?: string;
+    eficacia?: string;
+    residual?: string;
+    estrategia?: string;
+    teste?: string;
+    justificativa?: string;
+  } = {}) => {
+    const celulas = [
+      o.id ?? 'R-07',
+      'Objeto de demonstração',
+      o.descricao ??
+        'Devido a ausência de conferência, poderá ocorrer erro no cadastro, ocasionando retrabalho e impactando o alcance do objetivo de atendimento.',
+      o.categoria ?? 'Operacional',
+      o.p ?? '1',
+      o.i ?? '1',
+      o.inerente ?? '1',
+      'Baixo',
+      o.controles ?? 'Inexistente',
+      o.eficacia ?? 'Inexistente (1,0)',
+      o.residual ?? '1',
+      'Baixo',
+      'baixo',
+      'não',
+      o.estrategia ?? 'Mitigar',
+      'KRI de demonstração',
+    ];
+    if (o.teste !== undefined) celulas.push(o.teste, o.justificativa ?? '');
+    return `| ${celulas.join(' | ')} |`;
+  };
+
+  const AVISO_16 =
+    'Linha R-07: a tabela não traz o Teste de Integridade (formato de 16 colunas); confira na ficha se o risco envolve decisão sobre beneficiário, licença, fiscalização ou contratação (RN-006).';
+  const REGRA_3 =
+    'Linha R-07: Como o evento envolve vulnerabilidade de integridade, classifique como "Integridade" ou registre justificativa formal explicando por que não se trata de risco à integridade.';
+  const ERRO_COL_17 = "Linha R-07: o Teste de Integridade (col. 17) deve ser 'Sim' ou 'Não'.";
+
+  it('linha padrão de 18 colunas não gera aviso nem erro', () => {
+    const r = importarTabelaMarkdownSkill(montarLinha({ teste: 'Não' }));
+    expect(r.erros).toEqual([]);
+    expect(r.avisos).toEqual([]);
+  });
+
+  // Col. 3: frase fora da sintaxe do item 4.2.1
+  it('frase fora da sintaxe vira evento e deixa causa, consequência e objetivo vazios', () => {
+    const frase = 'Os atendimentos atrasam porque a fila não tem responsável definido.';
+    const r = importarTabelaMarkdownSkill(montarLinha({ descricao: frase, teste: 'Não' }));
+    const ficha = r.fichas[0];
+    expect(ficha.eventoRisco).toBe(frase);
+    expect(ficha.causas).toBe('');
+    expect(ficha.consequencias).toBe('');
+    expect(ficha.objetivoAfetado).toBe('');
+    expect(r.avisos).toEqual([
+      'Linha R-07: a descrição não segue a sintaxe do item 4.2.1; a frase foi gravada como evento, e causa, consequência e objetivo ficam em branco para a unidade completar.',
+    ]);
+  });
+
+  // Col. 9: evidência pelo marcador
+  it.each([
+    ['Previsto no ato. Evidência: sim', true],
+    ['Evidência: Sim. Checklist arquivado no SEI', true],
+    ['Checklist. Evidência: não', false],
+    ['EVIDENCIA: NAO', false],
+    ['sem evidencia formal', false],
+    ['previsto no ato; funcionamento não comprovado', false],
+    ['Conferência sem registro', false],
+    ['Inexistente', false],
+    ['Controle informal da chefia', false],
+    ['Checklist assinado', null],
+    ['', null],
+  ])('lerEvidencia(%j) -> %s', (texto, esperado) => {
+    expect(lerEvidencia(texto)).toBe(esperado);
+  });
+
+  it.each([
+    ['Sim', true],
+    ['s', true],
+    [' SIM ', true],
+    ['Não', false],
+    ['nao', false],
+    ['NÃO', false],
+    ['N', false],
+    ['Talvez', null],
+    ['', null],
+  ])('lerSimNao(%j) -> %s', (texto, esperado) => {
+    expect(lerSimNao(texto)).toBe(esperado);
+  });
+
+  it.each([
+    ['12', 12],
+    ['10.8', 10.8],
+    ['10,8', 10.8],
+    [' 16,2 ', 16.2],
+    ['—', null],
+    ['', null],
+    ['18 (Extremo)', null],
+  ])('lerNumeroSkill(%j) -> %s', (texto, esperado) => {
+    expect(lerNumeroSkill(texto)).toBe(esperado);
+  });
+
+  it('"EVIDENCIA: NAO" é lido como sem evidência, sem aviso de leitura (Review Focus 2)', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ controles: 'EVIDENCIA: NAO', eficacia: 'Fraco (0,9)', residual: '0,9', teste: 'Não' })
+    );
+    expect(r.fichas[0].possuiEvidenciaControle).toBe(false);
+    expect(r.avisos).toEqual([]);
+  });
+
+  it('com o marcador "Evidência: sim", Mediano é mantido, sem aviso', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ controles: 'Checklist. Evidência: sim', eficacia: 'Mediano (0,75)', residual: '0,75', teste: 'Não' })
+    );
+    expect(r.fichas[0].possuiEvidenciaControle).toBe(true);
+    expect(r.fichas[0].nivelEficaciaControle).toBe('Mediano');
+    expect(r.avisos).toEqual([]);
+  });
+
+  // Col. 9 + col. 10: sem marcador, vale "sem evidência" e a trava age
+  it('sem marcador e com "Mediano (0,75)": sem evidência, Fraco e os dois avisos', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ controles: 'Checklist assinado', eficacia: 'Mediano (0,75)', residual: '0,9', teste: 'Não' })
+    );
+    const ficha = r.fichas[0];
+    expect(ficha.possuiEvidenciaControle).toBe(false);
+    expect(ficha.nivelEficaciaControle).toBe('Fraco');
+    expect(r.avisos).toEqual([
+      'Linha R-07: não foi possível ler se o controle tem evidência comprovada; o RADAR considerou sem evidência (eficácia máxima Fraco, Quadro 6).',
+      "Linha R-07: a eficácia 'Mediano (0,75)' foi reduzida a 'Fraco (0,9)' porque o controle não tem evidência comprovada (trava do Quadro 6).",
+    ]);
+  });
+
+  it('trava com Forte e "Evidência: não": só o aviso da trava, com o fator 0,5', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ controles: 'Evidência: não', eficacia: 'Forte (0,5)', residual: '0,9', teste: 'Não' })
+    );
+    expect(r.avisos).toEqual([
+      "Linha R-07: a eficácia 'Forte (0,5)' foi reduzida a 'Fraco (0,9)' porque o controle não tem evidência comprovada (trava do Quadro 6).",
+    ]);
+  });
+
+  // Cols. 7 e 11: conferência do cálculo (Quadro 7 é [impacto][probabilidade])
+  it('inerente e residual divergentes geram o aviso de cálculo (P=3, I=4 -> 18 e 18)', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ p: '3', i: '4', inerente: '12', residual: '9', teste: 'Não' })
+    );
+    expect(r.fichas[0].nivelInerente).toBe(18);
+    expect(r.avisos).toContain(
+      'Linha R-07: a skill informou inerente 12 e residual 9; o RADAR calculou inerente 18 e residual 18 (Quadro 7 e Quadro 6). Valem os números do RADAR.'
+    );
+  });
+
+  it('o aviso de cálculo usa vírgula decimal (residual 16,2)', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({
+        p: '3',
+        i: '4',
+        inerente: '18',
+        residual: '16',
+        controles: 'Evidência: não',
+        eficacia: 'Fraco (0,9)',
+        teste: 'Não',
+      })
+    );
+    expect(r.avisos).toContain(
+      'Linha R-07: a skill informou inerente 18 e residual 16; o RADAR calculou inerente 18 e residual 16,2 (Quadro 7 e Quadro 6). Valem os números do RADAR.'
+    );
+  });
+
+  it.each(['10.8', '10,8', '10,81'])(
+    'residual da skill %j igual (até 0,01) ao recálculo 10,8: sem aviso de cálculo (Review Focus 3)',
+    (residual) => {
+      // P=4, I=2 -> Quadro 7 [I=2][P=4] = 12; Fraco sem evidência -> 12 × 0,9 = 10,8.
+      const r = importarTabelaMarkdownSkill(
+        montarLinha({
+          p: '4',
+          i: '2',
+          inerente: '12',
+          residual,
+          controles: 'Evidência: não',
+          eficacia: 'Fraco (0,9)',
+          teste: 'Não',
+        })
+      );
+      expect(r.fichas[0].nivelResidual).toBe(10.8);
+      expect(r.avisos.filter((a) => a.includes('a skill informou'))).toEqual([]);
+    }
+  );
+
+  it('diferença acima de 0,01 gera o aviso (10,82 × 10,8)', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ p: '4', i: '2', inerente: '12', residual: '10,82', controles: 'Evidência: não', eficacia: 'Fraco (0,9)', teste: 'Não' })
+    );
+    expect(r.avisos.filter((a) => a.includes('a skill informou'))).toHaveLength(1);
+  });
+
+  it('célula "—" no inerente e no residual não é comparada', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ p: '3', i: '4', inerente: '—', residual: '—', teste: 'Não' })
+    );
+    expect(r.avisos.filter((a) => a.includes('a skill informou'))).toEqual([]);
+  });
+
+  // Col. 15: estratégia
+  it('estratégia "Reduzir" vira Mitigar, com aviso', () => {
+    const r = importarTabelaMarkdownSkill(montarLinha({ estrategia: 'Reduzir', teste: 'Não' }));
+    expect(r.fichas[0].estrategiaTratamento).toBe('Mitigar');
+    expect(r.avisos).toEqual([
+      "Linha R-07: estratégia 'Reduzir' não reconhecida; o RADAR gravou 'Mitigar'. Confira na ficha.",
+    ]);
+  });
+
+  it('estratégia vazia vira Mitigar, com aviso "(vazia)"', () => {
+    const r = importarTabelaMarkdownSkill(montarLinha({ estrategia: '', teste: 'Não' }));
+    expect(r.fichas[0].estrategiaTratamento).toBe('Mitigar');
+    expect(r.avisos).toEqual([
+      "Linha R-07: estratégia '(vazia)' não reconhecida; o RADAR gravou 'Mitigar'. Confira na ficha.",
+    ]);
+  });
+
+  it.each([
+    ['Compartilhar', 'Compartilhar'],
+    ['evitar', 'Evitar'],
+    ['Mitigar', 'Mitigar'],
+    ['Aceitar', 'Aceitar'],
+  ])('estratégia %j é reconhecida, sem aviso', (texto, esperada) => {
+    const r = importarTabelaMarkdownSkill(montarLinha({ estrategia: texto, teste: 'Não' }));
+    expect(r.fichas[0].estrategiaTratamento).toBe(esperada);
+    expect(r.avisos).toEqual([]);
+  });
+
+  // Cols. 17 e 18: Teste de Integridade
+  it('col. 17 "Sim", Operacional e justificativa curta: erro da regra 3', () => {
+    const r = importarTabelaMarkdownSkill(montarLinha({ teste: 'Sim', justificativa: 'curta' }));
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros).toEqual([REGRA_3]);
+  });
+
+  it('col. 17 "Sim" sem a col. 18 (linha de 17 colunas): erro da regra 3', () => {
+    const linha = montarLinha({ teste: 'Sim' }).replace(/\|[^|]*\|$/, '|');
+    expect(linha.split('|').length - 2).toBe(17);
+    const r = importarTabelaMarkdownSkill(linha);
+    expect(r.erros).toEqual([REGRA_3]);
+  });
+
+  it('col. 17 "Sim" com justificativa de 10+ caracteres: passa e guarda os dois valores', () => {
+    const justificativa = 'A autorização beneficia um requerente específico.';
+    const r = importarTabelaMarkdownSkill(montarLinha({ teste: 'Sim', justificativa }));
+    expect(r.erros).toEqual([]);
+    expect(r.fichas[0].testeIntegridadeAplicavel).toBe(true);
+    expect(r.fichas[0].justificativaNaoIntegridade).toBe(justificativa);
+  });
+
+  it.each(['Talvez', ''])('col. 17 %j: erro da col. 17', (teste) => {
+    const r = importarTabelaMarkdownSkill(montarLinha({ teste }));
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros).toEqual([ERRO_COL_17]);
+  });
+
+  it.each([
+    ['S', true],
+    ['n', false],
+    ['NÃO', false],
+  ])('col. 17 %j é aceita (sem diferença de acento e de maiúsculas)', (teste, esperado) => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ teste, justificativa: 'Não há decisão sobre beneficiário nem licença.' })
+    );
+    expect(r.erros).toEqual([]);
+    expect(r.fichas[0].testeIntegridadeAplicavel).toBe(esperado);
+  });
+
+  it('col. 17 "Sim" em risco de Integridade sem justificativa: passa (Review Focus 4)', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ categoria: 'Integridade: Nepotismo', teste: 'Sim', justificativa: '' })
+    );
+    expect(r.erros).toEqual([]);
+    expect(r.fichas[0].testeIntegridadeAplicavel).toBe(true);
+    expect(r.fichas[0].justificativaNaoIntegridade).toBeUndefined();
+  });
+
+  it('16 colunas: Teste de Integridade "não aplicável" e o aviso do formato de 16', () => {
+    const r = importarTabelaMarkdownSkill(montarLinha());
+    expect(r.erros).toEqual([]);
+    expect(r.fichas[0].formatoColunas).toBe(16);
+    expect(r.fichas[0].testeIntegridadeAplicavel).toBe(false);
+    expect(r.avisos).toEqual([AVISO_16]);
+  });
+
+  it('fixture de 16 colunas: sem erro, só avisos novos (Review Focus 5)', () => {
+    const r = importarTabelaMarkdownSkill(fixture('matriz-16-colunas.md'));
+    expect(r.erros).toEqual([]);
+    expect(r.fichas).toHaveLength(3);
+    expect(r.avisos.filter((a) => a.includes('formato de 16 colunas'))).toHaveLength(3);
+    expect(r.avisos).toContain(
+      'Linha R-03: a descrição não segue a sintaxe do item 4.2.1; a frase foi gravada como evento, e causa, consequência e objetivo ficam em branco para a unidade completar.'
+    );
+  });
+
+  // Robustez carregada da revisão da Tarefa 1
+  it('texto com quebras de linha do Windows (\\r\\n) importa igual', () => {
+    const texto = fixture('matriz-18-colunas.md').replace(/\r?\n/g, '\r\n');
+    const r = importarTabelaMarkdownSkill(texto);
+    expect(r.erros).toEqual([]);
+    expect(r.fichas).toHaveLength(3);
+    expect(r.fichas[2].kriSugerido).toBe('Tempo médio de atendimento');
+    expect(r.fichas[1].justificativaNaoIntegridade).toBe('A autorização beneficia um requerente específico.');
+  });
+
+  it('linha de 19 colunas: a coluna extra é ignorada e a linha é de 18', () => {
+    const linha = montarLinha({ teste: 'Não' }) + ' coluna extra |';
+    expect(linha.split('|').length - 2).toBe(19);
+    const r = importarTabelaMarkdownSkill(linha);
+    expect(r.erros).toEqual([]);
+    expect(r.fichas[0].formatoColunas).toBe(18);
+    expect(r.fichas[0].testeIntegridadeAplicavel).toBe(false);
   });
 });

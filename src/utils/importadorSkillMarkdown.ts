@@ -30,6 +30,7 @@ import type {
 import {
   calcularRiscoCompletoRadar,
   CATEGORIAS_OFICIAIS_QUADRO_2,
+  FATORES_QUADRO_6,
   SUBCATEGORIAS_INTEGRIDADE_QUADRO_3,
   validarRegraIntegridade,
 } from './calculadoraRiscoRadar';
@@ -40,6 +41,7 @@ import {
   type NivelDescrito,
 } from './escalasProbabilidadeImpacto';
 import { exigeTratamento } from './travaRiscoCritico';
+import { formatarNivel } from './rotulosInterface';
 
 /** Monta a lista da mensagem de erro, ex.: "(1) Raro; (2) Pouco provável; ...". */
 function listarEscala(escala: readonly NivelDescrito<number>[]): string {
@@ -113,7 +115,7 @@ export interface LinhaImportadaSkill {
   linhaTexto: number;
   /** Versão da matriz da linha: 16 (formato de hoje) ou 18 (com Teste de Integridade e Justificativa). */
   formatoColunas: 16 | 18;
-  /** Teste de Integridade informado na col. 17 (nesta etapa, sempre false; a Tarefa 2 lê a coluna). */
+  /** Teste de Integridade informado na col. 17 (formato de 18); no formato de 16, sempre false. */
   testeIntegridadeAplicavel: boolean;
   /** Justificativa da col. 18, quando o Teste se aplica fora da categoria Integridade. */
   justificativaNaoIntegridade?: string;
@@ -171,13 +173,86 @@ function extrairBowTieDaSintaxe(descricao: string): {
     };
   }
 
+  // Frase fora da sintaxe: NÃO inventamos causa, consequência nem objetivo
+  // (antes entravam textos genéricos, como "Impacto na conformidade...", que
+  // pareciam análise de verdade). A frase inteira vira o evento e o resto fica
+  // em branco ('') para a unidade completar antes do envio (RF-030, RF-182).
+  // Ex.: "Os atendimentos atrasam porque a fila não tem responsável."
+  //   -> evento = a frase; causas = ''; consequências = ''; objetivo = ''.
   return {
-    causas: 'Identificado preliminarmente via análise normativa CGOV',
+    causas: '',
     eventoRisco: descricao.trim(),
-    consequencias: 'Impacto na conformidade ou execução do processo',
-    objetivoAfetado: 'Objetivos estratégicos vinculados ao normativo',
+    consequencias: '',
+    objetivoAfetado: '',
     extraidoComSucesso: false,
   };
+}
+
+/**
+ * Prepara um texto para comparação "sem diferença de acento e de maiúsculas":
+ * separa letra e acento (NFD), apaga os acentos, junta espaços e põe em minúsculas.
+ * Ex.: semAcento(' EVIDÊNCIA:  Não ') -> 'evidencia: nao'
+ */
+function semAcento(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Lê, na col. 9 ("Controles e evidências"), se o controle tem evidência
+ * comprovada de funcionamento (RF-178). A ordem de leitura é:
+ *   1. o marcador "Evidência: sim" ou "Evidência: não", em qualquer ponto da
+ *      célula, sem diferença de acento e de maiúsculas;
+ *   2. sem marcador, as expressões explícitas de ausência ("sem evidência",
+ *      "sem registro", "não comprovado", "inexistente", "informal") valem
+ *      como SEM evidência;
+ *   3. qualquer outro texto devolve `null`: não deu para ler. Quem chama
+ *      considera "sem evidência" e avisa (na dúvida, a trava do Quadro 6 age).
+ *
+ * IMPORTANTE: a evidência NÃO é mais deduzida da eficácia (antes, "Mediano"
+ * sem a palavra "sem evidência" virava "com evidência" e a trava não agia).
+ *
+ * Exemplos:
+ *   lerEvidencia('Previsto no ato. Evidência: sim')               -> true
+ *   lerEvidencia('EVIDENCIA: NAO')                                -> false
+ *   lerEvidencia('previsto no ato; funcionamento não comprovado')  -> false
+ *   lerEvidencia('Checklist assinado')                            -> null
+ */
+export function lerEvidencia(texto: string): boolean | null {
+  const t = semAcento(texto);
+  const marcador = /evidencia\s*:\s*(sim|nao)\b/.exec(t);
+  if (marcador) return marcador[1] === 'sim';
+  const ausencia = ['sem evidencia', 'sem registro', 'nao comprovad', 'inexistente', 'informal'];
+  if (ausencia.some((expressao) => t.includes(expressao))) return false;
+  return null;
+}
+
+/**
+ * Lê uma célula de "Sim" ou "Não" (col. 17, Teste de Integridade).
+ * Aceita "Sim"/"S" e "Não"/"Nao"/"N", sem diferença de acento e de maiúsculas.
+ * Ex.: lerSimNao(' SIM ') -> true; lerSimNao('NÃO') -> false; lerSimNao('Talvez') -> null.
+ */
+export function lerSimNao(texto: string): boolean | null {
+  const t = semAcento(texto);
+  if (t === 'sim' || t === 's') return true;
+  if (t === 'nao' || t === 'n') return false;
+  return null;
+}
+
+/**
+ * Lê um número escrito pela skill, com vírgula ou ponto decimal.
+ * Célula que não é só um número devolve `null` (e não é comparada).
+ * Ex.: lerNumeroSkill('10,8') -> 10.8; lerNumeroSkill('10.8') -> 10.8;
+ *      lerNumeroSkill('—') -> null; lerNumeroSkill('18 (Extremo)') -> null.
+ */
+export function lerNumeroSkill(texto: string): number | null {
+  const t = texto.trim();
+  if (!/^-?\d+([.,]\d+)?$/.test(t)) return null;
+  return Number(t.replace(',', '.'));
 }
 
 /**
@@ -202,35 +277,22 @@ function interpretarEficaciaControle(texto: string): NivelEficaciaControle {
 }
 
 /**
- * Avalia se o texto de "Controles e evidências" indica existência de evidência formal.
- */
-function inferirEvidenciaNoTexto(
-  controlesTexto: string,
-  eficacia: NivelEficaciaControle
-): boolean {
-  const t = controlesTexto.toLowerCase();
-  if (
-    t.includes('sem evidência') ||
-    t.includes('sem registro') ||
-    t.includes('inexistente') ||
-    t.includes('informal')
-  ) {
-    return false;
-  }
-  // Se a análise da skill atribuiu Mediano, Satisfatório ou Forte e não declarou falta de evidência,
-  // considera-se evidência documental prevista no ato normativo:
-  return eficacia === 'Mediano' || eficacia === 'Satisfatório' || eficacia === 'Forte';
-}
-
-/**
  * Normaliza a estratégia de tratamento lida da tabela para uma das 4 oficiais da Tabela 8.
+ * `reconhecida` diz se o texto era mesmo uma das 4; se não era (ou se veio
+ * vazio), grava-se "Mitigar" e quem chama AVISA (RF-181), em vez de trocar em silêncio.
+ * Ex.: 'Compartilhar o risco' -> { estrategia: 'Compartilhar', reconhecida: true }
+ * Ex.: 'Reduzir'              -> { estrategia: 'Mitigar', reconhecida: false }
  */
-function normalizarEstrategia(texto: string): EstrategiaTratamento {
-  const t = texto.trim().toLowerCase();
-  if (t.startsWith('compartilh')) return 'Compartilhar';
-  if (t.startsWith('evit')) return 'Evitar';
-  if (t.startsWith('aceit')) return 'Aceitar';
-  return 'Mitigar';
+function normalizarEstrategia(texto: string): {
+  estrategia: EstrategiaTratamento;
+  reconhecida: boolean;
+} {
+  const t = semAcento(texto);
+  if (t.startsWith('compartilh')) return { estrategia: 'Compartilhar', reconhecida: true };
+  if (t.startsWith('evit')) return { estrategia: 'Evitar', reconhecida: true };
+  if (t.startsWith('aceit')) return { estrategia: 'Aceitar', reconhecida: true };
+  if (t.startsWith('mitig')) return { estrategia: 'Mitigar', reconhecida: true };
+  return { estrategia: 'Mitigar', reconhecida: false };
 }
 
 /**
@@ -280,7 +342,8 @@ export function importarTabelaMarkdownSkill(
   // mensagens é o da linha no texto colado (1 = primeira linha, mesmo que seja
   // um título ou parágrafo). Assim o analista acha a linha no texto.
   const linhas = markdownBruto
-    .split('\n')
+    // /\r?\n/: aceita quebra de linha do Windows (\r\n) e do Linux/macOS (\n).
+    .split(/\r?\n/)
     .map((texto, indice) => ({ texto: texto.trim(), numero: indice + 1 }))
     .filter((l) => l.texto.startsWith('|') && l.texto.endsWith('|'));
 
@@ -327,15 +390,34 @@ export function importarTabelaMarkdownSkill(
     }
     const formatoColunas: 16 | 18 = total >= 17 ? 18 : 16;
 
-    // Mapeamento das 16 colunas do §4 (Regime B) da skill `cgov-gestao-riscos-v4`:
+    // Mapeamento das colunas do §4 (Regime B) da skill `cgov-gestao-riscos-v4`
+    // (índice no código = número da coluna − 1):
     // 0: ID | 1: Objeto de GR | 2: Descrição na sintaxe | 3: Categoria |
     // 4: P  | 5: I            | 6: Inerente             | 7: Classe    |
     // 8: Controles e evidências | 9: Eficácia e fator   | 10: Residual |
-    // 11: Classe residual | 12: Apetite da categoria | 13: Crítico? | 14: Estratégia | 15: KRI
+    // 11: Classe residual | 12: Apetite da categoria | 13: Crítico? | 14: Estratégia | 15: KRI |
+    // Só no formato de 18: 16: Teste de Integridade (Sim/Não) | 17: Justificativa
     const codigoRadar = colunas[0] || `RSC-SKILL-${fichas.length + 1}`;
     const nomeObjeto = colunas[1] || 'Processo Normativo Analisado';
     const descricaoPadrao = colunas[2] || '';
     const categoriaBruta = colunas[3]; // vazia = recusada (não há categoria "padrão")
+
+    // Cols. 17 e 18, Teste de Integridade (RF-185, RF-194): só no formato de 18.
+    // Col. 17 tem de ser "Sim" ou "Não" (aceita "S"/"N"); outro valor, inclusive
+    // vazio, recusa a linha. No formato de 16, vale "não aplicável", como antes
+    // (e a linha ganha um aviso mais abaixo).
+    let testeIntegridadeAplicavel = false;
+    let justificativaNaoIntegridade: string | undefined;
+    if (formatoColunas === 18) {
+      const teste = lerSimNao(colunas[16] ?? '');
+      if (teste === null) {
+        erros.push(`Linha ${codigoRadar}: o Teste de Integridade (col. 17) deve ser 'Sim' ou 'Não'.`);
+        continue;
+      }
+      testeIntegridadeAplicavel = teste;
+      // Linha de 17 colunas: a col. 18 não existe e fica vazia (undefined).
+      justificativaNaoIntegridade = colunas[17]?.trim() || undefined;
+    }
 
     // Categoria e subcategoria SEM conversão silenciosa (RF-172 a RF-175):
     // ou casam com o Quadro 2 / Quadro 3, ou a linha é recusada com o motivo.
@@ -349,7 +431,8 @@ export function importarTabelaMarkdownSkill(
       // (inclusive o da categoria mista "Operacional com interface de Integridade").
       const rejeicao = validarRegraIntegridade({
         categoriaNome: categoriaBruta,
-        testeIntegridadeAplicavel: false,
+        testeIntegridadeAplicavel,
+        justificativaNaoIntegridade,
       });
       erros.push(`Linha ${codigoRadar}: ${rejeicao.erro ?? `Categoria inválida ("${categoriaBruta}").`}`);
       continue;
@@ -373,10 +456,15 @@ export function importarTabelaMarkdownSkill(
       // Sem subcategoria: a validação abaixo recusa ("uma das 6 subcategorias do Quadro 3").
     }
 
+    // Validação de sempre, agora com os valores REAIS das cols. 17 e 18.
+    // Ex.: col. 17 "Sim", categoria "Operacional" e justificativa "curta" (menos
+    // de 10 caracteres) -> erro da regra 3. Em risco de Integridade, a
+    // justificativa não é exigida (a categoria já é a de Integridade).
     const validacaoCat = validarRegraIntegridade({
       categoriaNome,
       subcategoriaIntegridade,
-      testeIntegridadeAplicavel: false,
+      testeIntegridadeAplicavel,
+      justificativaNaoIntegridade,
     });
 
     if (!validacaoCat.valido) {
@@ -405,13 +493,17 @@ export function importarTabelaMarkdownSkill(
     const controlesTexto = colunas[8] || 'Inexistente';
     const eficaciaTexto = colunas[9] || 'Inexistente (1,0)';
     const apetiteTexto = colunas[12] || apetitePadrao;
-    const estrategiaTexto = colunas[14] || 'Mitigar';
+    // Sem valor padrão: estratégia vazia é lida como vazia e gera aviso (RF-181).
+    const estrategiaTexto = colunas[14] ?? '';
     // LAC-03: o importador NUNCA inventa KRI. Coluna vazia = sem KRI sugerido ('').
     // (O texto antigo "Indicador a definir com a 1ª Linha" foi removido: virava um KRI falso.)
     const kriSugerido = colunas[15] ?? '';
 
     const eficaciaLida = interpretarEficaciaControle(eficaciaTexto);
-    const possuiEvidencia = inferirEvidenciaNoTexto(controlesTexto, eficaciaLida);
+    // Evidência pelo marcador da col. 9 (RF-178). `null` = não deu para ler:
+    // vale "sem evidência" (na dúvida, a trava do Quadro 6 age) e há aviso.
+    const evidenciaLida = lerEvidencia(controlesTexto);
+    const possuiEvidencia = evidenciaLida ?? false;
     const apetiteCategoria = normalizarApetite(apetiteTexto, apetitePadrao);
 
     // Recalcula sempre pelo Motor Matemático Oficial RADAR:
@@ -426,7 +518,7 @@ export function importarTabelaMarkdownSkill(
     // Trava da LAC-13: risco crítico (fora do apetite da DAR ou com DAR pendente)
     // não pode vir com "Aceitar". A linha é recusada, como nas outras validações.
     // Ex.: P=5, I=5, sem controle -> residual 25; "Aceitar" é recusado.
-    const estrategia = normalizarEstrategia(estrategiaTexto);
+    const { estrategia, reconhecida: estrategiaReconhecida } = normalizarEstrategia(estrategiaTexto);
     if (estrategia === 'Aceitar' && exigeTratamento(calculo.statusCritico)) {
       const situacao = calculo.statusCritico === 'sim' ? 'fora do apetite da DAR' : 'com DAR pendente';
       const residual = String(calculo.nivelResidual).replace('.', ',');
@@ -436,6 +528,65 @@ export function importarTabelaMarkdownSkill(
       continue;
     }
 
+    // A partir daqui a linha é ACEITA. Os avisos abaixo não bloqueiam: dizem
+    // o que foi lido e o que o RADAR fez, em vez de corrigir em silêncio.
+    // Seguem a ordem das colunas, para o analista achar o ponto na tabela.
+
+    // Formato de 16: a tabela não traz o Teste de Integridade (RN-006).
+    if (formatoColunas === 16) {
+      avisos.push(
+        `Linha ${codigoRadar}: a tabela não traz o Teste de Integridade (formato de 16 colunas); confira na ficha se o risco envolve decisão sobre beneficiário, licença, fiscalização ou contratação (RN-006).`
+      );
+    }
+
+    // Col. 3: descrição fora da sintaxe do item 4.2.1 (RF-182).
+    const bowTie = extrairBowTieDaSintaxe(descricaoPadrao);
+    if (!bowTie.extraidoComSucesso) {
+      avisos.push(
+        `Linha ${codigoRadar}: a descrição não segue a sintaxe do item 4.2.1; a frase foi gravada como evento, e causa, consequência e objetivo ficam em branco para a unidade completar.`
+      );
+    }
+
+    // Col. 9: não deu para ler a evidência (RF-178).
+    if (evidenciaLida === null) {
+      avisos.push(
+        `Linha ${codigoRadar}: não foi possível ler se o controle tem evidência comprovada; o RADAR considerou sem evidência (eficácia máxima Fraco, Quadro 6).`
+      );
+    }
+
+    // Col. 10: a trava de evidência reduziu a eficácia lida (RF-179).
+    // Ex.: "Mediano (0,75)" sem evidência -> "Fraco (0,9)".
+    if (calculo.travaEvidenciaAcionada) {
+      const lida = `${eficaciaLida} (${formatarNivel(FATORES_QUADRO_6[eficaciaLida])})`;
+      avisos.push(
+        `Linha ${codigoRadar}: a eficácia '${lida}' foi reduzida a 'Fraco (0,9)' porque o controle não tem evidência comprovada (trava do Quadro 6).`
+      );
+    }
+
+    // Cols. 7 e 11: conferência do cálculo da skill com o do RADAR (RF-180).
+    // Só compara a célula que é número; a tolerância é de 0,01 (o "+ 1e-9"
+    // absorve o erro de ponto flutuante: 10,81 − 10,8 dá 0,0100000000001).
+    // Ex.: P=3, I=4 (Quadro 7: 18), skill com inerente 12 -> aviso.
+    const inerenteSkill = lerNumeroSkill(colunas[6] ?? '');
+    const residualSkill = lerNumeroSkill(colunas[10] ?? '');
+    const diverge = (skill: number | null, radar: number) =>
+      skill !== null && Math.abs(skill - radar) > 0.01 + 1e-9;
+    if (diverge(inerenteSkill, calculo.nivelInerente) || diverge(residualSkill, calculo.nivelResidual)) {
+      // Célula não numérica aparece como foi escrita; número, com vírgula decimal.
+      const comoSkill = (n: number | null, bruto: string) => (n === null ? bruto : formatarNivel(n));
+      avisos.push(
+        `Linha ${codigoRadar}: a skill informou inerente ${comoSkill(inerenteSkill, colunas[6] ?? '')} e residual ${comoSkill(residualSkill, colunas[10] ?? '')}; o RADAR calculou inerente ${formatarNivel(calculo.nivelInerente)} e residual ${formatarNivel(calculo.nivelResidual)} (Quadro 7 e Quadro 6). Valem os números do RADAR.`
+      );
+    }
+
+    // Col. 15: estratégia vazia ou fora das 4 da Tabela 8 (RF-181).
+    if (!estrategiaReconhecida) {
+      const lida = estrategiaTexto.trim() || '(vazia)';
+      avisos.push(
+        `Linha ${codigoRadar}: estratégia '${lida}' não reconhecida; o RADAR gravou 'Mitigar'. Confira na ficha.`
+      );
+    }
+
     // LAC-03: o KRI importado traz, no máximo, o NOME do indicador; falta fórmula, fonte,
     // periodicidade, limite e responsável. Em risco crítico isso trava o envio, então avisamos
     // já na importação (não bloqueia: a linha entra como preliminar e a unidade completa o KRI).
@@ -443,17 +594,11 @@ export function importarTabelaMarkdownSkill(
       avisos.push(`Linha ${codigoRadar}: risco crítico sem KRI completo; complete o KRI na ficha antes do envio.`);
     }
 
-    const bowTie = extrairBowTieDaSintaxe(descricaoPadrao);
-    if (!bowTie.extraidoComSucesso) {
-      avisos.push(
-        `Linha ${codigoRadar}: A descrição não seguiu estritamente o modelo "Devido a... poderá ocorrer...". Verifique os campos Causas e Consequências.`
-      );
-    }
-
     fichas.push({
       linhaTexto,
       formatoColunas,
-      testeIntegridadeAplicavel: false,
+      testeIntegridadeAplicavel,
+      justificativaNaoIntegridade,
       codigoRadar,
       nomeObjeto,
       descricaoPadrao,
