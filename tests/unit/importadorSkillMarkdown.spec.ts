@@ -1,9 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   CATEGORIAS_OFICIAIS_QUADRO_2,
   SUBCATEGORIAS_INTEGRIDADE_QUADRO_3,
 } from '../../src/utils/calculadoraRiscoRadar';
 import {
+  contarFormato,
   importarTabelaMarkdownSkill,
   normalizarCategoriaImportada,
   normalizarSubcategoriaImportada,
@@ -248,5 +251,82 @@ describe('Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4', () => 
   it('linha não crítica não ganha o aviso de KRI', () => {
     const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-08', 1, 1, 'baixo', 'Mitigar')].join('\n'));
     expect(r.avisos.filter((a) => a.includes('sem KRI completo'))).toEqual([]);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Tarefa 1 (primeira carga): versão da linha, linhas ignoradas e Regime A
+// ----------------------------------------------------------------------------
+describe('Importador: versão da linha (16 ou 18 colunas), linhas ignoradas e Regime A', () => {
+  /** Lê uma fixture de demonstração (sem dados reais). */
+  const fixture = (nome: string) =>
+    readFileSync(resolve(__dirname, 'fixtures/skill', nome), 'utf-8');
+  const linhasDaFixture = (nome: string) =>
+    fixture(nome).split('\n').filter((l) => l.startsWith('|'));
+
+  it('linha de 9 colunas gera aviso com o número da linha no texto (linha 4)', () => {
+    const texto = ['Título', '', 'Parágrafo antes da tabela.', '| a | b | c | d | e | f | g | h | i |'].join('\n');
+    const r = importarTabelaMarkdownSkill(texto);
+    expect(r.fichas).toHaveLength(0);
+    expect(r.avisos).toContain('Linha 4 ignorada: tem 9 colunas; a matriz do Regime B tem 16 ou 18.');
+    expect(r.formato).toBeNull();
+  });
+
+  it('linha de 13 colunas gera o erro do Regime A com o N certo', () => {
+    const treze = '| R-07 | ' + Array.from({ length: 12 }, (_, i) => `c${i}`).join(' | ') + ' |';
+    const r = importarTabelaMarkdownSkill(`Introdução\n${treze}`);
+    expect(r.erros).toContain(
+      "Linha 2: a tabela parece ser do Regime A (13 colunas, sem 'Objeto de GR'). O RADAR só importa a matriz do Regime B (16 ou 18 colunas)."
+    );
+    expect(r.fichas).toHaveLength(0);
+  });
+
+  it('fixture de 18 colunas: formato "18" e cada ficha com formatoColunas 18', () => {
+    const r = importarTabelaMarkdownSkill(fixture('matriz-18-colunas.md'));
+    expect(r.erros).toHaveLength(0);
+    expect(r.fichas).toHaveLength(3);
+    expect(r.formato).toBe('18');
+    expect(r.fichas.every((f) => f.formatoColunas === 18)).toBe(true);
+    expect(r.fichas.every((f) => f.testeIntegridadeAplicavel === false)).toBe(true);
+  });
+
+  it('fixture de 16 colunas: formato "16"', () => {
+    const r = importarTabelaMarkdownSkill(fixture('matriz-16-colunas.md'));
+    expect(r.erros).toHaveLength(0);
+    expect(r.fichas).toHaveLength(3);
+    expect(r.formato).toBe('16');
+    expect(r.fichas.every((f) => f.formatoColunas === 16)).toBe(true);
+  });
+
+  it('uma linha de cada versão: formato "misto"', () => {
+    const l16 = linhasDaFixture('matriz-16-colunas.md');
+    const l18 = linhasDaFixture('matriz-18-colunas.md');
+    const r = importarTabelaMarkdownSkill([l16[0], l16[1], l16[2], l18[3]].join('\n'));
+    expect(r.erros).toHaveLength(0);
+    expect(r.formato).toBe('misto');
+  });
+
+  it('linha de 17 colunas conta como formato de 18', () => {
+    const l18 = linhasDaFixture('matriz-18-colunas.md')[2];
+    // Tira a última célula (justificativa): sobram 17 colunas.
+    const l17 = l18.replace(/\|[^|]*\|$/, '|');
+    expect(l17.split('|').length - 2).toBe(17);
+    const r = importarTabelaMarkdownSkill(l17);
+    expect(r.fichas).toHaveLength(1);
+    expect(r.fichas[0].formatoColunas).toBe(18);
+  });
+
+  it('o N conta as linhas de texto antes da tabela (títulos, parágrafos, linhas em branco)', () => {
+    const texto = ['# Matriz', '', 'Segue a matriz gerada.', '', '| a | b | c |', '|---|---|---|'].join('\n');
+    const r = importarTabelaMarkdownSkill(texto);
+    expect(r.avisos).toEqual(['Linha 5 ignorada: tem 3 colunas; a matriz do Regime B tem 16 ou 18.']);
+  });
+
+  it('contarFormato resume as fichas', () => {
+    const f = (n: 16 | 18) => ({ formatoColunas: n }) as never;
+    expect(contarFormato([])).toBeNull();
+    expect(contarFormato([f(16), f(16)])).toBe('16');
+    expect(contarFormato([f(18)])).toBe('18');
+    expect(contarFormato([f(16), f(18)])).toBe('misto');
   });
 });

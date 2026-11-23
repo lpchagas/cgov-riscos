@@ -109,6 +109,14 @@ export function normalizarSubcategoriaImportada(
  * Estrutura de cada ficha preliminar extraída da tabela Markdown da Skill.
  */
 export interface LinhaImportadaSkill {
+  /** Número da linha no texto colado (1 = primeira linha, contando as que não são de tabela). */
+  linhaTexto: number;
+  /** Versão da matriz da linha: 16 (formato de hoje) ou 18 (com Teste de Integridade e Justificativa). */
+  formatoColunas: 16 | 18;
+  /** Teste de Integridade informado na col. 17 (nesta etapa, sempre false; a Tarefa 2 lê a coluna). */
+  testeIntegridadeAplicavel: boolean;
+  /** Justificativa da col. 18, quando o Teste se aplica fora da categoria Integridade. */
+  justificativaNaoIntegridade?: string;
   codigoRadar: string;
   nomeObjeto: string;
   descricaoPadrao: string;
@@ -240,6 +248,18 @@ function normalizarApetite(
 }
 
 /**
+ * Resume a versão da matriz de um lote de fichas.
+ * Ex.: duas fichas de 16 colunas -> '16'; uma de 16 e uma de 18 -> 'misto'; nenhuma -> null.
+ */
+export function contarFormato(fichas: LinhaImportadaSkill[]): '16' | '18' | 'misto' | null {
+  if (fichas.length === 0) return null;
+  const tem16 = fichas.some((f) => f.formatoColunas === 16);
+  const tem18 = fichas.some((f) => f.formatoColunas === 18);
+  if (tem16 && tem18) return 'misto';
+  return tem18 ? '18' : '16';
+}
+
+/**
  * Função principal: analisa uma tabela Markdown no padrão do §4 (Regime B) da skill
  * `cgov-gestao-riscos-v4` e retorna as fichas recalculadas + eventuais avisos ou erros.
  */
@@ -250,18 +270,23 @@ export function importarTabelaMarkdownSkill(
   fichas: LinhaImportadaSkill[];
   avisos: string[];
   erros: string[];
+  formato: '16' | '18' | 'misto' | null;
 } {
   const fichas: LinhaImportadaSkill[] = [];
   const avisos: string[] = [];
   const erros: string[] = [];
 
+  // Numera as linhas ANTES de filtrar as de tabela: o número que aparece nas
+  // mensagens é o da linha no texto colado (1 = primeira linha, mesmo que seja
+  // um título ou parágrafo). Assim o analista acha a linha no texto.
   const linhas = markdownBruto
     .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.startsWith('|') && l.endsWith('|'));
+    .map((texto, indice) => ({ texto: texto.trim(), numero: indice + 1 }))
+    .filter((l) => l.texto.startsWith('|') && l.texto.endsWith('|'));
 
   for (let i = 0; i < linhas.length; i++) {
-    const linha = linhas[i];
+    const linha = linhas[i].texto;
+    const linhaTexto = linhas[i].numero;
 
     // Ignora linha separadora de Markdown (ex.: |---|---|)
     if (/^\|[\s\-:|]+\|$/.test(linha)) {
@@ -273,12 +298,8 @@ export function importarTabelaMarkdownSkill(
       .slice(1, -1)
       .map((c) => c.trim());
 
-    if (colunas.length < 10) {
-      continue;
-    }
-
-    // Ignora a linha de cabeçalho da tabela
-    const primeiraColunaLower = colunas[0].toLowerCase();
+    // Ignora a linha de cabeçalho da tabela (vem antes da contagem de colunas)
+    const primeiraColunaLower = (colunas[0] ?? '').toLowerCase();
     if (
       primeiraColunaLower === 'id' ||
       primeiraColunaLower === 'código' ||
@@ -286,6 +307,25 @@ export function importarTabelaMarkdownSkill(
     ) {
       continue;
     }
+
+    // Versão da linha, pelo número de colunas:
+    //   18 ou mais -> formato novo (as colunas além da 18 são ignoradas);
+    //   17         -> formato novo, com a Justificativa (col. 18) vazia;
+    //   10 a 12 e 14 a 16 -> formato de 16 colunas (o de hoje);
+    //   13         -> tabela do Regime A: erro, o RADAR só importa o Regime B;
+    //   menos de 10 -> linha curta demais: ignorada, mas com aviso (nunca em silêncio).
+    const total = colunas.length;
+    if (total === 13) {
+      erros.push(
+        `Linha ${linhaTexto}: a tabela parece ser do Regime A (13 colunas, sem 'Objeto de GR'). O RADAR só importa a matriz do Regime B (16 ou 18 colunas).`
+      );
+      continue;
+    }
+    if (total < 10) {
+      avisos.push(`Linha ${linhaTexto} ignorada: tem ${total} colunas; a matriz do Regime B tem 16 ou 18.`);
+      continue;
+    }
+    const formatoColunas: 16 | 18 = total >= 17 ? 18 : 16;
 
     // Mapeamento das 16 colunas do §4 (Regime B) da skill `cgov-gestao-riscos-v4`:
     // 0: ID | 1: Objeto de GR | 2: Descrição na sintaxe | 3: Categoria |
@@ -411,6 +451,9 @@ export function importarTabelaMarkdownSkill(
     }
 
     fichas.push({
+      linhaTexto,
+      formatoColunas,
+      testeIntegridadeAplicavel: false,
       codigoRadar,
       nomeObjeto,
       descricaoPadrao,
@@ -440,5 +483,5 @@ export function importarTabelaMarkdownSkill(
     });
   }
 
-  return { fichas, avisos, erros };
+  return { fichas, avisos, erros, formato: contarFormato(fichas) };
 }
