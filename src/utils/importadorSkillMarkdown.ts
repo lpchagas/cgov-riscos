@@ -366,7 +366,9 @@ export function importarTabelaMarkdownSkill(
     const eficaciaTexto = colunas[9] || 'Inexistente (1,0)';
     const apetiteTexto = colunas[12] || apetitePadrao;
     const estrategiaTexto = colunas[14] || 'Mitigar';
-    const kriSugerido = colunas[15] || 'Indicador a definir com a 1ª Linha';
+    // LAC-03: o importador NUNCA inventa KRI. Coluna vazia = sem KRI sugerido ('').
+    // (O texto antigo "Indicador a definir com a 1ª Linha" foi removido: virava um KRI falso.)
+    const kriSugerido = colunas[15] ?? '';
 
     const eficaciaLida = interpretarEficaciaControle(eficaciaTexto);
     const possuiEvidencia = inferirEvidenciaNoTexto(controlesTexto, eficaciaLida);
@@ -392,6 +394,13 @@ export function importarTabelaMarkdownSkill(
         `Linha ${codigoRadar}: risco crítico (residual ${residual}, ${calculo.classificacaoResidual}, ${situacao}) não pode ter a estratégia "Aceitar"; escolha Mitigar, Compartilhar ou Evitar na tabela da skill.`
       );
       continue;
+    }
+
+    // LAC-03: o KRI importado traz, no máximo, o NOME do indicador; falta fórmula, fonte,
+    // periodicidade, limite e responsável. Em risco crítico isso trava o envio, então avisamos
+    // já na importação (não bloqueia: a linha entra como preliminar e a unidade completa o KRI).
+    if (exigeTratamento(calculo.statusCritico)) {
+      avisos.push(`Linha ${codigoRadar}: risco crítico sem KRI completo; complete o KRI na ficha antes do envio.`);
     }
 
     const bowTie = extrairBowTieDaSintaxe(descricaoPadrao);

@@ -255,21 +255,32 @@ export function itensDeAtencao(
   }
 
   // (b) Indicadores (KRI) cuja ÚLTIMA leitura está em alerta
+  // LAC-03: o KRI compartilhado aparece em CADA risco ligado (mesmo id). Aqui ele
+  // entra UMA vez só, com os códigos de todos os riscos. Ex.: o KRI k1 dos riscos
+  // 001 e 004 em alerta → um item "RADAR-2026-001, RADAR-2026-004 · 70% em ...".
   if (papel !== 'diretor') {
+    const porKri = new Map<string, { kri: FichaRisco['kris'][number]; codigos: string[] }>();
     for (const r of riscos) {
       for (const kri of r.kris) {
-        const ultima = [...kri.medicoes].sort((a, b) => b.dataMedicao.localeCompare(a.dataMedicao))[0];
-        if (!ultima?.emAlerta) continue;
-        itens.push({
-          id: `kri-${kri.id}`,
-          tipo: 'kri',
-          tom: 'perigo',
-          titulo: `Indicador em alerta: ${kri.nomeIndicador}`,
-          detalhe: `${r.codigoRadar} · ${ultima.valorApurado} em ${dataCurta(ultima.dataMedicao)} (alerta: ${kri.limiteAlerta.toLowerCase()})`,
-          acao: papel === 'gestor' ? 'Registrar nova leitura' : 'Ver indicador',
-          destino: { name: 'monitoramento-kris' },
-        });
+        const grupo = porKri.get(kri.id);
+        if (grupo) grupo.codigos.push(r.codigoRadar);
+        else porKri.set(kri.id, { kri, codigos: [r.codigoRadar] });
       }
+    }
+    for (const { kri, codigos } of porKri.values()) {
+      const ultima = [...kri.medicoes].sort((a, b) => b.dataMedicao.localeCompare(a.dataMedicao))[0];
+      if (!ultima?.emAlerta) continue;
+      // Limite em branco: o mesmo texto do Monitoramento, nunca "(alerta: )".
+      const limite = kri.limiteAlerta ? kri.limiteAlerta.toLowerCase() : 'limite não definido';
+      itens.push({
+        id: `kri-${kri.id}`,
+        tipo: 'kri',
+        tom: 'perigo',
+        titulo: `Indicador em alerta: ${kri.nomeIndicador}`,
+        detalhe: `${codigos.join(', ')} · ${ultima.valorApurado} em ${dataCurta(ultima.dataMedicao)} (alerta: ${limite})`,
+        acao: papel === 'gestor' ? 'Registrar nova leitura' : 'Ver indicador',
+        destino: { name: 'monitoramento-kris' },
+      });
     }
   }
 

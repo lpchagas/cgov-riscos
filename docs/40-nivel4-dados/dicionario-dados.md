@@ -6,10 +6,10 @@ guarda **dado pessoal** (Lei nº 13.709/2018, LGPD). Ele completa o [[der-logico
 entre as tabelas, e a [[normalizacao]], que analisa as repetições.
 
 **De onde vem:** do banco local com as 12 primeiras migrações aplicadas (até `20261117001`), lido em 2026-11-21 no
-`information_schema` (colunas, tipos e nulos) e no `pg_constraint` (os valores dos `CHECK`), e da 13ª migração
-(`20261122001`), acrescentada em 2026-11-22 a partir do próprio arquivo (a tabela `subcategorias_risco` e a
-saída de `categorias_risco.subcategorias_permitidas`). São **13 tabelas e 142 colunas** (138, mais as 5 da
-tabela nova, menos a coluna JSONB que saiu); o 142 foi conferido contando as linhas de colunas deste dicionário, não por nova leitura do banco. Os significados foram escritos a partir dos comentários das migrações e das regras
+`information_schema` (colunas, tipos e nulos) e no `pg_constraint` (os valores dos `CHECK`), e da 13ª e da 14ª migrações
+(`20261122001` e `20261122004`), acrescentadas em 2026-11-22 a partir dos próprios arquivos (a tabela `subcategorias_risco`, a
+saída de `categorias_risco.subcategorias_permitidas`, a tabela `kri_riscos` e a troca de `indicadores_kri.risco_id` por `objeto_id`, LAC-03). São **14 tabelas e 145 colunas** (138, mais as 5 da
+tabela `subcategorias_risco`, menos a coluna JSONB que saiu, mais as 3 de `kri_riscos`; a troca de `risco_id` por `objeto_id` não muda a conta); o 145 foi conferido contando as linhas de colunas deste dicionário, não por nova leitura do banco. Os significados foram escritos a partir dos comentários das migrações e das regras
 de [[regras-negocio]].
 
 ## Como ler
@@ -197,15 +197,23 @@ Criada pela migração `20261122001` ([[0019-categorias-e-subcategorias-literais
 | Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `indicadores_kri` | `id` | `uuid` | não | chave primária | Identificador do KRI. | — | não |
-| `indicadores_kri` | `risco_id` | `uuid` | não | chave estrangeira para `riscos` | Risco monitorado; apagado o risco, apaga o KRI. | RN-082 | não |
+| `indicadores_kri` | `objeto_id` | `uuid` | não | chave estrangeira para `objetos_contexto` | Objeto de gestão de riscos a que o KRI pertence (LAC-03); apagado o objeto, apaga o KRI. A ligação com os riscos fica em `kri_riscos`. | RN-082 | não |
 | `indicadores_kri` | `nome_indicador` | `text` | não | — | Nome do KRI. | RN-083 | não |
-| `indicadores_kri` | `formula_calculo` | `text` | não | — | Métrica: como o valor é calculado. | RN-083 | não |
-| `indicadores_kri` | `fonte_dados` | `text` | não | — | De onde vêm os dados. | RN-083 | não |
-| `indicadores_kri` | `periodicidade` | `text` | não | `Mensal`, `Trimestral`, `Semestral`, `Anual` | Frequência da medição. | RN-083 | não |
-| `indicadores_kri` | `meta_alvo` | `text` | não | texto livre | Valor desejado. | — | não |
-| `indicadores_kri` | `limite_alerta` | `text` | não | texto livre | Valor que, ultrapassado, dispara a reavaliação do risco. | RN-083, RN-084 | não |
-| `indicadores_kri` | `responsavel_medicao` | `text` | não | — | Nome de quem mede, em texto livre. | RN-083 | sim |
+| `indicadores_kri` | `formula_calculo` | `text` | sim | — | Métrica: como o valor é calculado. Vazio até alguém definir; nunca "A definir" (LAC-03). | RN-083 | não |
+| `indicadores_kri` | `fonte_dados` | `text` | sim | — | De onde vêm os dados. | RN-083 | não |
+| `indicadores_kri` | `periodicidade` | `text` | sim | `Mensal`, `Trimestral`, `Semestral`, `Anual` | Frequência da medição; aceita vazio (RF-183: o importador não inventa a periodicidade). | RN-083 | não |
+| `indicadores_kri` | `meta_alvo` | `text` | sim | texto livre | Valor desejado; continua opcional mesmo no KRI completo (LAC-03). | — | não |
+| `indicadores_kri` | `limite_alerta` | `text` | sim | texto livre | Valor que, ultrapassado, dispara a reavaliação do risco. | RN-083, RN-084 | não |
+| `indicadores_kri` | `responsavel_medicao` | `text` | sim | — | Nome de quem mede, em texto livre; pode ficar vazio. | RN-083 | sim |
 | `indicadores_kri` | `criado_em` | `timestamptz` | não | — | Data e hora da criação. | — | não |
+
+### `kri_riscos`
+
+| Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `kri_riscos` | `kri_id` | `uuid` | não | chave primária (com `risco_id`); chave estrangeira para `indicadores_kri` | KRI ligado; apagado o KRI, apaga a ligação. | RN-082 | não |
+| `kri_riscos` | `risco_id` | `uuid` | não | chave primária (com `kri_id`); chave estrangeira para `riscos` | Risco a que o KRI serve; o KRI e o risco precisam ser do mesmo objeto (gatilho). Apagada a última ligação, o KRI e as medições dele são apagados. | RN-082 | não |
+| `kri_riscos` | `criado_em` | `timestamptz` | não | — | Data e hora da ligação. | — | não |
 
 ### `medicoes_kri`
 

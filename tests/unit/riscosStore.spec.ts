@@ -55,7 +55,7 @@ describe('riscosStore assíncrona', () => {
     await carga;
 
     expect(store.estado).toBe('pronto');
-    expect(store.riscos).toHaveLength(3);
+    expect(store.riscos).toHaveLength(4);
     expect(store.categorias.length).toBeGreaterThan(0);
     expect(store.objetosContexto.length).toBeGreaterThan(0);
     expect(store.acoes[ID_001()].podeValidar).toBe(true);
@@ -79,7 +79,7 @@ describe('riscosStore assíncrona', () => {
     await store.tentarDeNovo();
     expect(store.estado).toBe('pronto');
     expect(store.erro).toBeNull();
-    expect(store.riscos).toHaveLength(3);
+    expect(store.riscos).toHaveLength(4);
   });
 
   it('descarta carga velha ao sair: carga lenta + limpar() antes de terminar → nada entra', async () => {
@@ -112,7 +112,7 @@ describe('riscosStore assíncrona', () => {
     lenta.resolver(await base.carregarCarteira());
     await velha;
 
-    expect(store.riscos).toHaveLength(0); // a velha (3 riscos) foi descartada
+    expect(store.riscos).toHaveLength(0); // a velha (4 riscos) foi descartada
     expect(store.estado).toBe('pronto');
   });
 
@@ -276,7 +276,7 @@ describe('riscosStore assíncrona', () => {
     expect(erro.tipo).toBe('nao_encontrado');
     expect(erro.message).toBe('Risco não encontrado.');
     expect(salvarFicha).not.toHaveBeenCalled();
-    expect(store.riscos).toHaveLength(3);
+    expect(store.riscos).toHaveLength(4);
   });
 
   it('relerRiscos que falha rejeita com ErroRadar (erro cru da fonte é traduzido)', async () => {
@@ -330,5 +330,75 @@ describe('ligarCarteiraASessao (carga e limpeza pela sessão)', () => {
     expect(carteira.limpar).toHaveBeenCalledTimes(1);
     expect(carteira.carregar).toHaveBeenCalledTimes(3);
     parar();
+  });
+
+  describe('KRI compartilhado (LAC-03)', () => {
+    it('krisDoObjeto lista cada KRI do objeto uma vez só (o compartilhado não se repete)', async () => {
+      fonteFalsa();
+      const store = useRiscosStore();
+      await store.carregar();
+      const ids = store.krisDoObjeto('obj-anexo-ii').map((k) => k.id);
+      expect(ids).toContain('kri-anexo-ii-2'); // ligado aos riscos 001 e 004
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(store.krisDoObjeto('objeto-que-nao-existe')).toEqual([]);
+    });
+
+    it('editar sem mexer nos KRIs: todos vão como apenasLigar (nenhum UPDATE à toa)', async () => {
+      const f = fonteFalsa({ salvarFicha: vi.fn((x) => criarFonteDemonstracao('normal').salvarFicha(x)) });
+      const store = useRiscosStore();
+      await store.carregar();
+      const id = store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-004')!.id;
+      await store.salvarOuAtualizarRisco({ id, causas: 'causa nova' });
+      const kris = vi.mocked(f.salvarFicha).mock.calls[0][0].kris!;
+      expect(kris.length).toBeGreaterThan(0);
+      expect(kris.every((k) => k.id && k.apenasLigar === true)).toBe(true);
+    });
+
+    it('o formulário muda a definição do 1º KRI: só ele vai como edição; os demais, apenasLigar', async () => {
+      // Só registra o pacote (o risco 001 está em validação e a fonte o recusaria).
+      const f = fonteFalsa({ salvarFicha: vi.fn(async () => ({ id: 'x', codigoRadar: 'x' })) });
+      const store = useRiscosStore();
+      await store.carregar();
+      const r = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-001')!;
+      expect(r.kris.length).toBeGreaterThan(1);
+      const kris = r.kris.map((k, i) => (i === 0 ? { ...k, limiteAlerta: 'Abaixo de 42%' } : k));
+      await store.salvarOuAtualizarRisco({ id: r.id, kris });
+      const enviados = vi.mocked(f.salvarFicha).mock.calls[0][0].kris!;
+      expect(enviados[0].apenasLigar).toBeUndefined();
+      expect(enviados[0].limiteAlerta).toBe('Abaixo de 42%');
+      expect(enviados.slice(1).every((k) => k.apenasLigar === true)).toBe(true);
+    });
+
+    // Revisão final: uma gravação pode mudar OUTROS riscos do mesmo KRI (alterar a
+    // definição reabre os aprovados ligados; ligar/desligar muda o `riscoIds` de todos).
+    it('salvar a ficha relê também os riscos que dividem KRI com ela', async () => {
+      const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.coordenador_geral });
+      const relerRisco = vi.fn((id: string) => base.relerRisco(id));
+      const store = useRiscosStore();
+      fonteFalsa({ relerRisco, salvarFicha: vi.fn(async () => ({ id: ID_001(), codigoRadar: 'RADAR-2026-001' })) });
+      await store.carregar();
+      const r1 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-001')!;
+      const r4 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-004')!;
+      expect(r1.kris.some((k) => k.riscoIds.includes(r4.id))).toBe(true); // dividem o KRI
+      // Desliga TODOS os KRIs do 001: o 004 perde um risco no `riscoIds` do KRI.
+      await store.salvarOuAtualizarRisco({ id: r1.id, kris: [] });
+      const relidos = relerRisco.mock.calls.map((c) => c[0]);
+      expect(relidos).toContain(r1.id);
+      expect(relidos).toContain(r4.id);
+    });
+
+    it('excluir um risco relê os riscos que dividiam KRI com ele', async () => {
+      const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.coordenador_geral });
+      const relerRisco = vi.fn((id: string) => base.relerRisco(id));
+      const store = useRiscosStore();
+      fonteFalsa({ relerRisco, excluirRisco: vi.fn(async () => {}) });
+      await store.carregar();
+      const r1 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-001')!;
+      const r4 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-004')!;
+      await store.excluirRisco(r4.id);
+      const relidos = relerRisco.mock.calls.map((c) => c[0]);
+      expect(relidos).toContain(r4.id);
+      expect(relidos).toContain(r1.id);
+    });
   });
 });

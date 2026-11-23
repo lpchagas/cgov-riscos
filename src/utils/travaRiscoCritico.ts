@@ -15,23 +15,84 @@
  *
  * A ficha passa na trava quando:
  *   - o risco NÃO é crítico; ou
- *   - a estratégia principal NÃO é "Aceitar" E existe pelo menos uma ação de
- *     tratamento (5W2H) cuja estratégia também NÃO é "Aceitar".
+ *   - TODAS as três condições valem:
+ *       1. a estratégia principal NÃO é "Aceitar";
+ *       2. existe pelo menos uma ação de tratamento (5W2H) cuja estratégia
+ *          também NÃO é "Aceitar";
+ *       3. existe pelo menos um KRI completo ligado ao risco (LAC-03).
  *
  * Exemplos:
  *   status 'nao',  principal 'Aceitar', sem ações        -> ok
  *   status 'sim',  principal 'Aceitar', ['Mitigar']      -> recusa 'aceitar_em_critico'
  *   status 'sim',  principal 'Mitigar', []               -> recusa 'sem_acao_em_critico'
- *   status 'sim',  principal 'Compartilhar', ['Evitar']  -> ok
+ *   status 'sim',  principal 'Compartilhar', ['Evitar'], com KRI completo -> ok
+ *   status 'sim',  principal 'Mitigar', ['Mitigar'], sem KRI completo -> recusa 'sem_kri_em_critico'
  *
  * Este módulo é função pura (sem tela, sem banco). O mesmo texto fixo vale no
  * front e no banco (migração da LAC-13).
  */
 
-import type { EstrategiaTratamento, StatusCriticidadeDAR } from '../types/radar.types';
+import type { EstrategiaTratamento, IndicadorKri, StatusCriticidadeDAR } from '../types/radar.types';
+
+/**
+ * LAC-03 — 3º motivo da trava: risco crítico também precisa de um KRI completo
+ * (Metodologia 4.7.1). "Completo" = nome, fórmula, fonte dos dados,
+ * periodicidade, limite de alerta e responsável preenchidos; a meta é opcional.
+ */
+
+/** Textos que NÃO contam como preenchido (comparados em minúsculas, após trim). */
+export const MARCADORES_KRI_VAZIO: readonly string[] = ['a definir', 'a definir pela unidade'];
+
+/**
+ * Verdadeiro só quando há texto de verdade. Ex.: 'Mensal' -> true;
+ * null, '', '   ', 'A definir', ' a definir ' -> false.
+ */
+export function textoPreenchido(t: string | null | undefined): boolean {
+  if (t == null) return false;
+  const limpo = t.trim().toLowerCase();
+  return limpo !== '' && !MARCADORES_KRI_VAZIO.includes(limpo);
+}
+
+/** Os 6 campos que a trava confere em cada KRI (a meta fica de fora). */
+export type KriParaTrava = Pick<
+  IndicadorKri,
+  'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'limiteAlerta' | 'responsavelMedicao'
+>;
+
+/** Verdadeiro quando os 6 campos obrigatórios do KRI estão preenchidos. */
+export function kriCompleto(k: KriParaTrava): boolean {
+  return [k.nomeIndicador, k.formulaCalculo, k.fonteDados, k.periodicidade, k.limiteAlerta, k.responsavelMedicao].every(
+    textoPreenchido,
+  );
+}
+
+/**
+ * Duas versões de um KRI têm a MESMA definição? Compara os 7 campos de
+ * definição; vazio, null, só espaços e os marcadores antigos ("A definir")
+ * contam todos como "sem valor".
+ * Ex.: { fonteDados: ' a definir ' } e { fonteDados: undefined } → iguais.
+ */
+export function mesmaDefinicaoKri(a: KriDefinicao, b: KriDefinicao): boolean {
+  const norm = (t: string | null | undefined) => (textoPreenchido(t) ? (t as string).trim() : '');
+  return (
+    norm(a.nomeIndicador) === norm(b.nomeIndicador) &&
+    norm(a.formulaCalculo) === norm(b.formulaCalculo) &&
+    norm(a.fonteDados) === norm(b.fonteDados) &&
+    (a.periodicidade ?? '') === (b.periodicidade ?? '') &&
+    norm(a.metaAlvo) === norm(b.metaAlvo) &&
+    norm(a.limiteAlerta) === norm(b.limiteAlerta) &&
+    norm(a.responsavelMedicao) === norm(b.responsavelMedicao)
+  );
+}
+
+/** Os campos que formam a "definição" de um KRI (sem id, ligação nem medições). */
+export type KriDefinicao = Pick<
+  IndicadorKri,
+  'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'metaAlvo' | 'limiteAlerta' | 'responsavelMedicao'
+>;
 
 /** Por que a ficha foi recusada. */
-export type MotivoTrava = 'aceitar_em_critico' | 'sem_acao_em_critico';
+export type MotivoTrava = 'aceitar_em_critico' | 'sem_acao_em_critico' | 'sem_kri_em_critico';
 
 /** Resultado da verificação: passou, ou foi recusada com um motivo. */
 export type ResultadoTrava = { ok: true } | { ok: false; motivo: MotivoTrava };
@@ -39,6 +100,10 @@ export type ResultadoTrava = { ok: true } | { ok: false; motivo: MotivoTrava };
 /** Frase mostrada ao usuário quando o banco (ou a demonstração) recusa a ficha. */
 export const MENSAGEM_TRAVA_CRITICO =
   'Risco crítico (fora do apetite da DAR ou com DAR pendente) precisa de tratamento: escolha Mitigar, Compartilhar ou Evitar e inclua pelo menos uma ação 5W2H na etapa 4. Se a ficha estiver em validação ou homologação, devolva-a à unidade.';
+
+/** Frase ao usuário quando falta KRI completo em risco crítico (LAC-03). */
+export const MENSAGEM_TRAVA_KRI =
+  'Risco crítico (fora do apetite da DAR ou com DAR pendente) precisa de um KRI completo: preencha nome, fórmula, fonte dos dados, periodicidade, limite de alerta e responsável na etapa 4, ou use um KRI já definido neste objeto. Se a ficha estiver em validação ou homologação, devolva-a à unidade.';
 
 /** Verdadeiro quando o risco é crítico para esta trava: 'sim' ou 'pendente_dar'. */
 export function exigeTratamento(statusCritico: StatusCriticidadeDAR): boolean {
@@ -53,11 +118,16 @@ export function verificarTravaRiscoCritico(e: {
   statusCritico: StatusCriticidadeDAR;
   estrategiaPrincipal: EstrategiaTratamento;
   estrategiasDasAcoes: EstrategiaTratamento[];
+  /** KRIs ligados ao risco (obrigatório: sem ele o 3º motivo não teria como ser conferido). */
+  kris: KriParaTrava[];
 }): ResultadoTrava {
   if (!exigeTratamento(e.statusCritico)) return { ok: true };
   if (e.estrategiaPrincipal === 'Aceitar') return { ok: false, motivo: 'aceitar_em_critico' };
   if (!e.estrategiasDasAcoes.some((estrategia) => estrategia !== 'Aceitar')) {
     return { ok: false, motivo: 'sem_acao_em_critico' };
+  }
+  if (!e.kris.some(kriCompleto)) {
+    return { ok: false, motivo: 'sem_kri_em_critico' };
   }
   return { ok: true };
 }
@@ -71,5 +141,5 @@ export function ajudaTravaCritico(statusCritico: StatusCriticidadeDAR): string |
       : 'A categoria deste risco ainda não tem apetite declarado na DAR, e o RADAR o trata como crítico.';
   const resto =
     ' Pela Metodologia (4.5 e Anexo III), ele precisa de tratamento: escolha Mitigar, Compartilhar ou Evitar e descreva a ação.';
-  return primeiraFrase + resto;
+  return primeiraFrase + resto + ' Ele também precisa de um KRI completo (Metodologia 4.7.1).';
 }

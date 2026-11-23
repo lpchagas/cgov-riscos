@@ -56,21 +56,25 @@ select
   (select id from public.unidades where icmbio_id = '10.0000') as presidencia
 \gset
 
--- LAC-13 (migração 20261122002): os riscos da semente não têm ações 5W2H, e o
--- risco crítico sem ação não anda mais no fluxo. Este teste prova OUTRAS
--- regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava é
--- provada em 100_lac13_trava_critico.test.sql.
+-- LAC-13 e LAC-03 (migrações 20261122002 e 20261122004): o risco crítico só
+-- anda no fluxo com ação 5W2H e KRI completo. Na semente, só os riscos
+-- críticos têm ação e KRI (seção 5b); os outros não têm. Este teste prova
+-- OUTRAS regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava
+-- é provada em 100_lac13_trava_critico.test.sql e 110_lac03_kri_obrigatorio.test.sql.
 select pg_temp.dar_tratamento_a_todos();
 
 -- KRI e resposta de tratamento no risco APROVADO da CGPRO. Como o risco já
 -- está aprovado, criar um KRI nele REABRIRIA o fluxo. Por isso o administrador
 -- liga o sinal das funções do fluxo só durante a preparação.
 select set_config('radar.fluxo', 'on', true);
+-- LAC-03: o KRI é do objeto do risco e se liga a ele por kri_riscos.
 insert into public.indicadores_kri
-  (id, risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo,
+  (id, objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo,
    limite_alerta, responsavel_medicao)
-values ('00000000-0000-4000-d000-000000000050', :'r_cgpro', 'KRI de teste 050', 'a / b', 'Planilha',
-        'Mensal', '0', '1', 'Coordenador-Geral');
+select '00000000-0000-4000-d000-000000000050', r.objeto_id, 'KRI de teste 050', 'a / b', 'Planilha',
+       'Mensal', '0', '1', 'Coordenador-Geral'
+  from public.riscos r where r.id = :'r_cgpro';
+insert into public.kri_riscos (kri_id, risco_id) values ('00000000-0000-4000-d000-000000000050', :'r_cgpro');
 insert into public.respostas_tratamento
   (id, risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
 values ('00000000-0000-4000-e000-000000000050', :'r_cgpro', 'Mitigar', 'Ação de teste 050',
@@ -393,6 +397,14 @@ select is((select status_fluxo from public.enviar_para_validacao(:'r_obj')), 'em
 select pg_temp.entrar_como('gr1@radar.test');
 select is((select status_fluxo from public.validar_risco(:'r_obj', 'ok')), 'aprovado',
           'gr1 valida → aprovado');
+-- LAC-03: o KRI é do objeto; risco ligado a KRI não muda de objeto (é preciso
+-- desligar antes). O KRI do tratamento mínimo (ajudantes.psql) é desligado
+-- aqui pelo administrador, sem passar pelo fluxo, para o teste continuar
+-- provando só a reabertura pela troca de objeto.
+select pg_temp.sair();
+select set_config('radar.fluxo', 'on', true);
+delete from public.kri_riscos where risco_id = :'r_obj';
+select set_config('radar.fluxo', '', true);
 select pg_temp.entrar_como('gestor.uc-sem-ct@radar.test');
 select is(pg_temp.linhas_afetadas(format($$update public.riscos set objeto_id = '00000000-0000-4000-b000-000000000003' where id = %L$$, :'r_obj')),
           1, 'gestor.uc-sem-ct move o risco aprovado para o objeto da BAV Belterra');

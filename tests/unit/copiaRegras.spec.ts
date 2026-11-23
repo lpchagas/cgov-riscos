@@ -104,6 +104,17 @@ describe('mascararConexao', () => {
     expect(mascararConexao('x postgres://u:segredo@h/db')).not.toContain('segredo');
     expect(mascararConexao('host=h password=segredo user=u')).not.toContain('segredo');
   });
+  it('esconde senha com "/", "?" ou "#" dentro', () => {
+    // Antes, o padrão parava no primeiro "/", "?" ou "#" e a senha vazava.
+    for (const senha of ['abc/def', 'abc?def', 'abc#def', 'a/b?c#d@e']) {
+      const t = mascararConexao(`falhou: postgresql://postgres:${senha}@host:5432/db`);
+      expect(t).toBe('falhou: postgresql://***:***@host:5432/db');
+    }
+  });
+  it('mascara cada conexão do texto separadamente', () => {
+    const t = mascararConexao('a postgres://u:s1@h1/db e b postgresql://v:s2@h2/db');
+    expect(t).toBe('a postgresql://***:***@h1/db e b postgresql://***:***@h2/db');
+  });
   it('não mexe em texto sem conexão', () => {
     expect(mascararConexao('pg_dump: erro qualquer')).toBe('pg_dump: erro qualquer');
   });

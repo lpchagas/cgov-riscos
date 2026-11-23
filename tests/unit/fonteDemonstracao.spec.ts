@@ -12,7 +12,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { criarFonteDemonstracao } from '../../src/services/dados/fonteDemonstracao';
 import { criarFonteDados, CHAVE_ESTADO_DEMO } from '../../src/services/dados';
 import { ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
-import { MENSAGEM_TRAVA_CRITICO } from '../../src/utils/travaRiscoCritico';
+import { MENSAGEM_TRAVA_CRITICO, MENSAGEM_TRAVA_KRI } from '../../src/utils/travaRiscoCritico';
 import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
 import { RISCOS_SEMENTE_ANEXO_II, CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import type { PapelGovernanca } from '../../src/types/radar.types';
@@ -22,6 +22,16 @@ const fonteComo = (papel: PapelGovernanca) =>
   criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO[papel] });
 
 const ANO = new Date().getFullYear();
+
+/** KRI completo (os 6 campos da trava), sem `id`: a fonte cria o id. */
+const KRI_OK = {
+  nomeIndicador: 'Taxa de falhas',
+  formulaCalculo: 'falhas / total',
+  fonteDados: 'SEI',
+  periodicidade: 'Mensal' as const,
+  limiteAlerta: '> 5%',
+  responsavelMedicao: 'Chefe da unidade',
+};
 
 /** Espera a promessa rejeitar e devolve o erro (para conferir `tipo`). */
 async function erroDe(p: Promise<unknown>): Promise<ErroRadar> {
@@ -93,7 +103,7 @@ describe('salvarFicha', () => {
       possuiEvidenciaControle: false,
     });
     // A semente usa até RADAR-2026-003: o próximo número é 004.
-    expect(codigoRadar).toBe(`RADAR-${ANO}-004`);
+    expect(codigoRadar).toBe(`RADAR-${ANO}-005`); // a semente já tem 001 a 004
     const r = await fonte.relerRisco(id);
     expect(r?.statusFluxo).toBe('rascunho');
     // Quadro 7: P=1, I=5 → 15 (nunca P×I). Sem evidência, Forte trava em Fraco (0,9).
@@ -199,6 +209,7 @@ describe('fluxo simulado', () => {
       probabilidade: 3,
       impacto: 2,
       estrategiaPrincipal: 'Mitigar',
+      kris: [KRI_OK], // LAC-03: 'pendente_dar' também exige KRI completo
       respostas: [
         {
           estrategia: 'Mitigar',
@@ -410,6 +421,7 @@ describe('trava do risco crítico (LAC-13)', () => {
     nivelEficaciaControle: 'Inexistente' as const,
     estrategiaPrincipal,
     respostas,
+    kris: [KRI_OK], // LAC-03: crítico precisa de KRI completo
   });
 
   it('enviar rascunho crítico com Aceitar é recusado e a ficha não muda', async () => {
@@ -535,6 +547,7 @@ describe('trava do risco crítico (LAC-13)', () => {
         nivelEficaciaControle: 'Inexistente',
         estrategiaPrincipal: estrategia,
         respostas,
+        kris: [KRI_OK], // LAC-03: se a DAR o tornar crítico, o KRI já está lá
       });
       await fonte.enviar(id);
       await fonte.validar(id);
@@ -553,7 +566,10 @@ describe('trava do risco crítico (LAC-13)', () => {
       const h = ra!.historicoFluxo.at(-1)!;
       expect(h.etapa).toBe('reabertura_nota');
       expect(h.acao).toBe('devolvido_mudanca_dar');
-      expect(h.despachoTexto).toContain('passou a Risco Crítico');
+      // Texto fixo igual ao do banco (LAC-03): situação + motivo da trava.
+      expect(h.despachoTexto).toBe(
+        `DAR alterada: categoria Operacional com apetite moderado → baixo. O risco aprovado (residual ${ra!.nivelResidual}, ${ra!.classificacaoResidual}, fora do apetite da DAR) não passa na trava do risco crítico: a estratégia "Aceitar" não é permitida. Voltou para a unidade ajustar.`
+      );
       // B: comportamento de hoje da demonstração (só recalcula a criticidade).
       expect((await fonte.relerRisco(b))?.statusFluxo).toBe('aprovado');
       expect((await fonte.relerRisco(b))?.statusCritico).toBe('sim');
@@ -571,5 +587,289 @@ describe('trava do risco crítico (LAC-13)', () => {
       expect((await fonte.relerRisco(a))?.statusFluxo).toBe('devolvido');
       expect((await fonte.relerRisco(b))?.statusFluxo).toBe('aprovado');
     });
+  });
+});
+
+describe('KRI obrigatório e grupo (LAC-03)', () => {
+  const acao = {
+    estrategia: 'Mitigar' as const,
+    acaoOQue: 'Ação de teste',
+    responsavelQuem: 'Unidade',
+    prazoQuando: '2026-12-31',
+    procedimentoComo: 'Como de teste',
+    statusExecucao: 'nao_iniciada' as const,
+  };
+  /** Ficha crítica (P=5, I=5 na categoria 2) com Mitigar + ação; `kris` à escolha. */
+  const critica = (kris: NonNullable<Parameters<ReturnType<typeof fonteComo>['salvarFicha']>[0]['kris']>) => ({
+    objetoId: 'obj-anexo-ii',
+    categoriaId: 2,
+    probabilidade: 5 as const,
+    impacto: 5 as const,
+    nivelEficaciaControle: 'Inexistente' as const,
+    estrategiaPrincipal: 'Mitigar' as const,
+    respostas: [acao],
+    kris,
+  });
+  /** Ficha NÃO crítica (P=3, I=2 → 8, Médio; apetite moderado), com os KRIs dados. */
+  const media = (kris: NonNullable<Parameters<ReturnType<typeof fonteComo>['salvarFicha']>[0]['kris']>) => ({
+    objetoId: 'obj-anexo-ii',
+    categoriaId: 2,
+    probabilidade: 3 as const,
+    impacto: 2 as const,
+    nivelEficaciaControle: 'Inexistente' as const,
+    estrategiaPrincipal: 'Mitigar' as const,
+    respostas: [acao],
+    kris,
+  });
+  const kriDe = async (f: ReturnType<typeof fonteComo>, riscoId: string) => (await f.relerRisco(riscoId))!.kris;
+
+  /** Dois riscos (A e B) do mesmo objeto que dividem um KRI; devolve os ids. */
+  async function grupo(f: ReturnType<typeof fonteComo>) {
+    const a = await f.salvarFicha(media([KRI_OK]));
+    const kriId = (await kriDe(f, a.id))[0].id;
+    const b = await f.salvarFicha(media([{ ...KRI_OK, id: kriId, apenasLigar: true }]));
+    return { a: a.id, b: b.id, kriId };
+  }
+
+  it('enviar crítico sem KRI é recusado com a frase do KRI e a ficha não muda', async () => {
+    const fonte = fonteComo('gestor');
+    const { id } = await fonte.salvarFicha(critica([]));
+    expect((await erroDe(fonte.enviar(id))).message).toBe(MENSAGEM_TRAVA_KRI);
+    expect((await fonte.relerRisco(id))?.statusFluxo).toBe('rascunho');
+  });
+
+  it('KRI incompleto (fonte "A definir") também é recusado', async () => {
+    const fonte = fonteComo('gestor');
+    const { id } = await fonte.salvarFicha(critica([{ ...KRI_OK, fonteDados: 'A definir' }]));
+    expect((await erroDe(fonte.enviar(id))).message).toBe(MENSAGEM_TRAVA_KRI);
+  });
+
+  it('enviar crítico com KRI completo vai para em_validacao_cg', async () => {
+    const fonte = fonteComo('gestor');
+    const { id } = await fonte.salvarFicha(critica([KRI_OK]));
+    await fonte.enviar(id);
+    expect((await fonte.relerRisco(id))?.statusFluxo).toBe('em_validacao_cg');
+  });
+
+  it('dois riscos do mesmo objeto mostram o mesmo KRI; a medição aparece nos dois', async () => {
+    const fonte = fonteComo('gestor');
+    const { a, b, kriId } = await grupo(fonte);
+    const ka = (await kriDe(fonte, a))[0];
+    const kb = (await kriDe(fonte, b))[0];
+    expect(ka.id).toBe(kriId);
+    expect(kb.id).toBe(kriId);
+    expect([...ka.riscoIds].sort()).toEqual([a, b].sort());
+    await fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-01', valorApurado: '3%', emAlerta: false });
+    expect((await kriDe(fonte, a))[0].medicoes).toHaveLength(1);
+    expect((await kriDe(fonte, b))[0].medicoes).toHaveLength(1);
+  });
+
+  it('desligar do 2º risco mantém o KRI no 1º; desligar do último apaga o KRI e as medições', async () => {
+    const fonte = fonteComo('gestor');
+    const { a, b, kriId } = await grupo(fonte);
+    await fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-01', valorApurado: '3%', emAlerta: false });
+    await fonte.salvarFicha({ id: b, objetoId: 'obj-anexo-ii', kris: [] });
+    expect(await kriDe(fonte, b)).toEqual([]);
+    const restante = (await kriDe(fonte, a))[0];
+    expect(restante.riscoIds).toEqual([a]);
+    expect(restante.medicoes).toHaveLength(1);
+    await fonte.salvarFicha({ id: a, objetoId: 'obj-anexo-ii', kris: [] });
+    expect(await kriDe(fonte, a)).toEqual([]);
+    expect((await erroDe(fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-02', valorApurado: '1', emAlerta: false }))).tipo).toBe('nao_encontrado');
+  });
+
+  it('ligar a KRI de outro objeto é recusado e nada muda', async () => {
+    const fonte = fonteComo('gestor');
+    const kriId = (await kriDe(fonte, 'risco-anexo-ii-01'))[0].id;
+    const { id } = await fonte.salvarFicha({ objetoId: 'obj-autorizacao-uc' });
+    const e = await erroDe(fonte.salvarFicha({ id, objetoId: 'obj-autorizacao-uc', kris: [{ ...KRI_OK, id: kriId, apenasLigar: true }] }));
+    expect(e.message).toMatch(/mesmo objeto/);
+    expect(await kriDe(fonte, id)).toEqual([]);
+    expect((await kriDe(fonte, 'risco-anexo-ii-01')).find((k) => k.id === kriId)!.riscoIds).not.toContain(id);
+  });
+
+  it('excluir um risco desliga o KRI dele; o último a sair leva o KRI', async () => {
+    const fonte = fonteComo('gestor');
+    const { a, b, kriId } = await grupo(fonte);
+    await fonte.excluirRisco(b);
+    expect((await kriDe(fonte, a))[0].riscoIds).toEqual([a]);
+    await fonte.excluirRisco(a);
+    expect((await erroDe(fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-02', valorApurado: '1', emAlerta: false }))).tipo).toBe('nao_encontrado');
+  });
+
+  it('semente: o KRI compartilhado serve a dois riscos', async () => {
+    const c = await fonteComo('gestor').carregarCarteira();
+    const por = (id: string) => c.riscos.find((r) => r.id === id)!;
+    const k1 = por('risco-anexo-ii-01').kris.find((k) => k.id === 'kri-anexo-ii-2')!;
+    const k4 = por('risco-anexo-ii-04').kris.find((k) => k.id === 'kri-anexo-ii-2')!;
+    expect(k1.riscoIds.sort()).toEqual(['risco-anexo-ii-01', 'risco-anexo-ii-04']);
+    expect(k4.riscoIds.sort()).toEqual(k1.riscoIds);
+    // Na demonstração a pessoa vê todos os riscos: o total real é o tamanho de riscoIds.
+    expect(k1.totalRiscos).toBe(2);
+  });
+
+  describe('alterar a definição de um KRI compartilhado', () => {
+    const editar = (f: ReturnType<typeof fonteComo>, riscoId: string, kriId: string, limite: string) =>
+      f.salvarFicha({ id: riscoId, objetoId: 'obj-anexo-ii', kris: [{ ...KRI_OK, id: kriId, limiteAlerta: limite }] });
+
+    it('reabre os riscos aprovados ligados (aprovado → em_validacao_cg)', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const { a, b, kriId } = await grupo(fonte);
+      await fonte.enviar(a);
+      await fonte.validar(a);
+      expect((await fonte.relerRisco(a))?.statusFluxo).toBe('aprovado');
+      await editar(fonte, b, kriId, '> 9%');
+      const ra = await fonte.relerRisco(a);
+      expect(ra?.statusFluxo).toBe('em_validacao_cg');
+      expect(ra?.historicoFluxo.at(-1)?.acao).toBe('reaberto_mudanca_nota');
+      expect((await kriDe(fonte, a))[0].limiteAlerta).toBe('> 9%');
+    });
+
+    it('é recusada se algum risco ligado está em validação, sem mudar nada', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const { a, b, kriId } = await grupo(fonte);
+      await fonte.enviar(a); // A fica em validação
+      const e = await erroDe(editar(fonte, b, kriId, '> 9%'));
+      expect(e.tipo).toBe('estado');
+      expect((await kriDe(fonte, a))[0].limiteAlerta).toBe(KRI_OK.limiteAlerta);
+      expect((await fonte.relerRisco(a))?.statusFluxo).toBe('em_validacao_cg');
+    });
+
+    // Triagem do CodeRabbit na PR #17: como no banco (fn_fluxo_reaberto_neste_comando),
+    // o risco reaberto pela PRÓPRIA gravação não trava a alteração do 2º KRI.
+    it('alterar dois KRIs compartilhados na mesma gravação passa (B reaberto pelo 1º não trava o 2º)', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const kri2 = { ...KRI_OK, nomeIndicador: 'KRI 2 de teste' };
+      const a = await fonte.salvarFicha(media([KRI_OK, kri2]));
+      const [k1, k2] = (await kriDe(fonte, a.id)).map((k) => k.id);
+      const b = await fonte.salvarFicha(media([{ ...KRI_OK, id: k1, apenasLigar: true }, { ...kri2, id: k2, apenasLigar: true }]));
+      await fonte.enviar(b.id);
+      await fonte.validar(b.id);
+      expect((await fonte.relerRisco(b.id))?.statusFluxo).toBe('aprovado');
+      const historicoAntes = (await fonte.relerRisco(b.id))!.historicoFluxo.length;
+      await fonte.salvarFicha({
+        id: a.id,
+        objetoId: 'obj-anexo-ii',
+        kris: [{ ...KRI_OK, id: k1, limiteAlerta: '> 9%' }, { ...kri2, id: k2, limiteAlerta: '> 8%' }],
+      });
+      const rb = await fonte.relerRisco(b.id);
+      expect(rb?.statusFluxo).toBe('em_validacao_cg');
+      // Reaberto uma vez só (pelo 1º KRI); o 2º não duplica a reabertura.
+      expect(rb!.historicoFluxo.length).toBe(historicoAntes + 1);
+      expect((await kriDe(fonte, b.id)).map((k) => k.limiteAlerta)).toEqual(['> 9%', '> 8%']);
+    });
+
+    it('dois KRIs na mesma gravação: risco que JÁ estava em validação continua recusando', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const kri2 = { ...KRI_OK, nomeIndicador: 'KRI 2 de teste' };
+      const a = await fonte.salvarFicha(media([KRI_OK, kri2]));
+      const [k1, k2] = (await kriDe(fonte, a.id)).map((k) => k.id);
+      const b = await fonte.salvarFicha(media([{ ...KRI_OK, id: k1, apenasLigar: true }, { ...kri2, id: k2, apenasLigar: true }]));
+      await fonte.enviar(b.id); // B fica em validação ANTES da gravação
+      const e = await erroDe(fonte.salvarFicha({
+        id: a.id,
+        objetoId: 'obj-anexo-ii',
+        kris: [{ ...KRI_OK, id: k1, limiteAlerta: '> 9%' }, { ...kri2, id: k2, limiteAlerta: '> 8%' }],
+      }));
+      expect(e.tipo).toBe('estado');
+      expect((await kriDe(fonte, b.id)).map((k) => k.limiteAlerta)).toEqual([KRI_OK.limiteAlerta, KRI_OK.limiteAlerta]);
+    });
+
+    it('edição que não muda nada é livre (não reabre ninguém)', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const { a, b, kriId } = await grupo(fonte);
+      await fonte.enviar(a);
+      await fonte.validar(a);
+      await editar(fonte, b, kriId, KRI_OK.limiteAlerta);
+      expect((await fonte.relerRisco(a))?.statusFluxo).toBe('aprovado');
+    });
+  });
+
+  it('ficha NOVA recusada não deixa reaberto o aprovado que divide o KRI (foto completa)', async () => {
+    const fonte = fonteComo('coordenador_geral');
+    const { a, kriId } = await grupo(fonte);
+    await fonte.enviar(a);
+    await fonte.validar(a);
+    const antes = await fonte.relerRisco(a);
+    expect(antes?.statusFluxo).toBe('aprovado');
+    // KRI de OUTRO objeto, para a ficha nova ser recusada DEPOIS de mexer no compartilhado.
+    const outro = await fonte.salvarFicha({ objetoId: 'obj-autorizacao-uc', kris: [{ ...KRI_OK, nomeIndicador: 'KRI de outro objeto' }] });
+    const kriOutro = (await kriDe(fonte, outro.id))[0].id;
+    const e = await erroDe(
+      fonte.salvarFicha(
+        media([
+          { ...KRI_OK, id: kriId, limiteAlerta: '> 9%' }, // 1º: altera o compartilhado (reabriria A)
+          { ...KRI_OK, id: kriOutro, apenasLigar: true }, // 2º: recusado (outro objeto)
+        ]),
+      ),
+    );
+    expect(e.message).toMatch(/mesmo objeto/);
+    const depois = await fonte.relerRisco(a);
+    expect(depois?.statusFluxo).toBe('aprovado');
+    expect(depois?.historicoFluxo).toHaveLength(antes!.historicoFluxo.length);
+    expect(depois?.kris[0].limiteAlerta).toBe(KRI_OK.limiteAlerta);
+  });
+
+  it('na recusa da trava, desligar o KRI de um risco aprovado crítico volta tudo ao que era', async () => {
+    const fonte = fonteComo('coordenador_geral');
+    const { id } = await fonte.salvarFicha(critica([KRI_OK]));
+    await fonte.enviar(id);
+    await fonte.validar(id);
+    await fonte.homologar(id);
+    const kriId = (await kriDe(fonte, id))[0].id;
+    await fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-01', valorApurado: '3%', emAlerta: false });
+    const e = await erroDe(fonte.salvarFicha({ id, objetoId: 'obj-anexo-ii', kris: [] }));
+    expect(e.message).toBe(MENSAGEM_TRAVA_KRI);
+    const depois = await fonte.relerRisco(id);
+    expect(depois?.statusFluxo).toBe('aprovado');
+    expect(depois?.kris.map((k) => k.id)).toEqual([kriId]);
+    expect(depois?.kris[0].medicoes).toHaveLength(1);
+  });
+
+  it('trocar o objeto de um risco que ainda tem KRI ligado é recusado e nada muda', async () => {
+    const fonte = fonteComo('gestor');
+    const a = await fonte.salvarFicha(media([KRI_OK]));
+    const e = await erroDe(fonte.salvarFicha({ id: a.id, objetoId: 'obj-autorizacao-uc' }));
+    expect(e.message).toMatch(/mesmo objeto/);
+    const depois = await fonte.relerRisco(a.id);
+    expect(depois?.objetoId).toBe('obj-anexo-ii');
+    expect(depois?.kris).toHaveLength(1);
+  });
+
+  it('trocar o objeto soltando os KRIs antigos e criando um novo KRI funciona', async () => {
+    const fonte = fonteComo('gestor');
+    const a = await fonte.salvarFicha(media([KRI_OK]));
+    await fonte.salvarFicha({ id: a.id, objetoId: 'obj-autorizacao-uc', kris: [{ ...KRI_OK, nomeIndicador: 'KRI do objeto novo' }] });
+    const depois = await fonte.relerRisco(a.id);
+    expect(depois?.objetoId).toBe('obj-autorizacao-uc');
+    expect(depois?.kris.map((k) => k.nomeIndicador)).toEqual(['KRI do objeto novo']);
+    expect(depois?.kris[0].objetoId).toBe('obj-autorizacao-uc');
+  });
+
+  it('DAR com apetite pendente: o histórico usa a variante "com DAR pendente"', async () => {
+    const fonte = fonteComo('coordenador_geral');
+    const { id } = await fonte.salvarFicha(media([]));
+    await fonte.enviar(id);
+    await fonte.validar(id);
+    await fonte.alterarApetite(2, 'pendente_dar');
+    const r = await fonte.relerRisco(id);
+    expect(r?.statusFluxo).toBe('devolvido');
+    expect(r?.historicoFluxo.at(-1)?.despachoTexto).toContain(
+      'com DAR pendente; por regra do sistema, a trava do risco crítico também se aplica) não passa na trava do risco crítico: falta um KRI completo'
+    );
+  });
+
+  it('DAR: aprovado que vira crítico sem KRI completo volta devolvido, com o motivo do KRI', async () => {
+    const fonte = fonteComo('coordenador_geral');
+    const { id } = await fonte.salvarFicha(media([]));
+    await fonte.enviar(id);
+    await fonte.validar(id);
+    expect((await fonte.relerRisco(id))?.statusFluxo).toBe('aprovado');
+    await fonte.alterarApetite(2, 'baixo');
+    const r = await fonte.relerRisco(id);
+    expect(r?.statusFluxo).toBe('devolvido');
+    expect(r?.historicoFluxo.at(-1)?.despachoTexto).toContain(
+      'não passa na trava do risco crítico: falta um KRI completo (nome, fórmula, fonte, periodicidade, limite de alerta e responsável). Voltou para a unidade ajustar.'
+    );
   });
 });

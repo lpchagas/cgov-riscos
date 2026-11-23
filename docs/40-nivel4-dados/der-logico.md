@@ -4,10 +4,10 @@ O **DER lógico** (Diagrama Entidade-Relacionamento) é o desenho **do banco que
 tabela do PostgreSQL/Supabase, cada linha dentro da caixa é uma coluna com o seu tipo, e cada traço entre
 caixas é uma chave estrangeira. Ele traduz o [[mer-conceitual]] para tabelas.
 
-**De onde vem:** do **estado final das 13 migrações** de `supabase/migrations/` (de `20261109001` até
-`20261122001`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
+**De onde vem:** do **estado final das 14 migrações que mudam a estrutura** de `supabase/migrations/` (de `20261109001` até
+`20261122004`; a `20261122002` só troca funções, a `20261122003` só acrescenta um gatilho e a `20261123001` só põe travas de linha nos gatilhos de `kri_riscos`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
 com as 12 primeiras migrações aplicadas (consulta ao `information_schema` e ao `pg_constraint`, só a estrutura, em
-2026-11-21); a 13ª (`20261122001`, tabela `subcategorias_risco`, chave estrangeira composta e fim da coluna `subcategorias_permitidas`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi acrescentada a partir do próprio arquivo da migração. O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
+2026-11-21); a 13ª (`20261122001`, tabela `subcategorias_risco`, chave estrangeira composta e fim da coluna `subcategorias_permitidas`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi acrescentada a partir do próprio arquivo da migração, e a 14ª (`20261122004`, LAC-03: `indicadores_kri.objeto_id`, tabela `kri_riscos`, fim de `indicadores_kri.risco_id`, campos do KRI que aceitam vazio) também. O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
 migrações") reprova se uma tabela for criada numa migração e não aparecer aqui, ou o contrário.
 
 O documento anterior, [[modelo-dados-mer]], fica como histórico das migrações.
@@ -180,14 +180,19 @@ erDiagram
     }
     indicadores_kri {
         uuid id PK
-        uuid risco_id FK
+        uuid objeto_id FK "LAC-03: o KRI é do objeto"
         text nome_indicador
-        text formula_calculo
-        text fonte_dados
-        text periodicidade "Mensal, Trimestral, Semestral, Anual"
-        text meta_alvo
-        text limite_alerta
-        text responsavel_medicao
+        text formula_calculo "opcional"
+        text fonte_dados "opcional"
+        text periodicidade "Mensal, Trimestral, Semestral, Anual (opcional)"
+        text meta_alvo "opcional"
+        text limite_alerta "opcional"
+        text responsavel_medicao "opcional"
+        timestamptz criado_em
+    }
+    kri_riscos {
+        uuid kri_id PK, FK
+        uuid risco_id PK, FK
         timestamptz criado_em
     }
     medicoes_kri {
@@ -206,13 +211,17 @@ erDiagram
     subcategorias_risco |o--o{ riscos : "(categoria_id, subcategoria_integridade)"
     riscos ||--o{ controles_existentes : "risco_id (em cascata)"
     riscos ||--o{ respostas_tratamento : "risco_id (em cascata)"
-    riscos ||--o{ indicadores_kri : "risco_id (em cascata)"
+    objetos_contexto ||--o{ indicadores_kri : "objeto_id (em cascata)"
+    indicadores_kri ||--o{ kri_riscos : "kri_id (em cascata)"
+    riscos ||--o{ kri_riscos : "risco_id (em cascata)"
     indicadores_kri ||--o{ medicoes_kri : "kri_id (em cascata)"
 ```
 
 "Em cascata" (`ON DELETE CASCADE`) quer dizer que, ao apagar a linha de cima, o banco apaga também as de
-baixo. Exemplo: apagar um risco em rascunho apaga os seus controles, ações, KRIs e medições. O risco
-aprovado não pode ser apagado (RN-050).
+baixo. Exemplo: apagar um risco em rascunho apaga os seus controles, ações e as ligações dele com os KRIs
+(`kri_riscos`). O KRI em si só é apagado, com as medições dele, quando fica **órfão**, isto é, sem nenhum
+risco ligado (gatilho da migração `20261122004`, com a trava de linha da `20261123001` para duas remoções ao mesmo tempo); um KRI que ainda serve a outro risco do objeto continua.
+O risco aprovado não pode ser apagado (RN-050).
 
 ## Bloco 3 — Fluxo e auditoria
 
@@ -260,7 +269,7 @@ de `perfis_usuarios`, e fica vazio quando o administrador altera o banco direto.
 Em `historico_fluxo`, `usuario_nome` e `usuario_papel` são gravados como texto para mostrar quem agiu e
 com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 
-## Resumo das 13 tabelas
+## Resumo das 14 tabelas
 
 | Tabela | Bloco | Criada em | Chaves estrangeiras declaradas |
 | --- | --- | --- | --- |
@@ -273,7 +282,8 @@ com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 | `riscos` | 2 | `20261109001` | `objeto_id` → `objetos_contexto` (em cascata); `categoria_id` → `categorias_risco`; (`categoria_id`, `subcategoria_integridade`) → `subcategorias_risco` (`20261122001`) |
 | `controles_existentes` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
 | `respostas_tratamento` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
-| `indicadores_kri` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
+| `indicadores_kri` | 2 | `20261109001` (`objeto_id` em `20261122004`) | `objeto_id` → `objetos_contexto` (em cascata); a ligação aos riscos fica em `kri_riscos` (`risco_id` saiu em `20261122004`) |
+| `kri_riscos` | 2 | `20261122004` | `kri_id` → `indicadores_kri` (em cascata); `risco_id` → `riscos` (em cascata) |
 | `medicoes_kri` | 2 | `20261109001` | `kri_id` → `indicadores_kri` (em cascata) |
 | `historico_fluxo` | 3 | `20261109001` (`usuario_id` e `sequencia` em `20261115004`) | `risco_id` → `riscos` (em cascata) |
 | `auditoria_log` | 3 | `20261109001` (`objeto_id`, `usuario_id`, `dados_anteriores` em `20261115005`) | nenhuma, de propósito |

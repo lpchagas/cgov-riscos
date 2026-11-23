@@ -40,10 +40,11 @@ select
   (select id from auth.users where email = 'gestor.uc@radar.test') as u_gestor_uc
 \gset
 
--- LAC-13 (migração 20261122002): os riscos da semente não têm ações 5W2H, e o
--- risco crítico sem ação não anda mais no fluxo. Este teste prova OUTRAS
--- regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava é
--- provada em 100_lac13_trava_critico.test.sql.
+-- LAC-13 e LAC-03 (migrações 20261122002 e 20261122004): o risco crítico só
+-- anda no fluxo com ação 5W2H e KRI completo. Na semente, só os riscos
+-- críticos têm ação e KRI (seção 5b); os outros não têm. Este teste prova
+-- OUTRAS regras; damos a todos o tratamento mínimo (ajudantes.psql). A trava
+-- é provada em 100_lac13_trava_critico.test.sql e 110_lac03_kri_obrigatorio.test.sql.
 select pg_temp.dar_tratamento_a_todos();
 
 -- ----------------------------------------------------------------------------
@@ -55,8 +56,8 @@ select has_column('public', 'auditoria_log', 'dados_anteriores',  'auditoria_log
 select is((select relrowsecurity from pg_class where oid = 'public.auditoria_log'::regclass), true,
           'RLS ligada em auditoria_log');
 select is((select count(*)::int from pg_trigger
-            where tgname like 'trg_auditoria_%' and not tgisinternal), 8,
-          'oito gatilhos de auditoria (um por tabela, inclusive perfis e DAR)');
+            where tgname like 'trg_auditoria_%' and not tgisinternal), 9,
+          'nove gatilhos de auditoria (um por tabela, inclusive perfis, DAR e kri_riscos da LAC-03)');
 select is((select prosecdef from pg_proc where oid = 'public.fn_registrar_auditoria()'::regprocedure), true,
           'fn_registrar_auditoria é SECURITY DEFINER');
 select is(has_function_privilege('authenticated', 'public.fn_registrar_auditoria()', 'EXECUTE'), false,
@@ -117,17 +118,19 @@ select is((select objeto_id from public.auditoria_log
             where registro_id = '00000000-0000-4000-e000-000000000060' and operacao = 'INSERT'), :'o_uc_ct'::uuid,
           'respostas_tratamento: objeto_id vem do risco');
 
-insert into public.indicadores_kri (id, risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
-values ('00000000-0000-4000-d000-000000000060', :'r_uc_ct', 'KRI 060', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor');
+-- LAC-03: o KRI é do objeto (objeto_id na própria linha) e se liga ao risco.
+insert into public.indicadores_kri (id, objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
+values ('00000000-0000-4000-d000-000000000060', :'o_uc_ct', 'KRI 060', 'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor');
+insert into public.kri_riscos (kri_id, risco_id) values ('00000000-0000-4000-d000-000000000060', :'r_uc_ct');
 select is((select objeto_id from public.auditoria_log
             where registro_id = '00000000-0000-4000-d000-000000000060' and operacao = 'INSERT'), :'o_uc_ct'::uuid,
-          'indicadores_kri: objeto_id vem do risco');
+          'indicadores_kri: objeto_id vem do próprio KRI');
 
 insert into public.medicoes_kri (id, kri_id, valor_apurado)
 values ('00000000-0000-4000-f000-000000000060', '00000000-0000-4000-d000-000000000060', '3');
 select is((select objeto_id from public.auditoria_log
             where registro_id = '00000000-0000-4000-f000-000000000060' and operacao = 'INSERT'), :'o_uc_ct'::uuid,
-          'medicoes_kri: objeto_id vem do KRI e depois do risco');
+          'medicoes_kri: objeto_id vem do KRI');
 
 delete from public.medicoes_kri where id = '00000000-0000-4000-f000-000000000060';
 select is((select objeto_id from public.auditoria_log

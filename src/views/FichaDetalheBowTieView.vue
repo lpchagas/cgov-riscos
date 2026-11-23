@@ -178,7 +178,8 @@ const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
             <ul v-if="risco.kris.length" class="lista-cartoes">
               <li v-for="k in risco.kris" :key="k.id" class="item-cartao">
                 <p class="item-cartao__titulo">{{ k.nomeIndicador }}</p>
-                <p class="texto-apoio">Meta {{ k.metaAlvo }} · alerta {{ k.limiteAlerta }} · {{ k.periodicidade }}</p>
+                <!-- Campo opcional em branco: o mesmo texto do Monitoramento (o sistema não inventa valor). -->
+                <p class="texto-apoio">Meta {{ k.metaAlvo ?? 'não definida' }} · alerta {{ k.limiteAlerta ?? 'limite não definido' }} · {{ k.periodicidade ?? 'periodicidade não definida' }}</p>
                 <p v-if="ultimaLeitura(k)" class="texto-apoio">
                   Última leitura: <strong>{{ ultimaLeitura(k).valorApurado }}</strong> em {{ dataCurta(ultimaLeitura(k).dataMedicao) }}
                   <Chip v-if="ultimaLeitura(k).emAlerta" tom="perigo" icone="fa-solid fa-triangle-exclamation">Em alerta</Chip>

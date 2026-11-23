@@ -225,4 +225,28 @@ describe('Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4', () => 
     expect(r.fichas).toHaveLength(0);
     expect(r.erros).toHaveLength(1);
   });
+  // --------------------------------------------------------------------------
+  // LAC-03: o importador nunca inventa KRI (RF-183, RF-184)
+  // --------------------------------------------------------------------------
+  it('linha sem KRI: kriSugerido fica vazio, sem "Indicador a definir" (RF-184)', () => {
+    const sem = linhaTrava('R-06', 1, 1, 'baixo', 'Mitigar').replace('| KRI |', '|  |');
+    const r = importarTabelaMarkdownSkill([CABECALHO, sem].join('\n'));
+    expect(r.erros).toHaveLength(0);
+    expect(r.fichas[0].kriSugerido).toBe('');
+    expect(JSON.stringify(r)).not.toContain('Indicador a definir com a 1ª Linha');
+  });
+
+  it('linha crítica: avisa que o KRI importado nunca é completo, sem bloquear (RF-183)', () => {
+    const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-07', 5, 5, 'baixo', 'Mitigar')].join('\n'));
+    expect(r.erros).toHaveLength(0);
+    expect(r.fichas).toHaveLength(1);
+    expect(r.avisos).toContain(
+      'Linha R-07: risco crítico sem KRI completo; complete o KRI na ficha antes do envio.'
+    );
+  });
+
+  it('linha não crítica não ganha o aviso de KRI', () => {
+    const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-08', 1, 1, 'baixo', 'Mitigar')].join('\n'));
+    expect(r.avisos.filter((a) => a.includes('sem KRI completo'))).toEqual([]);
+  });
 });

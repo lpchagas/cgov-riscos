@@ -121,12 +121,15 @@ export function escolherCopiasParaApagar(nomes: string[], hoje: Date): string[] 
  * Esconde usuário e senha de qualquer conexão no texto.
  *   'postgresql://postgres.abc:S3nh@F0rte@host:5432/db' → 'postgresql://***:***@host:5432/db'
  *   'host=h password=segredo'                           → 'host=h password=***'
- * O trecho até a ÚLTIMA "@" antes do nome da máquina é trocado, então uma
- * senha com "@" dentro também some inteira.
+ * O trecho até a ÚLTIMA "@" da conexão (o pedaço do texto sem espaços) é
+ * trocado, então uma senha com "@", "/", "?" ou "#" dentro também some inteira.
+ *   'postgresql://postgres:abc/def@host:5432/db'        → 'postgresql://***:***@host:5432/db'
+ * (Se houver um "@" depois do nome da máquina, esconde-se um pouco a mais:
+ * preferimos esconder demais a deixar uma senha no registro.)
  */
 export function mascararConexao(texto: string): string {
   return texto
-    .replace(/postgres(?:ql)?:\/\/[^\s/?#]*@/gi, 'postgresql://***:***@')
+    .replace(/postgres(?:ql)?:\/\/\S*@/gi, 'postgresql://***:***@')
     .replace(/(password|PGPASSWORD)=\S+/gi, '$1=***');
 }
 

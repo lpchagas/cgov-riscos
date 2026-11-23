@@ -118,6 +118,68 @@ describe('Página Monitoramento', () => {
     w.unmount();
   });
 
+  describe('KRI compartilhado (LAC-03)', () => {
+    afterEach(() => definirFonteParaTeste(null));
+
+    it('o KRI ligado a dois riscos aparece uma vez, com os dois códigos', async () => {
+      const { w } = await montar();
+      const cartoes = w.findAll('.kri').filter((c) => c.text().includes('Percentual de processos críticos com substituto capacitado ativo'));
+      expect(cartoes).toHaveLength(1);
+      expect(cartoes[0].text()).toContain('Riscos:');
+      expect(cartoes[0].text()).toContain('RADAR-2026-001');
+      expect(cartoes[0].text()).toContain('RADAR-2026-004');
+      // O contador de indicadores conta cada KRI uma só vez.
+      const ids = new Set(useRiscosStore().riscos.flatMap((r) => r.kris.map((k) => k.id)));
+      expect(w.findAll('.kri')).toHaveLength(ids.size);
+      w.unmount();
+    });
+
+    it('registrar leitura no KRI compartilhado grava uma vez e aparece nos dois riscos', async () => {
+      const base = criarFonteDemonstracao('normal');
+      let chamadas = 0;
+      definirFonteParaTeste({
+        ...base,
+        registrarMedicao: async (kriId, m) => { chamadas++; return base.registrarMedicao(kriId, m); },
+      });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      const { w } = await montar();
+      const cartao = w.findAll('.kri').find((c) => c.text().includes('Percentual de processos críticos com substituto'))!;
+      await cartao.findAll('button').find((b) => b.text().includes('Registrar leitura'))!.trigger('click');
+      await flushPromises();
+      const dialogo = document.body.querySelector('[role="dialog"]') as HTMLElement;
+      const valor = dialogo.querySelector('input[type="text"]') as HTMLInputElement;
+      valor.value = '90%';
+      valor.dispatchEvent(new Event('input'));
+      [...dialogo.querySelectorAll('button')].find((b) => b.textContent?.includes('Salvar leitura'))!.click();
+      await flushPromises();
+      expect(chamadas).toBe(1);
+      for (const codigo of ['RADAR-2026-001', 'RADAR-2026-004']) {
+        const r = store.riscos.find((x) => x.codigoRadar === codigo)!;
+        expect(r.kris.find((k) => k.id === 'kri-anexo-ii-2')!.medicoes.map((m) => m.valorApurado)).toContain('90%');
+      }
+      w.unmount();
+    });
+
+    it('KRI sem limite de alerta mostra "limite não definido" (e o mesmo para meta e periodicidade)', async () => {
+      const store = useRiscosStore();
+      const kri = store.riscos.flatMap((r) => r.kris).find((k) => k.id === 'kri-anexo-ii-2')!;
+      for (const r of store.riscos) for (const k of r.kris) if (k.id === kri.id) {
+        k.limiteAlerta = undefined;
+        k.metaAlvo = undefined;
+        k.periodicidade = undefined;
+      }
+      const { w } = await montar();
+      const cartao = w.findAll('.kri').find((c) => c.text().includes(kri.nomeIndicador))!;
+      expect(cartao.text()).toContain('limite não definido');
+      expect(cartao.text()).toContain('meta não definida');
+      expect(cartao.text()).toContain('periodicidade não definida');
+      expect(cartao.text()).not.toContain('undefined');
+      w.unmount();
+    });
+  });
+
   describe('falha da fonte (B3)', () => {
     afterEach(() => definirFonteParaTeste(null));
 

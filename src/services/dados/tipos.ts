@@ -98,7 +98,7 @@ export interface FichaParaSalvar {
     }
   >;
   /** As medições do KRI não passam por aqui (são do Monitoramento). */
-  kris?: Array<Omit<IndicadorKri, 'id' | 'medicoes'> & { id?: string }>;
+  kris?: Array<Omit<IndicadorKri, 'id' | 'medicoes' | 'objetoId' | 'riscoIds'> & { id?: string; apenasLigar?: boolean }>;
 }
 
 /** Uma linha da trilha de auditoria (função `ler_auditoria` do banco). */

@@ -42,26 +42,28 @@ const HOJE = new Date(2026, 10, 14); // 14/11/2026 (mês começa em 0)
 // ---------------------------------------------------------------------------
 describe('painelResumo', () => {
   it('conta os riscos por célula usando P e I da ficha', () => {
-    expect(contarRiscosPorCelula(semente())).toEqual({ '3-5': 1, '2-5': 1, '2-4': 1 });
+    expect(contarRiscosPorCelula(semente())).toEqual({ '3-5': 2, '2-5': 1, '2-4': 1 });
   });
 
   it('ordena os maiores residuais do maior para o menor sem alterar a lista original', () => {
     const lista = semente();
     const ordemOriginal = lista.map((r) => r.codigoRadar);
-    expect(maioresRiscosResiduais(lista, 2).map((r) => r.nivelResidual)).toEqual([22, 17.1]);
+    expect(maioresRiscosResiduais(lista, 2).map((r) => r.nivelResidual)).toEqual([22, 22]);
+    // Com 3, o 3º valor é distinto (17,1): garante a ordem decrescente de verdade.
+    expect(maioresRiscosResiduais(lista, 3).map((r) => r.nivelResidual)).toEqual([22, 22, 17.1]);
     expect(lista.map((r) => r.codigoRadar)).toEqual(ordemOriginal);
   });
 
   it('distribui por nível residual usando a classificação gravada (8,4 é Médio)', () => {
     const d = distribuicaoPorNivelResidual(semente());
     expect(d.map((f) => [f.classe, f.quantidade])).toEqual([
-      ['Extremo', 2],
+      ['Extremo', 3],
       ['Alto', 0],
       ['Médio', 1],
       ['Baixo', 0],
     ]);
     expect(d[0].percentual).toBe(100);
-    expect(d[2].percentual).toBe(50);
+    expect(d[2].percentual).toBe(33); // 1 de 3 (o maior grupo, Extremo, vale 100)
   });
 
   /** As `acoes` que a fonte de demonstração devolveria para cada perfil (como o banco faria). */
@@ -120,6 +122,33 @@ describe('painelResumo', () => {
     expect(atrasada?.tom).toBe('perigo');
   });
 
+  it('KRI compartilhado em alerta aparece UMA vez, com os códigos de todos os riscos ligados', () => {
+    const lista = semente();
+    const alerta = { id: 'm-alerta', dataMedicao: '2026-11-10', valorApurado: '70%', emAlerta: true };
+    // O mesmo KRI (kri-anexo-ii-2) está nos riscos 001 e 004: a medição aparece nos dois.
+    for (const r of lista) for (const k of r.kris) if (k.id === 'kri-anexo-ii-2') k.medicoes = [alerta];
+    const kris = itensDeAtencao(lista, 'cgov', HOJE).filter((i) => i.tipo === 'kri');
+    const doCompartilhado = kris.filter((i) => i.id === 'kri-kri-anexo-ii-2');
+    expect(doCompartilhado).toHaveLength(1);
+    expect(doCompartilhado[0].detalhe).toContain('RADAR-2026-001, RADAR-2026-004');
+    // Os ids continuam únicos (são a `:key` da lista no Painel).
+    expect(new Set(kris.map((i) => i.id)).size).toBe(kris.length);
+  });
+
+  it('KRI em alerta sem limite definido diz "limite não definido" (nada de "(alerta: )")', () => {
+    const lista = semente();
+    for (const r of lista) {
+      for (const k of r.kris) {
+        if (k.id !== 'kri-anexo-ii-2') continue;
+        k.limiteAlerta = undefined;
+        k.medicoes = [{ id: 'm-alerta', dataMedicao: '2026-11-10', valorApurado: '70%', emAlerta: true }];
+      }
+    }
+    const item = itensDeAtencao(lista, 'cgov', HOJE).find((i) => i.id === 'kri-kri-anexo-ii-2')!;
+    expect(item.detalhe).toContain('(alerta: limite não definido)');
+    expect(item.detalhe).not.toContain('(alerta: )');
+  });
+
   it('descreve eventos do histórico em linguagem simples', () => {
     expect(descreverEventoFluxo({ etapa: 'homologacao_diretoria', acao: 'aprovado_1_clique' })).toBe(
       'homologado pela Diretoria e incluído no Plano'
@@ -147,7 +176,7 @@ describe('MatrizCalorAssimetrica', () => {
   it('o nome acessível diz nota, nível e quantidade de riscos', () => {
     const w = mount(MatrizCalorAssimetrica, { props: { riscos: semente() } });
     expect(rotulo(w, 3, 5).attributes('aria-label')).toBe(
-      'Probabilidade 3 (Provável), impacto 5 (Muito alto): nota 22, Extremo, 1 risco'
+      'Probabilidade 3 (Provável), impacto 5 (Muito alto): nota 22, Extremo, 2 riscos'
     );
   });
 

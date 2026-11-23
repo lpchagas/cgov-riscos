@@ -107,6 +107,9 @@ describe('dadosParaFicha (edição)', () => {
 });
 
 describe('Página Novo risco', () => {
+  // Garante que uma fonte falsa de um teste nunca vaze para o próximo, mesmo se ele falhar.
+  afterEach(() => definirFonteParaTeste(null));
+
   beforeEach(async () => {
     setActivePinia(createPinia());
     // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
@@ -184,11 +187,29 @@ describe('Página Novo risco', () => {
   });
 
   it('fluxo completo: cria o risco e envia para validação', async () => {
+    setActivePinia(createPinia());
+    await useRiscosStore().carregar();
     const { w, router } = await montar();
     const store = useRiscosStore();
     const antes = store.riscos.length;
     await botao(w, 'Preencher com exemplo').trigger('click');
-    for (let i = 0; i < 4; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+    // LAC-03: o risco do exemplo é crítico e exige KRI completo. Na etapa 4,
+    // a pessoa preenche os campos do KRI pela tela (esvaziamos os do exemplo antes).
+    for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+    const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
+    for (const r of ['Fórmula de cálculo', 'Fonte dos dados', 'Limite de alerta', 'Responsável pelo monitoramento']) await w.find(`#${campo(r)}`).setValue('');
+    await w.find(`#${campo('Periodicidade de monitoramento')}`).setValue('');
+    await w.find('form').trigger('submit'); // tenta enviar com o KRI incompleto
+    await flushPromises();
+    expect(w.text()).toContain('precisa de um KRI completo');
+    expect(store.riscos.length).toBe(antes);
+    await w.find(`#${campo('Fórmula de cálculo')}`).setValue('itens conformes / total');
+    await w.find(`#${campo('Fonte dos dados')}`).setValue('Processos SEI');
+    await w.find(`#${campo('Periodicidade de monitoramento')}`).setValue('Mensal');
+    await w.find(`#${campo('Limite de alerta')}`).setValue('Abaixo de 90%');
+    await w.find(`#${campo('Responsável pelo monitoramento')}`).setValue('Chefe da unidade');
+    await w.find('form').trigger('submit');
+    await flushPromises();
     expect(store.riscos.length).toBe(antes + 1);
     // O nome do objeto agora vem do objeto gravado (fonte de dados), não do
     // texto livre do formulário: achamos o risco novo pelo id da ficha aberta.
@@ -200,9 +221,97 @@ describe('Página Novo risco', () => {
     w.unmount();
   });
 
-  describe('"Salvar e enviar" com envio recusado', () => {
-    afterEach(() => definirFonteParaTeste(null));
+  describe('KRI da etapa 4 (LAC-03)', () => {
+    type VmKri = { d: { objetoId: string; kriExistenteId: string; nomeKri: string } };
+    /** Risco novo no objeto do Anexo II, parado na etapa 4. */
+    async function ateEtapa4NoObjeto() {
+      const montado = await montar();
+      await botao(montado.w, 'Preencher com exemplo').trigger('click');
+      (montado.w.vm as unknown as VmKri).d.objetoId = 'obj-anexo-ii';
+      for (let i = 0; i < 3; i++) { await montado.w.find('form').trigger('submit'); await flushPromises(); }
+      expect(montado.w.find('[aria-current="step"]').text()).toContain('Tratamento');
+      return montado;
+    }
 
+    it('lista os KRIs do objeto (nome e códigos dos riscos) e o compartilhado aparece uma vez', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      expect(lista).toBeTruthy();
+      expect(lista.findAll('option[value="kri-anexo-ii-2"]')).toHaveLength(1);
+      expect(lista.find('option[value="kri-anexo-ii-2"]').text()).toContain('riscos: RADAR-2026-001, RADAR-2026-004');
+      w.unmount();
+    });
+
+    it('risco novo: KRI compartilhado escolhido fica só leitura, sem botão de editar nem aviso, com a ajuda de como alterar', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      await lista.setValue('kri-anexo-ii-2');
+      const fonte = w.find(`#${w.findAll('label').find((l) => l.text().startsWith('Fonte dos dados'))!.attributes('for')}`);
+      expect(fonte.attributes('readonly')).toBeDefined();
+      expect(w.findAll('button').some((b) => b.text().includes('Editar a definição deste KRI'))).toBe(false);
+      expect(w.text()).not.toContain('Este KRI também serve aos riscos');
+      expect(w.text()).toContain('Para alterar a definição deste KRI, salve o risco e edite-o depois');
+      w.unmount();
+    });
+
+    it('editando um risco existente, o KRI compartilhado mostra o aviso fixo', async () => {
+      const { w } = await montar('/riscos/novo?editar=risco-anexo-ii-04');
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.text()).toContain('Este KRI também serve aos riscos RADAR-2026-001; alterar muda o indicador de todos eles e reabre os aprovados.');
+      w.unmount();
+    });
+
+    it('risco novo com KRI da lista: grava só a ligação (id + apenasLigar), sem recriar o KRI', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      await lista.setValue('kri-anexo-ii-2');
+      await botao(w, 'Salvar rascunho').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      const enviados = salvarFicha.mock.calls[0][0].kris!;
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0]).toMatchObject({ id: 'kri-anexo-ii-2', apenasLigar: true });
+      // A definição do KRI compartilhado continua a mesma (nada foi copiado nem criado).
+      const kriDepois = useRiscosStore().krisDoObjeto('obj-anexo-ii').filter((k) => k.id === 'kri-anexo-ii-2');
+      expect(kriDepois).toHaveLength(1);
+      expect(useRiscosStore().krisDoObjeto('obj-anexo-ii').filter((k) => k.nomeIndicador === kriDepois[0].nomeIndicador)).toHaveLength(1);
+      w.unmount();
+    });
+
+    it('"Preencher com exemplo" depois de escolher um KRI da lista mantém o KRI do exemplo', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      await lista.setValue('kri-anexo-ii-2');
+      await botao(w, 'Preencher com exemplo').trigger('click');
+      await flushPromises();
+      const d = (w.vm as unknown as { d: ReturnType<typeof dadosExemplo> }).d;
+      const exemplo = dadosExemplo(d.objetoId);
+      expect(d.kriExistenteId).toBe('');
+      expect(d.nomeKri).toBe(exemplo.nomeKri);
+      expect(d.kriFonte).toBe(exemplo.kriFonte);
+      expect(d.kriResponsavel).toBe(exemplo.kriResponsavel);
+      w.unmount();
+    });
+
+    it('rascunho continua livre: risco crítico com KRI incompleto grava como rascunho', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const rotulo = w.findAll('label').find((l) => l.text().startsWith('Fonte dos dados'))!;
+      await w.find(`#${rotulo.attributes('for')}`).setValue('');
+      const store = useRiscosStore();
+      const antes = store.riscos.length;
+      await botao(w, 'Salvar rascunho').trigger('click');
+      await flushPromises();
+      expect(store.riscos.length).toBe(antes + 1);
+      w.unmount();
+    });
+  });
+
+  describe('"Salvar e enviar" com envio recusado', () => {
     it('grava UMA vez, avisa "Rascunho salvo…, mas não foi enviado" e abre a ficha', async () => {
       // Fonte falsa: grava normalmente, mas recusa o envio.
       const base = criarFonteDemonstracao('normal');
@@ -230,8 +339,6 @@ describe('Página Novo risco', () => {
   });
 
   describe('Objeto de gestão e gravação (B3)', () => {
-    afterEach(() => definirFonteParaTeste(null));
-
     /** Troca a fonte por uma "espiã" (mesmos dados da demonstração) e recarrega a store. */
     async function comFonte(trocas: Partial<FonteDados>) {
       const base = criarFonteDemonstracao('normal');
@@ -325,7 +432,6 @@ describe('Página Novo risco', () => {
   });
 
   describe('"Editar ficha" (/riscos/novo?editar=<id>)', () => {
-    afterEach(() => definirFonteParaTeste(null));
     const idAprovado = 'risco-socio-03'; // RADAR-2026-003, aprovado na semente
 
     it('carrega a ficha nas 4 etapas, com o título "Editar risco <código>"', async () => {
@@ -467,8 +573,6 @@ describe('Página Novo risco', () => {
   });
 
   describe('Edição: KRI com medições', () => {
-    afterEach(() => definirFonteParaTeste(null));
-
     it('apagar o nome do KRI com medições exige confirmação antes de salvar', async () => {
       const base = criarFonteDemonstracao('normal');
       const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
@@ -502,6 +606,79 @@ describe('Página Novo risco', () => {
     });
   });
 
+  describe('Edição: KRI compartilhado com medições (LAC-03)', () => {
+    it('desligar um KRI que ainda serve a outro risco não pede confirmação (nada é apagado)', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      const id = 'risco-anexo-ii-04';
+      const kri = store.obterRiscoPorId(id)!.kris[0];
+      expect(kri.riscoIds.length).toBeGreaterThan(1);
+      const { w } = await montar(`/riscos/novo?editar=${id}`);
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      const nome = w.findAll('input[type="text"]').find((i) => (i.element as HTMLInputElement).value === kri.nomeIndicador)!;
+      await nome.setValue('');
+      expect(w.text()).not.toContain('Histórico do KRI');
+      // Salvar sem confirmar nada: grava, e o KRI sai da lista de KRIs da ficha.
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      expect(salvarFicha.mock.calls[0][0].kris!.some((k) => k.id === kri.id)).toBe(false);
+      w.unmount();
+    });
+  });
+
+  // Revisão final: `riscoIds` só traz os riscos que a pessoa VÊ; `totalRiscos`
+  // (função kri_total_riscos do banco) traz o total real.
+  describe('KRI que serve a riscos fora da visão da pessoa (LAC-03)', () => {
+    /** Fonte de demonstração que diz que estes KRIs servem a MAIS riscos do que os visíveis. */
+    async function comTotais(totais: Record<string, number>) {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      const carregarCarteira = async () => {
+        const c = await base.carregarCarteira();
+        for (const r of c.riscos) for (const k of r.kris) if (totais[k.id]) k.totalRiscos = totais[k.id];
+        return c;
+      };
+      definirFonteParaTeste({ ...base, salvarFicha, carregarCarteira });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      return { salvarFicha };
+    }
+
+    it('o aviso fixo cita os códigos visíveis e diz que há outros riscos que a pessoa não vê', async () => {
+      await comTotais({ 'kri-anexo-ii-2': 3 });
+      const { w } = await montar('/riscos/novo?editar=risco-anexo-ii-04');
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.text()).toContain('Este KRI também serve aos riscos RADAR-2026-001; alterar muda o indicador de todos eles e reabre os aprovados.');
+      expect(w.text()).toContain('Ele também serve a 1 outro risco que você não pode ver.');
+      w.unmount();
+    });
+
+    it('KRI só deste risco entre os visíveis, mas ligado a outro fora da visão: avisa e não pede para apagar medições', async () => {
+      const store = useRiscosStore();
+      const { salvarFicha } = await comTotais({ [store.obterRiscoPorId('risco-socio-03')!.kris[0].id]: 2 });
+      const kri = useRiscosStore().obterRiscoPorId('risco-socio-03')!.kris[0];
+      expect(kri.riscoIds).toEqual(['risco-socio-03']);
+      expect(kri.medicoes.length).toBeGreaterThan(0);
+      const { w } = await montar('/riscos/novo?editar=risco-socio-03');
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.text()).toContain('Este KRI também serve a 1 risco que você não pode ver; alterar muda o indicador de todos eles e reabre os aprovados.');
+      const nome = w.findAll('input[type="text"]').find((i) => (i.element as HTMLInputElement).value === kri.nomeIndicador)!;
+      await nome.setValue('');
+      // O banco NÃO apaga o KRI (ainda serve ao outro risco): nada a confirmar.
+      expect(w.text()).not.toContain('medições registradas');
+      expect(w.text()).not.toContain('medição registrada');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      w.unmount();
+    });
+  });
+
   // -------------------------------------------------------------------------
   // LAC-13 — risco crítico não pode ser "Aceito" (Metodologia 4.5 e Anexo III)
   // -------------------------------------------------------------------------
@@ -509,7 +686,6 @@ describe('Página Novo risco', () => {
   // (Extremo). Residual Alto ou Extremo está sempre fora do apetite da DAR,
   // então o risco é crítico (status 'sim') em qualquer categoria.
   describe('Risco crítico na etapa 4 (LAC-13)', () => {
-    afterEach(() => definirFonteParaTeste(null));
     const ERRO_ACEITAR = 'Risco crítico não pode ser aceito: escolha Mitigar, Compartilhar ou Evitar (Metodologia 4.5 e Anexo III).';
     type VmFormulario = { d: { probabilidade: number | null; impacto: number | null; eficacia: string; estrategia: string } };
     const seletorEstrategia = (w: ReturnType<typeof mount>) => w.findAll('select').find((s) => s.find('option[value="Aceitar"]').exists())!;

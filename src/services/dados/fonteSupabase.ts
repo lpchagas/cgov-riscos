@@ -124,12 +124,30 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
     });
 
   /** Lê as linhas de uma tabela filha de UM risco ou de um conjunto de ids (em lotes). */
-  const lerFilhosPorIds = (tabela: string, coluna: string, ids: string[]) =>
+  const lerFilhosPorIds = (tabela: string, coluna: string, ids: string[], ordem: string[] = ['id']) =>
     emLotes(ids, 200, (lote) =>
-      lerTodasAsPaginas<LinhaBanco>((ini, fim) =>
-        cliente.from(tabela).select('*').in(coluna, lote).order('id', { ascending: true }).range(ini, fim),
-      ),
+      lerTodasAsPaginas<LinhaBanco>((ini, fim) => {
+        let q = cliente.from(tabela).select('*').in(coluna, lote);
+        for (const col of ordem) q = q.order(col, { ascending: true });
+        return q.range(ini, fim);
+      }),
     );
+
+  /**
+   * Quantos riscos cada KRI serve DE VERDADE (função `kri_total_riscos` do
+   * banco). A leitura comum de `kri_riscos` passa pela RLS e só mostra as
+   * ligações dos riscos que a pessoa vê; o total vem da função, que só
+   * responde pelos KRIs que a pessoa já lê.
+   * Ex.: totaisDosKris(['k1']) → Map { 'k1' => 3 }
+   */
+  async function totaisDosKris(ids: string[]): Promise<Map<string, number>> {
+    const linhas = await emLotes(ids, LOTE_ACOES, async (lote) => {
+      const { data, error } = await cliente.rpc('kri_total_riscos', { p_kris: lote });
+      if (error) throw traduzirErroBanco(error);
+      return (data ?? []) as LinhaBanco[];
+    });
+    return new Map(linhas.map((l) => [String(l.kri_id), Number(l.total)]));
+  }
 
   /** Monta a ficha de um risco a partir das linhas já lidas. */
   function montarRisco(
@@ -139,13 +157,19 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
       categorias: Map<number, ReturnType<typeof categoriaDoBanco>>;
       controles: Map<string, LinhaBanco[]>;
       respostas: Map<string, LinhaBanco[]>;
-      kris: Map<string, LinhaBanco[]>;
+      /** Todos os KRIs lidos (o risco só mostra os ligados a ele, via `kriRiscos`). */
+      kris: LinhaBanco[];
+      kriRiscos: LinhaBanco[];
+      /** Total real de riscos de cada KRI (inclui os que a pessoa não vê). */
+      totaisKri: Map<string, number>;
       medicoesPorKri: Map<string, LinhaBanco[]>;
       historico: Map<string, LinhaBanco[]>;
     },
   ): FichaRisco {
     const id = String(l.id);
-    const kris = apoio.kris.get(id) ?? [];
+    // KRIs ligados a este risco (LAC-03: ligação N:N em `kri_riscos`).
+    const idsLigados = new Set(apoio.kriRiscos.filter((x) => String(x.risco_id) === id).map((x) => String(x.kri_id)));
+    const kris = apoio.kris.filter((k) => idsLigados.has(String(k.id)));
     // Medições dos KRIs deste risco (a tabela de medições só tem `kri_id`).
     const medicoes = kris.flatMap((k) => apoio.medicoesPorKri.get(String(k.id)) ?? []);
     return riscoDoBanco(l, {
@@ -154,6 +178,8 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
       controles: apoio.controles.get(id),
       respostas: apoio.respostas.get(id),
       kris,
+      kriRiscos: apoio.kriRiscos,
+      totaisKri: apoio.totaisKri,
       medicoes,
       historico: apoio.historico.get(id),
     });
@@ -197,7 +223,7 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
 
   return {
     async carregarCarteira(): Promise<Carteira> {
-      const [catL, uniL, procL, objL, risL, conL, resL, kriL, medL, hisL] = await Promise.all([
+      const [catL, uniL, procL, objL, risL, conL, resL, kriL, kriRiscosL, medL, hisL] = await Promise.all([
         lerTabela('categorias_risco'),
         lerTabela('unidades'),
         lerTabela('processos_cadeia_valor'),
@@ -206,9 +232,13 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
         lerTabela('controles_existentes'),
         lerTabela('respostas_tratamento'),
         lerTabela('indicadores_kri'),
+        // `kri_riscos` não tem coluna `id`: a ordem estável é pela chave composta.
+        lerTabela('kri_riscos', ['kri_id', 'risco_id']),
         lerTabela('medicoes_kri'),
         lerTabela('historico_fluxo'),
       ]);
+      // Depois de saber quais KRIs a pessoa lê, pedimos o total real de riscos de cada um.
+      const totaisKri = await totaisDosKris(kriL.map((k) => String(k.id)));
       const categorias = catL.map(categoriaDoBanco);
       const unidades = uniL.map(unidadeDoBanco);
       const processos = procL.map(processoDoBanco);
@@ -218,7 +248,9 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
         categorias: new Map(categorias.map((c) => [c.id, c])),
         controles: agruparPor(conL, 'risco_id'),
         respostas: agruparPor(resL, 'risco_id'),
-        kris: agruparPor(kriL, 'risco_id'),
+        kris: kriL,
+        kriRiscos: kriRiscosL,
+        totaisKri,
         medicoesPorKri: agruparPor(medL, 'kri_id'),
         historico: agruparPor(hisL, 'risco_id'),
       };
@@ -232,17 +264,25 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
       if (error) throw traduzirErroBanco(error);
       if (!data) return null;
       const risco = data as LinhaBanco;
-      const [con, res, kri, his, cat, obj] = await Promise.all([
+      const [con, res, ligacoesDoRisco, his, cat, obj] = await Promise.all([
         lerFilhosPorIds('controles_existentes', 'risco_id', [id]),
         lerFilhosPorIds('respostas_tratamento', 'risco_id', [id]),
-        lerFilhosPorIds('indicadores_kri', 'risco_id', [id]),
+        lerFilhosPorIds('kri_riscos', 'risco_id', [id], ['kri_id']),
         lerFilhosPorIds('historico_fluxo', 'risco_id', [id]),
         cliente.from('categorias_risco').select('*').eq('id', risco.categoria_id).maybeSingle(),
         cliente.from('objetos_contexto').select('*').eq('id', risco.objeto_id).maybeSingle(),
       ]);
       if (cat.error) throw traduzirErroBanco(cat.error);
       if (obj.error) throw traduzirErroBanco(obj.error);
-      const med = await lerFilhosPorIds('medicoes_kri', 'kri_id', kri.map((k) => String(k.id)));
+      // KRIs ligados a este risco; depois as ligações desses KRIs que a pessoa vê (`riscoIds`),
+      // o total real de riscos de cada um (`totalRiscos`) e as medições deles.
+      const idsKri = ligacoesDoRisco.map((x) => String(x.kri_id));
+      const [kri, kriRiscos, med, totaisKri] = await Promise.all([
+        lerFilhosPorIds('indicadores_kri', 'id', idsKri),
+        lerFilhosPorIds('kri_riscos', 'kri_id', idsKri, ['kri_id', 'risco_id']),
+        lerFilhosPorIds('medicoes_kri', 'kri_id', idsKri),
+        totaisDosKris(idsKri),
+      ]);
       // Unidade e processo do objeto (para as marcas "inativo").
       const objeto = obj.data ? await completarObjeto(obj.data as LinhaBanco) : null;
       return riscoDoBanco(risco, {
@@ -251,6 +291,8 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
         controles: con,
         respostas: res,
         kris: kri,
+        kriRiscos,
+        totaisKri,
         medicoes: med,
         historico: his,
       });

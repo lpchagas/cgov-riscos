@@ -167,7 +167,7 @@ describe('fonte Supabase — gravações e fluxo (Supabase local)', () => {
     expect(lido.statusFluxo).toBe('rascunho');
     expect(lido.isCritico).toBe(true);
     lido.respostasTratamento[0] = { ...lido.respostasTratamento[0], justificativaPorQue: undefined };
-    await gestor.salvarFicha(fichaParaSalvarDeRisco(lido));
+    await gestor.salvarFicha(fichaParaSalvarDeRisco(lido, []));
     const { data: resp } = await clienteServico()
       .from('respostas_tratamento')
       .select('justificativa_por_que, local_onde')
@@ -206,7 +206,7 @@ describe('fonte Supabase — gravações e fluxo (Supabase local)', () => {
 
     // Edição do risco aprovado (P e controles) numa só chamada → volta à validação.
     await gestor.salvarFicha({
-      ...fichaParaSalvarDeRisco(monitorado),
+      ...fichaParaSalvarDeRisco(monitorado, []),
       probabilidade: 3,
       controles: [
         {
@@ -222,6 +222,41 @@ describe('fonte Supabase — gravações e fluxo (Supabase local)', () => {
     expect(reaberto.statusFluxo).toBe('em_validacao_cg');
     expect(reaberto.probabilidade).toBe(3);
     expect(reaberto.controlesExistentes).toHaveLength(1);
+  });
+
+  it('KRI (LAC-03): cria só com o nome, liga a outro risco, desliga e some quando fica órfão', async () => {
+    const gestor = await fonteDe('gestor.uc@radar.test');
+    // Rascunho é livre: um KRI só com o nome é aceito e os campos vazios ficam NULL.
+    const a = await criar(gestor, ficha({ kris: [{ nomeIndicador: 'KRI só com nome (teste)' }] }));
+    const lidoA = (await gestor.relerRisco(a.id))!;
+    expect(lidoA.kris).toHaveLength(1);
+    const kri = lidoA.kris[0];
+    expect(kri.nomeIndicador).toBe('KRI só com nome (teste)');
+    expect(kri.formulaCalculo).toBeUndefined();
+    expect(kri.periodicidade).toBeUndefined();
+    expect(kri.limiteAlerta).toBeUndefined();
+    expect(kri.riscoIds).toEqual([a.id]);
+
+    // Outro risco do mesmo objeto só LIGA o KRI existente.
+    const b = await criar(gestor, ficha({ kris: [{ id: kri.id, nomeIndicador: kri.nomeIndicador, apenasLigar: true }] }));
+    const lidoB = (await gestor.relerRisco(b.id))!;
+    expect(lidoB.kris.map((k) => k.id)).toEqual([kri.id]);
+    expect([...lidoB.kris[0].riscoIds].sort()).toEqual([a.id, b.id].sort());
+    // A carteira mostra o mesmo KRI nos dois riscos.
+    const carteira = await gestor.carregarCarteira();
+    for (const id of [a.id, b.id]) {
+      expect(carteira.riscos.find((r) => r.id === id)!.kris.map((k) => k.id)).toEqual([kri.id]);
+    }
+
+    // Desligar do B (lista de KRIs vazia): o KRI continua no A.
+    await gestor.salvarFicha({ ...fichaParaSalvarDeRisco(lidoB, []), kris: [] });
+    expect((await gestor.relerRisco(b.id))!.kris).toEqual([]);
+    expect((await gestor.relerRisco(a.id))!.kris.map((k) => k.id)).toEqual([kri.id]);
+
+    // Desligar do último risco: o KRI órfão some.
+    await gestor.salvarFicha({ ...fichaParaSalvarDeRisco((await gestor.relerRisco(a.id))!, []), kris: [] });
+    const { data: sobrou } = await clienteServico().from('indicadores_kri').select('id').eq('id', kri.id);
+    expect(sobrou).toEqual([]);
   });
 
   it('devolver sem motivo → ErroRadar "validacao"', async () => {
@@ -353,7 +388,35 @@ describe('fonte Supabase — gravações e fluxo (Supabase local)', () => {
   it('DAR: cgov@ muda o apetite → risco aprovado da categoria relido com a criticidade nova', async () => {
     const gestor = await fonteDe('gestor.uc@radar.test');
     // P=2, I=3, Operacional (moderado) → Médio, dentro do apetite → validar aprova.
-    const { id } = await criar(gestor, ficha({ probabilidade: 2, impacto: 3 }));
+    // LAC-03: ao virar crítico com a DAR nova, o risco só segue para a homologação se já tiver
+    // tratamento (LAC-13) e KRI completo; por isso a ficha já nasce com os dois.
+    const { id } = await criar(
+      gestor,
+      ficha({
+        probabilidade: 2,
+        impacto: 3,
+        respostas: [
+          {
+            estrategia: 'Mitigar',
+            acaoOQue: 'Ação de teste',
+            responsavelQuem: 'Responsável',
+            prazoQuando: '2026-12-31',
+            procedimentoComo: 'Procedimento',
+            statusExecucao: 'nao_iniciada',
+          },
+        ],
+        kris: [
+          {
+            nomeIndicador: 'KRI completo (teste)',
+            formulaCalculo: 'a / b',
+            fonteDados: 'Planilha',
+            periodicidade: 'Mensal',
+            limiteAlerta: '1',
+            responsavelMedicao: 'Responsável',
+          },
+        ],
+      }),
+    );
     await gestor.enviar(id);
     await (await fonteDe('ct@radar.test')).validar(id);
     const antes = (await gestor.relerRisco(id))!;

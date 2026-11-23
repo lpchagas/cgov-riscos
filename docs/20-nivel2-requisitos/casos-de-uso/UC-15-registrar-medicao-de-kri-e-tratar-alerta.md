@@ -1,6 +1,6 @@
 # UC-15 — Registrar medição de KRI e tratar alerta
 
-> Origem: F4.02 e F4.04 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.1 (parágrafo do alerta) e 4.7.2 (1º parágrafo); decisão L-40 · RF: RF-098, RF-099, RF-100, RF-101, RF-102, RF-106, RF-109 · RN: RN-027, RN-095, RN-115, RN-052, RN-083, RN-084, RN-085, RN-086, RN-051 · Situação: parcial (LAC-03)
+> Origem: F4.02 e F4.04 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.1 (parágrafo do alerta) e 4.7.2 (1º parágrafo); decisão L-40 · RF: RF-098, RF-099, RF-100, RF-101, RF-102, RF-106, RF-109 · RN: RN-027, RN-095, RN-115, RN-052, RN-083, RN-084, RN-085, RN-086, RN-051 · Situação: parcial (LAC-03: o KRI completo foi implementado em 2026-11-22; falta o alerta, RF-102, e a comunicação, RF-109)
 
 ## Título
 
@@ -30,7 +30,7 @@ Gestor de riscos (1ª linha), responsável pelo monitoramento do KRI.
 
 ## Fluxos alternativos e de exceção
 
-- 1a. O KRI não tem limite de alerta definido (gravado como "A definir"): não há como saber se a medição está em alerta (RN-083; não tratado pelo sistema; cartão LAC-03 no Kanban).
+- 1a. O KRI não tem limite de alerta definido (dado antigo, vazio): não há como saber se a medição está em alerta (RN-083). Desde a LAC-03 (2026-11-22, implementado no código e no banco local; nuvem do piloto: aplicada em 2026-11-23) a tela de monitoramento mostra "limite não definido" e nada é mais gravado como "A definir"; o risco crítico não é enviado, validado nem homologado sem KRI completo. A tela mostra cada KRI uma vez, com os riscos ligados, e a medição vale para todos eles.
 - 2a. **O KRI passou do limite de alerta.** O gestor deve reavaliar o risco ([[UC-24-reavaliar-risco]]) e comunicar o resultado à CGOV em até 10 dias úteis contados da ciência do alerta (RN-084). Hoje o sistema só guarda a marca de alerta, posta à mão; não compara o valor com o limite, não conta o prazo e não pede a reavaliação (RF-099, parcial; RF-102; não tratado pelo sistema; cartão LAC-03 no Kanban).
 - 2a.1. **Alerta que coincide com as hipóteses I a III.** Se o resultado da reavaliação for também uma das hipóteses I a III do item 4.7.2 (mudança do nível residual ou do enquadramento no apetite; falha de controle de risco crítico; materialização de risco crítico), uma só comunicação basta: a do resultado do alerta supre a da hipótese, desde que feita no mesmo prazo de 10 dias úteis (RN-085, RN-086; decisão L-40). O registro é o do [[UC-16-comunicar-fato-de-risco-a-cgov]], exceção 2a (hoje não existe; RF-109; cartões LAC-03 e LAC-04 no Kanban).
 - 2a.2. A reavaliação muda a probabilidade, o impacto ou o controle de risco aprovado: o risco reabre para validação ([[UC-08-enviar-risco-para-validacao]], exceção 1a; RN-051).

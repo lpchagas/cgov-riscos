@@ -20,7 +20,7 @@ import {
   CATEGORIAS_QUADRO_2_SEMENTE,
 } from '../../src/services/dadosSementeAnexoII';
 import { calcularRiscoCompletoRadar } from '../../src/utils/calculadoraRiscoRadar';
-import { verificarTravaRiscoCritico } from '../../src/utils/travaRiscoCritico';
+import { exigeTratamento, kriCompleto, verificarTravaRiscoCritico } from '../../src/utils/travaRiscoCritico';
 
 describe('Dados de demonstração coerentes com os Quadros 6, 7 e 8 e a DAR', () => {
   // `it.each` gera um teste por risco, com o código RADAR no nome do teste,
@@ -87,7 +87,27 @@ describe('Dados de demonstração coerentes com os Quadros 6, 7 e 8 e a DAR', ()
       statusCritico: risco.statusCritico,
       estrategiaPrincipal: risco.estrategiaPrincipal,
       estrategiasDasAcoes: risco.respostasTratamento.map((a) => a.estrategia),
+      kris: risco.kris,
     });
     expect(resultado).toEqual({ ok: true });
+  });
+
+  // LAC-03: todo risco crítico da semente tem ao menos um KRI completo, e a
+  // semente mostra um KRI compartilhado por dois riscos do mesmo objeto.
+  it.each(
+    RISCOS_SEMENTE_ANEXO_II.filter((r) => exigeTratamento(r.statusCritico)).map((r) => [r.codigoRadar, r] as const)
+  )('%s: risco crítico tem ao menos um KRI completo (LAC-03)', (_codigo, risco) => {
+    expect(risco.kris.some(kriCompleto)).toBe(true);
+  });
+
+  it('existe KRI ligado a 2 ou mais riscos, todos do mesmo objeto do KRI (LAC-03)', () => {
+    const todos = RISCOS_SEMENTE_ANEXO_II.flatMap((r) => r.kris);
+    const compartilhados = todos.filter((k) => k.riscoIds.length >= 2);
+    expect(compartilhados.length).toBeGreaterThan(0);
+    for (const k of compartilhados) {
+      for (const id of k.riscoIds) {
+        expect(RISCOS_SEMENTE_ANEXO_II.find((r) => r.id === id)?.objetoId, `${k.id} ligado a ${id}`).toBe(k.objetoId);
+      }
+    }
   });
 });

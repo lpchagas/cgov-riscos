@@ -21,7 +21,7 @@ Cada forma normal recebe um destes três resultados:
   O cartão está no [[quadro]], com a classe `#divida`.
 
 O ponto de partida foi o achado **E2** do diagnóstico [[2026-11-20-diagnostico-documentacao-radar]]. A
-estrutura analisada é a do [[der-logico]] (13 tabelas, estado final das migrações até `20261122001`).
+estrutura analisada é a do [[der-logico]] (14 tabelas, estado final das migrações até `20261122004`).
 As propostas abaixo continuam como foram escritas em 2026-11-21, **exceto a do § 2.1**, aplicada em 2026-11-22
 (migração `20261122001`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]); mudar o banco depende de plano autorizado e de nova migração.
 

@@ -36,7 +36,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(76);
+select plan(77);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -82,11 +82,13 @@ select pg_temp.inserir_risco('00000000-0000-4000-b000-000000000011', 'RADAR-T041
 select (select id from public.riscos where codigo_radar = 'RADAR-T041-TAIM') as r_taim \gset
 insert into public.controles_existentes (id, risco_id, descricao_controle, evidencia_funcionamento)
 values ('00000000-0000-4000-c000-000000000011', :'r_taim', 'Controle da vizinha', 'Evidência');
+-- LAC-03: o KRI é do objeto da vizinha e se liga ao risco dela (kri_riscos).
 insert into public.indicadores_kri
-  (id, risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo,
+  (id, objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo,
    limite_alerta, responsavel_medicao)
-values ('00000000-0000-4000-d000-000000000011', :'r_taim', 'KRI da vizinha', 'a / b', 'Planilha',
-        'Mensal', '0', '1', 'Gestor');
+values ('00000000-0000-4000-d000-000000000011', '00000000-0000-4000-b000-000000000011', 'KRI da vizinha',
+        'a / b', 'Planilha', 'Mensal', '0', '1', 'Gestor');
+insert into public.kri_riscos (kri_id, risco_id) values ('00000000-0000-4000-d000-000000000011', :'r_taim');
 
 -- ----------------------------------------------------------------------------
 -- 1. Gestores: gravam na própria unidade; na vizinha, erro ou 0 linhas
@@ -263,12 +265,17 @@ select throws_ok(format($$insert into public.respostas_tratamento
                             (risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
                           values (%L, 'Mitigar', 'ação', 'responsável', date '2027-06-30', 'como')$$, :'r_taim'),
                  '42501', null, 'gestor.uc NÃO cria resposta no risco da vizinha');
+-- LAC-03: o KRI nasce no objeto do risco e depois é ligado a ele.
 select lives_ok(format($$insert into public.indicadores_kri
-                           (id, risco_id, nome_indicador, formula_calculo, fonte_dados, periodicidade,
+                           (id, objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade,
                             meta_alvo, limite_alerta, responsavel_medicao)
-                         values ('00000000-0000-4000-d000-000000000001', %L, 'KRI da UC', 'a / b', 'Planilha',
-                                 'Mensal', '0', '1', 'Gestor')$$, :'r_uc_ct'),
-                'gestor.uc cria KRI no risco da própria UC');
+                         select '00000000-0000-4000-d000-000000000001', r.objeto_id, 'KRI da UC', 'a / b',
+                                'Planilha', 'Mensal', '0', '1', 'Gestor'
+                           from public.riscos r where r.id = %L$$, :'r_uc_ct'),
+                'gestor.uc cria KRI no objeto do risco da própria UC');
+select lives_ok(format($$insert into public.kri_riscos (kri_id, risco_id)
+                         values ('00000000-0000-4000-d000-000000000001', %L)$$, :'r_uc_ct'),
+                'gestor.uc liga o KRI ao risco da própria UC');
 select lives_ok($$insert into public.medicoes_kri (kri_id, valor_apurado)
                   values ('00000000-0000-4000-d000-000000000001', '0,5')$$,
                 'gestor.uc registra medição no KRI da própria UC');

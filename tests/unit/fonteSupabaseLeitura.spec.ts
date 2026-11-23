@@ -16,7 +16,7 @@ import { criarFonteSupabase } from '../../src/services/dados/fonteSupabase';
 type Linha = Record<string, unknown>;
 
 /** Cliente falso: `from(tabela)` devolve um pedido encadeável; `rpc` registra as chamadas. */
-function clienteFalso(tabelas: Record<string, Linha[]>) {
+function clienteFalso(tabelas: Record<string, Linha[]>, respostasRpc: Record<string, unknown[]> = {}) {
   const chamadasRpc: Array<{ nome: string; args: Record<string, unknown> }> = [];
   const cliente = {
     from(tabela: string) {
@@ -28,6 +28,8 @@ function clienteFalso(tabelas: Record<string, Linha[]>) {
         order: () => pedido,
         in: () => pedido,
         eq: () => pedido,
+        // Uma linha só (a 1ª da tabela): basta para as releituras dos testes.
+        maybeSingle: () => Promise.resolve({ data: linhas[0] ?? null, error: null }),
         range(a: number, b: number) {
           inicio = a;
           fim = b;
@@ -41,7 +43,7 @@ function clienteFalso(tabelas: Record<string, Linha[]>) {
     },
     rpc(nome: string, args: Record<string, unknown>) {
       chamadasRpc.push({ nome, args });
-      return Promise.resolve({ data: [], error: null });
+      return Promise.resolve({ data: respostasRpc[nome] ?? [], error: null });
     },
   };
   return { cliente: cliente as unknown as SupabaseClient, chamadasRpc };
@@ -71,6 +73,55 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
     expect(r1400.controlesExistentes.map((c) => c.id)).toEqual(['c1']);
     expect(carteira.riscos.find((r) => r.id === 'r3')!.controlesExistentes.map((c) => c.id)).toEqual(['c2']);
     expect(carteira.riscos.find((r) => r.id === 'r0')!.controlesExistentes).toEqual([]);
+  });
+
+  it('carregarCarteira lê kri_riscos e agrupa o mesmo KRI nos riscos ligados (LAC-03)', async () => {
+    const { cliente } = clienteFalso({
+      categorias_risco: [{ id: 2, nome: 'Operacional' }],
+      unidades: [{ id: 'u1', sigla: 'UC', nome: 'UC', tipo: 'uc' }],
+      objetos_contexto: [{ id: 'o1', nome_objeto: 'Obj', unidade_id: 'u1' }],
+      riscos: [
+        { id: 'r1', codigo_radar: 'RADAR-X-1', objeto_id: 'o1', categoria_id: 2 },
+        { id: 'r2', codigo_radar: 'RADAR-X-2', objeto_id: 'o1', categoria_id: 2 },
+        { id: 'r3', codigo_radar: 'RADAR-X-3', objeto_id: 'o1', categoria_id: 2 },
+      ],
+      indicadores_kri: [{ id: 'k1', objeto_id: 'o1', nome_indicador: 'KRI compartilhado', periodicidade: null }],
+      kri_riscos: [
+        { kri_id: 'k1', risco_id: 'r1' },
+        { kri_id: 'k1', risco_id: 'r2' },
+      ],
+      medicoes_kri: [{ id: 'm1', kri_id: 'k1', data_medicao: '2026-11-01', valor_apurado: '5%', em_alerta: false }],
+    });
+    const { riscos } = await criarFonteSupabase(cliente).carregarCarteira();
+    const por = (id: string) => riscos.find((r) => r.id === id)!;
+    expect(por('r1').kris.map((k) => k.id)).toEqual(['k1']);
+    expect(por('r2').kris.map((k) => k.id)).toEqual(['k1']);
+    expect(por('r3').kris).toEqual([]);
+    expect([...por('r1').kris[0].riscoIds].sort()).toEqual(['r1', 'r2']);
+    expect(por('r2').kris[0].medicoes).toHaveLength(1);
+    expect(por('r1').kris[0].periodicidade).toBeUndefined();
+  });
+
+  it('KRI ligado a riscos fora da visão: totalRiscos vem de kri_total_riscos (carteira e releitura)', async () => {
+    // A RLS só deixa ler a ligação k1 → r1; o banco diz que k1 serve a 3 riscos.
+    const { cliente, chamadasRpc } = clienteFalso(
+      {
+        categorias_risco: [{ id: 2, nome: 'Operacional' }],
+        unidades: [{ id: 'u1', sigla: 'UC', nome: 'UC', tipo: 'uc' }],
+        objetos_contexto: [{ id: 'o1', nome_objeto: 'Obj', unidade_id: 'u1' }],
+        riscos: [{ id: 'r1', codigo_radar: 'RADAR-X-1', objeto_id: 'o1', categoria_id: 2 }],
+        indicadores_kri: [{ id: 'k1', objeto_id: 'o1', nome_indicador: 'KRI compartilhado' }],
+        kri_riscos: [{ kri_id: 'k1', risco_id: 'r1' }],
+      },
+      { kri_total_riscos: [{ kri_id: 'k1', total: 3 }] },
+    );
+    const fonte = criarFonteSupabase(cliente);
+    const { riscos } = await fonte.carregarCarteira();
+    expect(riscos[0].kris[0].riscoIds).toEqual(['r1']);
+    expect(riscos[0].kris[0].totalRiscos).toBe(3);
+    expect(chamadasRpc.find((c) => c.nome === 'kri_total_riscos')?.args).toEqual({ p_kris: ['k1'] });
+    const relido = await fonte.relerRisco('r1');
+    expect(relido?.kris[0].totalRiscos).toBe(3);
   });
 
   it('acoesNoFluxo chama a RPC em lotes', async () => {

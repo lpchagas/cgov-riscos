@@ -54,6 +54,8 @@ const TABELAS: Record<string, { nome: string; feminino: boolean }> = {
   controles_existentes: { nome: 'Controle', feminino: false },
   respostas_tratamento: { nome: 'Resposta ao risco', feminino: true },
   indicadores_kri: { nome: 'Indicador-chave de risco (KRI)', feminino: false },
+  // LAC-03: a ligação de um KRI do objeto a cada risco que ele acompanha.
+  kri_riscos: { nome: 'Ligação do KRI ao risco', feminino: true },
   medicoes_kri: { nome: 'Medição de KRI', feminino: true },
   historico_fluxo: { nome: 'Passo do fluxo', feminino: false },
 };
@@ -67,6 +69,7 @@ export const ROTULOS_TABELA: Record<string, string> = {
   controles_existentes: 'Controles',
   respostas_tratamento: 'Respostas ao risco',
   indicadores_kri: 'Indicadores (KRI)',
+  kri_riscos: 'Ligações de KRI a riscos',
   medicoes_kri: 'Medições de KRI',
   historico_fluxo: 'Fluxo de aprovação',
 };
@@ -182,6 +185,10 @@ export function descreverEvento(e: EventoAuditoria): EventoLegivel {
     titulo = `Perfil de ${ref || 'usuário'} ${masc}`;
   } else if (e.tabela === 'objetos_contexto') {
     titulo = `Objeto de gestão ${ref} ${masc}`;
+  } else if (e.tabela === 'kri_riscos') {
+    // O nome já termina em "ao risco": "Ligação do KRI ao risco RADAR-2026-003 criada"
+    // (e não "Ligação do KRI ao risco do risco ...").
+    titulo = ref ? `${TABELAS.kri_riscos.nome} ${ref} ${fem}` : `${TABELAS.kri_riscos.nome} ${fem}`;
   } else {
     const t = TABELAS[e.tabela];
     const nome = t?.nome ?? e.tabela.replace(/_/g, ' ');

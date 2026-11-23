@@ -45,6 +45,20 @@ describe('Ficha do risco', () => {
     await useRiscosStore().carregar();
   });
 
+  it('aba Monitoramento: KRI com campos opcionais em branco mostra "não definido", sem valores vazios', async () => {
+    const r = useRiscosStore().riscos.find((x) => x.codigoRadar === 'RADAR-2026-003')!;
+    const k = r.kris[0];
+    k.metaAlvo = undefined;
+    k.limiteAlerta = undefined;
+    k.periodicidade = undefined;
+    const { w } = await montar(`/riscos/${r.id}?aba=monitoramento`);
+    const linha = w.findAll('.item-cartao').find((li) => li.text().includes(k.nomeIndicador))!;
+    expect(linha.text()).toMatch(/meta não definida/i);
+    expect(linha.text()).toContain('limite não definido');
+    expect(linha.text()).toContain('periodicidade não definida');
+    expect(linha.text()).not.toMatch(/Meta\s+·|alerta\s+·/);
+  });
+
   it('endereço inexistente avisa "Risco não encontrado"', async () => {
     const { w } = await montar('/riscos/nao-existe');
     expect(w.find('h1').text()).toBe('Risco não encontrado');

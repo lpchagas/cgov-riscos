@@ -334,6 +334,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     kris: [
       {
         id: 'kri-anexo-ii-1',
+        objetoId: 'obj-anexo-ii',
+        riscoIds: ['risco-anexo-ii-01'],
         nomeIndicador: 'Percentual de atividades críticas documentadas em POP',
         formulaCalculo:
           '(Nº de atividades críticas com POP publicado / Total de atividades críticas) × 100',
@@ -354,6 +356,9 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
       },
       {
         id: 'kri-anexo-ii-2',
+        objetoId: 'obj-anexo-ii',
+        // LAC-03: KRI compartilhado. Serve ao risco 01 e ao 04 (mesmo objeto).
+        riscoIds: ['risco-anexo-ii-01', 'risco-anexo-ii-04'],
         nomeIndicador:
           'Percentual de processos críticos com substituto capacitado ativo',
         formulaCalculo:
@@ -367,6 +372,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
       },
       {
         id: 'kri-anexo-ii-3',
+        objetoId: 'obj-anexo-ii',
+        riscoIds: ['risco-anexo-ii-01'],
         nomeIndicador:
           'Taxa de processos críticos com prazo vencido por ausência do titular',
         formulaCalculo:
@@ -467,6 +474,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     kris: [
       {
         id: 'kri-integra-1',
+        objetoId: 'obj-fiscalizacao-autos',
+        riscoIds: ['risco-integra-02'],
         nomeIndicador:
           'Percentual de processos sancionadores revisados em dupla assinatura com termo de integridade',
         formulaCalculo:
@@ -591,6 +600,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
     kris: [
       {
         id: 'kri-socio-1',
+        objetoId: 'obj-autorizacao-uc',
+        riscoIds: ['risco-socio-03'],
         nomeIndicador:
           'Percentual de autorizações emitidas com laudo de capacidade de carga atualizado nos últimos 6 meses',
         formulaCalculo:
@@ -637,5 +648,78 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         criadoEm: '2026-11-06T15:30:00Z',
       },
     ],
+  },
+  /**
+   * LAC-03: 4º risco da semente, crítico e em rascunho, no MESMO objeto do
+   * risco 01. Ele não tem KRI próprio: usa o `kri-anexo-ii-2`, que o risco 01
+   * também usa. Assim a demonstração mostra um KRI compartilhado (grupo).
+   */
+  {
+    id: 'risco-anexo-ii-04',
+    codigoRadar: 'RADAR-2026-004',
+    objetoId: 'obj-anexo-ii',
+    unidadeId: 'uni-cgov',
+    atualizadoEm: null,
+    nomeObjetoCache:
+      'Gestão e Execução de Processos Críticos da Unidade (Caso de Controle Anexo II)',
+    responsavelRiscoNome: 'Gestor de Riscos da Unidade (1ª Linha)',
+    causas: 'ausência de rodízio assistido e de substituto capacitado para as rotinas críticas',
+    eventoRisco: 'indisponibilidade simultânea do titular e do substituto em período de prazo legal',
+    consequencias: 'descumprimento de prazo legal e retrabalho nas entregas da unidade',
+    objetivoAfetado: 'tempestividade das entregas previstas no Planejamento Estratégico do ICMBio',
+    descricaoPadrao:
+      'Devido o(a) ausência de rodízio assistido e de substituto capacitado para as rotinas críticas, poderá ocorrer o(a) indisponibilidade simultânea do titular e do substituto em período de prazo legal, ocasionando o(a) descumprimento de prazo legal e retrabalho nas entregas da unidade e impactando o alcance do tempestividade das entregas previstas no Planejamento Estratégico do ICMBio.',
+    categoriaId: 2,
+    categoriaNome: 'Operacional',
+    testeIntegridadeAplicavel: false,
+    probabilidade: 3,
+    impacto: 5,
+    nivelInerente: 22,
+    classificacaoInerente: 'Extremo',
+    possuiEvidenciaControle: false,
+    nivelEficaciaControle: 'Inexistente',
+    fatorControle: 1.0,
+    nivelResidual: 22,
+    classificacaoResidual: 'Extremo',
+    statusCritico: 'sim',
+    isCritico: true,
+    memoriaCalculo:
+      'P=3 e I=5 → Inerente = 22 (Extremo, Quadro 7) × Fator 1 (Inexistente, sem evidência comprovada, Quadro 6) = Residual 22 (Extremo, Quadro 8) → Crítico frente à DAR (moderado): SIM',
+    origemPreliminarCgov: false,
+    statusFluxo: 'rascunho',
+    estrategiaPrincipal: 'Mitigar',
+    controlesExistentes: [],
+    respostasTratamento: [
+      {
+        id: 'trat-anexo-ii-4',
+        estrategia: 'Mitigar',
+        acaoOQue: 'Instituir rodízio assistido entre titular e substituto nas rotinas com prazo legal.',
+        justificativaPorQue: 'Garantir que sempre haja alguém habilitado em período de prazo legal.',
+        localOnde: 'Unidade Organizacional',
+        responsavelQuem: 'Coordenador da Unidade',
+        prazoQuando: '2027-02-15',
+        procedimentoComo: 'Escala trimestral publicada no SEI, com registro de cada rodízio.',
+        custoQuanto: 'Sem custo adicional',
+        statusExecucao: 'nao_iniciada',
+      },
+    ],
+    kris: [
+      {
+        id: 'kri-anexo-ii-2',
+        objetoId: 'obj-anexo-ii',
+        riscoIds: ['risco-anexo-ii-01', 'risco-anexo-ii-04'],
+        nomeIndicador:
+          'Percentual de processos críticos com substituto capacitado ativo',
+        formulaCalculo:
+          '(Nº de processos com pelo menos 2 servidores habilitados / Total de processos críticos) × 100',
+        fonteDados: 'Matriz de Polivalência da Coordenação',
+        periodicidade: 'Trimestral',
+        metaAlvo: '100%',
+        limiteAlerta: 'Abaixo de 80%',
+        responsavelMedicao: 'Coordenador da Unidade',
+        medicoes: [],
+      },
+    ],
+    historicoFluxo: [],
   },
 ];

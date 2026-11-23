@@ -232,14 +232,32 @@ export interface MedicaoKri {
  */
 export interface IndicadorKri {
   id: string;
+  /** Objeto de gestão de riscos dono do KRI (o KRI só se liga a riscos do mesmo objeto). */
+  objetoId: string;
+  /** Riscos aos quais o KRI está ligado (um KRI pode servir a vários riscos do objeto). */
+  riscoIds: string[];
+  /**
+   * Quantos riscos o KRI serve DE VERDADE, contando os que a pessoa não vê
+   * (`riscoIds` só traz os visíveis, por causa da RLS). Vem da função do banco
+   * `kri_total_riscos`; ausente = use `riscoIds.length`.
+   * Ex.: riscoIds ['r1'] e totalRiscos 2 → o KRI também serve a 1 risco fora da visão.
+   */
+  totalRiscos?: number;
   nomeIndicador: string;
-  formulaCalculo: string;
-  fonteDados: string;
-  periodicidade: 'Mensal' | 'Trimestral' | 'Semestral' | 'Anual';
-  metaAlvo: string;
-  limiteAlerta: string;
-  responsavelMedicao: string;
+  // Campos opcionais: o sistema nunca grava valor que ninguém definiu (LAC-03).
+  formulaCalculo?: string;
+  fonteDados?: string;
+  periodicidade?: 'Mensal' | 'Trimestral' | 'Semestral' | 'Anual';
+  metaAlvo?: string;
+  limiteAlerta?: string;
+  responsavelMedicao?: string;
   medicoes: MedicaoKri[];
+  /**
+   * SÓ NA GRAVAÇÃO (o formulário marca; a leitura nunca preenche): `true` =
+   * "apenas ligue este KRI que já existe no objeto, sem mexer na definição".
+   * Ausente = o KRI com id é uma EDIÇÃO da definição (LAC-03).
+   */
+  apenasLigar?: boolean;
 }
 
 /**
