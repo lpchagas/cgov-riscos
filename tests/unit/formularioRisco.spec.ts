@@ -12,7 +12,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
-import { dadosExemplo, validarEtapa, type DadosNovoRisco } from '../../src/utils/formularioRisco';
+import { dadosExemplo, dadosParaFicha, dadosVazios, validarEtapa, type DadosNovoRisco } from '../../src/utils/formularioRisco';
+import { MENSAGEM_TRAVA_KRI } from '../../src/utils/travaRiscoCritico';
 
 const CATEGORIAS = CATEGORIAS_QUADRO_2_SEMENTE;
 
@@ -59,5 +60,55 @@ describe('validarEtapa — etapa 4 e risco crítico (LAC-13)', () => {
 
   it('risco crítico com "Evitar" e ação preenchida: ok', () => {
     expect(validarEtapa(4, { ...dadosExemplo('obj-anexo-ii'), estrategia: 'Evitar' }, CATEGORIAS, 'sim')).toEqual({});
+  });
+});
+
+describe('etapa 4: KRI completo para risco crítico (LAC-03)', () => {
+  const soNome: DadosNovoRisco = { ...dadosExemplo('o1'), kriFormula: '', kriFonte: '', kriPeriodicidade: '', kriLimite: '', kriResponsavel: '' };
+
+  it('crítico (sim ou pendente_dar) com só o nome: erro com a frase da trava', () => {
+    expect(validarEtapa(4, soNome, CATEGORIAS, 'sim').nomeKri).toBe(MENSAGEM_TRAVA_KRI);
+    expect(validarEtapa(4, soNome, CATEGORIAS, 'pendente_dar').nomeKri).toBe(MENSAGEM_TRAVA_KRI);
+  });
+  it('crítico com os 6 campos (meta é opcional): sem erro', () => {
+    expect(validarEtapa(4, dadosExemplo('o1'), CATEGORIAS, 'sim')).toEqual({});
+  });
+  it('"A definir" não conta como preenchido', () => {
+    expect(validarEtapa(4, { ...dadosExemplo('o1'), kriFonte: ' a definir ' }, CATEGORIAS, 'sim').nomeKri).toBe(MENSAGEM_TRAVA_KRI);
+  });
+  it('KRI já definido no objeto e completo (campos copiados dele): sem erro', () => {
+    expect(validarEtapa(4, { ...dadosExemplo('o1'), kriExistenteId: 'k1' }, CATEGORIAS, 'sim')).toEqual({});
+  });
+  it('não crítico: KRI incompleto não trava (rascunho e risco baixo seguem livres)', () => {
+    expect(validarEtapa(4, soNome, CATEGORIAS, 'nao')).toEqual({});
+    expect(validarEtapa(4, soNome, CATEGORIAS)).toEqual({});
+  });
+});
+
+describe('dadosParaFicha: KRI (LAC-03)', () => {
+  it('campo vazio vira undefined, nunca "A definir"', () => {
+    const f = dadosParaFicha({ ...dadosExemplo('o1'), kriFonte: '', kriMeta: '' }, { ehIntegridade: false });
+    expect(f.kris![0].fonteDados).toBeUndefined();
+    expect(f.kris![0].metaAlvo).toBeUndefined();
+    expect(JSON.stringify(f.kris)).not.toContain('A definir');
+    expect(f.kris![0].apenasLigar).toBeUndefined();
+  });
+  it('só com o nome: nada de "Trimestral" nem outros valores por padrão', () => {
+    const f = dadosParaFicha({ ...dadosVazios(), objetoId: 'o1', nomeKri: 'Meu KRI' }, { ehIntegridade: false });
+    expect(f.kris![0].nomeIndicador).toBe('Meu KRI');
+    expect(f.kris![0].periodicidade).toBeUndefined();
+    expect(f.kris![0].formulaCalculo).toBeUndefined();
+  });
+  it('kriExistenteId: só liga ({ id, apenasLigar: true, nomeIndicador })', () => {
+    const f = dadosParaFicha({ ...dadosExemplo('o1'), kriExistenteId: 'k1' }, { ehIntegridade: false });
+    expect(f.kris![0]).toMatchObject({ id: 'k1', apenasLigar: true, nomeIndicador: dadosExemplo().nomeKri });
+  });
+  it('KRI escolhido e depois editado: vai como edição da definição (sem apenasLigar)', () => {
+    const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'L', responsavelMedicao: 'R', medicoes: [] };
+    const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'L', kriResponsavel: 'R' };
+    expect(dadosParaFicha(d, { ehIntegridade: false, krisDoObjeto: [escolhido] }).kris![0].apenasLigar).toBe(true);
+    const editado = dadosParaFicha({ ...d, kriLimite: 'Novo' }, { ehIntegridade: false, krisDoObjeto: [escolhido] });
+    expect(editado.kris![0]).toMatchObject({ id: 'k1', limiteAlerta: 'Novo' });
+    expect(editado.kris![0].apenasLigar).toBeUndefined();
   });
 });

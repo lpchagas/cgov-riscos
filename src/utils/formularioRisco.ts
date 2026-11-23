@@ -29,7 +29,8 @@ import type {
   StatusCriticidadeDAR,
 } from '../types/radar.types';
 import { validarRegraIntegridade } from './calculadoraRiscoRadar';
-import { exigeTratamento } from './travaRiscoCritico';
+import { exigeTratamento, kriCompleto, MENSAGEM_TRAVA_KRI, textoPreenchido } from './travaRiscoCritico';
+import { mesmaDefinicaoKri } from '../services/dados/conversores';
 
 /** Todos os campos do assistente (o que a pessoa digita). */
 export interface DadosNovoRisco {
@@ -55,6 +56,16 @@ export interface DadosNovoRisco {
   acaoQuem: string;
   acaoPrazo: string;
   nomeKri: string;
+  // KRI completo (LAC-03): '' = vazio. Meta é opcional; os outros 5 campos
+  // (com o nome) são obrigatórios para risco crítico (Metodologia 4.7.1).
+  kriFormula: string;
+  kriFonte: string;
+  kriPeriodicidade: '' | 'Mensal' | 'Trimestral' | 'Semestral' | 'Anual';
+  kriMeta: string;
+  kriLimite: string;
+  kriResponsavel: string;
+  /** Id de um KRI já definido NESTE objeto, escolhido na lista. '' = definir um KRI próprio deste risco. */
+  kriExistenteId: string;
 }
 
 export type ErrosEtapa = Partial<Record<keyof DadosNovoRisco, string>>;
@@ -73,6 +84,7 @@ export function dadosVazios(): DadosNovoRisco {
     categoriaId: null, subcategoriaIntegridade: '', decideSobreTerceiros: false, justificativaNaoIntegridade: '',
     probabilidade: null, impacto: null, eficacia: 'Inexistente', possuiEvidencia: false, descricaoControle: '', evidenciaControle: '',
     estrategia: 'Mitigar', acaoOQue: '', acaoQuem: '', acaoPrazo: '', nomeKri: '',
+    kriFormula: '', kriFonte: '', kriPeriodicidade: '', kriMeta: '', kriLimite: '', kriResponsavel: '', kriExistenteId: '',
   };
 }
 
@@ -97,6 +109,40 @@ export function dadosExemplo(objetoId = ''): DadosNovoRisco {
     acaoQuem: 'Coordenador do Processo',
     acaoPrazo: '2026-12-20',
     nomeKri: '% de processos instruídos com checklist assinado',
+    // KRI completo: o exemplo (P=3, I=4) é crítico, e risco crítico exige KRI completo.
+    kriFormula: 'processos com checklist assinado / processos instruídos no mês × 100',
+    kriFonte: 'Processos SEI da unidade',
+    kriPeriodicidade: 'Mensal',
+    kriLimite: 'Abaixo de 90%',
+    kriResponsavel: 'Coordenador do Processo',
+  };
+}
+
+/** Os campos do KRI do formulário, no formato que a trava confere ('' vira "sem valor"). */
+export function kriDosCampos(d: DadosNovoRisco): Pick<IndicadorKri, 'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'metaAlvo' | 'limiteAlerta' | 'responsavelMedicao'> {
+  const ou = (t: string) => (t.trim() ? t : undefined);
+  return {
+    nomeIndicador: d.nomeKri,
+    formulaCalculo: ou(d.kriFormula),
+    fonteDados: ou(d.kriFonte),
+    periodicidade: d.kriPeriodicidade || undefined,
+    metaAlvo: ou(d.kriMeta),
+    limiteAlerta: ou(d.kriLimite),
+    responsavelMedicao: ou(d.kriResponsavel),
+  };
+}
+
+/** Os campos de KRI do formulário preenchidos a partir de um KRI (ou vazios, sem KRI). Texto "A definir" vira ''. */
+export function camposKriDe(k?: IndicadorKri): Pick<DadosNovoRisco, 'nomeKri' | 'kriFormula' | 'kriFonte' | 'kriPeriodicidade' | 'kriMeta' | 'kriLimite' | 'kriResponsavel'> {
+  const t = (v?: string) => (textoPreenchido(v) ? (v as string) : '');
+  return {
+    nomeKri: k?.nomeIndicador ?? '',
+    kriFormula: t(k?.formulaCalculo),
+    kriFonte: t(k?.fonteDados),
+    kriPeriodicidade: k?.periodicidade ?? '',
+    kriMeta: t(k?.metaAlvo),
+    kriLimite: t(k?.limiteAlerta),
+    kriResponsavel: t(k?.responsavelMedicao),
   };
 }
 
@@ -163,6 +209,10 @@ export function validarEtapa(
     // tratamento: "Aceitar" não vale e a ação 5W2H é obrigatória.
     const exige = statusCritico !== undefined && exigeTratamento(statusCritico);
     if (exige && d.estrategia === 'Aceitar') erros.estrategia = ERRO_ACEITAR_RISCO_CRITICO;
+    // LAC-03: risco crítico também precisa de um KRI completo. Ao escolher um KRI
+    // já definido no objeto, o formulário copia os campos dele para cá: por isso a
+    // conferência é sempre sobre os campos. Risco não crítico segue livre.
+    if (exige && !kriCompleto(kriDosCampos(d))) erros.nomeKri = MENSAGEM_TRAVA_KRI;
     if (d.estrategia !== 'Aceitar' || exige) {
       if (!obrigatorio(d.acaoOQue)) erros.acaoOQue = 'Descreva a ação (o quê).';
       if (!obrigatorio(d.acaoQuem)) erros.acaoQuem = 'Informe o responsável (quem).';
@@ -209,7 +259,8 @@ export function dadosDeRisco(r: FichaRisco): DadosNovoRisco {
     acaoOQue: resposta?.acaoOQue ?? '',
     acaoQuem: resposta?.responsavelQuem ?? '',
     acaoPrazo: resposta?.prazoQuando ?? '',
-    nomeKri: kri?.nomeIndicador ?? '',
+    ...camposKriDe(kri),
+    kriExistenteId: '',
   };
 }
 
@@ -226,9 +277,9 @@ export function dadosDeRisco(r: FichaRisco): DadosNovoRisco {
  */
 export function dadosParaFicha(
   d: DadosNovoRisco,
-  opcoes: { ehIntegridade: boolean; existente?: FichaRisco }
+  opcoes: { ehIntegridade: boolean; existente?: FichaRisco; krisDoObjeto?: IndicadorKri[] }
 ): Partial<FichaRisco> {
-  const { ehIntegridade, existente } = opcoes;
+  const { ehIntegridade, existente, krisDoObjeto = [] } = opcoes;
   const responsavel = d.responsavel || 'Gestor de riscos da unidade (1ª Linha)';
 
   // CONTROLE (Quadro 6)
@@ -254,21 +305,37 @@ export function dadosParaFicha(
       }
     : undefined;
 
-  // INDICADOR (KRI)
+  // INDICADOR (KRI) — nunca grava "A definir": campo vazio vira `undefined`.
+  // Três casos para o 1º KRI:
+  //   a) escolheu um KRI já definido no objeto (`kriExistenteId`) → só LIGA
+  //      (`apenasLigar`), a menos que tenha liberado e MUDADO a definição;
+  //   b) KRI próprio deste risco (o que já tinha, ou um novo) → grava os campos;
+  //   c) sem nome → sem KRI (o antigo é desligado).
+  // Ex.: kriExistenteId 'k7' sem mudar nada → { id: 'k7', apenasLigar: true, nomeIndicador: '…', … }
   const kriAntigo = existente?.kris[0];
-  const kri: IndicadorKri | undefined = d.nomeKri
-    ? {
-        ...(kriAntigo ?? {
-          id: '', objetoId: existente?.objetoId ?? '', riscoIds: existente ? [existente.id] : [], formulaCalculo: 'A definir pela unidade', fonteDados: 'A definir', periodicidade: 'Trimestral' as const,
-          metaAlvo: 'A definir', limiteAlerta: 'A definir', responsavelMedicao: d.responsavel || 'Unidade', medicoes: [],
-        }),
-        nomeIndicador: d.nomeKri,
-      }
-    : undefined;
+  const kriEscolhido = d.kriExistenteId ? krisDoObjeto.find((k) => k.id === d.kriExistenteId) : undefined;
+  const base = d.kriExistenteId ? kriEscolhido : kriAntigo;
+  const campos = kriDosCampos(d);
+  let kri: IndicadorKri | undefined;
+  if (d.nomeKri.trim()) {
+    const mudou = !base || !mesmaDefinicaoKri(base, campos);
+    kri = {
+      ...(base ?? {
+        id: d.kriExistenteId, objetoId: existente?.objetoId ?? d.objetoId, riscoIds: existente ? [existente.id] : [], medicoes: [],
+      }),
+      ...campos,
+      // KRI escolhido da lista e sem mudança na definição → só ligar.
+      ...(d.kriExistenteId && !(kriEscolhido && mudou) ? { apenasLigar: true } : {}),
+    };
+  }
 
   /** Junta o 1º item (editado ou removido) com os demais, intactos. */
-  const lista = <T>(primeiro: T | undefined, antigos: T[] | undefined): T[] =>
-    [...(primeiro ? [primeiro] : []), ...(antigos ?? []).slice(1)];
+  const lista = <T extends { id: string }>(primeiro: T | undefined, antigos: T[] | undefined): T[] =>
+    [
+      ...(primeiro ? [primeiro] : []),
+      // Sem repetir: o KRI escolhido na lista pode já ser um dos "demais" da ficha.
+      ...(antigos ?? []).slice(1).filter((x) => !(primeiro && primeiro.id && x.id === primeiro.id)),
+    ];
 
   return {
     ...(existente ? { id: existente.id } : { objetoId: d.objetoId, statusFluxo: 'rascunho' as const }),

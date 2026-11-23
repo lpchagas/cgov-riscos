@@ -45,6 +45,7 @@ import type {
   CategoriaRisco,
   ClasseRisco,
   FichaRisco,
+  IndicadorKri,
   MedicaoKri,
   NivelEficaciaControle,
   NivelImpacto,
@@ -107,9 +108,14 @@ function porRisco(lista: AcoesFluxo[]): Record<string, AcoesFluxo> {
 function montarFichaParaSalvar(
   parcial: Partial<FichaRisco>,
   existente: FichaRisco | undefined,
-  objetoPadrao: string
+  objetoPadrao: string,
+  kriOriginaisDoObjeto: IndicadorKri[] = []
 ): FichaParaSalvar {
-  if (existente) return fichaParaSalvarDeRisco({ ...existente, ...parcial });
+  // Edição: o KRI cuja definição NÃO mudou vai só como "ligação" (`apenasLigar`),
+  // para não fazer UPDATE à toa num KRI que pode ser de outros riscos (falso
+  // "sem permissão" para a CGOV; sobrescrita de edição simultânea). Os originais
+  // para comparar: os KRIs da ficha e os do mesmo objeto (o escolhido na lista).
+  if (existente) return fichaParaSalvarDeRisco({ ...existente, ...parcial }, [...existente.kris, ...kriOriginaisDoObjeto]);
 
   const ficha: FichaParaSalvar = {
     objetoId: parcial.objetoId ?? objetoPadrao,
@@ -132,7 +138,11 @@ function montarFichaParaSalvar(
     estrategiaPrincipal: parcial.estrategiaPrincipal,
     controles: parcial.controlesExistentes?.map(({ id: _id, ...c }) => c),
     respostas: parcial.respostasTratamento?.map(({ id: _id, ...x }) => x),
-    kris: parcial.kris?.map(({ id: _id, medicoes: _m, ...k }) => k),
+    // KRI novo: sem id (a fonte dá um). KRI que já existe no objeto e só é ligado
+    // (`apenasLigar`) mantém o id: é ele que a fonte vai ligar ao risco novo.
+    kris: parcial.kris?.map(({ id, medicoes: _m, objetoId: _o, riscoIds: _r, apenasLigar, ...k }) =>
+      apenasLigar && id ? { ...k, id, apenasLigar: true } : k
+    ),
   };
   // Tira as chaves vazias: undefined = "não mexer / usar o padrão" na fonte.
   return Object.fromEntries(Object.entries(ficha).filter(([, v]) => v !== undefined)) as FichaParaSalvar;
@@ -472,6 +482,21 @@ export const useRiscosStore = defineStore('riscos', () => {
   // GRAVAÇÃO DA FICHA
   // ---------------------------------------------------------------------------
   /**
+   * KRIs já definidos num objeto de gestão de riscos, vistos pelos riscos
+   * carregados (LAC-03: o KRI pode ser compartilhado dentro do mesmo objeto).
+   * Um KRI ligado a 3 riscos aparece UMA vez só (sem repetir o `id`).
+   * Ex.: krisDoObjeto('obj-1') → [{ id: 'k1', nomeIndicador: '% com checklist', riscoIds: ['r1', 'r2'], ... }]
+   */
+  function krisDoObjeto(objetoId: string): IndicadorKri[] {
+    const porId = new Map<string, IndicadorKri>();
+    for (const r of riscos.value) {
+      if (r.objetoId !== objetoId) continue;
+      for (const k of r.kris) if (!porId.has(k.id)) porId.set(k.id, k);
+    }
+    return [...porId.values()];
+  }
+
+  /**
    * Cria (sem `id`) ou altera (com `id`) uma Ficha de Risco. Manda só os dados
    * de ENTRADA; a fonte calcula (Quadros 6, 7 e 8 e DAR) e a store relê.
    * Ex.: const ficha = await salvarOuAtualizarRisco({ objetoId: 'obj-1', probabilidade: 1, impacto: 5 });
@@ -482,7 +507,12 @@ export const useRiscosStore = defineStore('riscos', () => {
     // Pediram para ALTERAR um risco que não está na memória (excluído, fora do
     // alcance ou id errado): recusamos, em vez de criar um risco novo por engano.
     if (parcial.id && !existente) throw new ErroRadar('Risco não encontrado.', 'nao_encontrado');
-    const pacote = montarFichaParaSalvar(parcial, existente, objetosContexto.value[0]?.id ?? '');
+    const pacote = montarFichaParaSalvar(
+      parcial,
+      existente,
+      objetosContexto.value[0]?.id ?? '',
+      existente ? krisDoObjeto(existente.objetoId) : []
+    );
     let gravado = { id: '', codigoRadar: '' };
     await executar(
       async () => {
@@ -768,6 +798,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     relerRiscos,
     // ações
     salvarOuAtualizarRisco,
+    krisDoObjeto,
     reavaliarPontuacaoRiscoAprovado,
     excluirRisco,
     submeterParaValidacaoCg,

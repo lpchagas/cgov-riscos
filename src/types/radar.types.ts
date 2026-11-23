@@ -245,6 +245,12 @@ export interface IndicadorKri {
   limiteAlerta?: string;
   responsavelMedicao?: string;
   medicoes: MedicaoKri[];
+  /**
+   * SÓ NA GRAVAÇÃO (o formulário marca; a leitura nunca preenche): `true` =
+   * "apenas ligue este KRI que já existe no objeto, sem mexer na definição".
+   * Ausente = o KRI com id é uma EDIÇÃO da definição (LAC-03).
+   */
+  apenasLigar?: boolean;
 }
 
 /**

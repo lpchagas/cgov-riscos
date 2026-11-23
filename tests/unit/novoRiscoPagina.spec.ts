@@ -187,32 +187,29 @@ describe('Página Novo risco', () => {
   });
 
   it('fluxo completo: cria o risco e envia para validação', async () => {
-    // LAC-03: o risco do exemplo é crítico e a trava exige KRI completo. O
-    // formulário ainda não pede os campos do KRI (isso é a Tarefa 6); até lá,
-    // esta fonte completa o KRI como o formulário passará a fazer.
-    const base = criarFonteDemonstracao('normal');
-    definirFonteParaTeste({
-      ...base,
-      salvarFicha: (f) =>
-        base.salvarFicha({
-          ...f,
-          kris: f.kris?.map((k) => ({
-            ...k,
-            formulaCalculo: 'itens conformes / total',
-            fonteDados: 'Processos SEI',
-            periodicidade: 'Mensal' as const,
-            limiteAlerta: 'Abaixo de 90%',
-            responsavelMedicao: 'Chefe da unidade',
-          })),
-        }),
-    });
     setActivePinia(createPinia());
     await useRiscosStore().carregar();
     const { w, router } = await montar();
     const store = useRiscosStore();
     const antes = store.riscos.length;
     await botao(w, 'Preencher com exemplo').trigger('click');
-    for (let i = 0; i < 4; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+    // LAC-03: o risco do exemplo é crítico e exige KRI completo. Na etapa 4,
+    // a pessoa preenche os campos do KRI pela tela (esvaziamos os do exemplo antes).
+    for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+    const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
+    for (const r of ['Fórmula de cálculo', 'Fonte dos dados', 'Limite de alerta', 'Responsável pelo monitoramento']) await w.find(`#${campo(r)}`).setValue('');
+    await w.find(`#${campo('Periodicidade de monitoramento')}`).setValue('');
+    await w.find('form').trigger('submit'); // tenta enviar com o KRI incompleto
+    await flushPromises();
+    expect(w.text()).toContain('precisa de um KRI completo');
+    expect(store.riscos.length).toBe(antes);
+    await w.find(`#${campo('Fórmula de cálculo')}`).setValue('itens conformes / total');
+    await w.find(`#${campo('Fonte dos dados')}`).setValue('Processos SEI');
+    await w.find(`#${campo('Periodicidade de monitoramento')}`).setValue('Mensal');
+    await w.find(`#${campo('Limite de alerta')}`).setValue('Abaixo de 90%');
+    await w.find(`#${campo('Responsável pelo monitoramento')}`).setValue('Chefe da unidade');
+    await w.find('form').trigger('submit');
+    await flushPromises();
     expect(store.riscos.length).toBe(antes + 1);
     // O nome do objeto agora vem do objeto gravado (fonte de dados), não do
     // texto livre do formulário: achamos o risco novo pelo id da ficha aberta.
@@ -222,6 +219,69 @@ describe('Página Novo risco', () => {
     expect(novo.nivelInerente).toBe(18);
     expect(router.currentRoute.value.name).toBe('ficha-bowtie-detalhe');
     w.unmount();
+  });
+
+  describe('KRI da etapa 4 (LAC-03)', () => {
+    type VmKri = { d: { objetoId: string; kriExistenteId: string; nomeKri: string } };
+    /** Risco novo no objeto do Anexo II, parado na etapa 4. */
+    async function ateEtapa4NoObjeto() {
+      const montado = await montar();
+      await botao(montado.w, 'Preencher com exemplo').trigger('click');
+      (montado.w.vm as unknown as VmKri).d.objetoId = 'obj-anexo-ii';
+      for (let i = 0; i < 3; i++) { await montado.w.find('form').trigger('submit'); await flushPromises(); }
+      expect(montado.w.find('[aria-current="step"]').text()).toContain('Tratamento');
+      return montado;
+    }
+
+    it('lista os KRIs do objeto (nome e códigos dos riscos) e o compartilhado aparece uma vez', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      expect(lista).toBeTruthy();
+      expect(lista.findAll('option[value="kri-anexo-ii-2"]')).toHaveLength(1);
+      expect(lista.find('option[value="kri-anexo-ii-2"]').text()).toContain('riscos: RADAR-2026-001, RADAR-2026-004');
+      w.unmount();
+    });
+
+    it('escolher um KRI compartilhado deixa os campos só leitura; liberar a edição mostra o aviso fixo', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      await lista.setValue('kri-anexo-ii-2');
+      const fonte = w.find(`#${w.findAll('label').find((l) => l.text().startsWith('Fonte dos dados'))!.attributes('for')}`);
+      expect(fonte.attributes('readonly')).toBeDefined();
+      expect(w.text()).not.toContain('Este KRI também serve aos riscos');
+      await botao(w, 'Editar a definição deste KRI').trigger('click');
+      expect(fonte.attributes('readonly')).toBeUndefined();
+      expect(w.text()).toContain('Este KRI também serve aos riscos RADAR-2026-001, RADAR-2026-004; alterar muda o indicador de todos eles e reabre os aprovados.');
+      w.unmount();
+    });
+
+    it('risco novo com KRI da lista: grava só a ligação (id + apenasLigar), sem recriar o KRI', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      await lista.setValue('kri-anexo-ii-2');
+      await botao(w, 'Salvar rascunho').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      expect(salvarFicha.mock.calls[0][0].kris).toMatchObject([{ id: 'kri-anexo-ii-2', apenasLigar: true }]);
+      w.unmount();
+    });
+
+    it('rascunho continua livre: risco crítico com KRI incompleto grava como rascunho', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const rotulo = w.findAll('label').find((l) => l.text().startsWith('Fonte dos dados'))!;
+      await w.find(`#${rotulo.attributes('for')}`).setValue('');
+      const store = useRiscosStore();
+      const antes = store.riscos.length;
+      await botao(w, 'Salvar rascunho').trigger('click');
+      await flushPromises();
+      expect(store.riscos.length).toBe(antes + 1);
+      w.unmount();
+    });
   });
 
   describe('"Salvar e enviar" com envio recusado', () => {
@@ -515,6 +575,21 @@ describe('Página Novo risco', () => {
       await flushPromises();
       expect(salvarFicha).toHaveBeenCalledTimes(1);
       expect(salvarFicha.mock.calls[0][0].kris).toHaveLength(0); // a semente tem 1 KRI neste risco
+      w.unmount();
+    });
+  });
+
+  describe('Edição: KRI compartilhado com medições (LAC-03)', () => {
+    it('desligar um KRI que ainda serve a outro risco não pede confirmação (nada é apagado)', async () => {
+      const store = useRiscosStore();
+      const id = 'risco-anexo-ii-04';
+      const kri = store.obterRiscoPorId(id)!.kris[0];
+      expect(kri.riscoIds.length).toBeGreaterThan(1);
+      const { w } = await montar(`/riscos/novo?editar=${id}`);
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      const nome = w.findAll('input[type="text"]').find((i) => (i.element as HTMLInputElement).value === kri.nomeIndicador)!;
+      await nome.setValue('');
+      expect(w.text()).not.toContain('Histórico do KRI');
       w.unmount();
     });
   });

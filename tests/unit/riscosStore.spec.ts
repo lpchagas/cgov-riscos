@@ -331,4 +331,42 @@ describe('ligarCarteiraASessao (carga e limpeza pela sessão)', () => {
     expect(carteira.carregar).toHaveBeenCalledTimes(3);
     parar();
   });
+
+  describe('KRI compartilhado (LAC-03)', () => {
+    it('krisDoObjeto lista cada KRI do objeto uma vez só (o compartilhado não se repete)', async () => {
+      fonteFalsa();
+      const store = useRiscosStore();
+      await store.carregar();
+      const ids = store.krisDoObjeto('obj-anexo-ii').map((k) => k.id);
+      expect(ids).toContain('kri-anexo-ii-2'); // ligado aos riscos 001 e 004
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(store.krisDoObjeto('objeto-que-nao-existe')).toEqual([]);
+    });
+
+    it('editar sem mexer nos KRIs: todos vão como apenasLigar (nenhum UPDATE à toa)', async () => {
+      const f = fonteFalsa({ salvarFicha: vi.fn((x) => criarFonteDemonstracao('normal').salvarFicha(x)) });
+      const store = useRiscosStore();
+      await store.carregar();
+      const id = store.riscos.find((r) => r.codigoRadar === 'RADAR-2026-004')!.id;
+      await store.salvarOuAtualizarRisco({ id, causas: 'causa nova' });
+      const kris = vi.mocked(f.salvarFicha).mock.calls[0][0].kris!;
+      expect(kris.length).toBeGreaterThan(0);
+      expect(kris.every((k) => k.id && k.apenasLigar === true)).toBe(true);
+    });
+
+    it('o formulário muda a definição do 1º KRI: só ele vai como edição; os demais, apenasLigar', async () => {
+      // Só registra o pacote (o risco 001 está em validação e a fonte o recusaria).
+      const f = fonteFalsa({ salvarFicha: vi.fn(async () => ({ id: 'x', codigoRadar: 'x' })) });
+      const store = useRiscosStore();
+      await store.carregar();
+      const r = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-001')!;
+      expect(r.kris.length).toBeGreaterThan(1);
+      const kris = r.kris.map((k, i) => (i === 0 ? { ...k, limiteAlerta: 'Abaixo de 42%' } : k));
+      await store.salvarOuAtualizarRisco({ id: r.id, kris });
+      const enviados = vi.mocked(f.salvarFicha).mock.calls[0][0].kris!;
+      expect(enviados[0].apenasLigar).toBeUndefined();
+      expect(enviados[0].limiteAlerta).toBe('Abaixo de 42%');
+      expect(enviados.slice(1).every((k) => k.apenasLigar === true)).toBe(true);
+    });
+  });
 });

@@ -45,6 +45,7 @@ import {
   dadosExemplo,
   dadosParaFicha,
   dadosVazios,
+  camposKriDe,
   validarEtapa,
   type ErrosEtapa,
 } from '../utils/formularioRisco';
@@ -102,15 +103,19 @@ const oferecerEnvio = computed(() => !modoEdicao.value || (!!riscoEditado.value 
 const editandoAprovado = computed(() => riscoEditado.value?.statusFluxo === 'aprovado');
 
 /**
- * Apagar o nome do 1º KRI tira o KRI da ficha — e, no banco, as MEDIÇÕES dele
- * vão junto (exclusão em cascata). Se houver medições, a pessoa precisa
- * confirmar antes de salvar.
- * Ex.: KRI com 3 medições e campo "Indicador" vazio → medicoesQueSeraoApagadas = 3.
+ * Tirar o KRI PRÓPRIO da ficha (apagar o nome, ou trocá-lo por outro KRI do
+ * objeto) desliga o KRI deste risco. Se este era o ÚLTIMO risco ligado a ele,
+ * o KRI some — e, no banco, as MEDIÇÕES dele vão junto (exclusão em cascata).
+ * Com medições, a pessoa precisa confirmar antes de salvar. Se outros riscos
+ * ainda usam o KRI, nada é apagado e não há o que confirmar.
+ * Ex.: KRI só deste risco, com 3 medições, e campo "Indicador" vazio → 3.
  */
 const medicoesQueSeraoApagadas = computed(() => {
   const kri = riscoEditado.value?.kris[0];
-  if (!modoEdicao.value || !kri || d.value.nomeKri.trim()) return 0;
-  return kri.medicoes.length;
+  if (!modoEdicao.value || !kri) return 0;
+  const desligado = !d.value.nomeKri.trim() || (d.value.kriExistenteId !== '' && d.value.kriExistenteId !== kri.id);
+  const ficaOrfao = kri.riscoIds.filter((id) => id !== riscoEditado.value!.id).length === 0;
+  return desligado && ficaOrfao ? kri.medicoes.length : 0;
 });
 const confirmaApagarMedicoes = ref(false);
 const avisoMedicoes = computed(() => {
@@ -142,6 +147,59 @@ watch(
   },
   { immediate: true }
 );
+
+// ---------------------------------------------------------------------------
+// KRI DO OBJETO (LAC-03): usar um KRI já definido, ou definir o do risco
+// ---------------------------------------------------------------------------
+/** O KRI próprio da ficha em edição (o 1º), se houver. */
+const kriProprio = computed(() => riscoEditado.value?.kris[0]);
+
+/** KRIs já definidos no objeto do risco, menos o próprio (esse já aparece nos campos). */
+const kriDoObjeto = computed(() =>
+  d.value.objetoId ? riscosStore.krisDoObjeto(d.value.objetoId).filter((k) => k.id !== kriProprio.value?.id) : []
+);
+
+/** Texto da lista: "<nome> — riscos: <códigos>". Ex.: "% com checklist — riscos: RADAR-2026-001, RADAR-2026-004". */
+function codigosDosRiscos(k: { riscoIds: string[] }, semEste?: string): string {
+  return k.riscoIds
+    .filter((id) => id !== semEste)
+    .map((id) => riscosStore.obterRiscoPorId(id)?.codigoRadar)
+    .filter((c): c is string => !!c)
+    .join(', ');
+}
+const opcoesKriDoObjeto = computed(() =>
+  kriDoObjeto.value.map((k) => ({ valor: k.id, rotulo: `${k.nomeIndicador} — riscos: ${codigosDosRiscos(k) || 'sem acesso aos códigos'}` }))
+);
+
+/** O KRI escolhido na lista (undefined = o KRI é próprio deste risco). */
+const kriEscolhido = computed(() => kriDoObjeto.value.find((k) => k.id === d.value.kriExistenteId));
+/** Com um KRI da lista escolhido, os campos ficam só leitura até a pessoa liberar a edição. */
+const liberouEdicaoKri = ref(false);
+const camposKriSoLeitura = computed(() => !!kriEscolhido.value && !liberouEdicaoKri.value);
+
+// Escolher (ou deixar de escolher) um KRI da lista troca os campos do KRI:
+// copia os do escolhido; ao voltar para "próprio", restaura os do KRI da ficha (ou esvazia).
+watch(
+  () => d.value.kriExistenteId,
+  (id) => {
+    liberouEdicaoKri.value = false;
+    Object.assign(d.value, camposKriDe(id ? kriEscolhido.value : kriProprio.value));
+  }
+);
+// Trocou de objeto (risco novo): o KRI escolhido era do objeto antigo.
+watch(() => d.value.objetoId, () => {
+  if (d.value.kriExistenteId) d.value.kriExistenteId = '';
+});
+
+/** O KRI que está sendo EDITADO (o escolhido e liberado, ou o próprio da ficha). */
+const kriEmEdicao = computed(() => kriEscolhido.value && liberouEdicaoKri.value ? kriEscolhido.value : !d.value.kriExistenteId ? kriProprio.value : undefined);
+/** Aviso fixo: alterar um KRI que serve a outros riscos muda o indicador de todos. */
+const avisoKriCompartilhado = computed(() => {
+  const k = kriEmEdicao.value;
+  if (!k || k.riscoIds.length <= 1) return '';
+  const codigos = codigosDosRiscos(k, riscoEditado.value?.id) || 'de outras fichas';
+  return `Este KRI também serve aos riscos ${codigos}; alterar muda o indicador de todos eles e reabre os aprovados.`;
+});
 
 // ---------------------------------------------------------------------------
 // OBJETOS EM QUE A PESSOA GRAVA (só no risco novo)
@@ -239,6 +297,7 @@ const EFICACIAS: { valor: NivelEficaciaControle; rotulo: string }[] = [
   { valor: 'Satisfatório', rotulo: 'Satisfatório (fator 0,6)' },
   { valor: 'Forte', rotulo: 'Forte (fator 0,5)' },
 ];
+const PERIODICIDADES_KRI = ['Mensal', 'Trimestral', 'Semestral', 'Anual'] as const;
 const ESTRATEGIAS: { valor: EstrategiaTratamento; rotulo: string }[] = [
   { valor: 'Mitigar', rotulo: 'Mitigar — reduzir a probabilidade ou o impacto' },
   { valor: 'Compartilhar', rotulo: 'Compartilhar — dividir com terceiros' },
@@ -383,7 +442,11 @@ async function salvar(enviar: boolean): Promise<void> {
   // (antes de qualquer `await`), então o 2º clique cai no `return` acima.
   salvando.value = true;
   try {
-    const dadosDaFicha = dadosParaFicha(d.value, { ehIntegridade: ehIntegridade.value, existente: riscoEditado.value });
+    const dadosDaFicha = dadosParaFicha(d.value, {
+      ehIntegridade: ehIntegridade.value,
+      existente: riscoEditado.value,
+      krisDoObjeto: riscosStore.krisDoObjeto(d.value.objetoId),
+    });
 
     // PASSO 1 — gravar. Se a fonte recusar, a mensagem já vem em português
     // claro e a pessoa continua no formulário (nada foi criado).
@@ -584,9 +647,50 @@ async function salvar(enviar: boolean): Promise<void> {
                   </FormField>
                 </div>
               </template>
-              <FormField rotulo="Indicador de acompanhamento (KRI)" ajuda="Opcional. Ex.: % de processos com checklist assinado." v-slot="{ attrs }">
-                <input v-bind="attrs" v-model="d.nomeKri" type="text" />
+              <!-- KRI (LAC-03): risco crítico exige KRI completo. Dá para usar um KRI já definido no objeto. -->
+              <FormField v-if="opcoesKriDoObjeto.length" rotulo="Usar um KRI já definido neste objeto" ajuda="Vários riscos do mesmo objeto podem dividir o mesmo indicador." v-slot="{ attrs }">
+                <select v-bind="attrs" v-model="d.kriExistenteId">
+                  <option value="">Definir o KRI deste risco</option>
+                  <option v-for="o in opcoesKriDoObjeto" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
+                </select>
               </FormField>
+              <FormField
+                rotulo="Indicador de acompanhamento (KRI)"
+                :ajuda="exigeTratamentoCritico ? 'Obrigatório para risco crítico. Ex.: % de processos com checklist assinado.' : 'Opcional. Ex.: % de processos com checklist assinado.'"
+                :erro="erros.nomeKri"
+                :obrigatorio="exigeTratamentoCritico"
+                v-slot="{ attrs }"
+              >
+                <input v-bind="attrs" v-model="d.nomeKri" type="text" :readonly="camposKriSoLeitura" />
+              </FormField>
+              <FormField rotulo="Fórmula de cálculo" :obrigatorio="exigeTratamentoCritico" ajuda="Ex.: processos com checklist / processos instruídos × 100." v-slot="{ attrs }">
+                <input v-bind="attrs" v-model="d.kriFormula" type="text" :readonly="camposKriSoLeitura" />
+              </FormField>
+              <div class="duas-colunas">
+                <FormField rotulo="Fonte dos dados" :obrigatorio="exigeTratamentoCritico" v-slot="{ attrs }">
+                  <input v-bind="attrs" v-model="d.kriFonte" type="text" :readonly="camposKriSoLeitura" />
+                </FormField>
+                <FormField rotulo="Periodicidade de monitoramento" :obrigatorio="exigeTratamentoCritico" v-slot="{ attrs }">
+                  <select v-bind="attrs" v-model="d.kriPeriodicidade" :disabled="camposKriSoLeitura">
+                    <option value="">Escolha…</option>
+                    <option v-for="p in PERIODICIDADES_KRI" :key="p" :value="p">{{ p }}</option>
+                  </select>
+                </FormField>
+              </div>
+              <div class="duas-colunas">
+                <FormField rotulo="Meta (opcional)" v-slot="{ attrs }">
+                  <input v-bind="attrs" v-model="d.kriMeta" type="text" :readonly="camposKriSoLeitura" />
+                </FormField>
+                <FormField rotulo="Limite de alerta" :obrigatorio="exigeTratamentoCritico" ajuda="Valor a partir do qual o indicador acende o alerta." v-slot="{ attrs }">
+                  <input v-bind="attrs" v-model="d.kriLimite" type="text" :readonly="camposKriSoLeitura" />
+                </FormField>
+              </div>
+              <FormField rotulo="Responsável pelo monitoramento" :obrigatorio="exigeTratamentoCritico" v-slot="{ attrs }">
+                <input v-bind="attrs" v-model="d.kriResponsavel" type="text" :readonly="camposKriSoLeitura" />
+              </FormField>
+              <!-- KRI da lista: campos só leitura; para mudar a definição, libere a edição (afeta todos os riscos ligados). -->
+              <BrButton v-if="camposKriSoLeitura" variant="secondary" @click="liberouEdicaoKri = true">Editar a definição deste KRI</BrButton>
+              <BrMessage v-if="avisoKriCompartilhado" state="warning" titulo="KRI compartilhado">{{ avisoKriCompartilhado }}</BrMessage>
               <!-- Edição: tirar o KRI apaga as medições dele (aviso + confirmação obrigatória). -->
               <template v-if="medicoesQueSeraoApagadas > 0">
                 <BrMessage state="warning" titulo="Histórico do KRI">{{ avisoMedicoes }}</BrMessage>

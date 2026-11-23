@@ -33,6 +33,7 @@ import type {
   RespostaTratamento5W2H,
   UnidadeOrganizacional,
 } from '../../types/radar.types';
+import { textoPreenchido } from '../../utils/travaRiscoCritico';
 import type { LinhaImportadaSkill } from '../../utils/importadorSkillMarkdown';
 import type { EventoAuditoria, EventoFluxo, FichaParaSalvar } from './tipos';
 
@@ -546,7 +547,7 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
  * troca-se só o que mudou.
  * Ex.: { ...fichaParaSalvarDeRisco(risco), probabilidade: 5 }
  */
-export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
+export function fichaParaSalvarDeRisco(r: FichaRisco, kriOriginais: IndicadorKri[] = []): FichaParaSalvar {
   // Opcional ausente no front (undefined) vira null: "sem valor" no banco.
   // (A subcategoria pode já vir null: "sem subcategoria" dito de propósito.)
   const ouNulo = (v: string | null | undefined) => v ?? null;
@@ -584,13 +585,44 @@ export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
       custoQuanto: vazioViraNulo(x.custoQuanto),
     })),
     // Tira as medições (não passam pela gravação da ficha) e a ligação (objetoId/riscoIds:
-    // quem liga é a própria ficha). O KRI com id segue como "editar a definição".
-    kris: r.kris.map(({ medicoes: _medicoes, objetoId: _objetoId, riscoIds: _riscoIds, ...k }) => ({
-      ...k,
-      id: k.id || undefined,
-    })),
+    // quem liga é a própria ficha). O KRI com id é "editar a definição" — a menos que
+    // seja só uma LIGAÇÃO (`apenasLigar`): marcada pelo formulário, ou deduzida aqui
+    // quando a definição não mudou em relação ao original (parâmetro `kriOriginais`).
+    // Ex.: KRI c/ id, igual ao original → { id, apenasLigar: true, nomeIndicador, ... }
+    //      (a fonte não faz UPDATE: nada de falso "sem permissão" nem de sobrescrever
+    //      uma edição simultânea de quem divide o KRI).
+    kris: r.kris.map(({ medicoes: _medicoes, objetoId: _objetoId, riscoIds: _riscoIds, apenasLigar, ...k }) => {
+      const original = k.id ? kriOriginais.find((o) => o.id === k.id) : undefined;
+      const soLigar = apenasLigar === true || (original !== undefined && mesmaDefinicaoKri(original, k));
+      return { ...k, id: k.id || undefined, ...(soLigar ? { apenasLigar: true } : {}) };
+    }),
   };
 }
+
+/**
+ * Duas versões de um KRI têm a MESMA definição? Compara os 7 campos de
+ * definição; vazio, null, só espaços e os marcadores antigos ("A definir")
+ * contam todos como "sem valor".
+ * Ex.: { fonteDados: ' a definir ' } e { fonteDados: undefined } → iguais.
+ */
+export function mesmaDefinicaoKri(a: KriDefinicao, b: KriDefinicao): boolean {
+  const norm = (t: string | null | undefined) => (textoPreenchido(t) ? (t as string).trim() : '');
+  return (
+    norm(a.nomeIndicador) === norm(b.nomeIndicador) &&
+    norm(a.formulaCalculo) === norm(b.formulaCalculo) &&
+    norm(a.fonteDados) === norm(b.fonteDados) &&
+    (a.periodicidade ?? '') === (b.periodicidade ?? '') &&
+    norm(a.metaAlvo) === norm(b.metaAlvo) &&
+    norm(a.limiteAlerta) === norm(b.limiteAlerta) &&
+    norm(a.responsavelMedicao) === norm(b.responsavelMedicao)
+  );
+}
+
+/** Os campos que formam a "definição" de um KRI (sem id, ligação nem medições). */
+export type KriDefinicao = Pick<
+  IndicadorKri,
+  'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'metaAlvo' | 'limiteAlerta' | 'responsavelMedicao'
+>;
 
 /**
  * Importação (Passo 0 da CGOV): uma linha da tabela da skill
