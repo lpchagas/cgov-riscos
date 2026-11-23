@@ -407,6 +407,45 @@ describe('fichaDaSkillParaSalvar (importação)', () => {
     const ficha = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal', kriSugerido: '' }, categorias, 'obj-1');
     expect(ficha.kris).toEqual([]);
   });
+
+  it('leva o Teste de Integridade e a justificativa lidos da tabela de 18 colunas', () => {
+    const ficha = fichaDaSkillParaSalvar(
+      { ...linha, categoriaNome: 'legal', testeIntegridadeAplicavel: true, justificativaNaoIntegridade: 'Beneficia um requerente específico.' },
+      categorias,
+      'obj-1'
+    );
+    expect(ficha.testeIntegridadeAplicavel).toBe(true);
+    expect(ficha.justificativaNaoIntegridade).toBe('Beneficia um requerente específico.');
+  });
+
+  it('sem justificativa, não envia texto vazio (fica ausente)', () => {
+    const ficha = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal', testeIntegridadeAplicavel: false }, categorias, 'obj-1');
+    expect(ficha.testeIntegridadeAplicavel).toBe(false);
+    expect(ficha.justificativaNaoIntegridade).toBeUndefined();
+  });
+
+  it('causa, consequência e objetivo em branco seguem em branco (sem inventar texto)', () => {
+    const ficha = fichaDaSkillParaSalvar(
+      { ...linha, categoriaNome: 'legal', causas: '', consequencias: '', objetivoAfetado: '' },
+      categorias,
+      'obj-1'
+    );
+    expect(ficha.causas).toBe('');
+    expect(ficha.consequencias).toBe('');
+    expect(ficha.objetivoAfetado).toBe('');
+  });
+
+  it('a evidência lida vai para o risco e para o controle', () => {
+    const ficha = fichaDaSkillParaSalvar(
+      { ...linha, categoriaNome: 'legal', controlesTexto: 'Norma interna', possuiEvidenciaControle: true, nivelEficaciaControle: 'Mediano' },
+      categorias,
+      'obj-1'
+    );
+    expect(ficha.possuiEvidenciaControle).toBe(true);
+    expect(ficha.controles?.[0].possuiEvidenciaComprovada).toBe(true);
+    const sem = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal', controlesTexto: 'Planilha', possuiEvidenciaControle: false }, categorias, 'obj-1');
+    expect(sem.controles?.[0].possuiEvidenciaComprovada).toBe(false);
+  });
 });
 
 describe('KRI ligado a riscos (LAC-03)', () => {

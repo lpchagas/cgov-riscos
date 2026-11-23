@@ -614,6 +614,10 @@ export function fichaParaSalvarDeRisco(r: FichaRisco, kriOriginais: IndicadorKri
  *
  * Categoria que não existe no banco: LANÇA erro (nunca troca por outra).
  *
+ * Causa, consequência e objetivo seguem como vieram, inclusive em branco (frase fora da
+ * sintaxe do item 4.2.1): a ficha é preliminar e a unidade completa depois.
+ * A evidência vem do marcador lido da célula de controles (`possuiEvidenciaControle`).
+ *
  * Ex.: fichaDaSkillParaSalvar(linha, categorias, 'obj-1', 'Ponto Focal')
  *   -> { objetoId: 'obj-1', preliminarCgov: true, probabilidade: 3, ... }
  */
@@ -640,6 +644,10 @@ export function fichaDaSkillParaSalvar(
     objetivoAfetado: item.objetivoAfetado,
     categoriaId: categoria.id,
     subcategoriaIntegridade: item.subcategoriaIntegridade,
+    // Teste de Integridade lido da col. 17 (formato de 18 colunas; no de 16 vem false) e a
+    // justificativa da col. 18. Justificativa em branco não é enviada (o banco guarda "sem texto").
+    testeIntegridadeAplicavel: item.testeIntegridadeAplicavel,
+    ...(item.justificativaNaoIntegridade ? { justificativaNaoIntegridade: item.justificativaNaoIntegridade } : {}),
     probabilidade: item.probabilidade,
     impacto: item.impacto,
     possuiEvidenciaControle: item.possuiEvidenciaControle,
