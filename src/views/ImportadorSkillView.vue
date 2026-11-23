@@ -6,7 +6,7 @@
  *
  * EXPLICAÇÃO DIDÁTICA:
  * A CGOV roda a skill `cgov-gestao-riscos-v4` sobre normas do ICMBio e obtém
- * uma tabela Markdown de 16 colunas. Esta página traz essa tabela para o RADAR
+ * uma tabela Markdown de 18 colunas (ou 16, no formato antigo). Esta página traz essa tabela para o RADAR
  * em 3 passos:
  *
  *   1. COLAR a tabela (ou enviar/arrastar o arquivo .md ou .txt);
@@ -30,8 +30,7 @@ import { RouterLink, useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useToast } from '../composables/useToast';
 import { traduzirErroBanco } from '../services/dados/errosBanco';
-import { importarTabelaMarkdownSkill, type LinhaImportadaSkill } from '../utils/importadorSkillMarkdown';
-import { avaliarCriticidadeDAR } from '../utils/calculadoraRiscoRadar';
+import { apetitesDaDAR, importarTabelaMarkdownSkill, type LinhaImportadaSkill } from '../utils/importadorSkillMarkdown';
 import { ROTULOS_CRITICIDADE, formatarNivel } from '../utils/rotulosInterface';
 import FormField from '../components/ui/FormField.vue';
 import BrMessage from '../components/govbr/BrMessage.vue';
@@ -108,17 +107,33 @@ function verPrevia(): void {
     return;
   }
   erroTexto.value = undefined;
-  previa.value = importarTabelaMarkdownSkill(texto.value);
+  // Mesmo apetite da DAR que a store usará ao gravar: prévia e gravação concordam.
+  previa.value = importarTabelaMarkdownSkill(texto.value, apetitesDaDAR(riscosStore.categorias));
   if (!previa.value.fichas.length && !previa.value.erros.length) {
-    previa.value.erros.push('Nenhuma linha de risco encontrada. Confira se a tabela tem o cabeçalho de 16 colunas da skill.');
+    previa.value.erros.push('Nenhuma linha de risco encontrada. Confira se a tabela tem o cabeçalho de 18 colunas da skill (ou de 16, no formato antigo).');
   }
 }
 
-/** Criticidade com o apetite ATUAL da categoria na DAR (o mesmo que valerá após importar). */
+/** Linha que diz qual formato de tabela foi reconhecido (18, 16 ou misto). */
+const textoFormato = computed(() => {
+  switch (previa.value?.formato) {
+    case '18':
+      return 'Formato: 18 colunas (com Teste de Integridade)';
+    case '16':
+      return 'Formato: 16 colunas (sem Teste de Integridade; veja os avisos)';
+    case 'misto':
+      return 'Formato: misto (linhas de 16 e de 18 colunas)';
+    default:
+      return '';
+  }
+});
+
+/**
+ * Criticidade com o apetite ATUAL da categoria na DAR (o mesmo que valerá após importar).
+ * O importador já a calculou com `apetitesDaDAR(riscosStore.categorias)` em `verPrevia`.
+ */
 function criticidade(f: LinhaImportadaSkill) {
-  const nomeCategoria = f.categoriaNome.split(':')[0].trim().toLowerCase();
-  const apetite = riscosStore.categorias.find((c) => c.nome.toLowerCase() === nomeCategoria)?.apetiteDeclarado ?? 'pendente_dar';
-  return ROTULOS_CRITICIDADE[avaliarCriticidadeDAR(f.classificacaoResidual, apetite).statusCritico];
+  return ROTULOS_CRITICIDADE[f.statusCritico];
 }
 
 const colunas: ColunaTabela<LinhaImportadaSkill>[] = [
@@ -213,7 +228,8 @@ async function importar(soRecusadas = false): Promise<void> {
     <section class="cartao" aria-labelledby="passo-1">
       <h2 id="passo-1" class="passo"><span class="passo__numero" aria-hidden="true">1</span> Cole a tabela da skill</h2>
       <p class="texto-apoio">
-        A skill <code>cgov-gestao-riscos-v4</code> gera uma tabela Markdown de 16 colunas. Cole aqui ou arraste o arquivo
+        A skill <code>cgov-gestao-riscos-v4</code> gera uma tabela Markdown de 18 colunas (as 16 de sempre mais o Teste de
+        Integridade e a Justificativa); a de 16 colunas continua valendo, com avisos. Cole aqui ou arraste o arquivo
         <strong>.md</strong> para dentro da caixa.
       </p>
       <div
@@ -247,6 +263,9 @@ async function importar(soRecusadas = false): Promise<void> {
         <strong :class="{ 'resumo--erro': previa.erros.length }">{{ previa.erros.length }}</strong> {{ previa.erros.length === 1 ? 'erro' : 'erros' }} ·
         <strong>{{ previa.avisos.length }}</strong> {{ previa.avisos.length === 1 ? 'aviso' : 'avisos' }}
       </p>
+
+      <!-- Formato reconhecido (textos fixos do desenho do importador, §4.5). -->
+      <p v-if="textoFormato" class="resumo">{{ textoFormato }}</p>
 
       <BrMessage v-if="previa.fichas.length" state="info">
         O código da skill será substituído pelo código do RADAR ao importar (ex.: RADAR-2026-004).

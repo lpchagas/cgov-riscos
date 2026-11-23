@@ -271,7 +271,7 @@ Nota 1 (RF-056): o risco `preliminar_cgov` nasce hoje no importador (`/importar`
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Regra do sistema (decisão P5) | RN-033 | RF-160 | UC-13 | `/importar` | Importar riscos | — | `acessoPorPerfil.spec.ts`; `guardaRotas.spec.ts` |
 | Regra do sistema (decisão P5) | RN-033 | RF-161 | UC-13 | `/importar` | Importar riscos | — | `importarPagina.spec.ts` |
-| Regra do sistema (decisão P5) | RN-033 | RF-162 | UC-13 | `/importar` | Importar riscos | — | — (parcial, sem teste do trecho feito) |
+| Regra do sistema (decisão P5) | RN-033 | RF-162 | UC-13 | `/importar` | Importar riscos | — | `importarPagina.spec.ts` |
 | Metodologia 4.2.1 | RN-014 | RF-163 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
 | Metodologia 4.3, Quadro 7 / Metodologia 4.3, Quadro 8 / … | RN-001, RN-002, RN-003, RN-004, RN-013 | RF-164 | UC-13 | `/importar` | Importar riscos | — | `importarPagina.spec.ts`; `importadorSkillMarkdown.spec.ts` |
 | Regra do sistema (AGENTS.md, regra 5) | RN-016 | RF-165 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts`; `importarPagina.spec.ts` |
@@ -281,25 +281,25 @@ Nota 1 (RF-056): o risco `preliminar_cgov` nasce hoje no importador (`/importar`
 | Regra do sistema (decisão B3-9) | RN-099 | RF-193 | UC-13 | `/importar` | Importar riscos | — | `importarPagina.spec.ts` |
 | FS-02.18; Contrato ("Na gravação") | — | RF-169 | UC-13 | `/importar` | Importar riscos | `salvar_ficha_risco`; `riscos` | `importarPagina.spec.ts`; `riscosStore.spec.ts` |
 | FS-02.18; Contrato ("Na gravação") | — | RF-170 | UC-13 | `/importar` | Importar riscos | `salvar_ficha_risco`; `riscos` | `importarPagina.spec.ts` |
-| Metodologia 4.2.1 | RN-014 | RF-171 | UC-13 | `/importar` | Importar riscos | — | — (parcial, sem teste do trecho feito) |
+| Metodologia 4.2.1 | RN-014 | RF-171 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
 | Metodologia 4.2.2, Quadro 2 | RN-015 | RF-172 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts`; `importarPagina.spec.ts` |
 | Metodologia 4.2.2, Quadro 2 | RN-015 | RF-173 | UC-13 | `/importar` | Importar riscos | `categorias_risco`; `riscos` | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` |
 | Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-174 | UC-13 | `/importar` | Importar riscos | `subcategorias_risco`; `riscos` | `importadorSkillMarkdown.spec.ts` |
 | Metodologia 4.2.2.1, Quadro 3; Portaria ICMBio nº 253/2026 | RN-017 | RF-175 | UC-13 | `/importar` | Importar riscos | `subcategorias_risco`; `riscos` | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` |
 | Metodologia 4.3, a, Quadro 4 / Metodologia 4.3, b, Quadro 5 | RN-011, RN-012 | RF-176 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts`; `escalasProbabilidadeImpacto.spec.ts` |
 | Metodologia 4.3, a, Quadro 4 / Metodologia 4.3, b, Quadro 5 | RN-011, RN-012 | RF-177 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
-| Regra do sistema (AGENTS.md, regra 4) | RN-004 | RF-178 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
-| Regra do sistema (AGENTS.md, regra 4) | RN-004 | RF-179 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
-| Metodologia 4.3, Quadro 7 / Metodologia 4.3, c, e fórmula do residual | RN-001, RN-003 | RF-180 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
-| Metodologia 4.5.1 | RN-020 | RF-181 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
-| Metodologia 4.2.1 | RN-014 | RF-182 | UC-13 | `/importar` | Importar riscos | `riscos` | — (não iniciado) |
+| Regra do sistema (AGENTS.md, regra 4) | RN-004 | RF-178 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
+| Regra do sistema (AGENTS.md, regra 4) | RN-004 | RF-179 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
+| Metodologia 4.3, Quadro 7 / Metodologia 4.3, c, e fórmula do residual | RN-001, RN-003 | RF-180 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
+| Metodologia 4.5.1 | RN-020 | RF-181 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
+| Metodologia 4.2.1 | RN-014 | RF-182 | UC-13 | `/importar` | Importar riscos | `riscos` | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` |
 | Metodologia 4.7.1, alíneas c a f (texto saneado) | RN-083 | RF-183 | UC-13 | `/importar` | Importar riscos | `indicadores_kri` | `conversores.spec.ts`; `importadorSkillMarkdown.spec.ts`; pgTAP `110_lac03_kri_obrigatorio.test.sql` (implementado no código e no banco local, LAC-03) |
 | Metodologia 4.7.1, 1º parágrafo e alínea a (texto saneado) | RN-082 | RF-184 | UC-13 | `/importar` | Importar riscos | `indicadores_kri` | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` (implementado no código e no banco local, LAC-03) |
-| Regra do sistema (AGENTS.md, regra 5) | RN-006 | RF-185 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
-| Regra do sistema (AGENTS.md, regra 5) | RN-018 | RF-194 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
-| Contrato ("Linhas lidas") | — | RF-186 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
+| Regra do sistema (AGENTS.md, regra 5) | RN-006 | RF-185 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` |
+| Regra do sistema (AGENTS.md, regra 5) | RN-018 | RF-194 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` |
+| Contrato ("Linhas lidas") | — | RF-186 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
 | FS-02, Contrato com o Importar (uma recusa bloqueia o lote) + proposta da reestruturação, a decidir pela CGOV | — | RF-187 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
-| FS-02.12; Contrato ("Tabela do Regime A") | — | RF-188 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
+| FS-02.12; Contrato ("Tabela do Regime A") | — | RF-188 | UC-13 | `/importar` | Importar riscos | — | `importadorSkillMarkdown.spec.ts` |
 | FS-02, "Onde fica o clique" (alternativa B) | — | RF-189 | — | — | — | — | — (não iniciado) |
 
 ## RF sem caso de uso
@@ -374,7 +374,7 @@ arquivo de `supabase/tests/`.
 
 ## Cobertura
 
-Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (RF-032, RF-036 e RF-172 a RF-175, LAC-14 e LAC-15; RF-094 a RF-097, RF-183 e RF-184, LAC-03). Para recontar à mão ou com script próprio:
+Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (RF-032, RF-036 e RF-172 a RF-175, LAC-14 e LAC-15; RF-094 a RF-097, RF-183 e RF-184, LAC-03) e em 23/11/2026 (importador: RF-162, RF-171, RF-178 a RF-182, RF-185, RF-186, RF-188 e RF-194). Para recontar à mão ou com script próprio:
 
 1. **RF por situação:** em [[requisitos-funcionais]], leia a coluna `Situação` de cada linha `RF-NNN`: começa por
    "implementado", "parcial" ou "não iniciado" (195 linhas).
@@ -388,12 +388,12 @@ Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (
 | Medida | Quantidade | IDs |
 | --- | --- | --- |
 | Requisitos funcionais no catálogo | 195 | RF-001 a RF-195 |
-| RF implementados | 124 | — |
-| RF parciais | 7 | RF-035, RF-048, RF-063, RF-078, RF-099, RF-162, RF-171 |
-| RF não iniciados | 64 | ver as linhas "— (não iniciado, ...)" da matriz |
-| RF com teste citado (implementados e parciais com teste do trecho feito) | 128 | 124 implementados + 4 parciais (RF-035, RF-048, RF-063, RF-099) |
+| RF implementados | 135 | — |
+| RF parciais | 5 | RF-035, RF-048, RF-063, RF-078, RF-099 |
+| RF não iniciados | 55 | ver as linhas "— (não iniciado, ...)" da matriz |
+| RF com teste citado (implementados e parciais com teste do trecho feito) | 139 | 135 implementados + 4 parciais (RF-035, RF-048, RF-063, RF-099) |
 | RF implementados sem teste | 0 | nenhum |
-| RF parciais sem teste do trecho feito | 3 | RF-078, RF-162, RF-171 |
+| RF parciais sem teste do trecho feito | 1 | RF-078 |
 | RF sem caso de uso | 4 | RF-014, RF-054, RF-060, RF-189 |
 | RN sem nenhum RF | 8 | RN-059, RN-081, RN-101, RN-102, RN-103, RN-111, RN-113, RN-114 |
 | UC sem RF | 0 | todos os 26 casos de uso citam ao menos um RF |

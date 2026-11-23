@@ -19,6 +19,8 @@ import { definirFonteParaTeste, useRiscosStore } from '../../src/stores/riscosSt
 import { criarFonteDemonstracao } from '../../src/services/dados';
 import type { FonteDados } from '../../src/services/dados/tipos';
 import { useToast } from '../../src/composables/useToast';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import ImportadorSkillView from '../../src/views/ImportadorSkillView.vue';
 
 async function montar() {
@@ -49,6 +51,19 @@ function tabelaCom(n: number): string {
     `| RSC-T-0${i + 1} | Objeto ${i + 1} | Devido o(a) causa ${i + 1}, poderá ocorrer o(a) evento ${i + 1}, ocasionando o(a) consequência ${i + 1} e impactando o alcance do objetivo ${i + 1}. | Operacional | 2 | 3 | 8 | Médio | Inexistente | Inexistente (1,0) | 8 | Médio | moderado | não | Mitigar | KRI ${i + 1} |`
   );
   return [cab, ...linhas].join('\n');
+}
+
+/** Lê uma tabela de demonstração de tests/unit/fixtures/skill. */
+const fixtureSkill = (nome: string) => readFileSync(resolve(__dirname, 'fixtures/skill', nome), 'utf-8');
+
+/** Simula o envio de um arquivo pelo botão "Enviar arquivo". */
+async function enviarArquivo(w: ReturnType<typeof mount>, nome: string, conteudo: string) {
+  const entrada = w.find('input[type="file"]');
+  // O File do jsdom ainda não tem `.text()` (o do navegador tem): usamos um objeto com o mesmo formato.
+  const arquivo = { name: nome, text: async () => conteudo };
+  Object.defineProperty(entrada.element, 'files', { value: [arquivo], configurable: true });
+  await entrada.trigger('change');
+  await flushPromises();
 }
 
 describe('Página Importar riscos', () => {
@@ -243,5 +258,73 @@ describe('Página Importar riscos', () => {
       expect(w.find('.resultado').exists()).toBe(false);
       expect(w.findAll('button').some((b) => b.text().includes('recusadas'))).toBe(false);
     });
+  });
+});
+
+describe('Importar: arquivo, formato reconhecido e gravação do Teste de Integridade', () => {
+  beforeEach(async () => {
+    setActivePinia(createPinia());
+    await useRiscosStore().carregar();
+  });
+
+  it.each(['matriz.md', 'matriz.txt', 'matriz.markdown'])('enviar o arquivo %s carrega a tabela e a prévia mostra os riscos (RF-162)', async (nome) => {
+    const { w } = await montar();
+    await enviarArquivo(w, nome, fixtureSkill('matriz-18-colunas.md'));
+    expect((w.find('textarea').element as HTMLTextAreaElement).value).toContain('R-01');
+    await botao(w, 'Ver prévia').trigger('click');
+    expect(w.findAll('tbody tr')).toHaveLength(3);
+  });
+
+  it('arquivo com outra extensão é recusado', async () => {
+    const { w } = await montar();
+    await enviarArquivo(w, 'matriz.pdf', 'x');
+    expect(w.text()).toContain('Envie um arquivo .md ou .txt');
+  });
+
+  it('a tabela de 18 colunas mostra o formato e as contagens', async () => {
+    const { w } = await montar();
+    await w.find('textarea').setValue(fixtureSkill('matriz-18-colunas.md'));
+    await botao(w, 'Ver prévia').trigger('click');
+    expect(w.text()).toContain('Formato: 18 colunas (com Teste de Integridade)');
+    expect(w.find('.resumo').text()).toContain('3 riscos lidos');
+  });
+
+  it('a tabela de 16 colunas mostra o formato e o aviso da sintaxe (RF-171)', async () => {
+    const { w } = await montar();
+    await w.find('textarea').setValue(fixtureSkill('matriz-16-colunas.md'));
+    await botao(w, 'Ver prévia').trigger('click');
+    expect(w.text()).toContain('Formato: 16 colunas (sem Teste de Integridade; veja os avisos)');
+    expect(w.find('.mensagens--aviso').text()).toContain('não segue a sintaxe do item 4.2.1');
+  });
+
+  it('o texto de ajuda cita as 18 colunas', async () => {
+    const { w } = await montar();
+    expect(w.text()).toContain('18 colunas');
+  });
+
+  it('importar a tabela de 18 colunas grava o Teste de Integridade e a evidência lidos', async () => {
+    const { w } = await montar();
+    const store = useRiscosStore();
+    await w.find('textarea').setValue(fixtureSkill('matriz-18-colunas.md'));
+    await botao(w, 'Ver prévia').trigger('click');
+    await escolherObjeto(w);
+    await botao(w, 'Importar 3 riscos').trigger('click');
+    await flushPromises();
+    const novos = store.riscos.filter((r) => r.statusFluxo === 'preliminar_cgov');
+    expect(novos).toHaveLength(3);
+    // Ordem da lista: o 1º da tabela fica no topo; procuramos pelo evento.
+    const r02 = novos.find((r) => r.eventoRisco.includes('autorização indevida'))!;
+    expect(r02.testeIntegridadeAplicavel).toBe(true);
+    expect(r02.justificativaNaoIntegridade).toContain('requerente');
+    const r03 = novos.find((r) => r.eventoRisco.includes('atendimentos atrasam'))!;
+    expect(r03.testeIntegridadeAplicavel).toBe(false);
+    // Frase fora da sintaxe: causa/consequência/objetivo em branco, evento = a frase.
+    expect(r03.causas).toBe('');
+    expect(r03.consequencias).toBe('');
+    expect(r03.objetivoAfetado).toBe('');
+    const r01 = novos.find((r) => r.eventoRisco.includes('nomeação de parente'))!;
+    expect(r01.possuiEvidenciaControle).toBe(true);
+    expect(r01.controlesExistentes[0].possuiEvidenciaComprovada).toBe(true);
+    expect(r02.possuiEvidenciaControle).toBe(false);
   });
 });

@@ -259,8 +259,32 @@ describe('riscosStore assíncrona', () => {
     expect(res.importados).toBe(1);
     expect(res.erros).toHaveLength(1);
     expect(res.erros[0]).toContain('Você não tem permissão');
+    // O número é o da linha no texto colado (RSC-01 está na 3ª linha), não a posição entre as aceitas.
+    expect(res.erros[0].startsWith('Linha 3 (RSC-01): ')).toBe(true);
     expect(salvarFicha.mock.calls.every(([f]) => f.preliminarCgov === true && f.objetoId === objetoId)).toBe(true);
     expect(store.riscos.filter((r) => r.statusFluxo === 'preliminar_cgov')).toHaveLength(1);
+  });
+
+  it('importar usa o apetite da DAR do RADAR, não o da col. 13 da tabela (LAC-13)', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+    fonteFalsa({ ...base, salvarFicha });
+    const store = useRiscosStore();
+    await store.carregar();
+    const operacional = store.categorias.find((c) => c.nome === 'Operacional')!;
+    await store.alterarApetiteCategoriaDAR(operacional.id, 'baixo');
+    // P=3, I=2 -> Quadro 7 = 8 (Médio). A tabela diz "moderado", a DAR diz "baixo": vale a DAR.
+    const md = [
+      '| ID | Objeto de GR | Descrição na sintaxe | Categoria | P | I | Inerente | Classe | Controles e evidências | Eficácia e fator | Residual | Classe residual | Apetite da categoria | Crítico? | Estratégia | KRI |',
+      '|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|',
+      '| RSC-09 | Objeto | Devido a causa, poderá ocorrer evento, ocasionando consequência e impactando o objetivo. | Operacional | 3 | 2 | 8 | Médio | Inexistente | Inexistente (1,0) | 8 | Médio | moderado | não | Aceitar | |',
+    ].join('\n');
+
+    const res = await store.importarMarkdownDaSkill(md, store.objetosContexto[0].id);
+
+    expect(res.importados).toBe(0);
+    expect(res.erros[0]).toContain('fora do apetite da DAR');
+    expect(salvarFicha).not.toHaveBeenCalled();
   });
 
   it('salvarOuAtualizarRisco com id que não está na memória recusa (não cria risco novo)', async () => {

@@ -34,7 +34,11 @@ import type {
   UnidadeOrganizacional,
 } from '../../types/radar.types';
 import { mesmaDefinicaoKri } from '../../utils/travaRiscoCritico';
-import type { LinhaImportadaSkill } from '../../utils/importadorSkillMarkdown';
+import {
+  existeControleNoTexto,
+  textoDoControleSemMarcador,
+  type LinhaImportadaSkill,
+} from '../../utils/importadorSkillMarkdown';
 import type { EventoAuditoria, EventoFluxo, FichaParaSalvar } from './tipos';
 
 /** Uma linha qualquer vinda do banco (as chaves são os nomes das colunas). */
@@ -614,6 +618,10 @@ export function fichaParaSalvarDeRisco(r: FichaRisco, kriOriginais: IndicadorKri
  *
  * Categoria que não existe no banco: LANÇA erro (nunca troca por outra).
  *
+ * Causa, consequência e objetivo seguem como vieram, inclusive em branco (frase fora da
+ * sintaxe do item 4.2.1): a ficha é preliminar e a unidade completa depois.
+ * A evidência vem do marcador lido da célula de controles (`possuiEvidenciaControle`).
+ *
  * Ex.: fichaDaSkillParaSalvar(linha, categorias, 'obj-1', 'Ponto Focal')
  *   -> { objetoId: 'obj-1', preliminarCgov: true, probabilidade: 3, ... }
  */
@@ -629,7 +637,9 @@ export function fichaDaSkillParaSalvar(
   if (!categoria) {
     throw new Error(`RADAR: a categoria "${item.categoriaNome}" não existe no banco.`);
   }
-  const temControle = Boolean(item.controlesTexto) && item.controlesTexto !== 'Inexistente';
+  // Sem marcador de evidência; vazio ou "Inexistente" = nenhum controle (não cria controle falso).
+  const temControle = existeControleNoTexto(item.controlesTexto);
+  const descricaoControle = textoDoControleSemMarcador(item.controlesTexto);
   return {
     objetoId,
     preliminarCgov: true,
@@ -640,6 +650,10 @@ export function fichaDaSkillParaSalvar(
     objetivoAfetado: item.objetivoAfetado,
     categoriaId: categoria.id,
     subcategoriaIntegridade: item.subcategoriaIntegridade,
+    // Teste de Integridade lido da col. 17 (formato de 18 colunas; no de 16 vem false) e a
+    // justificativa da col. 18. Justificativa em branco não é enviada (o banco guarda "sem texto").
+    testeIntegridadeAplicavel: item.testeIntegridadeAplicavel,
+    ...(item.justificativaNaoIntegridade ? { justificativaNaoIntegridade: item.justificativaNaoIntegridade } : {}),
     probabilidade: item.probabilidade,
     impacto: item.impacto,
     possuiEvidenciaControle: item.possuiEvidenciaControle,
@@ -648,7 +662,7 @@ export function fichaDaSkillParaSalvar(
     controles: temControle
       ? [
           {
-            descricaoControle: item.controlesTexto,
+            descricaoControle,
             evidenciaFuncionamento: item.possuiEvidenciaControle
               ? 'Previsto no ato normativo analisado'
               : 'Sem evidência documental comprovada',
