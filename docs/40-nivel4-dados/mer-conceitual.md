@@ -36,7 +36,7 @@ ou mais objetos".
 | Consequência | O efeito do evento sobre o objetivo, se ele acontecer. |
 | Controle | A medida que já existe para reduzir o risco, com a evidência de que funciona (Quadro 6). |
 | Resposta / Ação de tratamento | A estratégia (Mitigar, Compartilhar, Evitar, Aceitar) e a ação planejada no formato 5W2H. |
-| KRI | O Indicador-Chave de Risco que acompanha o risco, com fórmula, fonte, periodicidade, meta e limite de alerta. |
+| KRI | O Indicador-Chave de Risco do objeto, que acompanha um ou mais riscos correlatos do mesmo objeto, com fórmula, fonte, periodicidade, meta (opcional) e limite de alerta. |
 | Medição | Cada leitura do KRI em uma data, que diz se passou do limite de alerta. |
 | Categoria / DAR | A categoria do risco (Quadro 2) e o apetite declarado para ela na Declaração de Apetite a Riscos (DAR). |
 | Subcategoria | Cada uma das 6 subcategorias do Quadro 3 da categoria Integridade; o risco de Integridade recebe exatamente uma (RN-017). Tabela `subcategorias_risco`, desde 2026-11-22. |
@@ -75,7 +75,7 @@ erDiagram
     RISCO ||--|{ CONSEQUENCIA : "produz"
     RISCO ||--o{ CONTROLE : "é reduzido por"
     RISCO ||--o{ RESPOSTA_ACAO : "é tratado por"
-    RISCO ||--o{ KRI : "é monitorado por"
+    RISCO }o--o{ KRI : "é monitorado por (mesmo objeto)"
     KRI ||--o{ MEDICAO : "registra"
     RISCO ||--o{ MOVIMENTACAO_FLUXO : "tramita por"
     PESSOA |o--o{ MOVIMENTACAO_FLUXO : "executa"
@@ -112,7 +112,7 @@ erDiagram
 9. **Risco produz Consequência:** todo risco tem pelo menos uma consequência; hoje também ficam juntas em um texto só.
 10. **Risco é reduzido por Controle:** o risco pode ter zero ou mais controles; sem controle, a eficácia é Inexistente (fator 1,0).
 11. **Risco é tratado por Resposta / Ação:** o risco pode ter zero ou mais ações 5W2H; o risco crítico deve ter pelo menos uma (RN-019), regra que o banco impõe desde a LAC-13 (`fn_trava_risco_critico`, migração `20261122002`: sem "Aceitar" e com ao menos uma ação, ao enviar, validar e homologar; aplicada na nuvem do piloto em 2026-11-22).
-12. **Risco é monitorado por KRI:** o risco pode ter zero ou mais KRIs; cada KRI pertence a um único risco (o grupo de riscos correlatos do 4.7.1 ainda não existe, LAC-03).
+12. **Risco é monitorado por KRI (muitos para muitos):** o risco pode ter zero ou mais KRIs, e o KRI pode servir a vários riscos do **mesmo objeto**, que são o grupo de riscos correlatos do 4.7.1 (LAC-03, tabela `kri_riscos`, migração `20261122004`). O KRI pertence ao objeto, não a um risco. O risco crítico (e o Pendente de DAR, por regra do sistema) precisa de pelo menos um KRI **completo** ligado a ele para ser enviado, validado e homologado (RN-082, RN-083; `fn_trava_risco_critico`).
 13. **KRI registra Medição:** cada medição pertence a exatamente um KRI, que pode ter zero ou mais medições.
 14. **Risco tramita por Movimentação do fluxo:** cada movimentação é de exatamente um risco, e o risco acumula zero ou mais movimentações, em ordem.
 15. **Pessoa executa Movimentação do fluxo:** a movimentação guarda quem a fez; pode ficar sem pessoa quando o banco é alterado direto pelo administrador.

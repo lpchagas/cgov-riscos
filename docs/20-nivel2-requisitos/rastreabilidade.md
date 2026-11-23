@@ -166,10 +166,10 @@ Nota 1 (RF-056): o risco `preliminar_cgov` nasce hoje no importador (`/importar`
 
 | Dispositivo normativo | RN | RF | UC | Tela (rota) | Tela | Tabela/função SQL | Teste |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Metodologia 4.7.1, alíneas c a f (texto saneado) | RN-083 | RF-094 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | — (parcial, sem teste do trecho feito) |
-| Metodologia 4.7.1, 1º parágrafo e alínea a (texto saneado) | RN-082 | RF-095 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | — (não iniciado, LAC-03) |
-| Metodologia 4.7.1, alíneas c a f (texto saneado) | RN-083 | RF-096 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | — (não iniciado, LAC-03) |
-| Metodologia 4.7.1, 1º parágrafo e alínea a (texto saneado) | RN-082 | RF-097 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | — (não iniciado, LAC-03) |
+| Metodologia 4.7.1, alíneas c a f (texto saneado) | RN-083 | RF-094 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | `formularioRisco.spec.ts`; `novoRiscoPagina.spec.ts`; `conversores.spec.ts`; pgTAP `110_lac03_kri_obrigatorio.test.sql` (implementado no código e no banco local, LAC-03) |
+| Metodologia 4.7.1, 1º parágrafo e alínea a (texto saneado) | RN-082 | RF-095 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | `travaRiscoCritico.spec.ts`; `formularioRisco.spec.ts`; `fonteDemonstracao.spec.ts`; pgTAP `110_lac03_kri_obrigatorio.test.sql` (implementado no código e no banco local, LAC-03) |
+| Metodologia 4.7.1, alíneas c a f (texto saneado) | RN-083 | RF-096 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | `travaRiscoCritico.spec.ts`; pgTAP `110_lac03_kri_obrigatorio.test.sql` (implementado no código e no banco local, LAC-03) |
+| Metodologia 4.7.1, 1º parágrafo e alínea a (texto saneado) | RN-082 | RF-097 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | `fonteDemonstracao.spec.ts`; `novoRiscoPagina.spec.ts`; `monitoramentoPagina.spec.ts`; pgTAP `110_lac03_kri_obrigatorio.test.sql` (implementado no código e no banco local, LAC-03) |
 | Metodologia 4.7.2, 1º parágrafo (texto saneado) | RN-115 | RF-098 | UC-15 | `/monitoramento` | Monitoramento | `medicoes_kri` | `monitoramentoPagina.spec.ts`; pgTAP `041` bl. 6 |
 | Metodologia 4.7.1, parágrafo do alerta (texto saneado) | RN-084 | RF-099 | UC-15 | `/monitoramento` | Monitoramento | `medicoes_kri` | `monitoramentoPagina.spec.ts` (parcial) |
 | Metodologia 4.7.2, 1º parágrafo (texto saneado) | RN-115 | RF-100 | UC-07, UC-15 | `/monitoramento` | Monitoramento | `respostas_tratamento` | `monitoramentoPagina.spec.ts`; pgTAP `050` bl. 7 |
@@ -293,8 +293,8 @@ Nota 1 (RF-056): o risco `preliminar_cgov` nasce hoje no importador (`/importar`
 | Metodologia 4.3, Quadro 7 / Metodologia 4.3, c, e fórmula do residual | RN-001, RN-003 | RF-180 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
 | Metodologia 4.5.1 | RN-020 | RF-181 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
 | Metodologia 4.2.1 | RN-014 | RF-182 | UC-13 | `/importar` | Importar riscos | `riscos` | — (não iniciado) |
-| Metodologia 4.7.1, alíneas c a f (texto saneado) | RN-083 | RF-183 | UC-13 | `/importar` | Importar riscos | `indicadores_kri` | — (não iniciado, LAC-03) |
-| Metodologia 4.7.1, 1º parágrafo e alínea a (texto saneado) | RN-082 | RF-184 | UC-13 | `/importar` | Importar riscos | `indicadores_kri` | — (não iniciado, LAC-03) |
+| Metodologia 4.7.1, alíneas c a f (texto saneado) | RN-083 | RF-183 | UC-13 | `/importar` | Importar riscos | `indicadores_kri` | `conversores.spec.ts`; `importadorSkillMarkdown.spec.ts`; pgTAP `110_lac03_kri_obrigatorio.test.sql` (implementado no código e no banco local, LAC-03) |
+| Metodologia 4.7.1, 1º parágrafo e alínea a (texto saneado) | RN-082 | RF-184 | UC-13 | `/importar` | Importar riscos | `indicadores_kri` | `importadorSkillMarkdown.spec.ts`; `conversores.spec.ts` (implementado no código e no banco local, LAC-03) |
 | Regra do sistema (AGENTS.md, regra 5) | RN-006 | RF-185 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
 | Regra do sistema (AGENTS.md, regra 5) | RN-018 | RF-194 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
 | Contrato ("Linhas lidas") | — | RF-186 | UC-13 | `/importar` | Importar riscos | — | — (não iniciado) |
@@ -374,7 +374,7 @@ arquivo de `supabase/tests/`.
 
 ## Cobertura
 
-Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (RF-032, RF-036 e RF-172 a RF-175, LAC-14 e LAC-15). Para recontar à mão ou com script próprio:
+Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (RF-032, RF-036 e RF-172 a RF-175, LAC-14 e LAC-15; RF-094 a RF-097, RF-183 e RF-184, LAC-03). Para recontar à mão ou com script próprio:
 
 1. **RF por situação:** em [[requisitos-funcionais]], leia a coluna `Situação` de cada linha `RF-NNN`: começa por
    "implementado", "parcial" ou "não iniciado" (195 linhas).
@@ -388,12 +388,12 @@ Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (
 | Medida | Quantidade | IDs |
 | --- | --- | --- |
 | Requisitos funcionais no catálogo | 195 | RF-001 a RF-195 |
-| RF implementados | 116 | — |
-| RF parciais | 9 | RF-035, RF-048, RF-050, RF-063, RF-078, RF-094, RF-099, RF-162, RF-171 |
-| RF não iniciados | 70 | ver as linhas "— (não iniciado, ...)" da matriz |
-| RF com teste citado (implementados e parciais com teste do trecho feito) | 120 | 116 implementados + 4 parciais (RF-035, RF-048, RF-063, RF-099) |
+| RF implementados | 124 | — |
+| RF parciais | 7 | RF-035, RF-048, RF-063, RF-078, RF-099, RF-162, RF-171 |
+| RF não iniciados | 64 | ver as linhas "— (não iniciado, ...)" da matriz |
+| RF com teste citado (implementados e parciais com teste do trecho feito) | 128 | 124 implementados + 4 parciais (RF-035, RF-048, RF-063, RF-099) |
 | RF implementados sem teste | 0 | nenhum |
-| RF parciais sem teste do trecho feito | 5 | RF-050, RF-078, RF-094, RF-162, RF-171 |
+| RF parciais sem teste do trecho feito | 3 | RF-078, RF-162, RF-171 |
 | RF sem caso de uso | 4 | RF-014, RF-054, RF-060, RF-189 |
 | RN sem nenhum RF | 8 | RN-059, RN-081, RN-101, RN-102, RN-103, RN-111, RN-113, RN-114 |
 | UC sem RF | 0 | todos os 26 casos de uso citam ao menos um RF |

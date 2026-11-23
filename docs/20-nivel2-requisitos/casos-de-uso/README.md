@@ -41,7 +41,7 @@ preside e a publicação acontecem fora do sistema. O que os colegiados decidem 
 | [[UC-04-cadastrar-objeto-de-gestao\|UC-04]] | Cadastrar objeto de gestão de riscos | CGOV (ver a decisão no próprio UC) | implementado |
 | [[UC-05-identificar-e-registrar-risco\|UC-05]] | Identificar e registrar risco (com Teste de Integridade) | Gestor de riscos | implementado |
 | [[UC-06-analisar-risco-e-avaliar-controles\|UC-06]] | Analisar risco e avaliar controles existentes | Gestor de riscos | implementado |
-| [[UC-07-definir-tratamento-plano-de-acao-e-kri\|UC-07]] | Definir tratamento, plano de ação e KRI | Gestor de riscos | parcial (LAC-03) |
+| [[UC-07-definir-tratamento-plano-de-acao-e-kri\|UC-07]] | Definir tratamento, plano de ação e KRI | Gestor de riscos | parcial (RF-048, teste) |
 | [[UC-08-enviar-risco-para-validacao\|UC-08]] | Enviar risco para validação | Gestor de riscos | implementado; fluxo interno sem base nas minutas (LAC-11) |
 | [[UC-09-validar-risco\|UC-09]] | Validar risco | Chefia imediata / Coordenador-Geral | implementado; fluxo interno sem base nas minutas (LAC-11) |
 | [[UC-10-homologar-risco\|UC-10]] | Homologar risco | Diretor / Presidente (homologador efetivo) | implementado; fluxo interno sem base nas minutas (LAC-11) |
@@ -49,7 +49,7 @@ preside e a publicação acontecem fora do sistema. O que os colegiados decidem 
 | [[UC-12-elaborar-ficha-preliminar-de-risco\|UC-12]] | Elaborar ficha preliminar de risco | CGOV | implementado |
 | [[UC-13-importar-riscos-da-tabela-da-skill\|UC-13]] | Importar riscos da tabela da skill | Gestor de riscos / CGOV | implementado |
 | [[UC-14-propor-declaracao-de-apetite-a-riscos\|UC-14]] | Propor a Declaração de Apetite a Riscos | CGOV | parcial (LAC-08: hoje a CGOV altera o apetite direto) |
-| [[UC-15-registrar-medicao-de-kri-e-tratar-alerta\|UC-15]] | Registrar medição de KRI e tratar alerta | Gestor de riscos | parcial (LAC-03) |
+| [[UC-15-registrar-medicao-de-kri-e-tratar-alerta\|UC-15]] | Registrar medição de KRI e tratar alerta | Gestor de riscos | parcial (LAC-03: falta o alerta, RF-102) |
 | [[UC-16-comunicar-fato-de-risco-a-cgov\|UC-16]] | Comunicar fato de risco à CGOV (6 hipóteses) | Gestor de riscos | proposto (LAC-04) |
 | [[UC-17-verificar-e-consolidar-plano\|UC-17]] | Verificar e consolidar o Plano de Gestão de Riscos | CGOV | proposto (LAC-01) |
 | [[UC-18-registrar-manifestacao-ctgric-e-deliberacao-cig\|UC-18]] | Registrar a manifestação do CTGRIC e a deliberação do CIG sobre a DAR e o Plano | CGOV (secretaria) | proposto (LAC-02) |

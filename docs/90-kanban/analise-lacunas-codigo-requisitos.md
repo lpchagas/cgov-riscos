@@ -49,7 +49,7 @@ porque trata da pendência que persiste depois da cobrança).
 | LAC-15 — 6 subcategorias do Quadro 3 (com a dívida da subcategoria em JSONB) | RF-036, RF-174, RF-175 | `subcategorias_risco`, `riscos` | Concluído em 2026-11-22 (código, banco local e nuvem do piloto) |
 | LAC-12 — escalas dos Quadros 4 e 5 | RF-037, RF-176, RF-177 | — (front e importador, sem migração) | Concluído em 2026-11-22 (código) |
 | LAC-13 — "Aceitar" e ação obrigatória no risco crítico | RF-049, RF-050 | `riscos`, `respostas_tratamento` | Homologação CGOV (implementado no código, no banco local e na nuvem do piloto em 2026-11-22) |
-| LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-109, RF-183, RF-184 | `indicadores_kri`, `medicoes_kri` | Pronto para iniciar |
+| LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-183, RF-184 (o RF-109 segue não iniciado, com o alerta e a LAC-04) | `indicadores_kri`, `kri_riscos`, `medicoes_kri` | Homologação CGOV (implementado no código e no banco local em 2026-11-22; nuvem do piloto: pendente) |
 | LAC-03 — alerta do KRI (prazo de 10 dias úteis) | RF-102 | `medicoes_kri` | Backlog (depois do Figma P-02) |
 | LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois dos desenhos P-01 e P-10 no Figma; o P-10 cobre o RF-130) |
 | Importador antes da primeira carga real | RF-162, RF-171, RF-178 a RF-182, RF-185 a RF-188, RF-194 (o RF-183 e o RF-184 ficam na LAC-03) | `riscos`, `controles_existentes`, `indicadores_kri` | Backlog |
@@ -80,7 +80,7 @@ do catálogo o põe na LAC-02, e ele ficou lá.
 | --- | --- | --- |
 | RF-035, RF-048, RF-099 | parcial: o código faz, falta o teste | `[dívida] Testes que faltam` (novo) |
 | RF-162, RF-171 | parcial: o código faz, falta o teste | cartão do importador (prioridade 1); o RF-172 foi implementado em 2026-11-22, com a LAC-14 |
-| RF-178 a RF-182, RF-185 a RF-188, RF-194 | não iniciado | cartão do importador (prioridade 1); o RF-177 foi implementado em 2026-11-22, com a LAC-12; o RF-183 e o RF-184 estão no cartão da LAC-03 |
+| RF-178 a RF-182, RF-185 a RF-188, RF-194 | não iniciado | cartão do importador (prioridade 1); o RF-177 foi implementado em 2026-11-22, com a LAC-12; o RF-183 e o RF-184 estão no cartão da LAC-03 (implementados em 2026-11-22) |
 | RF-063 | parcial: falta o teste pgTAP da unidade sem chefia | `[dívida] Teste pgTAP para a recusa do envio…` |
 | RF-078 | parcial: falta o teste pgTAP da devolução pela CGOV em validação | `[dívida] Teste pgTAP para a devolução pela CGOV…` |
 | RF-085 | não iniciado: o ator depende de decisão da CGOV | `[funcional] Cargo vago trava o fluxo` |
@@ -109,7 +109,7 @@ A conferência achou 4 pendências da D1 (Task 6, banco na nuvem) que só estava
 
 ## 6. O que fica para o responsável
 
-- Os cartões de "Pronto para iniciar" mudam banco e regras (LAC-13 e LAC-03 mexem no fluxo): cada um precisa de plano autorizado antes do código (`AGENTS.md`). A LAC-14 e a
+- Os cartões que mudam banco e regras (LAC-13 e LAC-03 mexem no fluxo; ambos já estão em "Homologação CGOV"): cada um precisa de plano autorizado antes do código (`AGENTS.md`). A LAC-14 e a
   LAC-15 foram concluídas em 2026-11-22 no código, no banco local e no banco do piloto na nuvem; a LAC-12, também em 2026-11-22, só no código (sem migração).
 - A grafia final das 8 categorias do Quadro 2 (D3-01) e a regra para as categorias e subcategorias já gravadas
   foram decididas em 2026-11-22 ([[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]): Quadro 2 literal e recusa com reclassificação, sem conversão.

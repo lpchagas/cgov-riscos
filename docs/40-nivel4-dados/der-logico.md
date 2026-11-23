@@ -4,10 +4,10 @@ O **DER lógico** (Diagrama Entidade-Relacionamento) é o desenho **do banco que
 tabela do PostgreSQL/Supabase, cada linha dentro da caixa é uma coluna com o seu tipo, e cada traço entre
 caixas é uma chave estrangeira. Ele traduz o [[mer-conceitual]] para tabelas.
 
-**De onde vem:** do **estado final das 13 migrações** de `supabase/migrations/` (de `20261109001` até
-`20261122001`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
+**De onde vem:** do **estado final das 14 migrações que mudam a estrutura** de `supabase/migrations/` (de `20261109001` até
+`20261122004`; a `20261122002` só troca funções e a `20261122003` só acrescenta um gatilho), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
 com as 12 primeiras migrações aplicadas (consulta ao `information_schema` e ao `pg_constraint`, só a estrutura, em
-2026-11-21); a 13ª (`20261122001`, tabela `subcategorias_risco`, chave estrangeira composta e fim da coluna `subcategorias_permitidas`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi acrescentada a partir do próprio arquivo da migração. O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
+2026-11-21); a 13ª (`20261122001`, tabela `subcategorias_risco`, chave estrangeira composta e fim da coluna `subcategorias_permitidas`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi acrescentada a partir do próprio arquivo da migração, e a 14ª (`20261122004`, LAC-03: `indicadores_kri.objeto_id`, tabela `kri_riscos`, fim de `indicadores_kri.risco_id`, campos do KRI que aceitam vazio) também. O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
 migrações") reprova se uma tabela for criada numa migração e não aparecer aqui, ou o contrário.
 
 O documento anterior, [[modelo-dados-mer]], fica como histórico das migrações.
@@ -218,8 +218,10 @@ erDiagram
 ```
 
 "Em cascata" (`ON DELETE CASCADE`) quer dizer que, ao apagar a linha de cima, o banco apaga também as de
-baixo. Exemplo: apagar um risco em rascunho apaga os seus controles, ações, KRIs e medições. O risco
-aprovado não pode ser apagado (RN-050).
+baixo. Exemplo: apagar um risco em rascunho apaga os seus controles, ações e as ligações dele com os KRIs
+(`kri_riscos`). O KRI em si só é apagado, com as medições dele, quando fica **órfão**, isto é, sem nenhum
+risco ligado (gatilho da migração `20261122004`); um KRI que ainda serve a outro risco do objeto continua.
+O risco aprovado não pode ser apagado (RN-050).
 
 ## Bloco 3 — Fluxo e auditoria
 
@@ -267,7 +269,7 @@ de `perfis_usuarios`, e fica vazio quando o administrador altera o banco direto.
 Em `historico_fluxo`, `usuario_nome` e `usuario_papel` são gravados como texto para mostrar quem agiu e
 com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 
-## Resumo das 13 tabelas
+## Resumo das 14 tabelas
 
 | Tabela | Bloco | Criada em | Chaves estrangeiras declaradas |
 | --- | --- | --- | --- |
