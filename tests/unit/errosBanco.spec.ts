@@ -28,6 +28,13 @@ describe('traduzirErroBanco', () => {
       code: '23514',
       message: 'RADAR: o risco RADAR-2026-004 é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: falta uma ação de tratamento (5W2H). Devolva a ficha à unidade para ajuste.',
     }).message).toBe(MENSAGEM_TRAVA_CRITICO);
+    // LAC-03: ligação de KRI entre objetos.
+    const cruzado = traduzirErroBanco({
+      code: '23514',
+      message: 'RADAR: o KRI só pode ser ligado a riscos do mesmo objeto de gestão de riscos.',
+    });
+    expect(cruzado.message).toMatch(/^O KRI só pode ser ligado a riscos do mesmo objeto/);
+    expect(cruzado.tipo).toBe('validacao');
     // 3º motivo (LAC-03): falta KRI completo.
     expect(traduzirErroBanco({
       code: '23514',

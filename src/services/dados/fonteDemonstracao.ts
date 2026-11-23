@@ -500,8 +500,14 @@ export function criarFonteDemonstracao(
         const estavaLivre = ENVIAVEIS.includes(r.statusFluxo);
         const foto = tirarFoto();
         try {
+          const objetoAntes = r.objetoId;
           aplicarEntradas(r, f);
           if (f.kris !== undefined) aplicarKris(r, f.kris);
+          // Trocar o objeto com KRI ainda ligado quebraria "KRI só liga a riscos
+          // do mesmo objeto" (o banco recusa). Recusa tudo (rollback abaixo).
+          if (r.objetoId !== objetoAntes && kris.some((k) => k.riscoIds.includes(r.id))) {
+            recusar('o KRI só pode ser ligado a riscos do mesmo objeto de gestão de riscos.');
+          }
           sincronizarKris();
           recalcular(r);
           if (!estavaLivre) exigirTrava(r);

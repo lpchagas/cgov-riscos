@@ -759,6 +759,29 @@ describe('KRI obrigatório e grupo (LAC-03)', () => {
     expect(depois?.kris[0].medicoes).toHaveLength(1);
   });
 
+  it('trocar o objeto de um risco que ainda tem KRI ligado é recusado e nada muda', async () => {
+    const fonte = fonteComo('gestor');
+    const a = await fonte.salvarFicha(media([KRI_OK]));
+    const e = await erroDe(fonte.salvarFicha({ id: a.id, objetoId: 'obj-autorizacao-uc' }));
+    expect(e.message).toMatch(/mesmo objeto/);
+    const depois = await fonte.relerRisco(a.id);
+    expect(depois?.objetoId).toBe('obj-anexo-ii');
+    expect(depois?.kris).toHaveLength(1);
+  });
+
+  it('DAR com apetite pendente: o histórico usa a variante "com DAR pendente"', async () => {
+    const fonte = fonteComo('coordenador_geral');
+    const { id } = await fonte.salvarFicha(media([]));
+    await fonte.enviar(id);
+    await fonte.validar(id);
+    await fonte.alterarApetite(2, 'pendente_dar');
+    const r = await fonte.relerRisco(id);
+    expect(r?.statusFluxo).toBe('devolvido');
+    expect(r?.historicoFluxo.at(-1)?.despachoTexto).toContain(
+      'com DAR pendente; por regra do sistema, a trava do risco crítico também se aplica) não passa na trava do risco crítico: falta um KRI completo'
+    );
+  });
+
   it('DAR: aprovado que vira crítico sem KRI completo volta devolvido, com o motivo do KRI', async () => {
     const fonte = fonteComo('coordenador_geral');
     const { id } = await fonte.salvarFicha(media([]));

@@ -49,6 +49,8 @@ describe('painelResumo', () => {
     const lista = semente();
     const ordemOriginal = lista.map((r) => r.codigoRadar);
     expect(maioresRiscosResiduais(lista, 2).map((r) => r.nivelResidual)).toEqual([22, 22]);
+    // Com 3, o 3º valor é distinto (17,1): garante a ordem decrescente de verdade.
+    expect(maioresRiscosResiduais(lista, 3).map((r) => r.nivelResidual)).toEqual([22, 22, 17.1]);
     expect(lista.map((r) => r.codigoRadar)).toEqual(ordemOriginal);
   });
 

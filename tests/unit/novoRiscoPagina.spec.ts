@@ -107,6 +107,9 @@ describe('dadosParaFicha (edição)', () => {
 });
 
 describe('Página Novo risco', () => {
+  // Garante que uma fonte falsa de um teste nunca vaze para o próximo, mesmo se ele falhar.
+  afterEach(() => definirFonteParaTeste(null));
+
   beforeEach(async () => {
     setActivePinia(createPinia());
     // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
@@ -219,7 +222,6 @@ describe('Página Novo risco', () => {
     expect(novo.nivelInerente).toBe(18);
     expect(router.currentRoute.value.name).toBe('ficha-bowtie-detalhe');
     w.unmount();
-    definirFonteParaTeste(null);
   });
 
   describe('"Salvar e enviar" com envio recusado', () => {

@@ -117,6 +117,8 @@ const DICIONARIO: Entrada[] = [
   // LAC-03: 3º motivo (falta KRI completo). Vem ANTES da entrada genérica abaixo.
   ['precisa de tratamento: falta um KRI completo', MENSAGEM_TRAVA_KRI, 'validacao'],
   ['é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento', MENSAGEM_TRAVA_CRITICO, 'validacao'],
+  // LAC-03: ligação de KRI entre objetos (23514). Vem antes do plano B por código.
+  ['o KRI só pode ser ligado a riscos do mesmo objeto', 'O KRI só pode ser ligado a riscos do mesmo objeto de gestão de riscos. Escolha um KRI deste objeto ou crie um novo.', 'validacao'],
   ['não encontrado', 'Risco não encontrado.', 'nao_encontrado'], // "risco ... não encontrado"
 ];
 
