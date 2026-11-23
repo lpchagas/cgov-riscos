@@ -1716,3 +1716,40 @@ ALTER TABLE public.indicadores_kri DROP COLUMN risco_id;
 --      and public.fn_trava_risco_critico(r.id) is not null
 --    order by r.codigo_radar;
 
+
+-- ----------------------------------------------------------------------------
+-- 11. kri_total_riscos: a quantos riscos o KRI serve, contando todos
+-- ----------------------------------------------------------------------------
+-- O formulário avisa "Este KRI também serve aos riscos ..." e, ao desligar o
+-- KRI, pergunta se as medições vão ser apagadas (o KRI some quando perde a
+-- última ligação). Para isso, ele precisa do número REAL de riscos ligados.
+-- A leitura comum de kri_riscos passa pela RLS e mostra só as ligações dos
+-- riscos que a pessoa enxerga; contar por ela pode subestimar o total.
+--
+-- Esta função conta TODAS as ligações (SECURITY DEFINER), mas só devolve
+-- linha para o KRI que a pessoa já pode ler: a mesma regra da leitura de
+-- indicadores_kri ("o objeto do KRI está no alcance"), que é a de
+-- pode_ler_objeto(objeto_id). KRI fora do alcance não aparece (nem o id, nem
+-- o total), então nada vaza. Ela devolve só números, nunca códigos de risco.
+-- Ex.: o KRI k1 serve a R-01 (visível) e a um risco que a pessoa não vê →
+--      kri_total_riscos(array[k1]) = (k1, 2); o formulário avisa que o KRI
+--      também serve a outros riscos fora da visão dela.
+CREATE OR REPLACE FUNCTION public.kri_total_riscos(p_kris uuid[])
+RETURNS TABLE (kri_id uuid, total int)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT k.id,
+         (SELECT count(*)::int FROM public.kri_riscos AS l WHERE l.kri_id = k.id)
+    FROM public.indicadores_kri AS k
+   WHERE k.id = ANY (p_kris)
+     AND public.pode_ler_objeto(k.objeto_id);
+$$;
+
+COMMENT ON FUNCTION public.kri_total_riscos(uuid[]) IS
+  'RADAR (LAC-03): número real de riscos ligados a cada KRI pedido, só para os KRIs que quem chama pode ler (pode_ler_objeto do objeto do KRI). Ver migração 20261122004, seção 11.';
+
+REVOKE EXECUTE ON FUNCTION public.kri_total_riscos(uuid[]) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.kri_total_riscos(uuid[]) TO authenticated;

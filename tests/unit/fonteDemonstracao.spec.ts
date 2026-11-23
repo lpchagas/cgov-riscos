@@ -704,6 +704,8 @@ describe('KRI obrigatório e grupo (LAC-03)', () => {
     const k4 = por('risco-anexo-ii-04').kris.find((k) => k.id === 'kri-anexo-ii-2')!;
     expect(k1.riscoIds.sort()).toEqual(['risco-anexo-ii-01', 'risco-anexo-ii-04']);
     expect(k4.riscoIds.sort()).toEqual(k1.riscoIds);
+    // Na demonstração a pessoa vê todos os riscos: o total real é o tamanho de riscoIds.
+    expect(k1.totalRiscos).toBe(2);
   });
 
   describe('alterar a definição de um KRI compartilhado', () => {
@@ -741,6 +743,31 @@ describe('KRI obrigatório e grupo (LAC-03)', () => {
       await editar(fonte, b, kriId, KRI_OK.limiteAlerta);
       expect((await fonte.relerRisco(a))?.statusFluxo).toBe('aprovado');
     });
+  });
+
+  it('ficha NOVA recusada não deixa reaberto o aprovado que divide o KRI (foto completa)', async () => {
+    const fonte = fonteComo('coordenador_geral');
+    const { a, kriId } = await grupo(fonte);
+    await fonte.enviar(a);
+    await fonte.validar(a);
+    const antes = await fonte.relerRisco(a);
+    expect(antes?.statusFluxo).toBe('aprovado');
+    // KRI de OUTRO objeto, para a ficha nova ser recusada DEPOIS de mexer no compartilhado.
+    const outro = await fonte.salvarFicha({ objetoId: 'obj-autorizacao-uc', kris: [{ ...KRI_OK, nomeIndicador: 'KRI de outro objeto' }] });
+    const kriOutro = (await kriDe(fonte, outro.id))[0].id;
+    const e = await erroDe(
+      fonte.salvarFicha(
+        media([
+          { ...KRI_OK, id: kriId, limiteAlerta: '> 9%' }, // 1º: altera o compartilhado (reabriria A)
+          { ...KRI_OK, id: kriOutro, apenasLigar: true }, // 2º: recusado (outro objeto)
+        ]),
+      ),
+    );
+    expect(e.message).toMatch(/mesmo objeto/);
+    const depois = await fonte.relerRisco(a);
+    expect(depois?.statusFluxo).toBe('aprovado');
+    expect(depois?.historicoFluxo).toHaveLength(antes!.historicoFluxo.length);
+    expect(depois?.kris[0].limiteAlerta).toBe(KRI_OK.limiteAlerta);
   });
 
   it('na recusa da trava, desligar o KRI de um risco aprovado crítico volta tudo ao que era', async () => {

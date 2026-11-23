@@ -186,12 +186,13 @@ function medicaoDoBanco(l: LinhaBanco): MedicaoKri {
  * Linha de `indicadores_kri` -> `IndicadorKri`.
  *
  * LAC-03: o KRI é do OBJETO (`objeto_id`) e pode servir a vários riscos do mesmo
- * objeto (tabela `kri_riscos`); `riscoIds` traz TODOS os riscos ligados.
+ * objeto (tabela `kri_riscos`); `riscoIds` traz os riscos ligados que a pessoa
+ * VÊ (a RLS esconde os demais) e `totalRiscos`, quando informado, o total real.
  * Os campos de texto e a periodicidade aceitam NULL no banco: aqui NULL (ou texto
  * vazio) vira `undefined`, nunca "" nem uma periodicidade inventada.
  * Ex.: { limite_alerta: null } -> limiteAlerta: undefined
  */
-function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], riscoIds: string[]): IndicadorKri {
+function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], riscoIds: string[], totalRiscos?: number): IndicadorKri {
   const opcional = (v: unknown): string | undefined => {
     const t = textoOpcional(v);
     return t === undefined || t === '' ? undefined : t;
@@ -200,6 +201,7 @@ function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], riscoIds: string[]): 
     id: texto(l.id),
     objetoId: texto(l.objeto_id),
     riscoIds,
+    ...(totalRiscos !== undefined ? { totalRiscos } : {}),
     nomeIndicador: texto(l.nome_indicador),
     formulaCalculo: opcional(l.formula_calculo),
     fonteDados: opcional(l.fonte_dados),
@@ -262,8 +264,10 @@ export interface FilhosRiscoBanco {
   respostas?: LinhaBanco[];
   /** KRIs (linhas de `indicadores_kri`) que podem ser deste risco; quem decide é `kriRiscos`. */
   kris?: LinhaBanco[];
-  /** Ligações KRI <-> risco (`kri_riscos`): de TODOS os riscos dos KRIs, para montar `riscoIds`. */
+  /** Ligações KRI <-> risco (`kri_riscos`): as que a pessoa vê, para montar `riscoIds`. */
   kriRiscos?: LinhaBanco[];
+  /** Total real de riscos de cada KRI (função `kri_total_riscos`), para `totalRiscos`. */
+  totaisKri?: Map<string, number>;
   /** Medições de qualquer KRI deste risco (agrupadas por `kri_id`). */
   medicoes?: LinhaBanco[];
   historico?: LinhaBanco[];
@@ -305,6 +309,7 @@ export function riscoDoBanco(l: LinhaBanco, filhos: FilhosRiscoBanco): FichaRisc
           .filter((x) => texto(x.kri_id) === texto(k.id))
           .map((x) => texto(x.risco_id))
           .sort(),
+        filhos.totaisKri?.get(texto(k.id)),
       ),
     );
 

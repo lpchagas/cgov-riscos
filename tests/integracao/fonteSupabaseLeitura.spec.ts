@@ -47,6 +47,15 @@ describe('fonte Supabase — leituras (Supabase local)', () => {
     expect(await gestor.relerRisco('00000000-0000-4000-8000-000000000000')).toBeNull();
   });
 
+  it('cada KRI lido traz totalRiscos (função kri_total_riscos), nunca menor que os riscos visíveis', async () => {
+    const { riscos } = await criarFonteSupabase(await entrarComo('gestor.uc@radar.test')).carregarCarteira();
+    const kris = riscos.flatMap((r) => r.kris);
+    for (const k of kris) {
+      expect(typeof k.totalRiscos).toBe('number');
+      expect(k.totalRiscos!).toBeGreaterThanOrEqual(k.riscoIds.length);
+    }
+  });
+
   it('acoesNoFluxo: gr@ pode validar RADAR-DEMO-CT; ct@ não', async () => {
     async function podeValidar(email: string): Promise<boolean> {
       const fonte = criarFonteSupabase(await entrarComo(email));

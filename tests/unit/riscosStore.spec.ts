@@ -368,5 +368,37 @@ describe('ligarCarteiraASessao (carga e limpeza pela sessão)', () => {
       expect(enviados[0].limiteAlerta).toBe('Abaixo de 42%');
       expect(enviados.slice(1).every((k) => k.apenasLigar === true)).toBe(true);
     });
+
+    // Revisão final: uma gravação pode mudar OUTROS riscos do mesmo KRI (alterar a
+    // definição reabre os aprovados ligados; ligar/desligar muda o `riscoIds` de todos).
+    it('salvar a ficha relê também os riscos que dividem KRI com ela', async () => {
+      const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.coordenador_geral });
+      const relerRisco = vi.fn((id: string) => base.relerRisco(id));
+      const store = useRiscosStore();
+      fonteFalsa({ relerRisco, salvarFicha: vi.fn(async () => ({ id: ID_001(), codigoRadar: 'RADAR-2026-001' })) });
+      await store.carregar();
+      const r1 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-001')!;
+      const r4 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-004')!;
+      expect(r1.kris.some((k) => k.riscoIds.includes(r4.id))).toBe(true); // dividem o KRI
+      // Desliga TODOS os KRIs do 001: o 004 perde um risco no `riscoIds` do KRI.
+      await store.salvarOuAtualizarRisco({ id: r1.id, kris: [] });
+      const relidos = relerRisco.mock.calls.map((c) => c[0]);
+      expect(relidos).toContain(r1.id);
+      expect(relidos).toContain(r4.id);
+    });
+
+    it('excluir um risco relê os riscos que dividiam KRI com ele', async () => {
+      const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.coordenador_geral });
+      const relerRisco = vi.fn((id: string) => base.relerRisco(id));
+      const store = useRiscosStore();
+      fonteFalsa({ relerRisco, excluirRisco: vi.fn(async () => {}) });
+      await store.carregar();
+      const r1 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-001')!;
+      const r4 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-004')!;
+      await store.excluirRisco(r4.id);
+      const relidos = relerRisco.mock.calls.map((c) => c[0]);
+      expect(relidos).toContain(r4.id);
+      expect(relidos).toContain(r1.id);
+    });
   });
 });

@@ -12,7 +12,16 @@
  */
 import { describe, it, expect } from 'vitest';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
-import { dadosExemplo, dadosParaFicha, dadosVazios, validarEtapa, type DadosNovoRisco } from '../../src/utils/formularioRisco';
+import {
+  avisoKriCompartilhado,
+  dadosExemplo,
+  dadosParaFicha,
+  dadosVazios,
+  kriFicaOrfao,
+  totalRiscosDoKri,
+  validarEtapa,
+  type DadosNovoRisco,
+} from '../../src/utils/formularioRisco';
 import type { FichaRisco } from '../../src/types/radar.types';
 import { MENSAGEM_TRAVA_KRI } from '../../src/utils/travaRiscoCritico';
 
@@ -80,9 +89,47 @@ describe('etapa 4: KRI completo para risco crítico (LAC-03)', () => {
   it('KRI já definido no objeto e completo (campos copiados dele): sem erro', () => {
     expect(validarEtapa(4, { ...dadosExemplo('o1'), kriExistenteId: 'k1' }, CATEGORIAS, 'sim')).toEqual({});
   });
+  // KRI escolhido e só LIGADO: quem vale é o KRI do objeto (é ele que vai ao banco),
+  // não os campos da tela. Ex.: campos vazios, mas o KRI k1 completo → sem erro.
+  const kriDoObjeto = {
+    nomeIndicador: 'KRI do objeto', formulaCalculo: 'a / b', fonteDados: 'SEI',
+    periodicidade: 'Mensal' as const, limiteAlerta: '> 10%', responsavelMedicao: 'Chefia',
+  };
+  const camposVazios: DadosNovoRisco = { ...soNome, nomeKri: '', kriExistenteId: 'k1' };
+  it('KRI do objeto só ligado: confere o KRI escolhido, não os campos da tela', () => {
+    expect(validarEtapa(4, camposVazios, CATEGORIAS, 'sim', kriDoObjeto)).toEqual({});
+    expect(validarEtapa(4, { ...dadosExemplo('o1'), kriExistenteId: 'k1' }, CATEGORIAS, 'sim', { ...kriDoObjeto, fonteDados: 'A definir' }).nomeKri)
+      .toBe(MENSAGEM_TRAVA_KRI);
+  });
   it('não crítico: KRI incompleto não trava (rascunho e risco baixo seguem livres)', () => {
     expect(validarEtapa(4, soNome, CATEGORIAS, 'nao')).toEqual({});
     expect(validarEtapa(4, soNome, CATEGORIAS)).toEqual({});
+  });
+});
+
+describe('KRI compartilhado: total real de riscos (revisão final da LAC-03)', () => {
+  const codigo = (id: string) => ({ r1: 'RADAR-2026-001', r4: 'RADAR-2026-004' } as Record<string, string>)[id];
+  it('totalRiscosDoKri usa o total do banco quando ele é maior que os visíveis', () => {
+    expect(totalRiscosDoKri({ riscoIds: ['r1'], totalRiscos: 3 })).toBe(3);
+    expect(totalRiscosDoKri({ riscoIds: ['r1', 'r4'] })).toBe(2);
+  });
+  it('kriFicaOrfao só é verdadeiro se nenhum outro risco (visível ou não) usa o KRI', () => {
+    expect(kriFicaOrfao({ riscoIds: ['r1'] }, 'r1')).toBe(true);
+    expect(kriFicaOrfao({ riscoIds: ['r1'], totalRiscos: 2 }, 'r1')).toBe(false);
+    expect(kriFicaOrfao({ riscoIds: ['r1', 'r4'] }, 'r1')).toBe(false);
+  });
+  it('avisoKriCompartilhado: frase fixa para os visíveis e o acréscimo dos ocultos', () => {
+    expect(avisoKriCompartilhado({ riscoIds: ['r1'] }, 'r1', codigo)).toBe('');
+    expect(avisoKriCompartilhado({ riscoIds: ['r1', 'r4'] }, 'r1', codigo)).toBe(
+      'Este KRI também serve aos riscos RADAR-2026-004; alterar muda o indicador de todos eles e reabre os aprovados.',
+    );
+    expect(avisoKriCompartilhado({ riscoIds: ['r1', 'r4'], totalRiscos: 4 }, 'r1', codigo)).toBe(
+      'Este KRI também serve aos riscos RADAR-2026-004; alterar muda o indicador de todos eles e reabre os aprovados.' +
+        ' Ele também serve a 2 outros riscos que você não pode ver.',
+    );
+    expect(avisoKriCompartilhado({ riscoIds: ['r1'], totalRiscos: 2 }, 'r1', codigo)).toBe(
+      'Este KRI também serve a 1 risco que você não pode ver; alterar muda o indicador de todos eles e reabre os aprovados.',
+    );
   });
 });
 

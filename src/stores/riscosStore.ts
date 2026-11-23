@@ -497,6 +497,15 @@ export const useRiscosStore = defineStore('riscos', () => {
   }
 
   /**
+   * Ids dos riscos na memória ligados a algum destes KRIs (LAC-03).
+   * Ex.: riscosLigadosAosKris(new Set(['k1'])) → ['r1', 'r4'] (os dois dividem o k1)
+   */
+  function riscosLigadosAosKris(kriIds: Set<string>): string[] {
+    if (!kriIds.size) return [];
+    return riscos.value.filter((r) => r.kris.some((k) => kriIds.has(k.id))).map((r) => r.id);
+  }
+
+  /**
    * Cria (sem `id`) ou altera (com `id`) uma Ficha de Risco. Manda só os dados
    * de ENTRADA; a fonte calcula (Quadros 6, 7 e 8 e DAR) e a store relê.
    * Ex.: const ficha = await salvarOuAtualizarRisco({ objetoId: 'obj-1', probabilidade: 1, impacto: 5 });
@@ -513,12 +522,19 @@ export const useRiscosStore = defineStore('riscos', () => {
       objetosContexto.value[0]?.id ?? '',
       existente ? krisDoObjeto(existente.objetoId) : []
     );
+    // KRIs que esta gravação pode mexer: os que o risco tinha ANTES e os que vão
+    // no pacote (ligados, editados ou desligados). Os outros riscos ligados a eles
+    // também mudam (reabertura do aprovado, `riscoIds`), então são relidos juntos.
+    const krisMexidos = new Set<string>([
+      ...(existente?.kris.map((k) => k.id) ?? []),
+      ...(pacote.kris ?? []).map((k) => k.id ?? '').filter(Boolean),
+    ]);
     let gravado = { id: '', codigoRadar: '' };
     await executar(
       async () => {
         gravado = await fonte().salvarFicha(pacote);
       },
-      () => [gravado.id]
+      () => [...new Set([gravado.id, ...riscosLigadosAosKris(krisMexidos)])]
     );
     const salvo = riscos.value.find((r) => r.id === gravado.id);
     if (salvo) return salvo;
@@ -545,8 +561,16 @@ export const useRiscosStore = defineStore('riscos', () => {
     await salvarOuAtualizarRisco({ id: riscoId, ...novosDados });
   }
 
+  /**
+   * Exclui o risco e relê também quem dividia KRI com ele (o `riscoIds` desses
+   * KRIs perde o risco excluído). O excluído relido volta `null` e sai da memória.
+   */
   async function excluirRisco(id: string): Promise<void> {
-    await executar(() => fonte().excluirRisco(id), () => [id]);
+    const krisDoExcluido = new Set(riscos.value.find((r) => r.id === id)?.kris.map((k) => k.id) ?? []);
+    await executar(
+      () => fonte().excluirRisco(id),
+      () => [...new Set([id, ...riscosLigadosAosKris(krisDoExcluido)])]
+    );
   }
 
   // ---------------------------------------------------------------------------

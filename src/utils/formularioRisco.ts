@@ -29,7 +29,7 @@ import type {
   StatusCriticidadeDAR,
 } from '../types/radar.types';
 import { validarRegraIntegridade } from './calculadoraRiscoRadar';
-import { exigeTratamento, kriCompleto, mesmaDefinicaoKri, MENSAGEM_TRAVA_KRI, textoPreenchido } from './travaRiscoCritico';
+import { exigeTratamento, kriCompleto, mesmaDefinicaoKri, MENSAGEM_TRAVA_KRI, textoPreenchido, type KriParaTrava } from './travaRiscoCritico';
 
 /** Todos os campos do assistente (o que a pessoa digita). */
 export interface DadosNovoRisco {
@@ -147,6 +147,58 @@ export function camposKriDe(k?: IndicadorKri): Pick<DadosNovoRisco, 'nomeKri' | 
 
 const obrigatorio = (valor: string, minimo = 3) => valor.trim().length >= minimo;
 
+// ---------------------------------------------------------------------------
+// KRI COMPARTILHADO (LAC-03): quantos riscos o KRI serve de verdade
+// ---------------------------------------------------------------------------
+type KriContagem = Pick<IndicadorKri, 'riscoIds' | 'totalRiscos'>;
+
+/**
+ * Total REAL de riscos ligados ao KRI, inclusive os que a pessoa não vê.
+ * `riscoIds` só tem os visíveis; `totalRiscos` vem do banco (kri_total_riscos).
+ * Ex.: { riscoIds: ['r1'], totalRiscos: 3 } → 3; { riscoIds: ['r1', 'r2'] } → 2.
+ */
+export function totalRiscosDoKri(k: KriContagem): number {
+  return Math.max(k.totalRiscos ?? 0, k.riscoIds.length);
+}
+
+/**
+ * O KRI fica sem nenhum risco se ESTE risco deixar de usá-lo? (Aí o banco apaga
+ * o KRI e as medições.) Ex.: só ligado a 'r1' → true; ligado a 'r1' e a um risco
+ * que a pessoa não vê (totalRiscos 2) → false.
+ */
+export function kriFicaOrfao(k: KriContagem, riscoId: string): boolean {
+  const esteConta = k.riscoIds.includes(riscoId) ? 1 : 0;
+  return totalRiscosDoKri(k) - esteConta <= 0;
+}
+
+/**
+ * Aviso ao alterar um KRI que serve a OUTROS riscos ('' = não serve a mais ninguém).
+ * Mantém a frase fixa para os códigos visíveis e acrescenta os que a pessoa não vê.
+ * `codigoDe` traduz o id do risco no código RADAR (undefined = desconhecido).
+ * Ex.: outros visíveis ['RADAR-2026-001'] + 1 oculto →
+ *   'Este KRI também serve aos riscos RADAR-2026-001; alterar muda o indicador de todos
+ *    eles e reabre os aprovados. Ele também serve a 1 outro risco que você não pode ver.'
+ */
+export function avisoKriCompartilhado(
+  k: KriContagem,
+  riscoId: string | undefined,
+  codigoDe: (id: string) => string | undefined
+): string {
+  const outrosVisiveis = k.riscoIds.filter((id) => id !== riscoId);
+  const ocultos = Math.max(0, totalRiscosDoKri(k) - k.riscoIds.length);
+  if (outrosVisiveis.length === 0 && ocultos === 0) return '';
+  const fim = 'alterar muda o indicador de todos eles e reabre os aprovados.';
+  const riscos = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+  if (outrosVisiveis.length === 0) {
+    return `Este KRI também serve a ${riscos(ocultos, 'risco', 'riscos')} que você não pode ver; ${fim}`;
+  }
+  const codigos = outrosVisiveis.map(codigoDe).filter((c): c is string => !!c).join(', ') || 'de outras fichas';
+  const frase = `Este KRI também serve aos riscos ${codigos}; ${fim}`;
+  return ocultos
+    ? `${frase} Ele também serve a ${riscos(ocultos, 'outro risco', 'outros riscos')} que você não pode ver.`
+    : frase;
+}
+
 /** Erro da etapa 4 quando a pessoa escolhe "Aceitar" para um risco crítico (LAC-13). */
 export const ERRO_ACEITAR_RISCO_CRITICO =
   'Risco crítico não pode ser aceito: escolha Mitigar, Compartilhar ou Evitar (Metodologia 4.5 e Anexo III).';
@@ -160,12 +212,18 @@ export const ERRO_ACEITAR_RISCO_CRITICO =
  * é recusado e a ação 5W2H vira obrigatória (LAC-13). Sem ele, nada muda.
  *   Ex.: etapa 4, "Aceitar", statusCritico 'sim' →
  *        { estrategia: 'Risco crítico não pode ser aceito: …', acaoOQue: …, acaoQuem: …, acaoPrazo: … }
+ *
+ * `kriLigado` (opcional, LAC-03): o KRI já definido no objeto que a ficha vai
+ * só LIGAR (campos só leitura). É ele que chega ao banco, então a conferência
+ * do "KRI completo" é sobre ele, e não sobre os campos da tela.
+ *   Ex.: campos vazios + kriLigado completo → sem erro de KRI.
  */
 export function validarEtapa(
   etapa: number,
   d: DadosNovoRisco,
   categorias: CategoriaRisco[],
-  statusCritico?: StatusCriticidadeDAR
+  statusCritico?: StatusCriticidadeDAR,
+  kriLigado?: KriParaTrava
 ): ErrosEtapa {
   const erros: ErrosEtapa = {};
 
@@ -208,10 +266,11 @@ export function validarEtapa(
     // tratamento: "Aceitar" não vale e a ação 5W2H é obrigatória.
     const exige = statusCritico !== undefined && exigeTratamento(statusCritico);
     if (exige && d.estrategia === 'Aceitar') erros.estrategia = ERRO_ACEITAR_RISCO_CRITICO;
-    // LAC-03: risco crítico também precisa de um KRI completo. Ao escolher um KRI
-    // já definido no objeto, o formulário copia os campos dele para cá: por isso a
-    // conferência é sempre sobre os campos. Risco não crítico segue livre.
-    if (exige && !kriCompleto(kriDosCampos(d))) erros.nomeKri = MENSAGEM_TRAVA_KRI;
+    // LAC-03: risco crítico também precisa de um KRI completo. Com um KRI do
+    // objeto só ligado (`kriLigado`), confere-se ele; senão, os campos da tela
+    // (o KRI próprio, ou o da lista liberado para edição). Não crítico segue livre.
+    const kriQueVale = d.kriExistenteId && kriLigado ? kriLigado : kriDosCampos(d);
+    if (exige && !kriCompleto(kriQueVale)) erros.nomeKri = MENSAGEM_TRAVA_KRI;
     if (d.estrategia !== 'Aceitar' || exige) {
       if (!obrigatorio(d.acaoOQue)) erros.acaoOQue = 'Descreva a ação (o quê).';
       if (!obrigatorio(d.acaoQuem)) erros.acaoQuem = 'Informe o responsável (quem).';

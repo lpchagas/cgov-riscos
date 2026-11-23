@@ -236,6 +236,13 @@ export interface IndicadorKri {
   objetoId: string;
   /** Riscos aos quais o KRI está ligado (um KRI pode servir a vários riscos do objeto). */
   riscoIds: string[];
+  /**
+   * Quantos riscos o KRI serve DE VERDADE, contando os que a pessoa não vê
+   * (`riscoIds` só traz os visíveis, por causa da RLS). Vem da função do banco
+   * `kri_total_riscos`; ausente = use `riscoIds.length`.
+   * Ex.: riscoIds ['r1'] e totalRiscos 2 → o KRI também serve a 1 risco fora da visão.
+   */
+  totalRiscos?: number;
   nomeIndicador: string;
   // Campos opcionais: o sistema nunca grava valor que ninguém definiu (LAC-03).
   formulaCalculo?: string;

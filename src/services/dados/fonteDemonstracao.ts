@@ -178,8 +178,13 @@ export function criarFonteDemonstracao(
   }
   sincronizarKris();
 
-  /** Refaz `risco.kris` a partir da lista central (mesmos objetos: sem cópia solta). */
+  /**
+   * Refaz `risco.kris` a partir da lista central (mesmos objetos: sem cópia solta).
+   * Na demonstração a pessoa vê todos os riscos, então o total real de riscos do
+   * KRI (`totalRiscos`, que no banco vem de kri_total_riscos) é o tamanho de `riscoIds`.
+   */
   function sincronizarKris(): void {
+    for (const k of kris) k.totalRiscos = k.riscoIds.length;
     for (const r of riscos) r.kris = kris.filter((k) => k.riscoIds.includes(r.id));
   }
 
@@ -572,14 +577,15 @@ export function criarFonteDemonstracao(
         kris: [],
         historicoFluxo: [],
       };
-      // Se a ligação de KRI for recusada, desfazemos o que ela já tenha feito.
-      const fotoKris = copiar(kris);
+      // Se a ligação de KRI for recusada, desfazemos TUDO o que ela já tenha feito:
+      // os KRIs e também os OUTROS riscos (alterar um KRI compartilhado reabre os
+      // aprovados ligados e escreve no histórico deles). Por isso a foto completa.
+      const foto = tirarFoto();
       try {
         aplicarEntradas(nova, f);
         if (f.kris !== undefined) aplicarKris(nova, f.kris);
       } catch (e) {
-        kris.splice(0, kris.length, ...fotoKris);
-        sincronizarKris();
+        restaurarFoto(foto);
         throw e;
       }
       recalcular(nova);

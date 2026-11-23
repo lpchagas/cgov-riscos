@@ -283,6 +283,21 @@ describe('Página Novo risco', () => {
       w.unmount();
     });
 
+    it('"Preencher com exemplo" depois de escolher um KRI da lista mantém o KRI do exemplo', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      await lista.setValue('kri-anexo-ii-2');
+      await botao(w, 'Preencher com exemplo').trigger('click');
+      await flushPromises();
+      const d = (w.vm as unknown as { d: ReturnType<typeof dadosExemplo> }).d;
+      const exemplo = dadosExemplo(d.objetoId);
+      expect(d.kriExistenteId).toBe('');
+      expect(d.nomeKri).toBe(exemplo.nomeKri);
+      expect(d.kriFonte).toBe(exemplo.kriFonte);
+      expect(d.kriResponsavel).toBe(exemplo.kriResponsavel);
+      w.unmount();
+    });
+
     it('rascunho continua livre: risco crítico com KRI incompleto grava como rascunho', async () => {
       const { w } = await ateEtapa4NoObjeto();
       const rotulo = w.findAll('label').find((l) => l.text().startsWith('Fonte dos dados'))!;
@@ -612,6 +627,54 @@ describe('Página Novo risco', () => {
       await flushPromises();
       expect(salvarFicha).toHaveBeenCalledTimes(1);
       expect(salvarFicha.mock.calls[0][0].kris!.some((k) => k.id === kri.id)).toBe(false);
+      w.unmount();
+    });
+  });
+
+  // Revisão final: `riscoIds` só traz os riscos que a pessoa VÊ; `totalRiscos`
+  // (função kri_total_riscos do banco) traz o total real.
+  describe('KRI que serve a riscos fora da visão da pessoa (LAC-03)', () => {
+    /** Fonte de demonstração que diz que estes KRIs servem a MAIS riscos do que os visíveis. */
+    async function comTotais(totais: Record<string, number>) {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      const carregarCarteira = async () => {
+        const c = await base.carregarCarteira();
+        for (const r of c.riscos) for (const k of r.kris) if (totais[k.id]) k.totalRiscos = totais[k.id];
+        return c;
+      };
+      definirFonteParaTeste({ ...base, salvarFicha, carregarCarteira });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      return { salvarFicha };
+    }
+
+    it('o aviso fixo cita os códigos visíveis e diz que há outros riscos que a pessoa não vê', async () => {
+      await comTotais({ 'kri-anexo-ii-2': 3 });
+      const { w } = await montar('/riscos/novo?editar=risco-anexo-ii-04');
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.text()).toContain('Este KRI também serve aos riscos RADAR-2026-001; alterar muda o indicador de todos eles e reabre os aprovados.');
+      expect(w.text()).toContain('Ele também serve a 1 outro risco que você não pode ver.');
+      w.unmount();
+    });
+
+    it('KRI só deste risco entre os visíveis, mas ligado a outro fora da visão: avisa e não pede para apagar medições', async () => {
+      const store = useRiscosStore();
+      const { salvarFicha } = await comTotais({ [store.obterRiscoPorId('risco-socio-03')!.kris[0].id]: 2 });
+      const kri = useRiscosStore().obterRiscoPorId('risco-socio-03')!.kris[0];
+      expect(kri.riscoIds).toEqual(['risco-socio-03']);
+      expect(kri.medicoes.length).toBeGreaterThan(0);
+      const { w } = await montar('/riscos/novo?editar=risco-socio-03');
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.text()).toContain('Este KRI também serve a 1 risco que você não pode ver; alterar muda o indicador de todos eles e reabre os aprovados.');
+      const nome = w.findAll('input[type="text"]').find((i) => (i.element as HTMLInputElement).value === kri.nomeIndicador)!;
+      await nome.setValue('');
+      // O banco NÃO apaga o KRI (ainda serve ao outro risco): nada a confirmar.
+      expect(w.text()).not.toContain('medições registradas');
+      expect(w.text()).not.toContain('medição registrada');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
       w.unmount();
     });
   });

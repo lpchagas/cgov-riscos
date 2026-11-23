@@ -122,6 +122,33 @@ describe('painelResumo', () => {
     expect(atrasada?.tom).toBe('perigo');
   });
 
+  it('KRI compartilhado em alerta aparece UMA vez, com os códigos de todos os riscos ligados', () => {
+    const lista = semente();
+    const alerta = { id: 'm-alerta', dataMedicao: '2026-11-10', valorApurado: '70%', emAlerta: true };
+    // O mesmo KRI (kri-anexo-ii-2) está nos riscos 001 e 004: a medição aparece nos dois.
+    for (const r of lista) for (const k of r.kris) if (k.id === 'kri-anexo-ii-2') k.medicoes = [alerta];
+    const kris = itensDeAtencao(lista, 'cgov', HOJE).filter((i) => i.tipo === 'kri');
+    const doCompartilhado = kris.filter((i) => i.id === 'kri-kri-anexo-ii-2');
+    expect(doCompartilhado).toHaveLength(1);
+    expect(doCompartilhado[0].detalhe).toContain('RADAR-2026-001, RADAR-2026-004');
+    // Os ids continuam únicos (são a `:key` da lista no Painel).
+    expect(new Set(kris.map((i) => i.id)).size).toBe(kris.length);
+  });
+
+  it('KRI em alerta sem limite definido diz "limite não definido" (nada de "(alerta: )")', () => {
+    const lista = semente();
+    for (const r of lista) {
+      for (const k of r.kris) {
+        if (k.id !== 'kri-anexo-ii-2') continue;
+        k.limiteAlerta = undefined;
+        k.medicoes = [{ id: 'm-alerta', dataMedicao: '2026-11-10', valorApurado: '70%', emAlerta: true }];
+      }
+    }
+    const item = itensDeAtencao(lista, 'cgov', HOJE).find((i) => i.id === 'kri-kri-anexo-ii-2')!;
+    expect(item.detalhe).toContain('(alerta: limite não definido)');
+    expect(item.detalhe).not.toContain('(alerta: )');
+  });
+
   it('descreve eventos do histórico em linguagem simples', () => {
     expect(descreverEventoFluxo({ etapa: 'homologacao_diretoria', acao: 'aprovado_1_clique' })).toBe(
       'homologado pela Diretoria e incluído no Plano'

@@ -46,6 +46,8 @@ import {
   dadosParaFicha,
   dadosVazios,
   camposKriDe,
+  avisoKriCompartilhado as montarAvisoKriCompartilhado,
+  kriFicaOrfao,
   validarEtapa,
   type ErrosEtapa,
 } from '../utils/formularioRisco';
@@ -107,15 +109,15 @@ const editandoAprovado = computed(() => riscoEditado.value?.statusFluxo === 'apr
  * objeto) desliga o KRI deste risco. Se este era o ÚLTIMO risco ligado a ele,
  * o KRI some — e, no banco, as MEDIÇÕES dele vão junto (exclusão em cascata).
  * Com medições, a pessoa precisa confirmar antes de salvar. Se outros riscos
- * ainda usam o KRI, nada é apagado e não há o que confirmar.
+ * ainda usam o KRI (inclusive os que a pessoa não vê: `totalRiscos`), nada é
+ * apagado e não há o que confirmar.
  * Ex.: KRI só deste risco, com 3 medições, e campo "Indicador" vazio → 3.
  */
 const medicoesQueSeraoApagadas = computed(() => {
   const kri = riscoEditado.value?.kris[0];
   if (!modoEdicao.value || !kri) return 0;
   const desligado = !d.value.nomeKri.trim() || (d.value.kriExistenteId !== '' && d.value.kriExistenteId !== kri.id);
-  const ficaOrfao = kri.riscoIds.filter((id) => id !== riscoEditado.value!.id).length === 0;
-  return desligado && ficaOrfao ? kri.medicoes.length : 0;
+  return desligado && kriFicaOrfao(kri, riscoEditado.value!.id) ? kri.medicoes.length : 0;
 });
 const confirmaApagarMedicoes = ref(false);
 const avisoMedicoes = computed(() => {
@@ -160,9 +162,8 @@ const kriDoObjeto = computed(() =>
 );
 
 /** Texto da lista: "<nome> — riscos: <códigos>". Ex.: "% com checklist — riscos: RADAR-2026-001, RADAR-2026-004". */
-function codigosDosRiscos(k: { riscoIds: string[] }, semEste?: string): string {
+function codigosDosRiscos(k: { riscoIds: string[] }): string {
   return k.riscoIds
-    .filter((id) => id !== semEste)
     .map((id) => riscosStore.obterRiscoPorId(id)?.codigoRadar)
     .filter((c): c is string => !!c)
     .join(', ');
@@ -179,10 +180,14 @@ const camposKriSoLeitura = computed(() => !!kriEscolhido.value && !liberouEdicao
 
 // Escolher (ou deixar de escolher) um KRI da lista troca os campos do KRI:
 // copia os do escolhido; ao voltar para "próprio", restaura os do KRI da ficha (ou esvazia).
+// Quando o formulário INTEIRO é trocado (ex.: "Preencher com exemplo", carregar a
+// ficha em edição), os campos do KRI já vêm certos nos dados novos: não mexemos neles.
+// Ex.: KRI da lista escolhido + "Preencher com exemplo" → fica o KRI do exemplo.
 watch(
-  () => d.value.kriExistenteId,
-  (id) => {
+  [d, () => d.value.kriExistenteId],
+  ([dadosAgora, id], [dadosAntes]) => {
     liberouEdicaoKri.value = false;
+    if (dadosAgora !== dadosAntes) return;
     Object.assign(d.value, camposKriDe(id ? kriEscolhido.value : kriProprio.value));
   }
 );
@@ -191,14 +196,21 @@ watch(() => d.value.objetoId, () => {
   if (d.value.kriExistenteId) d.value.kriExistenteId = '';
 });
 
+/**
+ * O KRI da lista que a ficha vai só LIGAR (campos só leitura). A validação da
+ * etapa 4 confere ELE (é o que vai ao banco), não os campos da tela.
+ */
+const kriSoLigado = computed(() => (camposKriSoLeitura.value ? kriEscolhido.value : undefined));
 /** O KRI que está sendo EDITADO (o escolhido e liberado, ou o próprio da ficha). */
 const kriEmEdicao = computed(() => kriEscolhido.value && liberouEdicaoKri.value ? kriEscolhido.value : !d.value.kriExistenteId ? kriProprio.value : undefined);
-/** Aviso fixo: alterar um KRI que serve a outros riscos muda o indicador de todos. */
+/**
+ * Aviso fixo: alterar um KRI que serve a outros riscos muda o indicador de todos.
+ * Conta também os riscos que a pessoa não vê (`totalRiscos`, vindo do banco).
+ */
 const avisoKriCompartilhado = computed(() => {
   const k = kriEmEdicao.value;
-  if (!k || k.riscoIds.length <= 1) return '';
-  const codigos = codigosDosRiscos(k, riscoEditado.value?.id) || 'de outras fichas';
-  return `Este KRI também serve aos riscos ${codigos}; alterar muda o indicador de todos eles e reabre os aprovados.`;
+  if (!k) return '';
+  return montarAvisoKriCompartilhado(k, riscoEditado.value?.id, (id) => riscosStore.obterRiscoPorId(id)?.codigoRadar);
 });
 
 // ---------------------------------------------------------------------------
@@ -368,7 +380,7 @@ async function focarPrimeiroErro(): Promise<void> {
 }
 
 function validar(): boolean {
-  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico);
+  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value);
   if (Object.keys(erros.value).length) {
     focarPrimeiroErro();
     return false;
@@ -419,7 +431,7 @@ async function salvar(enviar: boolean): Promise<void> {
   const fichaCompleta = enviar || (modoEdicao.value && !!status && !['rascunho', 'devolvido', 'preliminar_cgov'].includes(status));
   const etapasParaValidar = fichaCompleta ? [1, 2, 3, 4] : [1];
   for (const n of etapasParaValidar) {
-    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico);
+    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value);
     if (Object.keys(e).length) {
       etapa.value = n;
       erros.value = e;

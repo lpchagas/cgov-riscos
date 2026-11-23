@@ -31,7 +31,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(116);
+select plan(123);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -657,6 +657,48 @@ select ok(:'rc_apr'::uuid not in (select id from public.riscos
                                    where status_fluxo = 'aprovado' and status_critico in ('sim', 'pendente_dar')
                                      and public.fn_trava_risco_critico(id) is not null),
           '16. o aprovado crítico com KRI completo não aparece');
+
+-- ----------------------------------------------------------------------------
+-- 17. kri_total_riscos: o número REAL de riscos ligados (revisão final)
+-- ----------------------------------------------------------------------------
+-- O formulário precisa saber a quantos riscos o KRI serve, mesmo os que a
+-- pessoa não enxerga (a RLS esconde as ligações de riscos fora do alcance).
+-- Hoje a ligação só existe dentro do mesmo objeto, então quem lê o KRI lê
+-- todos os riscos dele; para provar a função mesmo assim, montamos (como
+-- administrador, com o gatilho do mesmo objeto desligado só aqui) um KRI do
+-- objeto A ligado a um risco de A e a um risco da Base Belterra, que o
+-- gestor.uc@ não alcança. Ele deve ver total 2, e não 1.
+select pg_temp.sair();
+select pg_temp.inserir_kri('T110 KRI total', :'obj_a') as k_tot \gset
+select pg_temp.inserir_risco('T110-TOT-A', :'obj_a', 'rascunho') as r_tot_a \gset
+select objeto_id as obj_base from public.riscos where codigo_radar = 'RADAR-DEMO-BASE' \gset
+select pg_temp.inserir_risco('T110-TOT-BASE', :'obj_base', 'rascunho') as r_tot_base \gset
+select pg_temp.inserir_kri('T110 KRI da Base', :'obj_base') as k_base \gset
+select pg_temp.ligar_sem_fluxo(:'k_tot', :'r_tot_a');
+alter table public.kri_riscos disable trigger trg_kri_riscos_mesmo_objeto;
+select pg_temp.ligar_sem_fluxo(:'k_tot', :'r_tot_base');
+alter table public.kri_riscos enable trigger trg_kri_riscos_mesmo_objeto;
+select pg_temp.ligar_sem_fluxo(:'k_base', :'r_tot_base');
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select is((select count(*)::int from public.kri_riscos where kri_id = :'k_tot'), 1,
+          '17. (conferência) gestor.uc@ enxerga só 1 das 2 ligações');
+select is((select t.total from public.kri_total_riscos(array[:'k_tot']::uuid[]) as t where t.kri_id = :'k_tot'), 2,
+          '17. kri_total_riscos devolve o total real (2), não só o visível');
+select is((select count(*)::int from public.kri_total_riscos(array[:'k_base']::uuid[])), 0,
+          '17. KRI que o gestor.uc@ não lê não aparece (nenhuma linha)');
+select is((select count(*)::int from public.kri_total_riscos(array[:'k_tot', :'k_base']::uuid[])), 1,
+          '17. na lista mista, só o KRI legível volta');
+
+select pg_temp.entrar_como('gestor.base@radar.test');
+select is((select t.total from public.kri_total_riscos(array[:'k_base']::uuid[]) as t), 1,
+          '17. gestor.base@ vê o total do KRI da própria unidade');
+select pg_temp.sair();
+
+select ok(not has_function_privilege('anon', 'public.kri_total_riscos(uuid[])', 'EXECUTE'),
+          '17. visitante sem login (anon) não chama kri_total_riscos');
+select ok(has_function_privilege('authenticated', 'public.kri_total_riscos(uuid[])', 'EXECUTE'),
+          '17. quem fez login chama kri_total_riscos');
 
 select * from finish();
 rollback;
