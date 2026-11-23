@@ -74,6 +74,7 @@ Pasta `docs/50-nivel5-software/` (ver o `README.md` dela): diagramas UML em Merm
 - [[2026-11-15-etapa-b1-1-regras-banco-design]] — Design da etapa B1.1 (regras do banco: Presidência, objetos, preliminar da CGOV, DAR); plano: [[2026-11-15-etapa-b1-1-regras-banco-plan]]; decisões B11-1 a B11-9 em [[decisoes-tecnicas-b1]] seção 5.
 - [[2026-11-15-etapa-b1-banco-rls-design]] — Design da etapa B1 (banco, alcance e RLS); plano: [[2026-11-15-etapa-b1-banco-rls-plan]].
 - [[guia-docker-cgti]] — Dossiê executivo e instruções de implantação via Container Docker para a CGTI.
+- [[pedido-skill-18-colunas]] — Pedido de mudança da skill `cgov-gestao-riscos` (repositório `cgov-geral`): tabela de 18 colunas, com texto pronto e exemplos.
 
 ## ADR — Registros de decisão
 
@@ -83,6 +84,7 @@ Pasta `docs/50-nivel5-software/` (ver o `README.md` dela): diagramas UML em Merm
 - [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti]] — As 6 lacunas que contradizem a norma vêm antes da homologação na CGTI; o piloto segue.
 - [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1]] — O fluxo interno de 3 degraus fica como etapa anterior ao item 4.6.1 (LAC-11 resolvida).
 - [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica]] — Categorias do Quadro 2 e subcategorias do Quadro 3 literais; a migração recusa o que precisa de reclassificação (LAC-14 e LAC-15 resolvidas).
+- [[0020-tabela-da-skill-com-18-colunas]] — Tabela da skill com 18 colunas (Teste de Integridade e evidência com marcador); o importador aceita 16 e 18 e avisa em vez de adivinhar.
 
 ## Kanban
 

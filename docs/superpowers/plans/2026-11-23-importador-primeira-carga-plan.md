@@ -84,7 +84,7 @@
   - frase fora da sintaxe → `causas === ''`, `consequencias === ''`, `objetivoAfetado === ''`, `eventoRisco` = frase, aviso de sintaxe;
   - `lerEvidencia('Previsto no ato. Evidência: sim')` → `true`; `'EVIDENCIA: NAO'` → `false` (Review Focus 2); `'sem evidencia formal'` → `false`; `'previsto no ato; funcionamento não comprovado'` → `false`; `'Checklist assinado'` → `null`;
   - célula sem marcador com "Mediano (0,75)" → `possuiEvidenciaControle === false`, `nivelEficaciaControle === 'Fraco'`, avisos de evidência não lida **e** de trava com `'Mediano (0,75)'`;
-  - skill com inerente 12 e residual 9 para P=3, I=4, sem controle (RADAR: 18 e 18, Quadro 7 `[I=4][P=3]`) → aviso de cálculo; P=2, I=4 (inerente 12), controle Fraco com `Evidência: não`, skill com inerente `12` e residual `10.8` × RADAR `10,8` → sem aviso (Review Focus 3); célula `—` → sem aviso;
+  - skill com inerente 12 e residual 9 para P=3, I=4, sem controle (RADAR: 18 e 18, Quadro 7 `[I=4][P=3]`) → aviso de cálculo; P=4, I=2 (inerente 12), controle Fraco com `Evidência: não`, skill com inerente `12` e residual `10.8` × RADAR `10,8` → sem aviso (Review Focus 3); célula `—` → sem aviso;
   - estratégia `Reduzir` → `Mitigar` + aviso com `'Reduzir'`; vazia → aviso com `(vazia)`; `Compartilhar` → sem aviso;
   - 18 colunas, col. 17 `Sim`, Operacional, col. 18 `curta` → erro da regra 3 de `validarRegraIntegridade`; col. 18 com 10+ caracteres → passa, `testeIntegridadeAplicavel === true`, `justificativaNaoIntegridade` preenchida; col. 17 `Talvez` ou vazia → erro da col. 17; col. 17 `Sim`, `Integridade: Nepotismo`, col. 18 vazia → passa (Review Focus 4);
   - 16 colunas → `testeIntegridadeAplicavel === false` e o aviso do formato de 16;

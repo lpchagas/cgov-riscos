@@ -35,6 +35,7 @@ problema, o que foi decidido e o que isso custa. Usamos o modelo de Michael Nyga
 | [[0017-lacunas-que-bloqueiam-homologacao-antes-da-cgti]] | Fechar as lacunas que bloqueiam a homologação antes de levar o RADAR à CGTI | Accepted |
 | [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1]] | Manter o fluxo interno de 3 degraus como etapa anterior à comunicação do item 4.6.1 | Accepted |
 | [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica]] | Categorias do Quadro 2 e subcategorias do Quadro 3 literais, sem conversão automática | Accepted |
+| [[0020-tabela-da-skill-com-18-colunas]] | Tabela da skill com 18 colunas, evidência com marcador e avisos no lugar dos silêncios do importador | Accepted |
 
 ## Decisões antigas
 
