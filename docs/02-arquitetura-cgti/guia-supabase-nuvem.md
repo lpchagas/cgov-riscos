@@ -108,6 +108,8 @@
 | 2026-11-22 | `db push --linked` (LAC-13) | Ok, pelo Claude, com autorização: prévia (`--dry-run`) listou só a `20261122002`; aplicada (`Finished supabase db push.`). |
 | 2026-11-22 | Conferência depois da migração (só leitura) | Ok: 14 migrações, a última `20261122002`; as 4 funções novas presentes (`fn_trava_risco_critico` e as 3 `fn_base_*`); `authenticated` **não** executa `fn_base_validar_risco`, mas executa `validar_risco`; `salvar_ficha_risco` continua `SECURITY INVOKER`. |
 | 2026-11-22 | `db push --linked` (LAC-13, 2ª migração) | Ok, pelo Claude, com autorização: prévia listou só a `20261122003` (gatilho `trg_riscos_trava_aceitar_critico`, achado da revisão final); aplicada (`Finished supabase db push.`). Conferido por leitura: 15 migrações, a última `20261122003`; gatilho presente em `riscos`; 0 riscos. |
+| 2026-11-23 | Conferência antes da migração `20261122004` (só leitura, LAC-03) | Ok, pelo Claude via MCP, com autorização: 0 riscos, 0 KRIs (`indicadores_kri`), 0 medições, 0 riscos com KRI; 15 migrações, a última `20261122003`; `auditoria_log` = 19. Não há dado para mover nem aprovado antigo fora da regra. |
+| *(próximo)* | `db push --linked` da `20261122004` (LAC-03) | **[AUTORIZAÇÃO]**. Depois, conferir por leitura: 16 migrações; `kri_riscos` presente; `indicadores_kri` sem `risco_id` e com `objeto_id`; funções `fn_kri_completo` e `kri_total_riscos` presentes; contagens iguais às de antes. |
 | *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
 
 > [!note] Proteção da própria Supabase
