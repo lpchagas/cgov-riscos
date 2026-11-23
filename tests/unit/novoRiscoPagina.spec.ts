@@ -225,8 +225,6 @@ describe('Página Novo risco', () => {
   });
 
   describe('"Salvar e enviar" com envio recusado', () => {
-    afterEach(() => definirFonteParaTeste(null));
-
     it('grava UMA vez, avisa "Rascunho salvo…, mas não foi enviado" e abre a ficha', async () => {
       // Fonte falsa: grava normalmente, mas recusa o envio.
       const base = criarFonteDemonstracao('normal');
@@ -254,8 +252,6 @@ describe('Página Novo risco', () => {
   });
 
   describe('Objeto de gestão e gravação (B3)', () => {
-    afterEach(() => definirFonteParaTeste(null));
-
     /** Troca a fonte por uma "espiã" (mesmos dados da demonstração) e recarrega a store. */
     async function comFonte(trocas: Partial<FonteDados>) {
       const base = criarFonteDemonstracao('normal');
@@ -349,7 +345,6 @@ describe('Página Novo risco', () => {
   });
 
   describe('"Editar ficha" (/riscos/novo?editar=<id>)', () => {
-    afterEach(() => definirFonteParaTeste(null));
     const idAprovado = 'risco-socio-03'; // RADAR-2026-003, aprovado na semente
 
     it('carrega a ficha nas 4 etapas, com o título "Editar risco <código>"', async () => {
@@ -491,8 +486,6 @@ describe('Página Novo risco', () => {
   });
 
   describe('Edição: KRI com medições', () => {
-    afterEach(() => definirFonteParaTeste(null));
-
     it('apagar o nome do KRI com medições exige confirmação antes de salvar', async () => {
       const base = criarFonteDemonstracao('normal');
       const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
@@ -533,7 +526,6 @@ describe('Página Novo risco', () => {
   // (Extremo). Residual Alto ou Extremo está sempre fora do apetite da DAR,
   // então o risco é crítico (status 'sim') em qualquer categoria.
   describe('Risco crítico na etapa 4 (LAC-13)', () => {
-    afterEach(() => definirFonteParaTeste(null));
     const ERRO_ACEITAR = 'Risco crítico não pode ser aceito: escolha Mitigar, Compartilhar ou Evitar (Metodologia 4.5 e Anexo III).';
     type VmFormulario = { d: { probabilidade: number | null; impacto: number | null; eficacia: string; estrategia: string } };
     const seletorEstrategia = (w: ReturnType<typeof mount>) => w.findAll('select').find((s) => s.find('option[value="Aceitar"]').exists())!;

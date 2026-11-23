@@ -769,6 +769,16 @@ describe('KRI obrigatório e grupo (LAC-03)', () => {
     expect(depois?.kris).toHaveLength(1);
   });
 
+  it('trocar o objeto soltando os KRIs antigos e criando um novo KRI funciona', async () => {
+    const fonte = fonteComo('gestor');
+    const a = await fonte.salvarFicha(media([KRI_OK]));
+    await fonte.salvarFicha({ id: a.id, objetoId: 'obj-autorizacao-uc', kris: [{ ...KRI_OK, nomeIndicador: 'KRI do objeto novo' }] });
+    const depois = await fonte.relerRisco(a.id);
+    expect(depois?.objetoId).toBe('obj-autorizacao-uc');
+    expect(depois?.kris.map((k) => k.nomeIndicador)).toEqual(['KRI do objeto novo']);
+    expect(depois?.kris[0].objetoId).toBe('obj-autorizacao-uc');
+  });
+
   it('DAR com apetite pendente: o histórico usa a variante "com DAR pendente"', async () => {
     const fonte = fonteComo('coordenador_geral');
     const { id } = await fonte.salvarFicha(media([]));

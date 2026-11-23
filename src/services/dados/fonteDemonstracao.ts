@@ -503,9 +503,9 @@ export function criarFonteDemonstracao(
           const objetoAntes = r.objetoId;
           aplicarEntradas(r, f);
           if (f.kris !== undefined) aplicarKris(r, f.kris);
-          // Trocar o objeto com KRI ainda ligado quebraria "KRI só liga a riscos
+          // Trocar o objeto com KRI do objeto ANTIGO ainda ligado quebraria "KRI só liga a riscos
           // do mesmo objeto" (o banco recusa). Recusa tudo (rollback abaixo).
-          if (r.objetoId !== objetoAntes && kris.some((k) => k.riscoIds.includes(r.id))) {
+          if (r.objetoId !== objetoAntes && kris.some((k) => k.riscoIds.includes(r.id) && k.objetoId !== r.objetoId)) {
             recusar('o KRI só pode ser ligado a riscos do mesmo objeto de gestão de riscos.');
           }
           sincronizarKris();
