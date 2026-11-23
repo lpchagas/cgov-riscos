@@ -16,7 +16,7 @@ receber a tabela nesse formato, a skill `cgov-gestao-riscos` precisa passar a en
 
 ## 2. O formato pedido
 
-A ordem das colunas 1 a 16 **não muda**. Entram duas colunas no fim e um marcador na col. 9. O importador lê
+A ordem das colunas 1 a 16 **não muda**, e o formato vale **só para o Regime B**. Entram duas colunas no fim e um marcador na col. 9. O importador lê
 **por posição**.
 
 | Col. | Conteúdo | Observação |
@@ -33,43 +33,82 @@ Regras de leitura que a skill deve respeitar:
 - A col. 17 só aceita `Sim` ou `Não`. Outro valor, inclusive vazio, bloqueia a importação do lote.
 - Sem barra vertical (`|`) dentro do texto de uma célula: ela desloca as colunas seguintes.
 
-## 3. Texto proposto
+## 3. Trechos a alterar no `SKILL.md`
 
-### 3.1 Para o §3.9, item 2 (Teste de Integridade)
+Texto **vigente** conferido em 2026-11-23 no `SKILL.md` da `cgov-gestao-riscos` (cópia instalada do plugin
+`cgov-escritorio`, §3.9 e §4). Cada trecho vigente vem citado ao lado do proposto, para aplicar com segurança.
 
-> **Substituir** a linha solta do Teste de Integridade pelo texto abaixo.
->
-> 2. **Teste de Integridade (Portaria ICMBio nº 253/2026; Quadro 3).** Para cada risco, aplique o Teste de
->    Integridade: se houver decisão sobre beneficiário, licença ou autorização, fiscalização ou sanção, ou
->    contratação ou atestação, o resultado é **Sim**; caso contrário, **Não**. O resultado vai na **coluna 17**
->    da matriz ("Teste de Integridade"), escrito exatamente como `Sim` ou `Não`. Quando o resultado for "Sim" e a
->    categoria do risco **não** for Integridade, escreva na **coluna 18** ("Justificativa (Integridade)") uma
->    frase de pelo menos 10 caracteres que explique por que o risco, embora de outra categoria, envolve decisão
->    desse tipo. Nos demais casos, deixe a coluna 18 vazia. Nunca use a categoria mista "Operacional com
->    interface de Integridade"; quando a categoria for Integridade, informe a subcategoria do Quadro 3 na
->    coluna 4 (`Integridade: <subcategoria>`).
+**Só o Regime B muda.** As 18 colunas valem **apenas para o Regime B**. A tabela do Regime A (13 colunas) e a regra
+do Regime A para controles ficam **sem nenhuma alteração**.
 
-### 3.2 Para o §3.9, item 3, e o §4, item 1 (colunas da matriz do Regime B)
+**Onde cada coisa vale.** O §3.9 só se aplica quando a skill roda como subsídio de Nota Técnica. A tabela do
+Regime B, porém, é entregue pelo §4 em qualquer uso. Por isso a regra da col. 17 e da col. 18 entra **nos dois
+lugares**: no §3.9, item 2 (uso em NT), e no §4, item 1 (qualquer uso, inclusive fora da NT).
 
-> **Substituir** a lista de 16 colunas por esta, de 18:
+### 3.1 §3.9, item 2 (Teste de Integridade, uso em NT)
+
+Texto vigente:
+
+> 2. **Teste de Integridade:** registre uma linha por risco (sim/não e subcategoria)
+>    sempre que houver decisão sobre beneficiário, autorização, sanção ou atestação.
+>    Não use a categoria "Operacional com interface de Integridade".
+
+Texto proposto (substitui o item 2):
+
+> 2. **Teste de Integridade:** para cada risco, aplique o teste sempre que houver decisão sobre beneficiário,
+>    licença ou autorização, fiscalização ou sanção, ou contratação ou atestação (Portaria ICMBio nº 253/2026;
+>    Quadro 3). No **Regime B**, o resultado vai nas **colunas 17 e 18 da matriz** (§4, item 1), e não numa linha
+>    solta: `Sim` ou `Não` na coluna 17 e, quando for `Sim` e a categoria não for Integridade, a justificativa na
+>    coluna 18 (veja o §4). No Regime A, mantenha o registro de uma linha por risco (sim/não e subcategoria).
+>    Não use a categoria "Operacional com interface de Integridade".
+
+### 3.2 §3.9, item 3 (Controles): só uma frase
+
+Texto vigente:
+
+> 3. **Controles:** considere só os previstos no ato ou comprovados nos autos,
+>    avaliados pelo desenho. No Regime A, sem evidência de funcionamento, nenhum
+>    controle fica acima de **Mediano** (no Regime B vale a regra do item 3.3:
+>    **Fraco**). O mesmo controle recebe a mesma eficácia em toda a matriz.
+
+Texto proposto (acrescentar ao fim do item 3, sem mudar o resto):
+
+>    No Regime B, termine a célula "Controles e evidências" da matriz com o marcador `Evidência: sim` ou
+>    `Evidência: não` (veja o §4, item 1).
+
+### 3.3 §4, item 1 (matriz): o bullet do Regime B
+
+O bullet do **Regime A** não muda. Texto vigente do bullet do Regime B:
+
+>    - **Regime B:** ID · Objeto de GR · Descrição na sintaxe · Categoria
+>      (subcategoria, se Integridade) · P · I · Inerente (célula do Quadro 7) ·
+>      Classe · Controles e evidências · Eficácia e fator · Residual · Classe
+>      residual · Apetite da categoria · **Crítico?** (sim / não / pendente de DAR) ·
+>      Estratégia · KRI.
+
+Texto proposto (substitui só esse bullet; depois dele, acrescentar o parágrafo seguinte, que vale em qualquer uso):
+
+>    - **Regime B (18 colunas):** ID · Objeto de GR · Descrição na sintaxe · Categoria
+>      (subcategoria, se Integridade) · P · I · Inerente (célula do Quadro 7) ·
+>      Classe · Controles e evidências · Eficácia e fator · Residual · Classe
+>      residual · Apetite da categoria · **Crítico?** (sim / não / pendente de DAR) ·
+>      Estratégia · KRI · **Teste de Integridade** (`Sim` ou `Não`) · **Justificativa
+>      (Integridade)**.
 >
-> A matriz do Regime B tem **18 colunas**, nesta ordem, em tabela Markdown de uma linha por risco:
-> 1. ID (`RSC-NN`); 2. Objeto de GR; 3. Descrição na sintaxe do item 4.2.1; 4. Categoria (`Integridade:
-> <subcategoria>` quando for o caso); 5. P; 6. I; 7. Inerente (célula do Quadro 7); 8. Classe; 9. Controles e
-> evidências; 10. Eficácia e fator; 11. Residual; 12. Classe residual; 13. Apetite da categoria; 14. Crítico?;
-> 15. Estratégia; 16. KRI; 17. Teste de Integridade (`Sim` ou `Não`); 18. Justificativa (Integridade).
->
-> **Coluna 9.** Descreva os controles existentes e termine **sempre** com o marcador `Evidência: sim` (há
-> evidência comprovada de que o controle funciona) ou `Evidência: não` (o controle está previsto, mas não há
-> comprovação de funcionamento). O marcador decide a trava do Quadro 6: controle sem evidência comprovada não
-> recebe eficácia acima de **Fraco (0,9)**. Se houver mais de um controle, o marcador vale para o conjunto; na
-> dúvida, escreva `Evidência: não`.
->
-> **Colunas 17 e 18.** Veja o §3.9, item 2.
->
-> Os números das colunas 7, 8, 11, 12 e 14 servem de conferência: o RADAR recalcula o risco inerente (Quadro 7,
-> sem multiplicar P por I), o residual (inerente × fator do Quadro 6) e a classe (Quadro 8, sem arredondar) e
-> **avisa** o analista quando o seu número difere do da skill. Valem os números do RADAR.
+>    Regras das colunas novas do Regime B (valem em qualquer uso da skill, com ou sem Nota Técnica):
+>    - **Controles e evidências (col. 9):** termine **sempre** com `Evidência: sim` (há evidência comprovada de que
+>      o controle funciona) ou `Evidência: não` (previsto, sem comprovação de funcionamento). O marcador decide a
+>      trava do Quadro 6: controle sem evidência comprovada não recebe eficácia acima de **Fraco (0,9)**. Na dúvida,
+>      escreva `Evidência: não`.
+>    - **Teste de Integridade (col. 17):** `Sim` quando o risco envolve decisão sobre beneficiário, licença ou
+>      autorização, fiscalização ou sanção, ou contratação ou atestação; `Não` nos demais. Só `Sim` ou `Não`.
+>    - **Justificativa (Integridade) (col. 18):** obrigatória, com pelo menos 10 caracteres, quando a coluna 17 é
+>      `Sim` e a categoria **não** é Integridade (explique por que o risco envolve esse tipo de decisão); vazia nos
+>      demais casos.
+>    - Uma barra vertical (`|`) dentro do texto de uma célula desloca as colunas seguintes: não use.
+>    - Os números das colunas 7, 8, 11, 12 e 14 servem de conferência: o RADAR recalcula o inerente (Quadro 7, sem
+>      multiplicar P por I), o residual (inerente × fator do Quadro 6) e a classe (Quadro 8, sem arredondar) e avisa
+>      o analista quando difere; valem os números do RADAR.
 
 ## 4. Duas linhas de exemplo (dados de demonstração)
 
@@ -95,8 +134,9 @@ O que cada linha mostra:
 ## 5. Como aplicar no repositório `cgov-geral`
 
 1. Abrir uma sessão própria no `cgov-geral` e ler o processo daquele repositório.
-2. Colar os textos das seções 3.1 e 3.2 no `SKILL.md` da `cgov-gestao-riscos` (§3.9 e §4) e atualizar o modelo
-   da tabela com as 18 colunas e as duas linhas de exemplo.
+2. No `SKILL.md` da `cgov-gestao-riscos`, aplicar os três trechos da seção 3: o item 2 do §3.9, a frase final do
+   item 3 do §3.9 e o **bullet do Regime B** do item 1 do §4 (com o parágrafo das colunas novas). Não mexer no
+   Regime A. Atualizar também o modelo da tabela, se houver, com as 18 colunas e as duas linhas de exemplo.
 3. Rodar a verificação de sanitização exigida lá (nenhum dado pessoal ou real nos exemplos).
 4. Registrar a decisão no diário de decisões daquele repositório e publicar o plugin pelo rito dele.
 5. No RADAR, atualizar a data e a versão da skill lidas no [[FS-02-analise-ato-por-skills]] (cabeçalho e
