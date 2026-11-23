@@ -111,6 +111,7 @@
 | 2026-11-23 | Conferência antes da migração `20261122004` (só leitura, LAC-03) | Ok, pelo Claude via MCP, com autorização: 0 riscos, 0 KRIs (`indicadores_kri`), 0 medições, 0 riscos com KRI; 15 migrações, a última `20261122003`; `auditoria_log` = 19. Não há dado para mover nem aprovado antigo fora da regra. |
 | 2026-11-23 | `db push --linked` (LAC-03) | Ok, pelo Claude, com autorização: prévia (`--dry-run`) listou só a `20261122004`; aplicada (`Finished supabase db push.`). |
 | 2026-11-23 | Conferência depois da migração (só leitura) | Ok: 16 migrações, a última `20261122004`; `kri_riscos` presente, com RLS ligada e sem `UPDATE` para `authenticated`; `indicadores_kri` com `objeto_id` e sem `risco_id`; `fn_kri_completo` e `kri_total_riscos` presentes (`authenticated` executa, `anon` não); 0 riscos, 0 KRIs, 0 medições, 0 ligações; `auditoria_log` = 19 (igual a antes). Aprovados antigos fora da regra: nenhum (0 riscos). |
+| 2026-11-23 | `db push --linked` (LAC-03, 2ª migração) | Ok, pelo Claude, com autorização: prévia listou só a `20261123001` (travas de linha nos gatilhos de `kri_riscos`, achados do CodeRabbit na PR #17); aplicada. Conferido por leitura: 17 migrações, a última `20261123001`; `fn_kri_riscos_mesmo_objeto` com `FOR SHARE` no KRI e `FOR NO KEY UPDATE` no risco, `fn_kri_grupo_mesmo_objeto` com `FOR SHARE`, `fn_kri_riscos_apaga_orfao` com `FOR UPDATE`; 0 riscos, 0 KRIs, `auditoria_log` = 19. |
 | *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
 
 > [!note] Proteção da própria Supabase
