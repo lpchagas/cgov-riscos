@@ -31,7 +31,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(123);
+select plan(127);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -273,23 +273,66 @@ select is((select string_agg(p.proname, ', ' order by p.proname)
              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public' and p.prosrc ~* 'indicadores_kri\.risco_id'),
           null, '9. nenhuma função cita indicadores_kri.risco_id');
+-- O apelido pode aparecer ANTES do uso ("FROM indicadores_kri AS k ...
+-- k.risco_id") ou DEPOIS ("SELECT k.risco_id FROM indicadores_kri AS k").
+-- As duas ordens são procuradas, sem diferenciar maiúsculas (~*).
+-- pg_temp.le_risco_id_por_apelido(texto): true se o texto lê risco_id por um
+-- apelido de indicadores_kri, em qualquer das duas ordens.
+create or replace function pg_temp.le_risco_id_por_apelido(p_texto text)
+returns boolean
+language sql
+as $$
+  select p_texto ~* 'indicadores_kri\s+(as\s+)?([a-z_][a-z0-9_]*)\M.*\m\2\.risco_id'
+      or p_texto ~* '\m([a-z_][a-z0-9_]*)\.risco_id\M.*indicadores_kri\s+(as\s+)?\1\M';
+$$;
+-- A própria procura é testada nas duas ordens (senão um erro na expressão
+-- faria a conferência abaixo passar em branco).
+select ok(pg_temp.le_risco_id_por_apelido('FROM public.indicadores_kri AS k WHERE k.risco_id = x'),
+          '9. a procura acha o apelido usado DEPOIS de "indicadores_kri AS k"');
+select ok(pg_temp.le_risco_id_por_apelido('SELECT K.RISCO_ID FROM public.INDICADORES_KRI AS K'),
+          '9. a procura acha o apelido usado ANTES de "indicadores_kri AS k" (e ignora maiúsculas)');
 select is((select string_agg(p.proname, ', ' order by p.proname)
              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public'
-              and p.prosrc ~* 'indicadores_kri\s+(as\s+)?([a-z_][a-z0-9_]*)\M.*\m\2\.risco_id'),
-          null, '9. nenhuma função lê risco_id por um apelido de indicadores_kri');
+              and pg_temp.le_risco_id_por_apelido(p.prosrc)),
+          null, '9. nenhuma função lê risco_id por um apelido de indicadores_kri (nas duas ordens)');
 select is((select string_agg(distinct p.proname, ', ')
              from pg_trigger t join pg_proc p on p.oid = t.tgfoid
             where t.tgrelid = 'public.indicadores_kri'::regclass and not t.tgisinternal
-              and p.prosrc ~ '(NEW|OLD)\.risco_id'),
+              and p.prosrc ~* '(NEW|OLD)\.risco_id'),
           null, '9. nenhum gatilho de indicadores_kri lê NEW/OLD.risco_id');
--- Sobra da LAC-13: a linha da categoria fica presa (FOR SHARE) antes de ler o apetite.
-select ok(pg_get_functiondef('public.fn_base_enviar_para_validacao(uuid)'::regprocedure) like '%FOR SHARE%',
-          '9. fn_base_enviar_para_validacao trava a categoria (FOR SHARE)');
-select ok(pg_get_functiondef('public.fn_base_validar_risco(uuid, text)'::regprocedure) like '%FOR SHARE%',
-          '9. fn_base_validar_risco trava a categoria (FOR SHARE)');
-select ok(pg_get_functiondef('public.fn_base_homologar_risco(uuid, text)'::regprocedure) like '%FOR SHARE%',
-          '9. fn_base_homologar_risco trava a categoria (FOR SHARE)');
+-- Sobra da LAC-13: a linha da categoria fica presa (FOR SHARE) antes de ler o
+-- apetite. Os comentários (-- ...) saem do corpo antes da procura (um
+-- "-- FOR SHARE" comentado não conta), e o FOR SHARE precisa vir ANTES da
+-- primeira chamada de fn_fluxo_mudar_estado (que recalcula e lê o apetite).
+-- pg_temp.sem_comentarios(função): o corpo da função sem os comentários de linha.
+create or replace function pg_temp.sem_comentarios(p_funcao regprocedure)
+returns text
+language sql
+as $$
+  select regexp_replace(pg_get_functiondef(p_funcao), '--[^\n]*', '', 'g');
+$$;
+-- pg_temp.vem_antes(texto, a, b): true se "a" aparece no texto e antes do
+-- primeiro "b" (que também precisa aparecer).
+create or replace function pg_temp.vem_antes(p_texto text, p_a text, p_b text)
+returns boolean
+language sql
+as $$
+  select strpos(p_texto, p_a) > 0 and strpos(p_texto, p_b) > 0
+     and strpos(p_texto, p_a) < strpos(p_texto, p_b);
+$$;
+select ok(not pg_temp.vem_antes(regexp_replace(E'x\n-- FOR SHARE\nfn_fluxo_mudar_estado', '--[^\n]*', '', 'g'),
+                                'FOR SHARE', 'fn_fluxo_mudar_estado'),
+          '9. um "-- FOR SHARE" comentado não conta como trava');
+select ok(pg_temp.vem_antes(pg_temp.sem_comentarios('public.fn_base_enviar_para_validacao(uuid)'),
+                            'FOR SHARE', 'fn_fluxo_mudar_estado'),
+          '9. fn_base_enviar_para_validacao trava a categoria (FOR SHARE) antes de mudar o estado');
+select ok(pg_temp.vem_antes(pg_temp.sem_comentarios('public.fn_base_validar_risco(uuid, text)'),
+                            'FOR SHARE', 'fn_fluxo_mudar_estado'),
+          '9. fn_base_validar_risco trava a categoria (FOR SHARE) antes de mudar o estado');
+select ok(pg_temp.vem_antes(pg_temp.sem_comentarios('public.fn_base_homologar_risco(uuid, text)'),
+                            'FOR SHARE', 'fn_fluxo_mudar_estado'),
+          '9. fn_base_homologar_risco trava a categoria (FOR SHARE) antes de mudar o estado');
 -- A ligação só se cria ou se apaga: ninguém logado faz UPDATE em kri_riscos.
 select is(has_table_privilege('authenticated', 'public.kri_riscos', 'update'), false,
           '9. authenticated não tem UPDATE em kri_riscos');
@@ -299,7 +342,8 @@ select is(has_table_privilege('authenticated', 'public.kri_riscos', 'update'), f
 -- ----------------------------------------------------------------------------
 -- inserir_critico(código, estado): risco crítico (P=4, I=4 → 21,00, Extremo,
 -- fora do apetite da DAR) no objeto A, com Mitigar e UMA ação 5W2H, sem KRI.
--- (Extremo é a faixa 18 a 25; "crítico" é estar fora do apetite da DAR.)
+-- (Extremo é a faixa > 17 a 25, sem arredondar; "crítico" é estar fora do
+-- apetite da DAR.)
 create or replace function pg_temp.inserir_critico(p_codigo text, p_status text, p_cat int default 2,
                                                    p_p int default 4, p_i int default 4)
 returns uuid
@@ -553,7 +597,16 @@ select pg_temp.entrar_como('cgov@radar.test');
 select throws_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$, jsonb_build_object(
                    'id', :'r_prel',
                    'kris', jsonb_build_array(jsonb_build_object('id', :'k_cg', 'formula_calculo', 'fórmula da CGOV')))),
-                 '42501', null, '12b. CGOV altera, pela ficha preliminar, KRI que também é da unidade → recusa 42501');
+                 '42501',
+                 'RADAR: você não pode alterar a definição do KRI "T110 KRI do preliminar e da unidade" na ficha do risco T110-PRELIM (o KRI serve a risco que você não pode alterar).',
+                 '12b. CGOV altera, pela ficha preliminar, KRI que também é da unidade → recusa 42501 com a mensagem do KRI');
+-- Controle: na MESMA ficha, só manter a ligação (apenasLigar, sem tocar na
+-- definição) é permitido. Assim a recusa acima vem mesmo da definição do KRI,
+-- e não de a CGOV não poder gravar esta ficha.
+select lives_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$, jsonb_build_object(
+                  'id', :'r_prel',
+                  'kris', jsonb_build_array(jsonb_build_object('id', :'k_cg', 'apenasLigar', true)))),
+                '12b. controle: a CGOV grava a mesma ficha só mantendo a ligação do KRI');
 select pg_temp.sair();
 select is((select formula_calculo from public.indicadores_kri where id = :'k_cg'), 'atrasados / total',
           '12b. a definição do KRI não mudou');
