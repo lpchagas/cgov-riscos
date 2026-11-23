@@ -124,7 +124,7 @@ Não mude o `name` nem a `description` da skill. Se precisar mexer na `descripti
 
 1. `py scripts\verificar_sanitizacao.py --staged` com resultado APROVADO.
 2. `py scripts\gerar_indices_docs.py` e `py scripts\verificar_docs.py` com 0 erros.
-3. Registre a decisão no diário de decisões (`docs/governance/decision-log.md`) e nos lugares que o `AGENTS.md` pede: plano, catálogo, pendências e `CHANGELOG.md` do plugin. Suba a versão do plugin em `plugin.json`, se o rito pedir.
+3. Registre a decisão no diário de decisões (`docs/governance/decision-log.md`) e nos lugares que o `AGENTS.md` pede: plano, catálogo, pendências e `CHANGELOG.md` do plugin. Suba a versão do plugin em `plugin.json` de **1.1.0 para 1.2.0**: o zip da 1.1.0 já existe em `dist/` com outro conteúdo, e o script de publicação para se a versão não mudar.
 4. Commit e push na `main` só depois do gate, como manda o `AGENTS.md`.
 5. **Não publique.** `publicar_operacao.py --publicar --executar` depende da minha decisão: me pergunte antes.
 
@@ -134,3 +134,29 @@ Não mude o `name` nem a `description` da skill. Se precisar mexer na `descripti
 - O resultado dos testes: link do visualizador e taxa de acerto da versão nova contra a antiga.
 - A nova versão do plugin e o hash do commit.
 - Uma linha para eu levar ao RADAR: "skill `cgov-gestao-riscos` vX.Y.Z, lida em AAAA-MM-DD, com a matriz do Regime B em 18 colunas". Ela atualiza o FS-02 ("Contrato com o Importar") e move o cartão do Kanban.
+
+---
+
+# Etapa 2: publicar o plugin (depois de aprovar os testes da Etapa 1)
+
+> Rode **só depois** de conferir o visualizador dos testes e o commit da Etapa 1. Ela gera o pacote do plugin;
+> o envio do pacote para a conta Claude é feito **por você**, à mão, no navegador. Copie a partir da linha
+> "Publique a versão".
+
+Publique a versão nova do plugin `cgov-escritorio` com a skill `cgov-gestao-riscos` de 18 colunas, seguindo o
+`docs/fluxos-de-trabalho.md` (§4, publicação). Eu autorizo o `--publicar --executar` desta vez.
+
+1. Confirme que o commit da Etapa 1 está na `main`, que `plugin.json` está na versão **1.2.0** e que o `git status`
+   está limpo (o script publica só o HEAD).
+2. Rode `claude plugin validate .\plugins\cgov-escritorio` e me mostre o resultado.
+3. Rode `py scripts\publicar_operacao.py --verificar` e depois `py scripts\publicar_operacao.py --publicar`
+   (simulação). Mostre o que será criado, substituído e enviado para a quarentena, e **pare** se aparecer algo
+   fora do esperado (o esperado é o zip `dist/cgov-escritorio-1.2.0.zip` e, se houver, docs e operação alterados).
+4. Rode `py scripts\publicar_operacao.py --publicar --executar` e me mostre a conferência por SHA-256.
+5. Registre a publicação onde o `AGENTS.md` manda (plano, diário de decisões e `CHANGELOG.md`), passe pelo
+   gate do repositório e faça commit e push.
+6. Me diga, passo a passo, como enviar o pacote: Customize → Plugins → Add → Upload plugin, com o arquivo
+   `dist\cgov-escritorio-1.2.0.zip`. Depois que eu enviar, rode de novo `--verificar` e confirme que o plugin
+   instalado é o 1.2.0.
+7. Me devolva a linha para o RADAR: "skill `cgov-gestao-riscos` do plugin `cgov-escritorio` 1.2.0, publicada em
+   AAAA-MM-DD, com a matriz do Regime B em 18 colunas".
