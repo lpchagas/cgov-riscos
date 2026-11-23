@@ -34,7 +34,11 @@ import type {
   UnidadeOrganizacional,
 } from '../../types/radar.types';
 import { mesmaDefinicaoKri } from '../../utils/travaRiscoCritico';
-import type { LinhaImportadaSkill } from '../../utils/importadorSkillMarkdown';
+import {
+  existeControleNoTexto,
+  textoDoControleSemMarcador,
+  type LinhaImportadaSkill,
+} from '../../utils/importadorSkillMarkdown';
 import type { EventoAuditoria, EventoFluxo, FichaParaSalvar } from './tipos';
 
 /** Uma linha qualquer vinda do banco (as chaves são os nomes das colunas). */
@@ -633,7 +637,9 @@ export function fichaDaSkillParaSalvar(
   if (!categoria) {
     throw new Error(`RADAR: a categoria "${item.categoriaNome}" não existe no banco.`);
   }
-  const temControle = Boolean(item.controlesTexto) && item.controlesTexto !== 'Inexistente';
+  // Sem marcador de evidência; vazio ou "Inexistente" = nenhum controle (não cria controle falso).
+  const temControle = existeControleNoTexto(item.controlesTexto);
+  const descricaoControle = textoDoControleSemMarcador(item.controlesTexto);
   return {
     objetoId,
     preliminarCgov: true,
@@ -656,7 +662,7 @@ export function fichaDaSkillParaSalvar(
     controles: temControle
       ? [
           {
-            descricaoControle: item.controlesTexto,
+            descricaoControle,
             evidenciaFuncionamento: item.possuiEvidenciaControle
               ? 'Previsto no ato normativo analisado'
               : 'Sem evidência documental comprovada',

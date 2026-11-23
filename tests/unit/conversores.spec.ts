@@ -394,6 +394,25 @@ describe('fichaDaSkillParaSalvar (importação)', () => {
     );
   });
 
+  it('"Inexistente. Evidência: não" não cria controle falso', () => {
+    const ficha = fichaDaSkillParaSalvar(
+      { ...linha, categoriaNome: 'legal', controlesTexto: 'Inexistente. Evidência: não' },
+      categorias,
+      'obj-1'
+    );
+    expect(ficha.controles).toEqual([]);
+  });
+
+  it('controle real com marcador: o texto sai sem o marcador', () => {
+    const ficha = fichaDaSkillParaSalvar(
+      { ...linha, categoriaNome: 'legal', controlesTexto: 'Norma interna. Evidência: não' },
+      categorias,
+      'obj-1'
+    );
+    expect(ficha.controles).toHaveLength(1);
+    expect(ficha.controles![0].descricaoControle).toBe('Norma interna');
+  });
+
   it('acha a categoria sem diferença de maiúsculas', () => {
     const ficha = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal' }, categorias, 'obj-1');
     expect(ficha.categoriaId).toBe(4);

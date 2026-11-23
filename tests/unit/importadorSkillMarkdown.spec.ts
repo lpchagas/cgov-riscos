@@ -10,6 +10,9 @@ import {
   importarTabelaMarkdownSkill,
   lerEvidencia,
   lerMarcadorEvidencia,
+  lerMarcadorFinalEvidencia,
+  textoDoControleSemMarcador,
+  existeControleNoTexto,
   lerNumeroSkill,
   lerSimNao,
   normalizarCategoriaImportada,
@@ -501,6 +504,50 @@ describe('Importador: descrição, evidência, trava, cálculo, estratégia e Te
     ['', null],
   ])('lerMarcadorEvidencia(%j) -> %s (só o marcador)', (texto, esperado) => {
     expect(lerMarcadorEvidencia(texto)).toBe(esperado);
+  });
+
+  // K1: no formato de 18 colunas o marcador tem de ENCERRAR a célula 9
+  it.each([
+    ['Norma interna. Evidência: sim.', true],
+    ['Norma interna. Evidência: sim ;', true],
+    ['Evidência: sim; funcionamento não comprovado', null],
+    ['Controle A. Evidência: não; Controle B. Evidência: sim', false],
+    ['Conferência sem registro', null],
+    ['', null],
+  ])('lerMarcadorFinalEvidencia(%j) -> %s', (texto, esperado) => {
+    expect(lerMarcadorFinalEvidencia(texto)).toBe(esperado);
+  });
+
+  it('18 colunas: marcador no meio da célula não vale; sem evidência e com aviso', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ controles: 'Evidência: sim; funcionamento não comprovado', eficacia: 'Mediano (0,75)', residual: '0,75', teste: 'Não' })
+    );
+    expect(r.fichas[0].possuiEvidenciaControle).toBe(false);
+    expect(r.avisos).toContain(AVISO_EVIDENCIA);
+  });
+
+  // K2: o marcador não faz parte do texto do controle
+  it.each([
+    ['Norma interna. Evidência: não', 'Norma interna'],
+    ['Inexistente. Evidência: não', 'Inexistente'],
+    ['Evidência: não', ''],
+  ])('textoDoControleSemMarcador(%j) -> %j', (texto, esperado) => {
+    expect(textoDoControleSemMarcador(texto)).toBe(esperado);
+  });
+
+  it.each([
+    ['Inexistente. Evidência: não', false],
+    ['INEXISTENTE', false],
+    ['Evidência: não', false],
+    ['', false],
+    ['Norma interna. Evidência: não', true],
+  ])('existeControleNoTexto(%j) -> %s', (texto, esperado) => {
+    expect(existeControleNoTexto(texto)).toBe(esperado);
+  });
+
+  it('controlesTexto sai sem o marcador de evidência', () => {
+    const r = importarTabelaMarkdownSkill(montarLinha({ controles: 'Norma interna. Evidência: não' }));
+    expect(r.fichas[0].controlesTexto).toBe('Norma interna');
   });
 
   it.each([

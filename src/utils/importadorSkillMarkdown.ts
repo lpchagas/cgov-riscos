@@ -250,6 +250,46 @@ export function lerMarcadorEvidencia(texto: string): boolean | null {
 }
 
 /**
+ * Lê a evidência no formato de 18 colunas, onde o marcador "Evidência: sim|não"
+ * deve ENCERRAR a célula 9 (contrato da skill, item 4.1: "deve terminar com").
+ *   - qualquer "Evidência: não", em qualquer ponto, vale "sem evidência";
+ *   - senão, vale o marcador que termina a célula (espaços e `.`/`;` finais
+ *     são ignorados);
+ *   - se a célula não termina com marcador, devolve `null` (não lida; há aviso).
+ * Ex.: lerMarcadorFinalEvidencia('Norma interna. Evidência: sim.')            -> true
+ * Ex.: lerMarcadorFinalEvidencia('Evidência: sim; funcionamento não comprovado') -> null
+ * Ex.: lerMarcadorFinalEvidencia('A. Evidência: não; B. Evidência: sim')       -> false
+ */
+export function lerMarcadorFinalEvidencia(texto: string): boolean | null {
+  const t = semAcento(texto);
+  if (/evidencias?\s*:\s*nao\b/.test(t)) return false;
+  const final = t.replace(/[\s.;]+$/, '').match(/evidencias?\s*:\s*(sim|nao)$/);
+  if (!final) return null;
+  return final[1] === 'sim';
+}
+
+/**
+ * Devolve o texto do controle SEM o marcador "Evidência: sim|não" e sem a
+ * pontuação que sobrar nas pontas. Ex.: 'Norma interna. Evidência: não' ->
+ * 'Norma interna'; 'Inexistente. Evidência: não' -> 'Inexistente'.
+ */
+export function textoDoControleSemMarcador(texto: string): string {
+  return texto
+    .replace(/evid[eê]ncias?\s*:\s*(sim|n[aã]o)\b/gi, '')
+    .replace(/\s*([.;])(\s*[.;])+/g, '$1')
+    .replace(/^[\s.;]+|[\s.;]+$/g, '');
+}
+
+/**
+ * Diz se o texto do controle (já sem marcador) é um controle real.
+ * Vazio ou "Inexistente" (sem diferença de acento e de maiúsculas) = nenhum controle.
+ */
+export function existeControleNoTexto(texto: string): boolean {
+  const limpo = semAcento(textoDoControleSemMarcador(texto));
+  return limpo !== '' && limpo !== 'inexistente';
+}
+
+/**
  * Lê uma célula de "Sim" ou "Não" (col. 17, Teste de Integridade).
  * Aceita "Sim"/"S" e "Não"/"Nao"/"N", sem diferença de acento e de maiúsculas.
  * Ex.: lerSimNao(' SIM ') -> true; lerSimNao('NÃO') -> false; lerSimNao('Talvez') -> null.
@@ -534,7 +574,8 @@ export function importarTabelaMarkdownSkill(
     }
     const pNum: NivelProbabilidade = leituraP.nivel;
     const iNum: NivelImpacto = leituraI.nivel;
-    const controlesTexto = colunas[8] || 'Inexistente';
+    // Texto do controle sem o marcador de evidência (K2); vazio vira 'Inexistente'.
+    const controlesTexto = textoDoControleSemMarcador(colunas[8] ?? '') || 'Inexistente';
     const eficaciaTexto = colunas[9] || 'Inexistente (1,0)';
     // Sem valor padrão: estratégia vazia é lida como vazia e gera aviso (RF-181).
     const estrategiaTexto = colunas[14] ?? '';
@@ -545,12 +586,12 @@ export function importarTabelaMarkdownSkill(
     const eficaciaLida = interpretarEficaciaControle(eficaciaTexto);
     // Evidência da col. 9 (RF-178). `null` = não deu para ler: vale "sem
     // evidência" (na dúvida, a trava do Quadro 6 age) e há aviso.
-    //   - formato de 18: SÓ o marcador "Evidência: sim|não" vale; sem ele
+    //   - formato de 18: SÓ o marcador final "Evidência: sim|não" vale; sem ele
     //     (inclusive célula vazia ou "sem registro"), aviso;
     //   - formato de 16: o marcador, se houver; senão as expressões de
     //     ausência ("sem registro", "inexistente"...) valem sem aviso.
     const evidenciaLida =
-      formatoColunas === 18 ? lerMarcadorEvidencia(colunas[8] ?? '') : lerEvidencia(controlesTexto);
+      formatoColunas === 18 ? lerMarcadorFinalEvidencia(colunas[8] ?? '') : lerEvidencia(colunas[8] || 'Inexistente');
     const possuiEvidencia = evidenciaLida ?? false;
     // Col. 13 (apetite escrito pela skill) é só informativa: vale o apetite da
     // categoria na DAR do RADAR. Ex.: col. 13 "moderado", DAR "baixo" -> 'baixo'.
