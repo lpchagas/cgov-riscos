@@ -42,26 +42,26 @@ const HOJE = new Date(2026, 10, 14); // 14/11/2026 (mês começa em 0)
 // ---------------------------------------------------------------------------
 describe('painelResumo', () => {
   it('conta os riscos por célula usando P e I da ficha', () => {
-    expect(contarRiscosPorCelula(semente())).toEqual({ '3-5': 1, '2-5': 1, '2-4': 1 });
+    expect(contarRiscosPorCelula(semente())).toEqual({ '3-5': 2, '2-5': 1, '2-4': 1 });
   });
 
   it('ordena os maiores residuais do maior para o menor sem alterar a lista original', () => {
     const lista = semente();
     const ordemOriginal = lista.map((r) => r.codigoRadar);
-    expect(maioresRiscosResiduais(lista, 2).map((r) => r.nivelResidual)).toEqual([22, 17.1]);
+    expect(maioresRiscosResiduais(lista, 2).map((r) => r.nivelResidual)).toEqual([22, 22]);
     expect(lista.map((r) => r.codigoRadar)).toEqual(ordemOriginal);
   });
 
   it('distribui por nível residual usando a classificação gravada (8,4 é Médio)', () => {
     const d = distribuicaoPorNivelResidual(semente());
     expect(d.map((f) => [f.classe, f.quantidade])).toEqual([
-      ['Extremo', 2],
+      ['Extremo', 3],
       ['Alto', 0],
       ['Médio', 1],
       ['Baixo', 0],
     ]);
     expect(d[0].percentual).toBe(100);
-    expect(d[2].percentual).toBe(50);
+    expect(d[2].percentual).toBe(33); // 1 de 3 (o maior grupo, Extremo, vale 100)
   });
 
   /** As `acoes` que a fonte de demonstração devolveria para cada perfil (como o banco faria). */
@@ -147,7 +147,7 @@ describe('MatrizCalorAssimetrica', () => {
   it('o nome acessível diz nota, nível e quantidade de riscos', () => {
     const w = mount(MatrizCalorAssimetrica, { props: { riscos: semente() } });
     expect(rotulo(w, 3, 5).attributes('aria-label')).toBe(
-      'Probabilidade 3 (Provável), impacto 5 (Muito alto): nota 22, Extremo, 1 risco'
+      'Probabilidade 3 (Provável), impacto 5 (Muito alto): nota 22, Extremo, 2 riscos'
     );
   });
 

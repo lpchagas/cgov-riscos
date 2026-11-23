@@ -37,6 +37,7 @@ import type {
   CategoriaRisco,
   FichaRisco,
   HistoricoFluxoItem,
+  IndicadorKri,
   NivelEficaciaControle,
   NivelImpacto,
   NivelProbabilidade,
@@ -51,7 +52,7 @@ import {
   UNIDADES_SEMENTE,
 } from '../dadosSementeAnexoII';
 import { calcularRiscoCompletoRadar, gerarSintaxePadraoRisco } from '../../utils/calculadoraRiscoRadar';
-import { verificarTravaRiscoCritico, type ResultadoTrava } from '../../utils/travaRiscoCritico';
+import { verificarTravaRiscoCritico, type MotivoTrava, type ResultadoTrava } from '../../utils/travaRiscoCritico';
 import { capacidades, PAPEIS } from '../../utils/acessoPorPerfil';
 import { CHAVE_PERFIL_DEMO, PERFIS_DEMO_ICMBIO, type PerfilUsuarioDemo } from '../../stores/authStore';
 import { ErroRadar, MENSAGEM_REDE, traduzirErroBanco } from './errosBanco';
@@ -101,16 +102,25 @@ function naoEncontrado(frase: string): never {
 }
 
 /**
- * LAC-13: aplica a trava do risco crítico a uma ficha (mesma regra do banco).
- * Risco crítico ('sim' ou 'pendente_dar') não aceita a estratégia "Aceitar" e
- * exige pelo menos uma ação 5W2H que não seja "Aceitar".
+ * LAC-13 + LAC-03: aplica a trava do risco crítico a uma ficha (mesma regra do
+ * banco). Risco crítico ('sim' ou 'pendente_dar') não aceita a estratégia
+ * "Aceitar", exige pelo menos uma ação 5W2H que não seja "Aceitar" e exige
+ * pelo menos um KRI completo ligado ao risco (`r.kris`).
  */
 function travaDaFicha(r: FichaRisco): ResultadoTrava {
   return verificarTravaRiscoCritico({
     statusCritico: r.statusCritico,
     estrategiaPrincipal: r.estrategiaPrincipal,
     estrategiasDasAcoes: r.respostasTratamento.map((a) => a.estrategia),
+    kris: r.kris,
   });
+}
+
+/** Texto do motivo da trava, igual ao devolvido por `fn_trava_risco_critico` no banco. */
+function textoDoMotivo(motivo: MotivoTrava): string {
+  if (motivo === 'aceitar_em_critico') return 'a estratégia "Aceitar" não é permitida';
+  if (motivo === 'sem_acao_em_critico') return 'falta uma ação de tratamento (5W2H)';
+  return 'falta um KRI completo (nome, fórmula, fonte, periodicidade, limite de alerta e responsável)';
 }
 
 /**
@@ -121,12 +131,8 @@ function travaDaFicha(r: FichaRisco): ResultadoTrava {
 function exigirTrava(r: FichaRisco, sufixo = ''): void {
   const t = travaDaFicha(r);
   if (t.ok) return;
-  const motivo =
-    t.motivo === 'aceitar_em_critico'
-      ? 'a estratégia "Aceitar" não é permitida'
-      : 'falta uma ação de tratamento (5W2H)';
   recusar(
-    `o risco ${r.codigoRadar} é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: ${motivo}.${sufixo}`
+    `o risco ${r.codigoRadar} é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: ${textoDoMotivo(t.motivo)}.${sufixo}`
   );
 }
 
@@ -159,6 +165,64 @@ export function criarFonteDemonstracao(
   const categorias: CategoriaRisco[] = copiar(CATEGORIAS_QUADRO_2_SEMENTE);
   const unidades: UnidadeOrganizacional[] = copiar(UNIDADES_SEMENTE);
   const objetos: ObjetoContexto[] = copiar(OBJETOS_CONTEXTO_SEMENTE);
+
+  // LAC-03: como no banco, o KRI é do OBJETO e se liga a um ou mais riscos dele
+  // (muitos para muitos). A lista central abaixo é a "tabela" de KRIs; o campo
+  // `kris` de cada risco é só uma VISÃO dela, refeita por `sincronizarKris()`.
+  // A semente repete o KRI compartilhado em cada risco: juntamos pelo id.
+  const kris: IndicadorKri[] = [];
+  for (const r of riscos) {
+    for (const k of r.kris) {
+      if (!kris.some((x) => x.id === k.id)) kris.push(copiar(k));
+    }
+  }
+  sincronizarKris();
+
+  /** Refaz `risco.kris` a partir da lista central (mesmos objetos: sem cópia solta). */
+  function sincronizarKris(): void {
+    for (const r of riscos) r.kris = kris.filter((k) => k.riscoIds.includes(r.id));
+  }
+
+  /** Apaga KRI órfão (sem nenhum risco ligado) junto com as medições, como o banco. */
+  function apagarOrfaos(): void {
+    for (let i = kris.length - 1; i >= 0; i--) if (kris[i].riscoIds.length === 0) kris.splice(i, 1);
+  }
+
+  /** Foto do estado que a gravação pode mexer, para desfazer tudo numa recusa. */
+  function tirarFoto() {
+    return { riscos: copiar(riscos), kris: copiar(kris) };
+  }
+
+  /**
+   * Volta ao que era na foto. Object.assign só copia as chaves da foto; um
+   * campo opcional que a ficha não tinha e que entrou depois (ex.:
+   * justificativaProbabilidade) precisa ser apagado. KRIs e ligações voltam
+   * junto (e as medições de um KRI apagado também).
+   */
+  function restaurarFoto(foto: ReturnType<typeof tirarFoto>): void {
+    kris.splice(0, kris.length, ...foto.kris);
+    for (const antes of foto.riscos) {
+      const r = riscos.find((x) => x.id === antes.id);
+      if (!r) continue;
+      const ficha = r as unknown as Record<string, unknown>;
+      for (const chave of Object.keys(ficha)) {
+        if (!(chave in antes)) delete ficha[chave];
+      }
+      Object.assign(r, antes);
+    }
+    sincronizarKris();
+  }
+
+  /** Campos da definição do KRI que, se mudarem, contam como "alterar o indicador". */
+  const DEFINICAO_KRI = [
+    'nomeIndicador',
+    'formulaCalculo',
+    'fonteDados',
+    'periodicidade',
+    'metaAlvo',
+    'limiteAlerta',
+    'responsavelMedicao',
+  ] as const;
 
   // --- buscas que falham com a frase do banco ------------------------------
   function acharRisco(id: string): FichaRisco {
@@ -288,19 +352,73 @@ export function criarFonteDemonstracao(
         custoQuanto: x.custoQuanto ?? undefined,
       }));
     }
-    if (f.kris !== undefined) {
-      // As medições não vêm na ficha: o KRI que já existia mantém as suas.
-      r.kris = f.kris.map((k) => {
-        const anterior = k.id ? r.kris.find((x) => x.id === k.id) : undefined;
-        return {
-          ...k,
-          id: k.id ?? novoId('kri'),
+  }
+
+  /**
+   * LAC-03: aplica a lista de KRIs da ficha ao risco `r` (que já está no objeto certo).
+   *  - sem id: cria o KRI no objeto do risco e liga;
+   *  - id + `apenasLigar`: só liga (o KRI tem de ser do mesmo objeto);
+   *  - id sem `apenasLigar`: edita a definição (mesmo objeto). Se algo mudou, o
+   *    KRI serve a todos os riscos ligados: recusa se algum está em validação
+   *    ou homologação; senão reabre os aprovados. Edição que não muda nada é livre;
+   *  - KRI ligado ao risco e ausente da lista: é desligado (órfão some).
+   * As medições nunca vêm na ficha: o KRI que já existia mantém as suas.
+   */
+  function aplicarKris(r: FichaRisco, lista: NonNullable<FichaParaSalvar['kris']>): void {
+    const mantidos = new Set<string>();
+    for (const item of lista) {
+      if (!item.id) {
+        const novo: IndicadorKri = {
+          nomeIndicador: item.nomeIndicador,
+          formulaCalculo: item.formulaCalculo,
+          fonteDados: item.fonteDados,
+          periodicidade: item.periodicidade,
+          metaAlvo: item.metaAlvo,
+          limiteAlerta: item.limiteAlerta,
+          responsavelMedicao: item.responsavelMedicao,
+          id: novoId('kri'),
           objetoId: r.objetoId,
           riscoIds: [r.id],
-          medicoes: anterior ? anterior.medicoes : [],
+          medicoes: [],
         };
-      });
+        kris.push(novo);
+        mantidos.add(novo.id);
+        continue;
+      }
+      const existente = kris.find((k) => k.id === item.id);
+      if (!existente) naoEncontrado('Indicador (KRI) não encontrado');
+      if (existente.objetoId !== r.objetoId) {
+        recusar('o KRI só pode ser ligado a riscos do mesmo objeto de gestão de riscos.');
+      }
+      mantidos.add(existente.id);
+      if (!existente.riscoIds.includes(r.id)) existente.riscoIds.push(r.id);
+      if (item.apenasLigar) continue;
+
+      const mudou = DEFINICAO_KRI.some((campo) => (item[campo] ?? '') !== (existente[campo] ?? ''));
+      if (!mudou) continue;
+      const ligados = riscos.filter((x) => x.id !== r.id && existente.riscoIds.includes(x.id));
+      const travado = ligados.find((x) => TRAVADOS.includes(x.statusFluxo));
+      if (travado) recusar(`a ficha do risco ${travado.codigoRadar} está travada`);
+      for (const campo of DEFINICAO_KRI) {
+        // Campo ausente ou vazio na ficha vira "não definido" (o sistema não inventa valor).
+        (existente as unknown as Record<string, unknown>)[campo] = item[campo] || undefined;
+      }
+      for (const x of ligados) {
+        if (x.statusFluxo !== 'aprovado') continue;
+        x.statusFluxo = 'em_validacao_cg';
+        registrar(
+          x,
+          'reabertura_nota',
+          'reaberto_mudanca_nota',
+          `KRI "${existente.nomeIndicador}" alterado (ele é compartilhado). Reaberto para validação da Coordenação-Geral.`
+        );
+      }
     }
+    // Desligar: o que estava ligado a este risco e não veio na lista.
+    for (const k of kris) {
+      if (!mantidos.has(k.id)) k.riscoIds = k.riscoIds.filter((id) => id !== r.id);
+    }
+    apagarOrfaos();
   }
 
   // --- a interface FonteDados ----------------------------------------------
@@ -373,28 +491,23 @@ export function criarFonteDemonstracao(
         if (TRAVADOS.includes(r.statusFluxo)) {
           recusar(`a ficha do risco ${r.codigoRadar} está travada`);
         }
-        // LAC-13: rascunho, devolvido e preliminar continuam livres. Nos demais
-        // estados (hoje, só o aprovado chega aqui) a ficha não pode ficar
-        // crítica com "Aceitar". Guardamos uma cópia e, se a trava recusar,
-        // devolvemos a ficha ao que era: nada muda na recusa.
+        // LAC-13 e LAC-03: rascunho, devolvido e preliminar continuam livres.
+        // Nos demais estados (hoje, só o aprovado chega aqui) a ficha não pode
+        // ficar crítica com "Aceitar", sem ação ou sem KRI completo. Tiramos
+        // uma foto e, se algo for recusado (trava, KRI de outro objeto, KRI
+        // compartilhado em validação), devolvemos TUDO ao que era: ficha, KRIs,
+        // ligações, medições e os riscos reabertos. Nada muda na recusa.
         const estavaLivre = ENVIAVEIS.includes(r.statusFluxo);
-        const antes = copiar(r);
-        aplicarEntradas(r, f);
-        recalcular(r);
-        if (!estavaLivre) {
-          try {
-            exigirTrava(r);
-          } catch (e) {
-            // Volta a ficha ao que era. Object.assign só copia as chaves da
-            // cópia; um campo opcional que a ficha não tinha e que entrou
-            // agora (ex.: justificativaProbabilidade) precisa ser apagado.
-            const ficha = r as unknown as Record<string, unknown>;
-            for (const chave of Object.keys(ficha)) {
-              if (!(chave in antes)) delete ficha[chave];
-            }
-            Object.assign(r, antes);
-            throw e;
-          }
+        const foto = tirarFoto();
+        try {
+          aplicarEntradas(r, f);
+          if (f.kris !== undefined) aplicarKris(r, f.kris);
+          sincronizarKris();
+          recalcular(r);
+          if (!estavaLivre) exigirTrava(r);
+        } catch (e) {
+          restaurarFoto(foto);
+          throw e;
         }
         if (r.statusFluxo === 'aprovado') {
           r.statusFluxo = 'em_validacao_cg';
@@ -453,9 +566,19 @@ export function criarFonteDemonstracao(
         kris: [],
         historicoFluxo: [],
       };
-      aplicarEntradas(nova, f);
+      // Se a ligação de KRI for recusada, desfazemos o que ela já tenha feito.
+      const fotoKris = copiar(kris);
+      try {
+        aplicarEntradas(nova, f);
+        if (f.kris !== undefined) aplicarKris(nova, f.kris);
+      } catch (e) {
+        kris.splice(0, kris.length, ...fotoKris);
+        sincronizarKris();
+        throw e;
+      }
       recalcular(nova);
       riscos.unshift(nova); // o mais novo aparece primeiro, como hoje
+      sincronizarKris();
       return { id: nova.id, codigoRadar: nova.codigoRadar };
     },
 
@@ -468,6 +591,10 @@ export function criarFonteDemonstracao(
         recusar('não é possível excluir o risco enquanto ele está em validação ou homologação');
       }
       riscos.splice(riscos.indexOf(r), 1);
+      // LAC-03: desliga os KRIs dele; o KRI que ficar sem nenhum risco some (com as medições).
+      for (const k of kris) k.riscoIds = k.riscoIds.filter((rid) => rid !== r.id);
+      apagarOrfaos();
+      sincronizarKris();
     },
 
     /** 1º degrau: a 1ª linha envia para validação da Coordenação-Geral. */
@@ -547,7 +674,7 @@ export function criarFonteDemonstracao(
 
     /** Monitoramento: lançar medição de KRI NÃO reabre o risco aprovado. */
     async registrarMedicao(kriId, m) {
-      const kri = riscos.flatMap((r) => r.kris).find((k) => k.id === kriId);
+      const kri = kris.find((k) => k.id === kriId);
       if (!kri) naoEncontrado('Indicador (KRI) não encontrado');
       kri.medicoes.unshift({ id: novoId('med'), ...m });
     },
@@ -640,11 +767,17 @@ export function criarFonteDemonstracao(
         // unidade. Os demais mantêm o comportamento de hoje da demonstração.
         if (r.statusFluxo === 'aprovado' && !travaDaFicha(r).ok) {
           r.statusFluxo = 'devolvido';
+          // Texto fixo, igual ao do banco: situação + motivo devolvido pela trava.
+          const situacao =
+            r.statusCritico === 'sim'
+              ? 'fora do apetite da DAR'
+              : 'com DAR pendente; por regra do sistema, a trava do risco crítico também se aplica';
+          const trava = travaDaFicha(r);
           registrar(
             r,
             'reabertura_nota',
             'devolvido_mudanca_dar',
-            `DAR alterada: categoria ${cat.nome} com apetite ${apetiteAnterior} → ${apetite}. O risco aprovado (residual ${r.nivelResidual}, ${r.classificacaoResidual}) passou a Risco Crítico e está com a estratégia "Aceitar" ou sem ação de tratamento, que a Metodologia não permite para risco crítico. Voltou para a unidade escolher outra estratégia e incluir a ação.`
+            `DAR alterada: categoria ${cat.nome} com apetite ${apetiteAnterior} → ${apetite}. O risco aprovado (residual ${r.nivelResidual}, ${r.classificacaoResidual}, ${situacao}) não passa na trava do risco crítico: ${trava.ok ? '' : textoDoMotivo(trava.motivo)}. Voltou para a unidade ajustar.`
           );
         }
       }

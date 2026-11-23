@@ -55,7 +55,7 @@ describe('riscosStore assíncrona', () => {
     await carga;
 
     expect(store.estado).toBe('pronto');
-    expect(store.riscos).toHaveLength(3);
+    expect(store.riscos).toHaveLength(4);
     expect(store.categorias.length).toBeGreaterThan(0);
     expect(store.objetosContexto.length).toBeGreaterThan(0);
     expect(store.acoes[ID_001()].podeValidar).toBe(true);
@@ -79,7 +79,7 @@ describe('riscosStore assíncrona', () => {
     await store.tentarDeNovo();
     expect(store.estado).toBe('pronto');
     expect(store.erro).toBeNull();
-    expect(store.riscos).toHaveLength(3);
+    expect(store.riscos).toHaveLength(4);
   });
 
   it('descarta carga velha ao sair: carga lenta + limpar() antes de terminar → nada entra', async () => {
@@ -112,7 +112,7 @@ describe('riscosStore assíncrona', () => {
     lenta.resolver(await base.carregarCarteira());
     await velha;
 
-    expect(store.riscos).toHaveLength(0); // a velha (3 riscos) foi descartada
+    expect(store.riscos).toHaveLength(0); // a velha (4 riscos) foi descartada
     expect(store.estado).toBe('pronto');
   });
 
@@ -276,7 +276,7 @@ describe('riscosStore assíncrona', () => {
     expect(erro.tipo).toBe('nao_encontrado');
     expect(erro.message).toBe('Risco não encontrado.');
     expect(salvarFicha).not.toHaveBeenCalled();
-    expect(store.riscos).toHaveLength(3);
+    expect(store.riscos).toHaveLength(4);
   });
 
   it('relerRiscos que falha rejeita com ErroRadar (erro cru da fonte é traduzido)', async () => {

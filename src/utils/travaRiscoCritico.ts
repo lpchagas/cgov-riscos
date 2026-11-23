@@ -15,8 +15,11 @@
  *
  * A ficha passa na trava quando:
  *   - o risco NÃO é crítico; ou
- *   - a estratégia principal NÃO é "Aceitar" E existe pelo menos uma ação de
- *     tratamento (5W2H) cuja estratégia também NÃO é "Aceitar".
+ *   - TODAS as três condições valem:
+ *       1. a estratégia principal NÃO é "Aceitar";
+ *       2. existe pelo menos uma ação de tratamento (5W2H) cuja estratégia
+ *          também NÃO é "Aceitar";
+ *       3. existe pelo menos um KRI completo ligado ao risco (LAC-03).
  *
  * Exemplos:
  *   status 'nao',  principal 'Aceitar', sem ações        -> ok
@@ -90,19 +93,15 @@ export function verificarTravaRiscoCritico(e: {
   statusCritico: StatusCriticidadeDAR;
   estrategiaPrincipal: EstrategiaTratamento;
   estrategiasDasAcoes: EstrategiaTratamento[];
-  /**
-   * KRIs ligados ao risco. OPCIONAL só por ora (transitório): quando omitido, o
-   * 3º motivo não é verificado; quando é uma lista (mesmo vazia), vale.
-   * A Tarefa 5 da LAC-03 passa a exigir este campo.
-   */
-  kris?: KriParaTrava[];
+  /** KRIs ligados ao risco (obrigatório: sem ele o 3º motivo não teria como ser conferido). */
+  kris: KriParaTrava[];
 }): ResultadoTrava {
   if (!exigeTratamento(e.statusCritico)) return { ok: true };
   if (e.estrategiaPrincipal === 'Aceitar') return { ok: false, motivo: 'aceitar_em_critico' };
   if (!e.estrategiasDasAcoes.some((estrategia) => estrategia !== 'Aceitar')) {
     return { ok: false, motivo: 'sem_acao_em_critico' };
   }
-  if (e.kris !== undefined && !e.kris.some(kriCompleto)) {
+  if (!e.kris.some(kriCompleto)) {
     return { ok: false, motivo: 'sem_kri_em_critico' };
   }
   return { ok: true };

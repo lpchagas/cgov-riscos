@@ -184,6 +184,27 @@ describe('Página Novo risco', () => {
   });
 
   it('fluxo completo: cria o risco e envia para validação', async () => {
+    // LAC-03: o risco do exemplo é crítico e a trava exige KRI completo. O
+    // formulário ainda não pede os campos do KRI (isso é a Tarefa 6); até lá,
+    // esta fonte completa o KRI como o formulário passará a fazer.
+    const base = criarFonteDemonstracao('normal');
+    definirFonteParaTeste({
+      ...base,
+      salvarFicha: (f) =>
+        base.salvarFicha({
+          ...f,
+          kris: f.kris?.map((k) => ({
+            ...k,
+            formulaCalculo: 'itens conformes / total',
+            fonteDados: 'Processos SEI',
+            periodicidade: 'Mensal' as const,
+            limiteAlerta: 'Abaixo de 90%',
+            responsavelMedicao: 'Chefe da unidade',
+          })),
+        }),
+    });
+    setActivePinia(createPinia());
+    await useRiscosStore().carregar();
     const { w, router } = await montar();
     const store = useRiscosStore();
     const antes = store.riscos.length;
@@ -198,6 +219,7 @@ describe('Página Novo risco', () => {
     expect(novo.nivelInerente).toBe(18);
     expect(router.currentRoute.value.name).toBe('ficha-bowtie-detalhe');
     w.unmount();
+    definirFonteParaTeste(null);
   });
 
   describe('"Salvar e enviar" com envio recusado', () => {

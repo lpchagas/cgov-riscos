@@ -143,14 +143,23 @@ describe('Painel no celular: blocos recolhíveis', () => {
 });
 
 describe('Painel no celular: Maiores riscos (limite de 3)', () => {
-  it('com 3 riscos (semente) não há botão e a tabela tem 3 linhas', async () => {
-    const w = await montar(true);
+  it('com 3 riscos não há botão e a tabela tem 3 linhas', async () => {
+    // A semente tem 4 riscos (LAC-03); aqui mostramos só os 3 primeiros.
+    const base = fonteComRiscos(0);
+    const fonte: FonteDados = {
+      ...base,
+      carregarCarteira: async () => {
+        const c = await base.carregarCarteira();
+        return { ...c, riscos: c.riscos.slice(0, 3) };
+      },
+    };
+    const w = await montar(true, fonte);
     expect(w.find('.painel__maiores-mais').exists()).toBe(false);
     expect(linhasMaiores(w)).toHaveLength(3);
   });
 
   it('com 5 riscos, o celular mostra 3 e o botão abre e fecha o resto', async () => {
-    const w = await montar(true, fonteComRiscos(2));
+    const w = await montar(true, fonteComRiscos(1));
     expect(linhasMaiores(w)).toHaveLength(3);
     const botao = w.find('.painel__maiores-mais');
     expect(botao.text()).toContain('Mostrar mais 2');
@@ -163,8 +172,8 @@ describe('Painel no celular: Maiores riscos (limite de 3)', () => {
     expect(botao.attributes('aria-expanded')).toBe('true');
   });
 
-  it('com 4 riscos o botão diz "Mostrar mais 1"', async () => {
-    const w = await montar(true, fonteComRiscos(1));
+  it('com 4 riscos (a semente) o botão diz "Mostrar mais 1"', async () => {
+    const w = await montar(true, fonteComRiscos(0));
     expect(w.find('.painel__maiores-mais').text()).toContain('Mostrar mais 1');
   });
 
