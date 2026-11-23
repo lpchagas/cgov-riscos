@@ -590,7 +590,14 @@ export const useRiscosStore = defineStore('riscos', () => {
     kriId: string,
     medicao: Omit<MedicaoKri, 'id'>
   ): Promise<void> {
-    await executar(() => fonte().registrarMedicao(kriId, medicao), () => [riscoId]);
+    // Um KRI pode servir a vários riscos: relemos todos os ligados a ele, não só o informado.
+    await executar(
+      () => fonte().registrarMedicao(kriId, medicao),
+      () => {
+        const ligados = riscos.value.filter((r) => r.kris.some((k) => k.id === kriId)).map((r) => r.id);
+        return [...new Set([riscoId, ...ligados])];
+      }
+    );
   }
 
   async function atualizarStatusTratamento(

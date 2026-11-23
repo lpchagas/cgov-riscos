@@ -54,7 +54,8 @@ const aba = computed<string>({
 // INDICADORES (KRIs)
 // ---------------------------------------------------------------------------
 interface LinhaKri {
-  risco: FichaRisco;
+  /** Riscos ligados a este KRI (só os que a pessoa enxerga). Um KRI pode servir a vários riscos do objeto. */
+  riscos: FichaRisco[];
   kri: IndicadorKri;
   /** Leituras da mais recente para a mais antiga. */
   leituras: MedicaoKri[];
@@ -68,16 +69,29 @@ function semaforo(ultima?: MedicaoKri): LinhaKri['semaforo'] {
     : { tom: 'sucesso', icone: 'fa-solid fa-circle-check', rotulo: 'Dentro do limite' };
 }
 
+/**
+ * Uma linha por KRI (e não por risco x KRI). Um KRI compartilhado aparece nos
+ * `kris` de cada risco ligado a ele, sempre com o mesmo `id`: agrupamos por `id`
+ * e juntamos os riscos. Exemplo: o KRI ligado a RADAR-2026-001 e RADAR-2026-004
+ * vira UM cartão com "Riscos: RADAR-2026-001, RADAR-2026-004".
+ * Só entram os riscos que a tela já mostra à pessoa (os da carteira dela).
+ */
 const kris = computed<LinhaKri[]>(() => {
-  const linhas = riscosStore.riscos.flatMap((risco) =>
-    risco.kris.map((kri) => {
+  const porId = new Map<string, LinhaKri>();
+  for (const risco of riscosStore.riscos) {
+    for (const kri of risco.kris) {
+      const existente = porId.get(kri.id);
+      if (existente) {
+        existente.riscos.push(risco);
+        continue;
+      }
       const leituras = [...kri.medicoes].sort((a, b) => b.dataMedicao.localeCompare(a.dataMedicao));
-      return { risco, kri, leituras, semaforo: semaforo(leituras[0]) };
-    })
-  );
+      porId.set(kri.id, { riscos: [risco], kri, leituras, semaforo: semaforo(leituras[0]) });
+    }
+  }
   // Em alerta primeiro, depois sem leitura, depois os demais.
   const peso = { perigo: 0, neutro: 1 } as Record<string, number>;
-  return linhas.sort((a, b) => (peso[a.semaforo.tom] ?? 2) - (peso[b.semaforo.tom] ?? 2));
+  return [...porId.values()].sort((a, b) => (peso[a.semaforo.tom] ?? 2) - (peso[b.semaforo.tom] ?? 2));
 });
 const krisEmAlerta = computed(() => kris.value.filter((k) => k.semaforo.tom === 'perigo').length);
 
@@ -115,7 +129,8 @@ async function salvarLeitura(): Promise<void> {
   // Grava no banco. Se recusar, a mensagem traduzida aparece no painel e o que a pessoa
   // digitou continua lá (ex.: "85%" não se perde por uma falha de rede).
   try {
-    await riscosStore.registrarMedicaoKri(l.risco.id, l.kri.id, {
+    // O 1º risco ligado só serve para reler; a medição vale para o KRI (e vale para todos os riscos dele).
+    await riscosStore.registrarMedicaoKri(l.riscos[0].id, l.kri.id, {
       dataMedicao: formLeitura.value.data,
       valorApurado: formLeitura.value.valor.trim(),
       emAlerta: formLeitura.value.emAlerta,
@@ -232,18 +247,19 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
                   <div>
                     <h2 class="kri__nome">{{ l.kri.nomeIndicador }}</h2>
                     <p class="texto-apoio">
-                      <RouterLink :to="{ name: 'ficha-bowtie-detalhe', params: { id: l.risco.id } }" class="codigo">
-                        {{ l.risco.codigoRadar }}
-                      </RouterLink>
-                      · {{ l.risco.nomeObjetoCache }} · {{ l.kri.periodicidade }}
+                      {{ l.riscos.length === 1 ? 'Risco:' : 'Riscos:' }}
+                      <template v-for="(r, i) in l.riscos" :key="r.id">
+                        <RouterLink :to="{ name: 'ficha-bowtie-detalhe', params: { id: r.id } }" class="codigo">{{ r.codigoRadar }}</RouterLink><template v-if="i < l.riscos.length - 1">, </template>
+                      </template>
+                      · {{ l.riscos[0].nomeObjetoCache }} · {{ l.kri.periodicidade ?? 'periodicidade não definida' }}
                     </p>
                   </div>
                   <Chip :tom="l.semaforo.tom" :icone="l.semaforo.icone">{{ l.semaforo.rotulo }}</Chip>
                 </div>
 
                 <dl class="kri__dados">
-                  <div><dt>Meta</dt><dd>{{ l.kri.metaAlvo }}</dd></div>
-                  <div><dt>Alerta</dt><dd>{{ l.kri.limiteAlerta }}</dd></div>
+                  <div><dt>Meta</dt><dd>{{ l.kri.metaAlvo ?? 'meta não definida' }}</dd></div>
+                  <div><dt>Alerta</dt><dd>{{ l.kri.limiteAlerta ?? 'limite não definido' }}</dd></div>
                   <div>
                     <dt>Última leitura</dt>
                     <dd>
@@ -253,7 +269,7 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
                       <template v-else>—</template>
                     </dd>
                   </div>
-                  <div><dt>Responsável</dt><dd>{{ l.kri.responsavelMedicao }}</dd></div>
+                  <div><dt>Responsável</dt><dd>{{ l.kri.responsavelMedicao ?? 'responsável não definido' }}</dd></div>
                 </dl>
 
                 <details v-if="l.leituras.length > 1" class="kri__historico">
@@ -336,8 +352,8 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
     <Dialog :aberto="leituraDe !== null" titulo="Registrar leitura" @fechar="leituraDe = null">
       <template v-if="leituraDe">
         <p class="texto-apoio dialogo-contexto">
-          <strong>{{ leituraDe.kri.nomeIndicador }}</strong> · {{ leituraDe.risco.codigoRadar }}<br />
-          Meta: {{ leituraDe.kri.metaAlvo }} · Alerta: {{ leituraDe.kri.limiteAlerta }}
+          <strong>{{ leituraDe.kri.nomeIndicador }}</strong> · {{ leituraDe.riscos.map((r) => r.codigoRadar).join(', ') }}<br />
+          Meta: {{ leituraDe.kri.metaAlvo ?? 'meta não definida' }} · Alerta: {{ leituraDe.kri.limiteAlerta ?? 'limite não definido' }}
         </p>
         <BrMessage v-if="erroGravacao" state="danger">{{ erroGravacao }}</BrMessage>
         <div class="formulario">
