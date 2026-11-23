@@ -6,13 +6,13 @@ fazer?** Ela é a Tarefa 19 do [[2026-11-20-reestruturacao-documentacao-plan]] e
 ## 1. De onde vêm os números
 
 A fonte é a coluna **Situação** do catálogo [[requisitos-funcionais]], conferida contra o código na
-Tarefa 10 e nas revisões seguintes. Em 2026-11-22, os **195 RF** estão assim:
+Tarefa 10 e nas revisões seguintes. Em 2026-11-23, os **195 RF** estão assim:
 
 | Situação | Quantos | O que significa |
 | --- | --- | --- |
-| implementado | 116 | O código faz, e há teste que prova (unidade, banco ou integração). |
-| parcial | 9 | O código faz só uma parte, ou faz tudo mas **falta o teste** que prova. |
-| não iniciado | 70 | Não há tabela, campo, função nem tela para aquilo. |
+| implementado | 124 | O código faz, e há teste que prova (unidade, banco ou integração). |
+| parcial | 7 | O código faz só uma parte, ou faz tudo mas **falta o teste** que prova. |
+| não iniciado | 64 | Não há tabela, campo, função nem tela para aquilo. |
 
 Esta análise não muda nenhum RF, nem `src/`, nem as migrações: ela só liga cada RF pendente a um cartão.
 
@@ -49,8 +49,9 @@ porque trata da pendência que persiste depois da cobrança).
 | LAC-15 — 6 subcategorias do Quadro 3 (com a dívida da subcategoria em JSONB) | RF-036, RF-174, RF-175 | `subcategorias_risco`, `riscos` | Concluído em 2026-11-22 (código, banco local e nuvem do piloto) |
 | LAC-12 — escalas dos Quadros 4 e 5 | RF-037, RF-176, RF-177 | — (front e importador, sem migração) | Concluído em 2026-11-22 (código) |
 | LAC-13 — "Aceitar" e ação obrigatória no risco crítico | RF-049, RF-050 | `riscos`, `respostas_tratamento` | Homologação CGOV (implementado no código, no banco local e na nuvem do piloto em 2026-11-22) |
-| LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-183, RF-184 | `indicadores_kri`, `kri_riscos`, `medicoes_kri` | Homologação CGOV (implementado no código e no banco local em 2026-11-22; aplicada na nuvem do piloto em 2026-11-23) |
+| LAC-03 — KRI obrigatório e completo no risco crítico, por grupo | RF-094, RF-095, RF-096, RF-097, RF-183, RF-184 | `indicadores_kri`, `kri_riscos`, `medicoes_kri` | Homologação CGOV (implementado no código e no banco local em 2026-11-22; aplicada na nuvem do piloto em 2026-11-23); 2ª migração `20261123001`, travas de linha, ainda não aplicada na nuvem) |
 | LAC-03 — alerta do KRI (prazo de 10 dias úteis) e comunicação à CGOV | RF-102, RF-109 (LAC-04) | `medicoes_kri` | Backlog (depois do Figma P-02) |
+| LAC-03 — confirmar no banco antes de apagar medições do KRI que fica sem ligação | RF-097 | `kri_riscos`, `indicadores_kri`, `medicoes_kri` | Backlog (triagem do CodeRabbit na PR #17, 2026-11-23) |
 | LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois dos desenhos P-01 e P-10 no Figma; o P-10 cobre o RF-130) |
 | Importador antes da primeira carga real | RF-162, RF-171, RF-178 a RF-182, RF-185 a RF-188, RF-194 (o RF-183 e o RF-184 ficam na LAC-03) | `riscos`, `controles_existentes`, `indicadores_kri` | Backlog |
 

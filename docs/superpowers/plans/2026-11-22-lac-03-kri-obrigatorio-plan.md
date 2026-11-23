@@ -151,7 +151,7 @@
   - `FilhosRiscoBanco` ganha `kriRiscos?: LinhaBanco[]`; `riscoDoBanco` monta `kris` pelos KRIs ligados ao risco (o mesmo KRI aparece em cada risco ligado, com o mesmo `id` e `riscoIds` completo).
   - `fichaParaJson`: KRI com `apenasLigar: true` vai como `{ id, apenasLigar: true }`; campos `undefined` ou vazios vão `null` (nunca "A definir").
   - `fichaDaSkillParaSalvar`: KRI só com `nomeIndicador` quando `kriSugerido` não está vazio; nenhum outro campo.
-  - `importarTabelaMarkdownSkill`: coluna 15 vazia → `kriSugerido = ''`; linha crítica (`exigeTratamento`) → aviso fixo em `avisos` (o KRI importado nunca é completo).
+  - `importarTabelaMarkdownSkill`: coluna 16 vazia → `kriSugerido = ''`; linha crítica (`exigeTratamento`) → aviso fixo em `avisos` (o KRI importado nunca é completo).
 
 - [ ] **Step 1: Write the failing tests:**
   - `importadorSkillMarkdown.spec.ts`: linha sem KRI → `kriSugerido === ''` e nenhum `'Indicador a definir com a 1ª Linha'` (RF-184); linha crítica → `avisos` contém `Linha R-07: risco crítico sem KRI completo; complete o KRI na ficha antes do envio.` e `erros` vazio.

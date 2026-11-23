@@ -94,7 +94,7 @@ Isso é **contradição** com a norma e bloqueia a homologação (ADR-0017).
 
 ### 4.4 Importador
 
-- `importadorSkillMarkdown.ts`: a coluna 15 vazia não gera KRI (`kriSugerido` fica vazio, RF-184).
+- `importadorSkillMarkdown.ts`: a coluna 16 vazia não gera KRI (`kriSugerido` fica vazio, RF-184).
 - `conversores.ts`: o KRI importado leva só o nome. Fórmula, fonte, periodicidade, meta, limite e responsável vão vazios (`NULL`).
 - A linha crítica **não** é recusada por falta de KRI completo: a skill não entrega os demais campos, e a importação cria fichas em estado livre (preliminar da CGOV). A trava age no envio. Um aviso (que não bloqueia) diz: "Linha R-07: risco crítico; o KRI precisa ser completado na ficha antes do envio."
 
