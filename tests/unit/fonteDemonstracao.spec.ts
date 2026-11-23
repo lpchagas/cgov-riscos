@@ -735,6 +735,46 @@ describe('KRI obrigatório e grupo (LAC-03)', () => {
       expect((await fonte.relerRisco(a))?.statusFluxo).toBe('em_validacao_cg');
     });
 
+    // Triagem do CodeRabbit na PR #17: como no banco (fn_fluxo_reaberto_neste_comando),
+    // o risco reaberto pela PRÓPRIA gravação não trava a alteração do 2º KRI.
+    it('alterar dois KRIs compartilhados na mesma gravação passa (B reaberto pelo 1º não trava o 2º)', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const kri2 = { ...KRI_OK, nomeIndicador: 'KRI 2 de teste' };
+      const a = await fonte.salvarFicha(media([KRI_OK, kri2]));
+      const [k1, k2] = (await kriDe(fonte, a.id)).map((k) => k.id);
+      const b = await fonte.salvarFicha(media([{ ...KRI_OK, id: k1, apenasLigar: true }, { ...kri2, id: k2, apenasLigar: true }]));
+      await fonte.enviar(b.id);
+      await fonte.validar(b.id);
+      expect((await fonte.relerRisco(b.id))?.statusFluxo).toBe('aprovado');
+      const historicoAntes = (await fonte.relerRisco(b.id))!.historicoFluxo.length;
+      await fonte.salvarFicha({
+        id: a.id,
+        objetoId: 'obj-anexo-ii',
+        kris: [{ ...KRI_OK, id: k1, limiteAlerta: '> 9%' }, { ...kri2, id: k2, limiteAlerta: '> 8%' }],
+      });
+      const rb = await fonte.relerRisco(b.id);
+      expect(rb?.statusFluxo).toBe('em_validacao_cg');
+      // Reaberto uma vez só (pelo 1º KRI); o 2º não duplica a reabertura.
+      expect(rb!.historicoFluxo.length).toBe(historicoAntes + 1);
+      expect((await kriDe(fonte, b.id)).map((k) => k.limiteAlerta)).toEqual(['> 9%', '> 8%']);
+    });
+
+    it('dois KRIs na mesma gravação: risco que JÁ estava em validação continua recusando', async () => {
+      const fonte = fonteComo('coordenador_geral');
+      const kri2 = { ...KRI_OK, nomeIndicador: 'KRI 2 de teste' };
+      const a = await fonte.salvarFicha(media([KRI_OK, kri2]));
+      const [k1, k2] = (await kriDe(fonte, a.id)).map((k) => k.id);
+      const b = await fonte.salvarFicha(media([{ ...KRI_OK, id: k1, apenasLigar: true }, { ...kri2, id: k2, apenasLigar: true }]));
+      await fonte.enviar(b.id); // B fica em validação ANTES da gravação
+      const e = await erroDe(fonte.salvarFicha({
+        id: a.id,
+        objetoId: 'obj-anexo-ii',
+        kris: [{ ...KRI_OK, id: k1, limiteAlerta: '> 9%' }, { ...kri2, id: k2, limiteAlerta: '> 8%' }],
+      }));
+      expect(e.tipo).toBe('estado');
+      expect((await kriDe(fonte, b.id)).map((k) => k.limiteAlerta)).toEqual([KRI_OK.limiteAlerta, KRI_OK.limiteAlerta]);
+    });
+
     it('edição que não muda nada é livre (não reabre ninguém)', async () => {
       const fonte = fonteComo('coordenador_geral');
       const { a, b, kriId } = await grupo(fonte);

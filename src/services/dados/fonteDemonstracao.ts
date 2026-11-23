@@ -368,9 +368,19 @@ export function criarFonteDemonstracao(
    *    ou homologação; senão reabre os aprovados. Edição que não muda nada é livre;
    *  - KRI ligado ao risco e ausente da lista: é desligado (órfão some).
    * As medições nunca vêm na ficha: o KRI que já existia mantém as suas.
+   *
+   * A trava olha o estado de cada risco ANTES desta gravação, como o banco
+   * (fn_fluxo_reaberto_neste_comando): o risco que a PRÓPRIA gravação acabou
+   * de reabrir não trava o KRI seguinte.
+   * Ex.: A (rascunho) e B (aprovado) dividem K1 e K2; a ficha de A altera os
+   *      dois. K1 reabre B (em_validacao_cg); ao chegar em K2, B "estava
+   *      aprovado" antes da gravação → passa (sem reabrir de novo). Se B já
+   *      estivesse em validação ANTES, a gravação seria recusada.
    */
   function aplicarKris(r: FichaRisco, lista: NonNullable<FichaParaSalvar['kris']>): void {
     const mantidos = new Set<string>();
+    // Foto do estado de cada risco antes de qualquer reabertura desta gravação.
+    const estadoAntes = new Map(riscos.map((x) => [x.id, x.statusFluxo]));
     for (const item of lista) {
       if (!item.id) {
         const novo: IndicadorKri = {
@@ -402,13 +412,15 @@ export function criarFonteDemonstracao(
       const mudou = DEFINICAO_KRI.some((campo) => (item[campo] ?? '') !== (existente[campo] ?? ''));
       if (!mudou) continue;
       const ligados = riscos.filter((x) => x.id !== r.id && existente.riscoIds.includes(x.id));
-      const travado = ligados.find((x) => TRAVADOS.includes(x.statusFluxo));
+      const travado = ligados.find((x) => TRAVADOS.includes(estadoAntes.get(x.id) ?? x.statusFluxo));
       if (travado) recusar(`a ficha do risco ${travado.codigoRadar} está travada`);
       for (const campo of DEFINICAO_KRI) {
         // Campo ausente ou vazio na ficha vira "não definido" (o sistema não inventa valor).
         (existente as unknown as Record<string, unknown>)[campo] = item[campo] || undefined;
       }
       for (const x of ligados) {
+        // Só o aprovado reabre; o já reaberto por um KRI anterior desta
+        // gravação (agora em_validacao_cg) não ganha 2ª reabertura.
         if (x.statusFluxo !== 'aprovado') continue;
         x.statusFluxo = 'em_validacao_cg';
         registrar(

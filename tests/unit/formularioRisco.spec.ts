@@ -17,6 +17,7 @@ import {
   dadosExemplo,
   dadosParaFicha,
   dadosVazios,
+  demaisKrisQueFicam,
   kriFicaOrfao,
   totalRiscosDoKri,
   validarEtapa,
@@ -100,6 +101,28 @@ describe('etapa 4: KRI completo para risco crítico (LAC-03)', () => {
     expect(validarEtapa(4, camposVazios, CATEGORIAS, 'sim', kriDoObjeto)).toEqual({});
     expect(validarEtapa(4, { ...dadosExemplo('o1'), kriExistenteId: 'k1' }, CATEGORIAS, 'sim', { ...kriDoObjeto, fonteDados: 'A definir' }).nomeKri)
       .toBe(MENSAGEM_TRAVA_KRI);
+  });
+  // Triagem do CodeRabbit na PR #17: a trava do banco aceita a ficha se
+  // QUALQUER KRI que continuará ligado for completo. A tela confere o 1º KRI
+  // (como ficará) e também os demais KRIs da ficha, que seguem ligados.
+  it('risco com [KRI só com nome, KRI completo]: a etapa 4 passa', () => {
+    expect(validarEtapa(4, soNome, CATEGORIAS, 'sim', undefined, [kriDoObjeto])).toEqual({});
+    expect(validarEtapa(4, soNome, CATEGORIAS, 'sim', undefined, [{ ...kriDoObjeto, fonteDados: 'A definir' }]).nomeKri)
+      .toBe(MENSAGEM_TRAVA_KRI);
+  });
+  it('demaisKrisQueFicam: os KRIs da ficha depois do 1º, sem repetir o 1º como ficará', () => {
+    const k = (id: string) => ({ id, objetoId: 'o1', riscoIds: ['r1'], nomeIndicador: id, medicoes: [] });
+    const existente = { id: 'r1', objetoId: 'o1', controlesExistentes: [], respostasTratamento: [], kris: [k('k1'), k('k2'), k('k3')] } as unknown as FichaRisco;
+    const ids = (lista: { id?: string }[]) => lista.map((x) => x.id);
+    // Ficha com [k1 só com nome, k2, k3]: ficam k2 e k3 além do 1º.
+    expect(ids(demaisKrisQueFicam({ ...soNome, kriExistenteId: '' }, existente))).toEqual(['k2', 'k3']);
+    // Escolheu k3 da lista para o 1º lugar: k3 não conta duas vezes.
+    expect(ids(demaisKrisQueFicam({ ...soNome, kriExistenteId: 'k3' }, existente))).toEqual(['k2']);
+    // Risco novo: não há outros KRIs.
+    expect(demaisKrisQueFicam(soNome, undefined)).toEqual([]);
+    // Ficha de verdade: [k1 só com nome, k2 completo] passa na etapa 4.
+    const comCompleto = { ...existente, kris: [k('k1'), { ...k('k2'), ...kriDoObjeto }] } as unknown as FichaRisco;
+    expect(validarEtapa(4, soNome, CATEGORIAS, 'sim', undefined, demaisKrisQueFicam(soNome, comCompleto))).toEqual({});
   });
   it('não crítico: KRI incompleto não trava (rascunho e risco baixo seguem livres)', () => {
     expect(validarEtapa(4, soNome, CATEGORIAS, 'nao')).toEqual({});

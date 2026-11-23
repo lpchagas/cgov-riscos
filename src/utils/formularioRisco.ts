@@ -223,7 +223,8 @@ export function validarEtapa(
   d: DadosNovoRisco,
   categorias: CategoriaRisco[],
   statusCritico?: StatusCriticidadeDAR,
-  kriLigado?: KriParaTrava
+  kriLigado?: KriParaTrava,
+  demaisKris: KriParaTrava[] = []
 ): ErrosEtapa {
   const erros: ErrosEtapa = {};
 
@@ -266,11 +267,17 @@ export function validarEtapa(
     // tratamento: "Aceitar" não vale e a ação 5W2H é obrigatória.
     const exige = statusCritico !== undefined && exigeTratamento(statusCritico);
     if (exige && d.estrategia === 'Aceitar') erros.estrategia = ERRO_ACEITAR_RISCO_CRITICO;
-    // LAC-03: risco crítico também precisa de um KRI completo. Com um KRI do
-    // objeto só ligado (`kriLigado`), confere-se ele; senão, os campos da tela
-    // (o KRI próprio, ou o da lista liberado para edição). Não crítico segue livre.
+    // LAC-03: risco crítico também precisa de um KRI completo. Vale a mesma
+    // regra da trava do banco: basta UM dos KRIs que continuarão ligados.
+    //   - o 1º KRI como ficará: com um KRI do objeto só ligado (`kriLigado`),
+    //     ele; senão, os campos da tela (o KRI próprio, ou o da lista liberado
+    //     para edição);
+    //   - os demais KRIs da ficha (`demaisKris`, ver `demaisKrisQueFicam`),
+    //     que a gravação mantém ligados.
+    // Ex.: ficha com [KRI só com nome, KRI completo] → sem erro.
+    // Não crítico segue livre.
     const kriQueVale = d.kriExistenteId && kriLigado ? kriLigado : kriDosCampos(d);
-    if (exige && !kriCompleto(kriQueVale)) erros.nomeKri = MENSAGEM_TRAVA_KRI;
+    if (exige && ![kriQueVale, ...demaisKris].some(kriCompleto)) erros.nomeKri = MENSAGEM_TRAVA_KRI;
     if (d.estrategia !== 'Aceitar' || exige) {
       if (!obrigatorio(d.acaoOQue)) erros.acaoOQue = 'Descreva a ação (o quê).';
       if (!obrigatorio(d.acaoQuem)) erros.acaoQuem = 'Informe o responsável (quem).';
@@ -281,6 +288,22 @@ export function validarEtapa(
   return erros;
 }
 
+
+/**
+ * Os KRIs da ficha, além do 1º, que continuarão ligados ao risco depois de
+ * gravar (a mesma regra de `dadosParaFicha`): todos a partir do 2º, menos o
+ * KRI que ocupará o 1º lugar (para não contá-lo duas vezes).
+ * Serve à etapa 4: a trava do risco crítico aceita QUALQUER KRI completo.
+ * Ex.: ficha com [k1, k2, k3] e a pessoa escolhe k3 da lista para o 1º lugar
+ *      → demais = [k2]. Risco novo (sem `existente`) → [].
+ */
+export function demaisKrisQueFicam(d: DadosNovoRisco, existente?: FichaRisco): IndicadorKri[] {
+  const demais = (existente?.kris ?? []).slice(1);
+  // Sem nome, o 1º KRI sai da ficha e nada mais é filtrado (como em `lista`).
+  if (!d.nomeKri.trim()) return demais;
+  const idDoPrimeiro = d.kriExistenteId || existente?.kris[0]?.id;
+  return demais.filter((k) => !(idDoPrimeiro && k.id === idDoPrimeiro));
+}
 
 // ---------------------------------------------------------------------------
 // EDIÇÃO: da ficha gravada para o formulário, e de volta

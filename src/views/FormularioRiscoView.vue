@@ -45,6 +45,7 @@ import {
   dadosExemplo,
   dadosParaFicha,
   dadosVazios,
+  demaisKrisQueFicam,
   camposKriDe,
   avisoKriCompartilhado as montarAvisoKriCompartilhado,
   kriFicaOrfao,
@@ -201,6 +202,12 @@ watch(() => d.value.objetoId, () => {
  * etapa 4 confere ELE (é o que vai ao banco), não os campos da tela.
  */
 const kriSoLigado = computed(() => (camposKriSoLeitura.value ? kriEscolhido.value : undefined));
+/**
+ * Os outros KRIs da ficha (além do 1º), que a gravação mantém ligados. A
+ * etapa 4 aceita o risco crítico se QUALQUER KRI que ficará ligado for
+ * completo, como a trava do banco.
+ */
+const demaisKris = computed(() => demaisKrisQueFicam(d.value, riscoEditado.value));
 /** O KRI que está sendo EDITADO (o escolhido e liberado, ou o próprio da ficha). */
 const kriEmEdicao = computed(() => kriEscolhido.value && liberouEdicaoKri.value ? kriEscolhido.value : !d.value.kriExistenteId ? kriProprio.value : undefined);
 /**
@@ -380,7 +387,7 @@ async function focarPrimeiroErro(): Promise<void> {
 }
 
 function validar(): boolean {
-  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value);
+  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value);
   if (Object.keys(erros.value).length) {
     focarPrimeiroErro();
     return false;
@@ -431,7 +438,7 @@ async function salvar(enviar: boolean): Promise<void> {
   const fichaCompleta = enviar || (modoEdicao.value && !!status && !['rascunho', 'devolvido', 'preliminar_cgov'].includes(status));
   const etapasParaValidar = fichaCompleta ? [1, 2, 3, 4] : [1];
   for (const n of etapasParaValidar) {
-    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value);
+    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value);
     if (Object.keys(e).length) {
       etapa.value = n;
       erros.value = e;

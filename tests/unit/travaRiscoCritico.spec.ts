@@ -37,7 +37,9 @@ describe('trava do risco crítico (LAC-13)', () => {
       .toEqual({ ok: false, motivo: 'sem_acao_em_critico' });
   });
   it('ação só com Aceitar não conta como tratamento', () => {
-    expect(verificarTravaRiscoCritico({ statusCritico: 'sim', estrategiaPrincipal: 'Mitigar', estrategiasDasAcoes: ['Aceitar'], kris: [] }).ok).toBe(false);
+    // KRI completo: a recusa só pode vir da ação (e não da falta de KRI).
+    expect(verificarTravaRiscoCritico({ statusCritico: 'sim', estrategiaPrincipal: 'Mitigar', estrategiasDasAcoes: ['Aceitar'], kris: [KRI_OK] }))
+      .toEqual({ ok: false, motivo: 'sem_acao_em_critico' });
   });
   it('crítico com Compartilhar e uma ação Evitar passa', () => {
     expect(verificarTravaRiscoCritico({ statusCritico: 'sim', estrategiaPrincipal: 'Compartilhar', estrategiasDasAcoes: ['Evitar'], kris: [KRI_OK] })).toEqual({ ok: true });
