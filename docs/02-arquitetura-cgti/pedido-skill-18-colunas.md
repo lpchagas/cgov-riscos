@@ -106,9 +106,9 @@ Texto proposto (substitui só esse bullet; depois dele, acrescentar o parágrafo
 >      `Sim` e a categoria **não** é Integridade (explique por que o risco envolve esse tipo de decisão); vazia nos
 >      demais casos.
 >    - Uma barra vertical (`|`) dentro do texto de uma célula desloca as colunas seguintes: não use.
->    - Os números das colunas 7, 8, 11, 12 e 14 servem de conferência: o RADAR recalcula o inerente (Quadro 7, sem
->      multiplicar P por I), o residual (inerente × fator do Quadro 6) e a classe (Quadro 8, sem arredondar) e avisa
->      o analista quando difere; valem os números do RADAR.
+>    - O RADAR compara só as colunas 7 (inerente) e 11 (residual) com o seu recálculo (Quadro 7, sem multiplicar
+>      P por I; inerente × fator do Quadro 6) e avisa o analista quando diferem; as colunas 8, 12 e 14 (classes e
+>      "Crítico?") não geram aviso, porque o RADAR as recalcula (Quadro 8, sem arredondar); valem os números do RADAR.
 
 ## 4. Duas linhas de exemplo (dados de demonstração)
 
