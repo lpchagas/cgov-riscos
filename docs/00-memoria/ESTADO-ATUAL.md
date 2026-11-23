@@ -74,4 +74,5 @@ trava de escrita fora de um bloco `DO`; corrigida no commit `cbbe8c3` ([[guia-su
   esse arquivo temporariamente de lado (imagem 17.11.0.006), e o arquivo foi **restaurado** depois. Por isso,
   o próximo `supabase stop`/`start` ou `db:reset` volta à 17.6.1.104 e ao problema. A causa não foi investigada e
   **não há correção definida**: decisão do responsável. Como a nuvem usa a 17.6.1.104, vale entender isso antes
-  de homologar.
+  de homologar. Na LAC-03 (2026-11-23), a 17.6.1.104 derrubou também o `050_fluxo.test.sql`, não só o `030`:
+  os testes rodaram com a imagem 17.11.0.006, e o arquivo foi restaurado depois.
