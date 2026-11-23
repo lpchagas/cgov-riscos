@@ -196,7 +196,7 @@ function extrairBowTieDaSintaxe(descricao: string): {
 function semAcento(texto: string): string {
   return texto
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '') // acentos soltos (faixa Unicode dos diacríticos)
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
@@ -223,12 +223,28 @@ function semAcento(texto: string): string {
  *   lerEvidencia('Checklist assinado')                            -> null
  */
 export function lerEvidencia(texto: string): boolean | null {
+  const marcador = lerMarcadorEvidencia(texto);
+  if (marcador !== null) return marcador;
   const t = semAcento(texto);
-  const marcador = /evidencia\s*:\s*(sim|nao)\b/.exec(t);
-  if (marcador) return marcador[1] === 'sim';
   const ausencia = ['sem evidencia', 'sem registro', 'nao comprovad', 'inexistente', 'informal'];
   if (ausencia.some((expressao) => t.includes(expressao))) return false;
   return null;
+}
+
+/**
+ * Lê SÓ o marcador explícito "Evidência: sim|não" (ou "Evidências:"), sem
+ * diferença de acento e de maiúsculas. Sem marcador, devolve `null`.
+ * É a regra do formato de 18 colunas: lá, só o marcador vale (RF-178).
+ * Se a célula tiver mais de um marcador e QUALQUER um for "não", vale
+ * "sem evidência" (na dúvida, a trava do Quadro 6 age).
+ * Ex.: lerMarcadorEvidencia('Evidências: SIM')                                -> true
+ * Ex.: lerMarcadorEvidencia('Controle A. Evidência: sim; Controle B. Evidência: não') -> false
+ * Ex.: lerMarcadorEvidencia('Conferência sem registro')                       -> null
+ */
+export function lerMarcadorEvidencia(texto: string): boolean | null {
+  const respostas = [...semAcento(texto).matchAll(/evidencias?\s*:\s*(sim|nao)\b/g)].map((m) => m[1]);
+  if (respostas.length === 0) return null;
+  return !respostas.includes('nao');
 }
 
 /**
@@ -500,9 +516,14 @@ export function importarTabelaMarkdownSkill(
     const kriSugerido = colunas[15] ?? '';
 
     const eficaciaLida = interpretarEficaciaControle(eficaciaTexto);
-    // Evidência pelo marcador da col. 9 (RF-178). `null` = não deu para ler:
-    // vale "sem evidência" (na dúvida, a trava do Quadro 6 age) e há aviso.
-    const evidenciaLida = lerEvidencia(controlesTexto);
+    // Evidência da col. 9 (RF-178). `null` = não deu para ler: vale "sem
+    // evidência" (na dúvida, a trava do Quadro 6 age) e há aviso.
+    //   - formato de 18: SÓ o marcador "Evidência: sim|não" vale; sem ele
+    //     (inclusive célula vazia ou "sem registro"), aviso;
+    //   - formato de 16: o marcador, se houver; senão as expressões de
+    //     ausência ("sem registro", "inexistente"...) valem sem aviso.
+    const evidenciaLida =
+      formatoColunas === 18 ? lerMarcadorEvidencia(colunas[8] ?? '') : lerEvidencia(controlesTexto);
     const possuiEvidencia = evidenciaLida ?? false;
     const apetiteCategoria = normalizarApetite(apetiteTexto, apetitePadrao);
 

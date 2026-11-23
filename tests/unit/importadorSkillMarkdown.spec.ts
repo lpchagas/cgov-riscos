@@ -9,6 +9,7 @@ import {
   contarFormato,
   importarTabelaMarkdownSkill,
   lerEvidencia,
+  lerMarcadorEvidencia,
   lerNumeroSkill,
   lerSimNao,
   normalizarCategoriaImportada,
@@ -344,7 +345,8 @@ describe('Importador: descrição, evidência, trava, cálculo, estratégia e Te
 
   /**
    * Monta UMA linha da matriz com valores padrão válidos (dados de demonstração).
-   * Padrão: P=1, I=1 (inerente 1, Baixo), sem controle, residual 1, "Mitigar".
+   * Padrão: P=1, I=1 (inerente 1, Baixo), sem controle ("Inexistente. Evidência: não",
+   * com o marcador que o formato de 18 exige), residual 1, "Mitigar".
    * Se `teste` for informado, a linha ganha as cols. 17 e 18 (formato de 18).
    * Ex.: montarLinha({ p: '3', i: '4', inerente: '18', residual: '18' })
    */
@@ -372,7 +374,7 @@ describe('Importador: descrição, evidência, trava, cálculo, estratégia e Te
       o.i ?? '1',
       o.inerente ?? '1',
       'Baixo',
-      o.controles ?? 'Inexistente',
+      o.controles ?? 'Inexistente. Evidência: não',
       o.eficacia ?? 'Inexistente (1,0)',
       o.residual ?? '1',
       'Baixo',
@@ -424,8 +426,23 @@ describe('Importador: descrição, evidência, trava, cálculo, estratégia e Te
     ['Controle informal da chefia', false],
     ['Checklist assinado', null],
     ['', null],
+    ['Evidências: sim', true],
+    ['Controle A. Evidência: sim; Controle B. Evidência: não', false],
   ])('lerEvidencia(%j) -> %s', (texto, esperado) => {
     expect(lerEvidencia(texto)).toBe(esperado);
+  });
+
+  it.each([
+    ['Previsto no ato. Evidência: sim', true],
+    ['EVIDÊNCIAS: Sim', true],
+    ['Evidência: NÃO', false],
+    ['Controle A. Evidência: sim; Controle B. Evidência: não', false],
+    ['Controle A. Evidência: não; Controle B. Evidência: sim', false],
+    ['Conferência sem registro', null],
+    ['Inexistente', null],
+    ['', null],
+  ])('lerMarcadorEvidencia(%j) -> %s (só o marcador)', (texto, esperado) => {
+    expect(lerMarcadorEvidencia(texto)).toBe(esperado);
   });
 
   it.each([
@@ -468,6 +485,57 @@ describe('Importador: descrição, evidência, trava, cálculo, estratégia e Te
     );
     expect(r.fichas[0].possuiEvidenciaControle).toBe(true);
     expect(r.fichas[0].nivelEficaciaControle).toBe('Mediano');
+    expect(r.avisos).toEqual([]);
+  });
+
+  const AVISO_EVIDENCIA =
+    'Linha R-07: não foi possível ler se o controle tem evidência comprovada; o RADAR considerou sem evidência (eficácia máxima Fraco, Quadro 6).';
+
+  it.each(['Conferência sem registro', 'Inexistente', 'Controle informal', ''])(
+    '18 colunas, col. 9 %j sem marcador: sem evidência e com aviso',
+    (controles) => {
+      const r = importarTabelaMarkdownSkill(montarLinha({ controles, teste: 'Não' }));
+      expect(r.fichas[0].possuiEvidenciaControle).toBe(false);
+      expect(r.avisos).toEqual([AVISO_EVIDENCIA]);
+    }
+  );
+
+  it.each(['Conferência sem registro', 'Inexistente', '', 'previsto no ato; funcionamento não comprovado'])(
+    '16 colunas, col. 9 %j: expressão de ausência (ou vazia) vale sem evidência, sem aviso',
+    (controles) => {
+      const r = importarTabelaMarkdownSkill(montarLinha({ controles }));
+      expect(r.fichas[0].possuiEvidenciaControle).toBe(false);
+      expect(r.avisos).toEqual([AVISO_16]);
+    }
+  );
+
+  it('16 colunas, col. 9 sem marcador nem expressão: sem evidência e com aviso', () => {
+    const r = importarTabelaMarkdownSkill(montarLinha({ controles: 'Checklist assinado' }));
+    expect(r.fichas[0].possuiEvidenciaControle).toBe(false);
+    expect(r.avisos).toEqual([AVISO_16, AVISO_EVIDENCIA]);
+  });
+
+  it('marcadores contraditórios: um "Evidência: não" basta; só o aviso da trava', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({
+        controles: 'Controle A. Evidência: sim; Controle B. Evidência: não',
+        eficacia: 'Mediano (0,75)',
+        residual: '0,9',
+        teste: 'Não',
+      })
+    );
+    expect(r.fichas[0].possuiEvidenciaControle).toBe(false);
+    expect(r.fichas[0].nivelEficaciaControle).toBe('Fraco');
+    expect(r.avisos).toEqual([
+      "Linha R-07: a eficácia 'Mediano (0,75)' foi reduzida a 'Fraco (0,9)' porque o controle não tem evidência comprovada (trava do Quadro 6).",
+    ]);
+  });
+
+  it('marcador no plural "Evidências: sim" (18 colunas): com evidência, sem aviso', () => {
+    const r = importarTabelaMarkdownSkill(
+      montarLinha({ controles: 'Checklist. Evidências: sim', eficacia: 'Mediano (0,75)', residual: '0,75', teste: 'Não' })
+    );
+    expect(r.fichas[0].possuiEvidenciaControle).toBe(true);
     expect(r.avisos).toEqual([]);
   });
 
