@@ -242,16 +242,22 @@ describe('Página Novo risco', () => {
       w.unmount();
     });
 
-    it('escolher um KRI compartilhado deixa os campos só leitura; liberar a edição mostra o aviso fixo', async () => {
+    it('risco novo: KRI compartilhado escolhido fica só leitura, sem botão de editar nem aviso, com a ajuda de como alterar', async () => {
       const { w } = await ateEtapa4NoObjeto();
       const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
       await lista.setValue('kri-anexo-ii-2');
       const fonte = w.find(`#${w.findAll('label').find((l) => l.text().startsWith('Fonte dos dados'))!.attributes('for')}`);
       expect(fonte.attributes('readonly')).toBeDefined();
+      expect(w.findAll('button').some((b) => b.text().includes('Editar a definição deste KRI'))).toBe(false);
       expect(w.text()).not.toContain('Este KRI também serve aos riscos');
-      await botao(w, 'Editar a definição deste KRI').trigger('click');
-      expect(fonte.attributes('readonly')).toBeUndefined();
-      expect(w.text()).toContain('Este KRI também serve aos riscos RADAR-2026-001, RADAR-2026-004; alterar muda o indicador de todos eles e reabre os aprovados.');
+      expect(w.text()).toContain('Para alterar a definição deste KRI, salve o risco e edite-o depois');
+      w.unmount();
+    });
+
+    it('editando um risco existente, o KRI compartilhado mostra o aviso fixo', async () => {
+      const { w } = await montar('/riscos/novo?editar=risco-anexo-ii-04');
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.text()).toContain('Este KRI também serve aos riscos RADAR-2026-001; alterar muda o indicador de todos eles e reabre os aprovados.');
       w.unmount();
     });
 
@@ -267,7 +273,13 @@ describe('Página Novo risco', () => {
       await botao(w, 'Salvar rascunho').trigger('click');
       await flushPromises();
       expect(salvarFicha).toHaveBeenCalledTimes(1);
-      expect(salvarFicha.mock.calls[0][0].kris).toMatchObject([{ id: 'kri-anexo-ii-2', apenasLigar: true }]);
+      const enviados = salvarFicha.mock.calls[0][0].kris!;
+      expect(enviados).toHaveLength(1);
+      expect(enviados[0]).toMatchObject({ id: 'kri-anexo-ii-2', apenasLigar: true });
+      // A definição do KRI compartilhado continua a mesma (nada foi copiado nem criado).
+      const kriDepois = useRiscosStore().krisDoObjeto('obj-anexo-ii').filter((k) => k.id === 'kri-anexo-ii-2');
+      expect(kriDepois).toHaveLength(1);
+      expect(useRiscosStore().krisDoObjeto('obj-anexo-ii').filter((k) => k.nomeIndicador === kriDepois[0].nomeIndicador)).toHaveLength(1);
       w.unmount();
     });
 
@@ -581,7 +593,12 @@ describe('Página Novo risco', () => {
 
   describe('Edição: KRI compartilhado com medições (LAC-03)', () => {
     it('desligar um KRI que ainda serve a outro risco não pede confirmação (nada é apagado)', async () => {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
       const store = useRiscosStore();
+      await store.carregar();
       const id = 'risco-anexo-ii-04';
       const kri = store.obterRiscoPorId(id)!.kris[0];
       expect(kri.riscoIds.length).toBeGreaterThan(1);
@@ -590,6 +607,11 @@ describe('Página Novo risco', () => {
       const nome = w.findAll('input[type="text"]').find((i) => (i.element as HTMLInputElement).value === kri.nomeIndicador)!;
       await nome.setValue('');
       expect(w.text()).not.toContain('Histórico do KRI');
+      // Salvar sem confirmar nada: grava, e o KRI sai da lista de KRIs da ficha.
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      expect(salvarFicha.mock.calls[0][0].kris!.some((k) => k.id === kri.id)).toBe(false);
       w.unmount();
     });
   });

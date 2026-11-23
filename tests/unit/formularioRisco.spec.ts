@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import { dadosExemplo, dadosParaFicha, dadosVazios, validarEtapa, type DadosNovoRisco } from '../../src/utils/formularioRisco';
+import type { FichaRisco } from '../../src/types/radar.types';
 import { MENSAGEM_TRAVA_KRI } from '../../src/utils/travaRiscoCritico';
 
 const CATEGORIAS = CATEGORIAS_QUADRO_2_SEMENTE;
@@ -107,8 +108,14 @@ describe('dadosParaFicha: KRI (LAC-03)', () => {
     const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'L', responsavelMedicao: 'R', medicoes: [] };
     const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'L', kriResponsavel: 'R' };
     expect(dadosParaFicha(d, { ehIntegridade: false, krisDoObjeto: [escolhido] }).kris![0].apenasLigar).toBe(true);
-    const editado = dadosParaFicha({ ...d, kriLimite: 'Novo' }, { ehIntegridade: false, krisDoObjeto: [escolhido] });
+    const existente = { id: 'r1', objetoId: 'o1', controlesExistentes: [], respostasTratamento: [], kris: [] } as unknown as FichaRisco;
+    const editado = dadosParaFicha({ ...d, kriLimite: 'Novo' }, { ehIntegridade: false, existente, krisDoObjeto: [escolhido] });
     expect(editado.kris![0]).toMatchObject({ id: 'k1', limiteAlerta: 'Novo' });
     expect(editado.kris![0].apenasLigar).toBeUndefined();
+  });
+  it('risco NOVO com KRI da lista: sempre só liga, mesmo com campos alterados', () => {
+    const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'L', responsavelMedicao: 'R', medicoes: [] };
+    const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'Outro', kriResponsavel: 'R' };
+    expect(dadosParaFicha(d, { ehIntegridade: false, krisDoObjeto: [escolhido] }).kris![0]).toMatchObject({ id: 'k1', apenasLigar: true });
   });
 });

@@ -689,7 +689,8 @@ async function salvar(enviar: boolean): Promise<void> {
                 <input v-bind="attrs" v-model="d.kriResponsavel" type="text" :readonly="camposKriSoLeitura" />
               </FormField>
               <!-- KRI da lista: campos só leitura; para mudar a definição, libere a edição (afeta todos os riscos ligados). -->
-              <BrButton v-if="camposKriSoLeitura" variant="secondary" @click="liberouEdicaoKri = true">Editar a definição deste KRI</BrButton>
+              <BrButton v-if="camposKriSoLeitura && modoEdicao" variant="secondary" @click="liberouEdicaoKri = true">Editar a definição deste KRI</BrButton>
+              <p v-else-if="camposKriSoLeitura" class="campo__ajuda">Para alterar a definição deste KRI, salve o risco e edite-o depois, ou edite pelo risco que já o usa.</p>
               <BrMessage v-if="avisoKriCompartilhado" state="warning" titulo="KRI compartilhado">{{ avisoKriCompartilhado }}</BrMessage>
               <!-- Edição: tirar o KRI apaga as medições dele (aviso + confirmação obrigatória). -->
               <template v-if="medicoesQueSeraoApagadas > 0">

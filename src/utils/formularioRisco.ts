@@ -29,8 +29,7 @@ import type {
   StatusCriticidadeDAR,
 } from '../types/radar.types';
 import { validarRegraIntegridade } from './calculadoraRiscoRadar';
-import { exigeTratamento, kriCompleto, MENSAGEM_TRAVA_KRI, textoPreenchido } from './travaRiscoCritico';
-import { mesmaDefinicaoKri } from '../services/dados/conversores';
+import { exigeTratamento, kriCompleto, mesmaDefinicaoKri, MENSAGEM_TRAVA_KRI, textoPreenchido } from './travaRiscoCritico';
 
 /** Todos os campos do assistente (o que a pessoa digita). */
 export interface DadosNovoRisco {
@@ -325,7 +324,9 @@ export function dadosParaFicha(
       }),
       ...campos,
       // KRI escolhido da lista e sem mudança na definição → só ligar.
-      ...(d.kriExistenteId && !(kriEscolhido && mudou) ? { apenasLigar: true } : {}),
+      // Risco NOVO (sem `existente`): o KRI da lista só pode ser LIGADO, nunca editado
+      // (sem id de risco, a edição criaria uma cópia em vez de mudar o compartilhado).
+      ...(d.kriExistenteId && (!existente || !(kriEscolhido && mudou)) ? { apenasLigar: true } : {}),
     };
   }
 

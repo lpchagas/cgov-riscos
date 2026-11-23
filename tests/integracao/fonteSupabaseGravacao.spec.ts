@@ -167,7 +167,7 @@ describe('fonte Supabase — gravações e fluxo (Supabase local)', () => {
     expect(lido.statusFluxo).toBe('rascunho');
     expect(lido.isCritico).toBe(true);
     lido.respostasTratamento[0] = { ...lido.respostasTratamento[0], justificativaPorQue: undefined };
-    await gestor.salvarFicha(fichaParaSalvarDeRisco(lido));
+    await gestor.salvarFicha(fichaParaSalvarDeRisco(lido, []));
     const { data: resp } = await clienteServico()
       .from('respostas_tratamento')
       .select('justificativa_por_que, local_onde')
@@ -206,7 +206,7 @@ describe('fonte Supabase — gravações e fluxo (Supabase local)', () => {
 
     // Edição do risco aprovado (P e controles) numa só chamada → volta à validação.
     await gestor.salvarFicha({
-      ...fichaParaSalvarDeRisco(monitorado),
+      ...fichaParaSalvarDeRisco(monitorado, []),
       probabilidade: 3,
       controles: [
         {
@@ -249,12 +249,12 @@ describe('fonte Supabase — gravações e fluxo (Supabase local)', () => {
     }
 
     // Desligar do B (lista de KRIs vazia): o KRI continua no A.
-    await gestor.salvarFicha({ ...fichaParaSalvarDeRisco(lidoB), kris: [] });
+    await gestor.salvarFicha({ ...fichaParaSalvarDeRisco(lidoB, []), kris: [] });
     expect((await gestor.relerRisco(b.id))!.kris).toEqual([]);
     expect((await gestor.relerRisco(a.id))!.kris.map((k) => k.id)).toEqual([kri.id]);
 
     // Desligar do último risco: o KRI órfão some.
-    await gestor.salvarFicha({ ...fichaParaSalvarDeRisco((await gestor.relerRisco(a.id))!), kris: [] });
+    await gestor.salvarFicha({ ...fichaParaSalvarDeRisco((await gestor.relerRisco(a.id))!, []), kris: [] });
     const { data: sobrou } = await clienteServico().from('indicadores_kri').select('id').eq('id', kri.id);
     expect(sobrou).toEqual([]);
   });

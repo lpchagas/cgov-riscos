@@ -113,7 +113,7 @@ describe('riscoDoBanco', () => {
 
 describe('fichaParaJson', () => {
   it('ida e volta: banco → front → JSON devolve as mesmas colunas de entrada', () => {
-    const json = fichaParaJson(fichaParaSalvarDeRisco(fichaDaFixture()));
+    const json = fichaParaJson(fichaParaSalvarDeRisco(fichaDaFixture(), []));
     expect(json.id).toBe(fixture.risco.id);
     for (const coluna of COLUNAS_ENTRADA) {
       expect(json[coluna], coluna).toEqual((fixture.risco as Record<string, unknown>)[coluna]);
@@ -137,7 +137,7 @@ describe('fichaParaJson', () => {
   });
 
   it('nunca envia campos calculados nem o estado do fluxo', () => {
-    const json = fichaParaJson(fichaParaSalvarDeRisco(fichaDaFixture()));
+    const json = fichaParaJson(fichaParaSalvarDeRisco(fichaDaFixture(), []));
     for (const proibido of [
       'nivel_residual',
       'nivel_inerente',
@@ -165,7 +165,7 @@ describe('fichaParaJson', () => {
       localOnde: '   ',
       custoQuanto: '',
     };
-    const json = fichaParaJson(fichaParaSalvarDeRisco(ficha));
+    const json = fichaParaJson(fichaParaSalvarDeRisco(ficha, []));
     const resposta = (json.respostas as Array<Record<string, unknown>>)[0];
     expect(resposta).toHaveProperty('justificativa_por_que', null);
     expect(resposta).toHaveProperty('local_onde', null);
@@ -181,7 +181,7 @@ describe('fichaParaJson', () => {
     ficha.controlesExistentes = [{ ...ficha.controlesExistentes[0], id: '' }];
     ficha.respostasTratamento = [{ ...ficha.respostasTratamento[0], id: '' }];
     ficha.kris = [{ ...ficha.kris[0], id: '' }];
-    const pacote = fichaParaSalvarDeRisco(ficha);
+    const pacote = fichaParaSalvarDeRisco(ficha, []);
     expect(pacote.controles![0].id).toBeUndefined();
     expect(pacote.respostas![0].id).toBeUndefined();
     expect(pacote.kris![0].id).toBeUndefined();

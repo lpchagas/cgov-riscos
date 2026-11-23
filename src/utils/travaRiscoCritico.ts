@@ -66,6 +66,31 @@ export function kriCompleto(k: KriParaTrava): boolean {
   );
 }
 
+/**
+ * Duas versões de um KRI têm a MESMA definição? Compara os 7 campos de
+ * definição; vazio, null, só espaços e os marcadores antigos ("A definir")
+ * contam todos como "sem valor".
+ * Ex.: { fonteDados: ' a definir ' } e { fonteDados: undefined } → iguais.
+ */
+export function mesmaDefinicaoKri(a: KriDefinicao, b: KriDefinicao): boolean {
+  const norm = (t: string | null | undefined) => (textoPreenchido(t) ? (t as string).trim() : '');
+  return (
+    norm(a.nomeIndicador) === norm(b.nomeIndicador) &&
+    norm(a.formulaCalculo) === norm(b.formulaCalculo) &&
+    norm(a.fonteDados) === norm(b.fonteDados) &&
+    (a.periodicidade ?? '') === (b.periodicidade ?? '') &&
+    norm(a.metaAlvo) === norm(b.metaAlvo) &&
+    norm(a.limiteAlerta) === norm(b.limiteAlerta) &&
+    norm(a.responsavelMedicao) === norm(b.responsavelMedicao)
+  );
+}
+
+/** Os campos que formam a "definição" de um KRI (sem id, ligação nem medições). */
+export type KriDefinicao = Pick<
+  IndicadorKri,
+  'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'metaAlvo' | 'limiteAlerta' | 'responsavelMedicao'
+>;
+
 /** Por que a ficha foi recusada. */
 export type MotivoTrava = 'aceitar_em_critico' | 'sem_acao_em_critico' | 'sem_kri_em_critico';
 
