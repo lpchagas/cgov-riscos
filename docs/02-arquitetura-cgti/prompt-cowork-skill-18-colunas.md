@@ -27,7 +27,7 @@ A ordem das colunas 1 a 16 **não muda**. Entram duas colunas no fim e um marcad
 | --- | --- | --- |
 | 1 a 16 | ID, Objeto de GR, Descrição na sintaxe, Categoria, P, I, Inerente, Classe, Controles e evidências, Eficácia e fator, Residual, Classe residual, Apetite da categoria, Crítico?, Estratégia, KRI | sem mudança de ordem |
 | 9 | Controles e evidências | **termina sempre** com `Evidência: sim` ou `Evidência: não`. Na dúvida, `não`. Qualquer "não" vale sem evidência |
-| 17 | Teste de Integridade | `Sim` ou `Não`: "Sim" quando há decisão sobre beneficiário, licença ou autorização, fiscalização ou sanção, ou contratação ou atestação. Outro valor bloqueia a importação |
+| 17 | Teste de Integridade | `Sim` ou `Não`: "Sim" quando há decisão sobre beneficiário, licença ou autorização, fiscalização ou sanção, ou contratação ou atestação (regra adotada pelo RADAR; Programa Integra+, Portaria ICMBio nº 253/2026; subcategorias no Quadro 3). Outro valor bloqueia a importação |
 | 18 | Justificativa (Integridade) | obrigatória, com pelo menos 10 caracteres, quando a col. 17 é `Sim` e a categoria **não** é Integridade; vazia nos demais casos |
 
 Sem barra vertical (`|`) dentro de uma célula, porque ela desloca as colunas seguintes. A tabela do **Regime A** (13 colunas) e a regra do Regime A para controles ficam **sem nenhuma alteração**.
@@ -47,8 +47,8 @@ Vigente:
 Proposto:
 
 > 2. **Teste de Integridade:** para cada risco, aplique o teste sempre que houver decisão sobre beneficiário,
->    licença ou autorização, fiscalização ou sanção, ou contratação ou atestação (Portaria ICMBio nº 253/2026;
->    Quadro 3). No **Regime B**, o resultado vai nas **colunas 17 e 18 da matriz** (§4, item 1), e não numa linha
+>    licença ou autorização, fiscalização ou sanção, ou contratação ou atestação (gatilhos: regra adotada pelo RADAR;
+>    referência normativa: Programa Integra+, Portaria ICMBio nº 253/2026, e Quadro 3 para as subcategorias). No **Regime B**, o resultado vai nas **colunas 17 e 18 da matriz** (§4, item 1), e não numa linha
 >    solta: `Sim` ou `Não` na coluna 17 e, quando for `Sim` e a categoria não for Integridade, a justificativa na
 >    coluna 18 (veja o §4). No Regime A, mantenha o registro de uma linha por risco (sim/não e subcategoria).
 >    Não use a categoria "Operacional com interface de Integridade".
@@ -88,9 +88,9 @@ Proposto:
 >     `Sim` e a categoria **não** é Integridade (explique por que o risco envolve esse tipo de decisão); vazia nos
 >     demais casos.
 >   - Uma barra vertical (`|`) dentro do texto de uma célula desloca as colunas seguintes: não use.
->   - Os números das colunas 7, 8, 11, 12 e 14 servem de conferência: o RADAR recalcula o inerente (Quadro 7, sem
->     multiplicar P por I), o residual (inerente × fator do Quadro 6) e a classe (Quadro 8, sem arredondar) e avisa
->     o analista quando difere; valem os números do RADAR.
+>   - O RADAR compara só as colunas 7 (inerente) e 11 (residual) com o seu recálculo (Quadro 7, sem multiplicar
+>     P por I; inerente × fator do Quadro 6) e avisa o analista quando diferem; as colunas 8, 12 e 14 (classes e
+>     "Crítico?") não geram aviso, porque o RADAR as recalcula (Quadro 8, sem arredondar); valem os números do RADAR.
 
 Se a skill tiver um modelo ou exemplo de tabela do Regime B (no corpo ou em `references/`), atualize-o para 18 colunas com estas duas linhas fictícias:
 

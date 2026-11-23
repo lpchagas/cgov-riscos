@@ -56,8 +56,8 @@ Texto vigente:
 Texto proposto (substitui o item 2):
 
 > 2. **Teste de Integridade:** para cada risco, aplique o teste sempre que houver decisão sobre beneficiário,
->    licença ou autorização, fiscalização ou sanção, ou contratação ou atestação (Portaria ICMBio nº 253/2026;
->    Quadro 3). No **Regime B**, o resultado vai nas **colunas 17 e 18 da matriz** (§4, item 1), e não numa linha
+>    licença ou autorização, fiscalização ou sanção, ou contratação ou atestação (gatilhos: regra adotada pelo RADAR;
+>    referência normativa: Programa Integra+, Portaria ICMBio nº 253/2026, e Quadro 3 para as subcategorias). No **Regime B**, o resultado vai nas **colunas 17 e 18 da matriz** (§4, item 1), e não numa linha
 >    solta: `Sim` ou `Não` na coluna 17 e, quando for `Sim` e a categoria não for Integridade, a justificativa na
 >    coluna 18 (veja o §4). No Regime A, mantenha o registro de uma linha por risco (sim/não e subcategoria).
 >    Não use a categoria "Operacional com interface de Integridade".

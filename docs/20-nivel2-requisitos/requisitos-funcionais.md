@@ -301,8 +301,8 @@ Origens no [[FS-02-analise-ato-por-skills]]: atividades FS-02.15 a FS-02.18 e a 
 Importar" ("col. N" = linha N da tabela "Coluna a coluna"; os demais itens citam o tópico da lista
 "Formato, validações e recusas do importador"). RF-160 a RF-172, RF-193 e a parte do RF-168 descrevem o
 que o importador faz hoje; RF-173 a RF-186, RF-188 e RF-194 corrigem as divergências do contrato (RF-172 a RF-175 já corrigidos em 2026-11-22); o RF-187 é
-proposta (nota 4). As divergências sem LAC citam o cartão do Backlog "Importador: recusas e conversões
-silenciosas" ([[quadro]], commit `22b872a`), que reúne todas elas.
+proposta (nota 4). As divergências sem LAC citam o cartão "Importador antes da primeira carga real", em "Homologação CGOV"
+([[quadro]]), que reúne todas elas.
 
 | ID | Enunciado | Prioridade | RN relacionadas | Origem | Situação | Verificação |
 | --- | --- | --- | --- | --- | --- | --- |

@@ -43,7 +43,10 @@ O responsável decidiu, em 2026-11-23:
    "sem evidência" (a dedução pela eficácia acabou); estratégia desconhecida grava "Mitigar" **com aviso**;
    descrição fora da sintaxe do item 4.2.1 grava a frase como evento e deixa causa, consequência e objetivo em
    branco para a unidade completar; divergência de cálculo, trava de evidência acionada, linha ignorada e
-   formato de 16 colunas (sem Teste de Integridade) geram aviso.
+   formato de 16 colunas (sem Teste de Integridade) geram aviso. No formato de 16 colunas, as expressões
+   explícitas de ausência ("sem evidência", "sem registro", "não comprovado", "inexistente", "informal") valem
+   sem evidência **sem aviso**; outro texto sem marcador vale sem evidência **com aviso**. No de 18 colunas, o
+   marcador tem de encerrar a célula (contrato, item 4.1); sem isso, há aviso.
 4. **A validação do Teste de Integridade é a de sempre** (`validarRegraIntegridade`), agora com os valores
    reais: com "Sim", categoria diferente de Integridade e justificativa de menos de 10 caracteres, é erro.
 5. **Erros bloqueiam o lote, como hoje; avisos não bloqueiam.** Importar só as linhas válidas (RF-187) continua
@@ -56,7 +59,7 @@ Regras que valem a partir daqui:
 - O cálculo (Quadros 6, 7 e 8; `calculadoraRiscoRadar.ts`; gatilho do banco) **não muda**, e **não há migração**:
   o banco já aceita os campos gravados.
 - Os valores gravados são sempre os do RADAR (RN-013); o número da skill só é comparado, para o aviso.
-- A frase de "Crítico" continua só para o risco fora da DAR; o nível 18 a 25 é Extremo.
+- A frase de "Crítico" continua só para o risco fora da DAR; a faixa "> 17 a 25" é Extremo.
 
 ## Consequências
 
@@ -69,7 +72,8 @@ Regras que valem a partir daqui:
 
 **Negativas**
 - Enquanto a skill não for atualizada no `cgov-geral`, toda tabela chega no formato de 16 colunas, e cada linha
-  gera avisos (evidência não lida, Teste de Integridade ausente). O analista confere essas linhas na ficha.
+  gera o aviso de Teste de Integridade ausente (e o de evidência não lida, quando o texto da col. 9 não traz
+  uma expressão explícita de ausência). O analista confere essas linhas na ficha.
 - A leitura por posição continua frágil: uma barra vertical dentro do texto de uma célula desloca as colunas
   seguintes.
 - Há dois formatos aceitos ao mesmo tempo, com mais casos de teste a manter.
