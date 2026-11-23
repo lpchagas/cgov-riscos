@@ -138,7 +138,9 @@ export interface LinhaImportadaSkill {
   fatorControle: FatorAvaliacaoControle;
   nivelResidual: number;
   classificacaoResidual: ClasseRisco;
+  /** Apetite da categoria na DAR do RADAR (não o da col. 13 da skill); 'pendente_dar' se não houver. */
   apetiteCategoria: ApetiteDeclarado;
+  /** Crítico frente à DAR do RADAR, com o apetite acima. */
   statusCritico: StatusCriticidadeDAR;
   estrategiaTratamento: EstrategiaTratamento;
   kriSugerido: string;
@@ -312,17 +314,33 @@ function normalizarEstrategia(texto: string): {
 }
 
 /**
- * Normaliza o apetite da categoria lido da tabela.
+ * Apetite de cada categoria na DAR do RADAR, pelo nome da categoria.
+ * Ex.: { Operacional: 'baixo', Legal: 'moderado' }
+ * Categoria que não está no mapa vale 'pendente_dar' (ainda sem DAR).
  */
-function normalizarApetite(
-  texto: string,
-  apetitePadrao: ApetiteDeclarado
-): ApetiteDeclarado {
-  const t = texto.trim().toLowerCase();
-  if (t === 'baixo') return 'baixo';
-  if (t === 'moderado') return 'moderado';
-  if (t.includes('pendente')) return 'pendente_dar';
-  return apetitePadrao;
+export type ApetitePorCategoria = Readonly<Record<string, ApetiteDeclarado>>;
+
+/**
+ * Monta o mapa de apetites a partir das categorias do RADAR (as da store).
+ * Ex.: apetitesDaDAR([{ nome: 'Operacional', apetiteDeclarado: 'baixo' }])
+ *   -> { Operacional: 'baixo' }
+ */
+export function apetitesDaDAR(
+  categorias: ReadonlyArray<{ nome: string; apetiteDeclarado: ApetiteDeclarado }>
+): ApetitePorCategoria {
+  return Object.fromEntries(categorias.map((c) => [c.nome, c.apetiteDeclarado]));
+}
+
+/**
+ * Apetite ATUAL da categoria na DAR do RADAR (contrato da FS-02, col. 13).
+ * O apetite escrito na col. 13 da tabela da skill NÃO entra no cálculo: quem
+ * decide se o risco é crítico é a DAR aprovada no RADAR.
+ * Ex.: apetiteNaDAR('Operacional', { operacional: 'baixo' }) -> 'baixo'
+ * Ex.: apetiteNaDAR('Legal', {})                             -> 'pendente_dar'
+ */
+function apetiteNaDAR(categoriaNome: string, apetites: ApetitePorCategoria): ApetiteDeclarado {
+  const chave = Object.keys(apetites).find((nome) => igualSemCaixa(nome, categoriaNome));
+  return chave ? apetites[chave] : 'pendente_dar';
 }
 
 /**
@@ -343,7 +361,9 @@ export function contarFormato(fichas: LinhaImportadaSkill[]): '16' | '18' | 'mis
  */
 export function importarTabelaMarkdownSkill(
   markdownBruto: string,
-  apetitePadrao: ApetiteDeclarado = 'pendente_dar'
+  // Apetite de cada categoria na DAR do RADAR (use `apetitesDaDAR(store.categorias)`).
+  // Sem o mapa, toda categoria vale 'pendente_dar' (o caso mais rígido).
+  apetitePorCategoria: ApetitePorCategoria = {}
 ): {
   fichas: LinhaImportadaSkill[];
   avisos: string[];
@@ -443,14 +463,22 @@ export function importarTabelaMarkdownSkill(
     const categoriaOficial = normalizarCategoriaImportada(nomeDaCategoria);
 
     if (!categoriaOficial) {
-      // Passa o texto original adiante: a regra do motor explica o erro
-      // (inclusive o da categoria mista "Operacional com interface de Integridade").
-      const rejeicao = validarRegraIntegridade({
-        categoriaNome: categoriaBruta,
-        testeIntegridadeAplicavel,
-        justificativaNaoIntegridade,
-      });
-      erros.push(`Linha ${codigoRadar}: ${rejeicao.erro ?? `Categoria inválida ("${categoriaBruta}").`}`);
+      // Duas mensagens, conforme o caso:
+      //   - categoria mista (ex.: "Operacional com interface de Integridade"):
+      //     a regra do motor explica que a Metodologia proíbe categorias mistas;
+      //   - qualquer outra (ex.: "Socioambiental"): não é do Quadro 2, e a
+      //     mensagem lista as 8 categorias oficiais.
+      const mensagemQuadro2 = `categoria inválida ("${categoriaBruta}"): não é uma das 8 categorias do Quadro 2. Use uma destas: ${CATEGORIAS_OFICIAIS_QUADRO_2.join('; ')}.`;
+      if (semAcento(categoriaBruta).includes('interface de integridade')) {
+        const rejeicao = validarRegraIntegridade({
+          categoriaNome: categoriaBruta,
+          testeIntegridadeAplicavel,
+          justificativaNaoIntegridade,
+        });
+        erros.push(`Linha ${codigoRadar}: ${rejeicao.erro ?? mensagemQuadro2}`);
+      } else {
+        erros.push(`Linha ${codigoRadar}: ${mensagemQuadro2}`);
+      }
       continue;
     }
 
@@ -508,7 +536,6 @@ export function importarTabelaMarkdownSkill(
     const iNum: NivelImpacto = leituraI.nivel;
     const controlesTexto = colunas[8] || 'Inexistente';
     const eficaciaTexto = colunas[9] || 'Inexistente (1,0)';
-    const apetiteTexto = colunas[12] || apetitePadrao;
     // Sem valor padrão: estratégia vazia é lida como vazia e gera aviso (RF-181).
     const estrategiaTexto = colunas[14] ?? '';
     // LAC-03: o importador NUNCA inventa KRI. Coluna vazia = sem KRI sugerido ('').
@@ -525,7 +552,9 @@ export function importarTabelaMarkdownSkill(
     const evidenciaLida =
       formatoColunas === 18 ? lerMarcadorEvidencia(colunas[8] ?? '') : lerEvidencia(controlesTexto);
     const possuiEvidencia = evidenciaLida ?? false;
-    const apetiteCategoria = normalizarApetite(apetiteTexto, apetitePadrao);
+    // Col. 13 (apetite escrito pela skill) é só informativa: vale o apetite da
+    // categoria na DAR do RADAR. Ex.: col. 13 "moderado", DAR "baixo" -> 'baixo'.
+    const apetiteCategoria = apetiteNaDAR(categoriaNome, apetitePorCategoria);
 
     // Recalcula sempre pelo Motor Matemático Oficial RADAR:
     const calculo = calcularRiscoCompletoRadar({

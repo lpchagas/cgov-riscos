@@ -30,8 +30,7 @@ import { RouterLink, useRouter } from 'vue-router';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useToast } from '../composables/useToast';
 import { traduzirErroBanco } from '../services/dados/errosBanco';
-import { importarTabelaMarkdownSkill, type LinhaImportadaSkill } from '../utils/importadorSkillMarkdown';
-import { avaliarCriticidadeDAR } from '../utils/calculadoraRiscoRadar';
+import { apetitesDaDAR, importarTabelaMarkdownSkill, type LinhaImportadaSkill } from '../utils/importadorSkillMarkdown';
 import { ROTULOS_CRITICIDADE, formatarNivel } from '../utils/rotulosInterface';
 import FormField from '../components/ui/FormField.vue';
 import BrMessage from '../components/govbr/BrMessage.vue';
@@ -108,7 +107,8 @@ function verPrevia(): void {
     return;
   }
   erroTexto.value = undefined;
-  previa.value = importarTabelaMarkdownSkill(texto.value);
+  // Mesmo apetite da DAR que a store usará ao gravar: prévia e gravação concordam.
+  previa.value = importarTabelaMarkdownSkill(texto.value, apetitesDaDAR(riscosStore.categorias));
   if (!previa.value.fichas.length && !previa.value.erros.length) {
     previa.value.erros.push('Nenhuma linha de risco encontrada. Confira se a tabela tem o cabeçalho de 18 colunas da skill (ou de 16, no formato antigo).');
   }
@@ -128,11 +128,12 @@ const textoFormato = computed(() => {
   }
 });
 
-/** Criticidade com o apetite ATUAL da categoria na DAR (o mesmo que valerá após importar). */
+/**
+ * Criticidade com o apetite ATUAL da categoria na DAR (o mesmo que valerá após importar).
+ * O importador já a calculou com `apetitesDaDAR(riscosStore.categorias)` em `verPrevia`.
+ */
 function criticidade(f: LinhaImportadaSkill) {
-  const nomeCategoria = f.categoriaNome.split(':')[0].trim().toLowerCase();
-  const apetite = riscosStore.categorias.find((c) => c.nome.toLowerCase() === nomeCategoria)?.apetiteDeclarado ?? 'pendente_dar';
-  return ROTULOS_CRITICIDADE[avaliarCriticidadeDAR(f.classificacaoResidual, apetite).statusCritico];
+  return ROTULOS_CRITICIDADE[f.statusCritico];
 }
 
 const colunas: ColunaTabela<LinhaImportadaSkill>[] = [

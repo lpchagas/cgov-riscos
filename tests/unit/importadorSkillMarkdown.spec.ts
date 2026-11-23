@@ -100,6 +100,23 @@ describe('Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4', () => 
     expect(r.fichas.map((f) => f.categoriaNome)).toEqual([...CATEGORIAS_OFICIAIS_QUADRO_2]);
   });
 
+  it('categoria desconhecida: diz que não é uma das 8 do Quadro 2 e lista as 8 (não fala em categoria mista)', () => {
+    const r = importarTabelaMarkdownSkill(tabelaComCategoria('RSC-X2', 'Socioambiental'));
+    expect(r.erros).toEqual([
+      `Linha RSC-X2: categoria inválida ("Socioambiental"): não é uma das 8 categorias do Quadro 2. Use uma destas: ${CATEGORIAS_OFICIAIS_QUADRO_2.join('; ')}.`,
+    ]);
+    expect(r.erros[0]).not.toContain('categorias mistas');
+  });
+
+  it.each(['Operacional com interface de Integridade', 'operacional com INTERFACE DE INTEGRIDADE'])(
+    'categoria mista "%s": mantém a mensagem da categoria mista',
+    (categoria) => {
+      const r = importarTabelaMarkdownSkill(tabelaComCategoria('RSC-X3', categoria));
+      expect(r.erros).toHaveLength(1);
+      expect(r.erros[0]).toContain('A Metodologia proíbe categorias mistas');
+    }
+  );
+
   it('recusa categoria fora do Quadro 2 (RF-172)', () => {
     const r = importarTabelaMarkdownSkill(tabelaComCategoria('RSC-X1', 'Socioambiental'));
     expect(r.erros).toHaveLength(1);
@@ -225,6 +242,47 @@ describe('Importador de Tabelas Markdown da Skill cgov-gestao-riscos-v4', () => 
     expect(r.fichas).toHaveLength(0);
     expect(r.erros).toHaveLength(1);
     expect(r.erros[0]).toContain('com DAR pendente');
+  });
+
+  // A criticidade usa o apetite da categoria na DAR do RADAR (contrato da FS-02,
+  // col. 13), nunca o apetite escrito na tabela da skill. Só o residual Médio
+  // depende do apetite: P=3, I=2 -> Quadro 7 [I=2][P=3] = 8 (Médio), sem controle.
+  it('DAR "baixo" vale mais que "moderado" da col. 13: Médio + Aceitar é recusado (LAC-13)', () => {
+    const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-09', 3, 2, 'moderado', 'Aceitar')].join('\n'), {
+      Operacional: 'baixo',
+    });
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros).toHaveLength(1);
+    expect(r.erros[0]).toContain('Linha R-09: risco crítico (residual 8, Médio, fora do apetite da DAR)');
+  });
+
+  it('tabela mais rígida que a DAR: col. 13 "baixo", DAR "moderado" -> Médio + Aceitar é aceito', () => {
+    const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-10', 3, 2, 'baixo', 'Aceitar')].join('\n'), {
+      operacional: 'moderado', // a busca pelo nome não liga para maiúsculas
+    });
+    expect(r.erros).toEqual([]);
+    expect(r.fichas).toHaveLength(1);
+    expect(r.fichas[0].apetiteCategoria).toBe('moderado');
+    expect(r.fichas[0].statusCritico).toBe('nao');
+    expect(r.fichas[0].memoriaCalculo).toContain('Crítico frente à DAR (moderado): NAO');
+    expect(r.avisos.filter((a) => a.includes('sem KRI completo'))).toEqual([]);
+  });
+
+  it('categoria sem DAR no RADAR: vale "pendente_dar", mesmo com "moderado" na col. 13', () => {
+    const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-11', 3, 2, 'moderado', 'Aceitar')].join('\n'), {
+      Legal: 'moderado',
+    });
+    expect(r.fichas).toHaveLength(0);
+    expect(r.erros[0]).toContain('com DAR pendente');
+  });
+
+  it('aviso de KRI segue a DAR: Médio com DAR "baixo" avisa, mesmo com "moderado" na col. 13', () => {
+    const r = importarTabelaMarkdownSkill([CABECALHO, linhaTrava('R-12', 3, 2, 'moderado', 'Mitigar')].join('\n'), {
+      Operacional: 'baixo',
+    });
+    expect(r.erros).toEqual([]);
+    expect(r.fichas[0].statusCritico).toBe('sim');
+    expect(r.avisos).toContain('Linha R-12: risco crítico sem KRI completo; complete o KRI na ficha antes do envio.');
   });
 
   it.each(['aceitar', ' Aceitar ', 'Aceitar o risco'])('recusa a grafia "%s" em linha crítica (LAC-13)', (g) => {

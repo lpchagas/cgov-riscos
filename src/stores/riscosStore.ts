@@ -65,7 +65,7 @@ import type {
 } from '../services/dados/tipos';
 import { fichaDaSkillParaSalvar, fichaParaSalvarDeRisco } from '../services/dados/conversores';
 import { ErroRadar, traduzirErroBanco } from '../services/dados/errosBanco';
-import { importarTabelaMarkdownSkill } from '../utils/importadorSkillMarkdown';
+import { apetitesDaDAR, importarTabelaMarkdownSkill } from '../utils/importadorSkillMarkdown';
 import { riscoCorrespondeAoTermo } from '../utils/filtrosRiscos';
 import { useAuthStore } from './authStore';
 
@@ -639,7 +639,7 @@ export const useRiscosStore = defineStore('riscos', () => {
    * Lê a tabela Markdown da skill `cgov-gestao-riscos-v4` e grava cada linha
    * como risco PRELIMINAR da CGOV no objeto escolhido. Uma linha recusada não
    * impede as outras: o motivo vai para `erros`.
-   * Ex.: { importados: 2, total: 3, avisos: [], erros: ['Linha 3 (RADAR-2026-009): Você não tem permissão…'], recusadas: [2] }
+   * Ex.: { importados: 2, total: 3, avisos: [], erros: ['Linha 5 (RSC-03): Você não tem permissão…'], recusadas: [2] }
    *
    * `recusadas` são as posições (0 = 1ª linha) das linhas que o RADAR recusou.
    * Para tentar de novo SÓ essas (sem duplicar as que já entraram), a tela
@@ -652,7 +652,8 @@ export const useRiscosStore = defineStore('riscos', () => {
     objetoId: string,
     somenteLinhas?: number[]
   ): Promise<{ importados: number; total: number; avisos: string[]; erros: string[]; recusadas: number[] }> {
-    const lido = importarTabelaMarkdownSkill(markdown);
+    // A criticidade (trava do "Aceitar" e aviso de KRI) usa o apetite ATUAL da DAR do RADAR.
+    const lido = importarTabelaMarkdownSkill(markdown, apetitesDaDAR(categorias.value));
     if (lido.erros.length > 0) {
       return { importados: 0, total: lido.fichas.length, avisos: lido.avisos, erros: lido.erros, recusadas: [] };
     }
@@ -667,7 +668,8 @@ export const useRiscosStore = defineStore('riscos', () => {
         const { id } = await fonte().salvarFicha(fichaDaSkillParaSalvar(item, categorias.value, objetoId));
         novos.push(id);
       } catch (e) {
-        erros.push(`Linha ${i + 1} (${item.codigoRadar}): ${comoErroRadar(e).message}`);
+        // Número da linha no TEXTO colado (o mesmo das mensagens da prévia), não a posição entre as aceitas.
+        erros.push(`Linha ${item.linhaTexto} (${item.codigoRadar}): ${comoErroRadar(e).message}`);
         recusadas.push(i);
       }
     }
