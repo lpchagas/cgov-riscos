@@ -30,7 +30,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(17);
+select plan(18);
 
 -- ----------------------------------------------------------------------------
 -- 0. Ajudantes
@@ -93,15 +93,21 @@ select is(pg_temp.posicao(regexp_replace(E'x\n-- FOR SHARE\ny', '--[^\n]*', '', 
           '1. o texto comentado sai antes da procura');
 
 -- ----------------------------------------------------------------------------
--- 2. Ligar (fn_kri_riscos_mesmo_objeto): trava o KRI, DEPOIS o risco, e só
+-- 2. Ligar (fn_kri_riscos_mesmo_objeto): trava o KRI (FOR SHARE), DEPOIS o
+--    risco (FOR NO KEY UPDATE), e só
 --    então compara os objetos
 -- ----------------------------------------------------------------------------
 -- Cada trava é um comando só ("SELECT ... FROM <tabela> ... FOR SHARE;"),
 -- então "[^;]*" não atravessa para outro comando.
 select ok(:'corpo_liga' ~ 'FROM public\.indicadores_kri AS k[^;]*FOR SHARE;',
           '2. a leitura do objeto do KRI trava a linha do KRI (FOR SHARE)');
-select ok(:'corpo_liga' ~ 'FROM public\.riscos +AS r[^;]*FOR SHARE;',
-          '2. a leitura do objeto do risco trava a linha do risco (FOR SHARE)');
+-- Risco com FOR NO KEY UPDATE (não FOR SHARE): o gatilho de reabertura, logo
+-- depois, pede FOR UPDATE no mesmo risco; com FOR SHARE, duas ligações
+-- simultâneas ao mesmo risco travariam uma à outra ao subir a trava.
+select ok(:'corpo_liga' ~ 'FROM public\.riscos +AS r[^;]*FOR NO KEY UPDATE;',
+          '2. a leitura do objeto do risco trava a linha do risco (FOR NO KEY UPDATE)');
+select is((select count(*)::int from regexp_matches(:'corpo_liga', 'FOR SHARE', 'g')), 1,
+          '2. só o KRI usa FOR SHARE (o risco não)');
 select ok(pg_temp.posicao(:'corpo_liga', 'public.indicadores_kri') < pg_temp.posicao(:'corpo_liga', 'public.riscos'),
           '2. ordem das travas: KRI ANTES do risco (evita impasse entre duas gravações)');
 select ok(pg_temp.posicao(:'corpo_liga', 'FOR SHARE') > 0
@@ -118,7 +124,7 @@ select ok(pg_temp.posicao(:'corpo_liga', 'IS DISTINCT FROM') >
 -- muda, os riscos ligados a ele também ficam travados (KRI → risco, a mesma
 -- ordem de cima). Quando é o risco que muda, o KRI NÃO é travado aqui (seria
 -- risco → KRI, a ordem invertida): basta a trava do próprio UPDATE no risco,
--- porque toda ligação nova trava o risco (FOR SHARE) antes de ler o objeto.
+-- porque toda ligação nova trava o risco (FOR NO KEY UPDATE) antes de ler o objeto.
 select ok(:'corpo_grupo' ~ 'FROM public\.riscos AS r[^;]*kri_id = NEW\.id[^;]*FOR SHARE;',
           '3. KRI mudando de objeto: os riscos ligados ficam travados (FOR SHARE)');
 select ok(pg_temp.posicao(:'corpo_grupo', 'FOR SHARE') > 0

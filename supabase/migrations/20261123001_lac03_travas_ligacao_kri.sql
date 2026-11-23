@@ -32,8 +32,8 @@
 -- A CORREÇÃO: TRAVAS DE LINHA ("SELECT ... FOR SHARE" / "FOR UPDATE"). Uma
 -- trava faz a 2ª transação ESPERAR a 1ª terminar; quando ela volta, o
 -- comando relê a linha já confirmada.
---   1) fn_kri_riscos_mesmo_objeto trava a linha do KRI e DEPOIS a do risco
---      (FOR SHARE) ao ler o objeto de cada um. O UPDATE que muda o objeto
+--   1) fn_kri_riscos_mesmo_objeto trava a linha do KRI (FOR SHARE) e DEPOIS
+--      a do risco (FOR NO KEY UPDATE) ao ler o objeto de cada um. O UPDATE que muda o objeto
 --      também trava a linha que muda; então ligar e mudar de objeto passam a
 --      acontecer um depois do outro, e o 2º vê o resultado do 1º:
 --      no caso (a), se Bruno confirmar primeiro, Ana espera e relê R-01 já em
@@ -48,20 +48,33 @@
 --      contar as ligações que sobraram. No caso (b), Bruno espera Ana; quando
 --      volta, a contagem já não vê a ligação de Ana → o KRI órfão é apagado.
 --
--- ORDEM DAS TRAVAS (para não criar impasse, o "deadlock"): sempre o KRI
--- ANTES do risco. Se uma transação travasse "KRI depois risco" e outra
--- "risco depois KRI", cada uma poderia ficar esperando a outra para sempre
--- (o PostgreSQL percebe e cancela uma delas com o erro 40P01). Por isso o
--- ramo "risco muda de objeto" do item 2 não trava o KRI. Se mesmo assim
--- acontecer um impasse raro (ex.: alguém apaga um risco enquanto outra
--- pessoa liga um KRI a ele), o banco cancela UMA das gravações inteira:
--- nada fica pela metade, e a pessoa só precisa gravar de novo.
+-- ORDEM DAS TRAVAS (o "deadlock", ou impasse): se uma transação trava
+-- "KRI depois risco" e outra "risco depois KRI", cada uma pode ficar
+-- esperando a outra para sempre; o PostgreSQL percebe e cancela uma delas
+-- com o erro 40P01. Os gatilhos DA LIGAÇÃO mantêm sempre a ordem KRI →
+-- risco (por isso o ramo "risco muda de objeto" do item 2 não trava o KRI).
+-- Mas outros caminhos podem travar na ordem contrária — salvar_ficha_risco
+-- (que grava o risco antes dos KRIs), o DELETE de um risco (que desliga os
+-- KRIs em cascata) e a edição da definição de um KRI (que reabre os riscos
+-- ligados). Então um impasse raro ainda pode acontecer (ex.: alguém apaga
+-- um risco enquanto outra pessoa liga um KRI a ele). Nesse caso o banco
+-- cancela UMA das gravações inteira: nada fica pela metade, e a pessoa só
+-- precisa gravar de novo.
 --
--- POR QUE FOR SHARE (e não "FOR KEY SHARE", a trava da chave estrangeira):
--- a FOR KEY SHARE não segura um UPDATE que muda só o objeto_id (que não é
--- chave), então não serializaria o caso (a). FOR SHARE segura qualquer
--- UPDATE da linha, mas deixa várias LEITURAS travadas ao mesmo tempo (duas
--- pessoas podem ligar KRIs ao mesmo risco juntas).
+-- QUAL TRAVA EM CADA LINHA:
+--   - KRI: FOR SHARE. A "FOR KEY SHARE" (a da chave estrangeira) não segura
+--     um UPDATE que muda só o objeto_id (que não é chave), então não
+--     serializaria o caso (a). FOR SHARE segura qualquer UPDATE da linha, mas
+--     deixa várias leituras ao mesmo tempo: duas pessoas podem ligar o MESMO
+--     KRI a riscos diferentes juntas.
+--   - Risco: FOR NO KEY UPDATE (e não FOR SHARE). O gatilho seguinte da
+--     ligação (trg_kri_riscos_trava_reabertura → fn_fluxo_aplicar_trava)
+--     trava o MESMO risco com FOR UPDATE. Com FOR SHARE, duas ligações
+--     simultâneas de KRIs diferentes ao mesmo risco seguravam as duas a
+--     trava compartilhada e travavam uma à outra ao tentar subi-la (40P01).
+--     FOR NO KEY UPDATE não convive consigo mesma: a 2ª ligação espera a 1ª
+--     terminar logo no começo, sem impasse. E ela continua segurando o UPDATE
+--     que muda o risco de objeto (que também pede FOR NO KEY UPDATE).
 --
 -- O QUE NÃO MUDA: as regras (mesma mensagem e mesmo código 23514; o órfão
 -- continua sendo apagado só na última ligação), os nomes e os gatilhos (só
@@ -77,6 +90,8 @@
 -- ----------------------------------------------------------------------------
 -- SECURITY DEFINER (como antes): lê o KRI e o risco sem depender da RLS de
 -- quem grava. Só devolve erro ou nada: não vaza dado.
+-- Ex.: Ana liga K1 a R-01 e Bruno liga K2 a R-01 ao mesmo tempo → Bruno
+--      espera Ana terminar (trava do risco) e depois segue normalmente.
 -- Ex.: KRI da FLONA de Caçador + risco da CT Curitiba → recusa (23514).
 CREATE OR REPLACE FUNCTION public.fn_kri_riscos_mesmo_objeto()
 RETURNS trigger
@@ -88,17 +103,21 @@ DECLARE
   v_objeto_kri   uuid;
   v_objeto_risco uuid;
 BEGIN
-  -- 1º o KRI, 2º o risco (a mesma ordem em todo lugar evita impasse).
-  -- FOR SHARE: se outra transação estiver mudando o objeto desta linha, este
-  -- comando espera ela terminar e lê o valor já confirmado.
+  -- 1º o KRI, 2º o risco (a mesma ordem nos gatilhos da ligação).
+  -- Se outra transação estiver mudando o objeto da linha, o comando espera
+  -- ela terminar e lê o valor já confirmado.
+  -- KRI: FOR SHARE (várias ligações do mesmo KRI podem andar juntas).
   SELECT k.objeto_id INTO v_objeto_kri
     FROM public.indicadores_kri AS k
    WHERE k.id = NEW.kri_id
      FOR SHARE;
+  -- Risco: FOR NO KEY UPDATE, uma trava que não convive consigo mesma: a 2ª
+  -- ligação ao mesmo risco espera aqui. O gatilho de reabertura, logo
+  -- depois, sobe a trava para FOR UPDATE sem disputa (ver o cabeçalho).
   SELECT r.objeto_id INTO v_objeto_risco
     FROM public.riscos AS r
    WHERE r.id = NEW.risco_id
-     FOR SHARE;
+     FOR NO KEY UPDATE;
   -- KRI ou risco inexistente: quem recusa é a chave estrangeira (23503).
   IF v_objeto_kri IS DISTINCT FROM v_objeto_risco
      AND v_objeto_kri IS NOT NULL AND v_objeto_risco IS NOT NULL THEN
@@ -144,7 +163,7 @@ BEGIN
   ELSE  -- riscos
     -- O KRI NÃO é travado aqui: o risco já está travado pelo UPDATE, e travar
     -- o KRI depois inverteria a ordem "KRI antes do risco". Não faz falta:
-    -- toda ligação nova trava este risco (seção 1) e, por isso, espera este
+    -- toda ligação nova trava este risco (seção 1, FOR NO KEY UPDATE) e, por isso, espera este
     -- UPDATE terminar e relê o objeto novo.
     PERFORM 1
        FROM public.kri_riscos AS l
