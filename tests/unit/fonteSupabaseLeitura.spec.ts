@@ -73,6 +73,33 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
     expect(carteira.riscos.find((r) => r.id === 'r0')!.controlesExistentes).toEqual([]);
   });
 
+  it('carregarCarteira lê kri_riscos e agrupa o mesmo KRI nos riscos ligados (LAC-03)', async () => {
+    const { cliente } = clienteFalso({
+      categorias_risco: [{ id: 2, nome: 'Operacional' }],
+      unidades: [{ id: 'u1', sigla: 'UC', nome: 'UC', tipo: 'uc' }],
+      objetos_contexto: [{ id: 'o1', nome_objeto: 'Obj', unidade_id: 'u1' }],
+      riscos: [
+        { id: 'r1', codigo_radar: 'RADAR-X-1', objeto_id: 'o1', categoria_id: 2 },
+        { id: 'r2', codigo_radar: 'RADAR-X-2', objeto_id: 'o1', categoria_id: 2 },
+        { id: 'r3', codigo_radar: 'RADAR-X-3', objeto_id: 'o1', categoria_id: 2 },
+      ],
+      indicadores_kri: [{ id: 'k1', objeto_id: 'o1', nome_indicador: 'KRI compartilhado', periodicidade: null }],
+      kri_riscos: [
+        { kri_id: 'k1', risco_id: 'r1' },
+        { kri_id: 'k1', risco_id: 'r2' },
+      ],
+      medicoes_kri: [{ id: 'm1', kri_id: 'k1', data_medicao: '2026-11-01', valor_apurado: '5%', em_alerta: false }],
+    });
+    const { riscos } = await criarFonteSupabase(cliente).carregarCarteira();
+    const por = (id: string) => riscos.find((r) => r.id === id)!;
+    expect(por('r1').kris.map((k) => k.id)).toEqual(['k1']);
+    expect(por('r2').kris.map((k) => k.id)).toEqual(['k1']);
+    expect(por('r3').kris).toEqual([]);
+    expect([...por('r1').kris[0].riscoIds].sort()).toEqual(['r1', 'r2']);
+    expect(por('r2').kris[0].medicoes).toHaveLength(1);
+    expect(por('r1').kris[0].periodicidade).toBeUndefined();
+  });
+
   it('acoesNoFluxo chama a RPC em lotes', async () => {
     const { cliente, chamadasRpc } = clienteFalso({});
     const ids = Array.from({ length: 2100 }, (_, i) => `id${i}`);

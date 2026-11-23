@@ -37,6 +37,7 @@ function fichaDaFixture() {
     controles: fixture.controles,
     respostas: fixture.respostas,
     kris: fixture.kris,
+    kriRiscos: fixture.kri_riscos,
     medicoes: fixture.medicoes,
     historico: fixture.historico,
   });
@@ -396,5 +397,84 @@ describe('fichaDaSkillParaSalvar (importação)', () => {
   it('acha a categoria sem diferença de maiúsculas', () => {
     const ficha = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal' }, categorias, 'obj-1');
     expect(ficha.categoriaId).toBe(4);
+  });
+  it('KRI sugerido vira só o nome do indicador, sem inventar outros campos (RF-183)', () => {
+    const ficha = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal', kriSugerido: 'X' }, categorias, 'obj-1');
+    expect(ficha.kris).toEqual([{ nomeIndicador: 'X' }]);
+  });
+
+  it('sem KRI sugerido, não cria KRI', () => {
+    const ficha = fichaDaSkillParaSalvar({ ...linha, categoriaNome: 'legal', kriSugerido: '' }, categorias, 'obj-1');
+    expect(ficha.kris).toEqual([]);
+  });
+});
+
+describe('KRI ligado a riscos (LAC-03)', () => {
+  const RISCO_A = fixture.risco.id;
+  const RISCO_B = 'e58bb8dd-ca88-4b6a-bc37-7fcfd0f72142';
+  const KRI = fixture.kris[0].id;
+
+  it('um KRI ligado a dois riscos aparece nos dois, com o mesmo id e os dois riscoIds', () => {
+    const kriRiscos = [
+      { kri_id: KRI, risco_id: RISCO_A },
+      { kri_id: KRI, risco_id: RISCO_B },
+    ];
+    const a = riscoDoBanco(fixture.risco, { kris: fixture.kris, kriRiscos, medicoes: fixture.medicoes });
+    const b = riscoDoBanco({ ...fixture.risco, id: RISCO_B }, { kris: fixture.kris, kriRiscos, medicoes: fixture.medicoes });
+    for (const ficha of [a, b]) {
+      expect(ficha.kris).toHaveLength(1);
+      expect(ficha.kris[0].id).toBe(KRI);
+      expect([...ficha.kris[0].riscoIds].sort()).toEqual([RISCO_A, RISCO_B]);
+      expect(ficha.kris[0].objetoId).toBe(fixture.kris[0].objeto_id);
+    }
+  });
+
+  it('KRI não ligado ao risco não entra na ficha dele', () => {
+    const f = riscoDoBanco(fixture.risco, { kris: fixture.kris, kriRiscos: [], medicoes: [] });
+    expect(f.kris).toEqual([]);
+  });
+
+  it('NULL do banco vira undefined (nada de texto vazio nem periodicidade inventada)', () => {
+    const kri = {
+      ...fixture.kris[0],
+      formula_calculo: null,
+      fonte_dados: null,
+      periodicidade: null,
+      meta_alvo: null,
+      limite_alerta: null,
+      responsavel_medicao: null,
+    };
+    const f = riscoDoBanco(fixture.risco, { kris: [kri], kriRiscos: fixture.kri_riscos, medicoes: [] });
+    const k = f.kris[0];
+    expect(k.nomeIndicador).toBe(fixture.kris[0].nome_indicador);
+    expect(k.formulaCalculo).toBeUndefined();
+    expect(k.fonteDados).toBeUndefined();
+    expect(k.periodicidade).toBeUndefined();
+    expect(k.metaAlvo).toBeUndefined();
+    expect(k.limiteAlerta).toBeUndefined();
+    expect(k.responsavelMedicao).toBeUndefined();
+  });
+
+  it('fichaParaJson: apenasLigar vai como { id, apenasLigar: true } (booleano)', () => {
+    const json = fichaParaJson({ objetoId: 'o1', kris: [{ id: KRI, nomeIndicador: 'X', apenasLigar: true }] });
+    expect(json.kris).toEqual([{ id: KRI, apenasLigar: true }]);
+  });
+
+  it('fichaParaJson: KRI novo com campos vazios manda null, nunca "A definir"', () => {
+    const json = fichaParaJson({
+      objetoId: 'o1',
+      kris: [{ nomeIndicador: 'X', formulaCalculo: '  ', limiteAlerta: undefined }],
+    });
+    expect(json.kris).toEqual([
+      {
+        nome_indicador: 'X',
+        formula_calculo: null,
+        fonte_dados: null,
+        periodicidade: null,
+        meta_alvo: null,
+        limite_alerta: null,
+        responsavel_medicao: null,
+      },
+    ]);
   });
 });

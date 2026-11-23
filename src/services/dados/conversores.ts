@@ -181,19 +181,31 @@ function medicaoDoBanco(l: LinhaBanco): MedicaoKri {
   };
 }
 
-function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], objetoId: string, riscoId: string): IndicadorKri {
+/**
+ * Linha de `indicadores_kri` -> `IndicadorKri`.
+ *
+ * LAC-03: o KRI é do OBJETO (`objeto_id`) e pode servir a vários riscos do mesmo
+ * objeto (tabela `kri_riscos`); `riscoIds` traz TODOS os riscos ligados.
+ * Os campos de texto e a periodicidade aceitam NULL no banco: aqui NULL (ou texto
+ * vazio) vira `undefined`, nunca "" nem uma periodicidade inventada.
+ * Ex.: { limite_alerta: null } -> limiteAlerta: undefined
+ */
+function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], riscoIds: string[]): IndicadorKri {
+  const opcional = (v: unknown): string | undefined => {
+    const t = textoOpcional(v);
+    return t === undefined || t === '' ? undefined : t;
+  };
   return {
     id: texto(l.id),
-    // Por ora o KRI pertence ao risco da linha (a ligação N:N vem nas Tarefas 4 e 5 da LAC-03).
-    objetoId,
-    riscoIds: [riscoId],
+    objetoId: texto(l.objeto_id),
+    riscoIds,
     nomeIndicador: texto(l.nome_indicador),
-    formulaCalculo: texto(l.formula_calculo),
-    fonteDados: texto(l.fonte_dados),
-    periodicidade: texto(l.periodicidade) as IndicadorKri['periodicidade'],
-    metaAlvo: texto(l.meta_alvo),
-    limiteAlerta: texto(l.limite_alerta),
-    responsavelMedicao: texto(l.responsavel_medicao),
+    formulaCalculo: opcional(l.formula_calculo),
+    fonteDados: opcional(l.fonte_dados),
+    periodicidade: opcional(l.periodicidade) as IndicadorKri['periodicidade'],
+    metaAlvo: opcional(l.meta_alvo),
+    limiteAlerta: opcional(l.limite_alerta),
+    responsavelMedicao: opcional(l.responsavel_medicao),
     // Só as medições DESTE KRI, da mais recente para a mais antiga.
     medicoes: medicoes
       .filter((m) => texto(m.kri_id) === texto(l.id))
@@ -247,7 +259,10 @@ export interface FilhosRiscoBanco {
   categoria?: CategoriaRisco | null;
   controles?: LinhaBanco[];
   respostas?: LinhaBanco[];
+  /** KRIs (linhas de `indicadores_kri`) que podem ser deste risco; quem decide é `kriRiscos`. */
   kris?: LinhaBanco[];
+  /** Ligações KRI <-> risco (`kri_riscos`): de TODOS os riscos dos KRIs, para montar `riscoIds`. */
+  kriRiscos?: LinhaBanco[];
   /** Medições de qualquer KRI deste risco (agrupadas por `kri_id`). */
   medicoes?: LinhaBanco[];
   historico?: LinhaBanco[];
@@ -274,6 +289,23 @@ function memoriaDosValoresGravados(f: Omit<FichaRisco, 'memoriaCalculo'>, apetit
 export function riscoDoBanco(l: LinhaBanco, filhos: FilhosRiscoBanco): FichaRisco {
   const id = texto(l.id);
   const doRisco = (linhas?: LinhaBanco[]) => (linhas ?? []).filter((x) => x.risco_id === undefined || texto(x.risco_id) === id);
+
+  // KRIs ligados a ESTE risco (via `kri_riscos`). O mesmo KRI aparece em cada risco ligado,
+  // com o mesmo id e a lista completa de riscos (`riscoIds`).
+  const ligacoes = filhos.kriRiscos ?? [];
+  const idsDosKrisDoRisco = new Set(ligacoes.filter((x) => texto(x.risco_id) === id).map((x) => texto(x.kri_id)));
+  const krisDoRisco = (filhos.kris ?? [])
+    .filter((k) => idsDosKrisDoRisco.has(texto(k.id)))
+    .map((k) =>
+      kriDoBanco(
+        k,
+        filhos.medicoes ?? [],
+        ligacoes
+          .filter((x) => texto(x.kri_id) === texto(k.id))
+          .map((x) => texto(x.risco_id))
+          .sort(),
+      ),
+    );
 
   const base: Omit<FichaRisco, 'memoriaCalculo'> = {
     id,
@@ -317,7 +349,7 @@ export function riscoDoBanco(l: LinhaBanco, filhos: FilhosRiscoBanco): FichaRisc
 
     controlesExistentes: doRisco(filhos.controles).map(controleDoBanco),
     respostasTratamento: doRisco(filhos.respostas).map(respostaDoBanco),
-    kris: doRisco(filhos.kris).map((k) => kriDoBanco(k, filhos.medicoes ?? [], texto(l.objeto_id), id)),
+    kris: krisDoRisco,
     historicoFluxo: [...doRisco(filhos.historico)].sort(compararHistorico).map(historicoDoBanco),
   };
 
@@ -486,16 +518,21 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
   }
 
   if (f.kris !== undefined) {
+    // Vazio ou só espaços vira null: o banco guarda "sem valor" (nunca "A definir").
+    const ouNulo = (v: string | undefined) => (v && v.trim() ? v : null);
     json.kris = f.kris.map((k) => {
+      // KRI já definido neste objeto, só ligado a este risco: vai só { id, apenasLigar: true }
+      // (booleano de verdade, não texto; o banco recusa "true" entre aspas).
+      if (k.apenasLigar === true && k.id) return { id: k.id, apenasLigar: true };
       const item: Record<string, unknown> = {};
       copiarSeDefinido(item, 'id', k.id);
       item.nome_indicador = k.nomeIndicador;
-      item.formula_calculo = k.formulaCalculo;
-      item.fonte_dados = k.fonteDados;
-      item.periodicidade = k.periodicidade;
-      item.meta_alvo = k.metaAlvo;
-      item.limite_alerta = k.limiteAlerta;
-      item.responsavel_medicao = k.responsavelMedicao;
+      item.formula_calculo = ouNulo(k.formulaCalculo);
+      item.fonte_dados = ouNulo(k.fonteDados);
+      item.periodicidade = ouNulo(k.periodicidade);
+      item.meta_alvo = ouNulo(k.metaAlvo);
+      item.limite_alerta = ouNulo(k.limiteAlerta);
+      item.responsavel_medicao = ouNulo(k.responsavelMedicao);
       return item; // medições ficam de fora (são do Monitoramento)
     });
   }
@@ -546,8 +583,12 @@ export function fichaParaSalvarDeRisco(r: FichaRisco): FichaParaSalvar {
       localOnde: vazioViraNulo(x.localOnde),
       custoQuanto: vazioViraNulo(x.custoQuanto),
     })),
-    // Tira as medições: elas não passam pela gravação da ficha.
-    kris: r.kris.map(({ medicoes: _medicoes, ...k }) => ({ ...k, id: k.id || undefined })),
+    // Tira as medições (não passam pela gravação da ficha) e a ligação (objetoId/riscoIds:
+    // quem liga é a própria ficha). O KRI com id segue como "editar a definição".
+    kris: r.kris.map(({ medicoes: _medicoes, objetoId: _objetoId, riscoIds: _riscoIds, ...k }) => ({
+      ...k,
+      id: k.id || undefined,
+    })),
   };
 }
 
@@ -605,18 +646,8 @@ export function fichaDaSkillParaSalvar(
           },
         ]
       : [],
-    kris: item.kriSugerido
-      ? [
-          {
-            nomeIndicador: item.kriSugerido,
-            formulaCalculo: 'Definido preliminarmente via skill CGOV',
-            fonteDados: 'SEI / Sistema Setorial',
-            periodicidade: 'Trimestral',
-            metaAlvo: '100%',
-            limiteAlerta: '< 80%',
-            responsavelMedicao: responsavelNome,
-          },
-        ]
-      : [],
+    // LAC-03: só o NOME do KRI sugerido. Nenhum outro valor é inventado: a unidade completa
+    // fórmula, fonte, periodicidade, limite e responsável na ficha (o risco crítico exige KRI completo).
+    kris: item.kriSugerido ? [{ nomeIndicador: item.kriSugerido }] : [],
   };
 }
