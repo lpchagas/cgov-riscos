@@ -56,6 +56,9 @@ CREATE TRIGGER trg_auditoria_feriados
 -- Semente 2026–2027. Fixos de cada ano: 1/1, 21/4, 1/5, 7/9, 12/10, 2/11,
 -- 15/11, 20/11 e 25/12. Móveis (Carnaval segunda e terça, Sexta-feira da
 -- Paixão e Corpus Christi) entram ano a ano.
+-- ATENÇÃO: a semente cobre só 2026 e 2027. A partir de 2028 a CGOV precisa
+-- cadastrar os feriados em public.feriados (a CGOV tem permissão de gravar);
+-- sem isso, o prazo de 10 dias úteis conta feriado como dia útil.
 INSERT INTO public.feriados (data, nome) VALUES
   ('2026-01-01', 'Confraternização Universal'),
   ('2026-02-16', 'Carnaval (segunda-feira)'),
@@ -229,19 +232,30 @@ AS $$
                  '^(abaixo de|acima de|menor que|maior que)\s+(\d+(?:[.,]\d+)?)\s*(%|[[:alpha:]]{3,})?$')
              ) AS m
     ) x
-   WHERE m IS NOT NULL;
+   -- F4: número com '.' ou ',' seguido de EXATAMENTE 3 dígitos ('1.000',
+   -- '2,500') é ambíguo: pode ser milhar (mil) ou decimal. Fica a converter.
+   -- Ex.: '1.000' como decimal seria 1; como milhar, 1000. Não adivinhamos.
+   -- '2,5', '10.5' e '70' continuam valendo.
+   -- (O front repete esta regra em TypeScript.)
+   WHERE m IS NOT NULL
+     AND m[2] !~ '[.,]\d{3}$';
 $$;
 
 -- fn_numero_de_texto(t): número de uma leitura antiga em texto, SÓ quando o
 -- texto é apenas um número com % opcional ('12,5%' -> 12.5; '80' -> 80).
 -- 'cerca de 80' e '12 dias' ficam sem número (nulo).
+-- F4: '1.000' e '2,500' (ponto ou vírgula + exatamente 3 dígitos) são ambíguos
+-- (milhar ou decimal?) e também ficam sem número.
 CREATE FUNCTION public.fn_numero_de_texto(t text)
 RETURNS numeric
 LANGUAGE sql
 IMMUTABLE
 SET search_path = ''
 AS $$
-  SELECT replace((regexp_match(t, '^\s*(\d+(?:[.,]\d+)?)\s*%?\s*$'))[1], ',', '.')::numeric;
+  SELECT replace(x.n, ',', '.')::numeric
+    FROM (SELECT (regexp_match(t, '^\s*(\d+(?:[.,]\d+)?)\s*%?\s*$'))[1] AS n) x
+   WHERE x.n IS NOT NULL
+     AND x.n !~ '[.,]\d{3}$';
 $$;
 
 -- fn_converter_limites_existentes(): aplica a conversão nos KRIs que têm texto
@@ -313,6 +327,38 @@ UPDATE public.medicoes_kri
    SET valor_numerico = public.fn_numero_de_texto(valor_apurado)
  WHERE valor_numerico IS NULL
    AND public.fn_numero_de_texto(valor_apurado) IS NOT NULL;
+
+-- F2. Texto do limite mudou, números não: reconverte. A ficha atual (front)
+-- só envia o texto `limite_alerta`; sem este gatilho, trocar '> 10%' por '> 20%'
+-- deixaria o número antigo (10) valendo e o alerta compararia com o limite velho.
+-- Regra: se limite_alerta mudou e operador/valor NÃO mudaram no mesmo UPDATE,
+-- os três campos numéricos são refeitos pela mesma conversão da migração.
+-- Texto ambíguo ('Entre 5 e 10') deixa os numéricos nulos ("a converter").
+-- Se o UPDATE traz números novos (mudou operador ou valor), eles valem.
+-- SECURITY INVOKER (padrão): a função de conversão é só leitura de texto.
+CREATE FUNCTION public.fn_kri_reconverte_limite()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.limite_alerta IS DISTINCT FROM OLD.limite_alerta
+     AND NEW.limite_operador IS NOT DISTINCT FROM OLD.limite_operador
+     AND NEW.limite_valor    IS NOT DISTINCT FROM OLD.limite_valor THEN
+    SELECT c.operador, c.valor, c.unidade
+      INTO NEW.limite_operador, NEW.limite_valor, NEW.limite_unidade
+      FROM (SELECT 1) AS um
+      LEFT JOIN public.fn_converter_limite_texto(NEW.limite_alerta) AS c ON true;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_kri_reconverte_limite() FROM public, anon, authenticated;
+
+CREATE TRIGGER trg_kri_reconverte_limite
+  BEFORE UPDATE OF limite_alerta ON public.indicadores_kri
+  FOR EACH ROW EXECUTE FUNCTION public.fn_kri_reconverte_limite();
 
 -- fn_kri_completo: igual à da migração 20261122004, MUDANDO só o limite. Ele
 -- conta como preenchido com (operador E valor) OU o texto antigo: assim nenhum
@@ -445,6 +491,44 @@ CREATE TRIGGER trg_medicao_abre_alerta
   AFTER INSERT ON public.medicoes_kri
   FOR EACH ROW EXECUTE FUNCTION public.fn_medicao_abre_alerta();
 
+-- F3. O em_alerta também é recalculado no UPDATE (corrigir o número, trocar o
+-- KRI). Então o alerta também abre quando a leitura PASSA a estar em alerta:
+-- em_alerta foi de false para true, ou a leitura foi para outro KRI e está em
+-- alerta lá. Mesma função e mesmo ON CONFLICT DO NOTHING. (WHEN em vez de
+-- UPDATE OF, porque quem muda em_alerta é o gatilho BEFORE, não o comando.)
+-- Corrigir a leitura para dentro do limite NÃO encerra o alerta: encerrar é só
+-- pela comunicação à CGOV.
+CREATE TRIGGER trg_medicao_abre_alerta_update
+  AFTER UPDATE ON public.medicoes_kri
+  FOR EACH ROW
+  WHEN (NEW.em_alerta
+        AND (OLD.em_alerta IS DISTINCT FROM NEW.em_alerta
+             OR OLD.kri_id IS DISTINCT FROM NEW.kri_id))
+  EXECUTE FUNCTION public.fn_medicao_abre_alerta();
+
+-- F3. A leitura que abriu um alerta não muda de KRI (o alerta é prova do prazo
+-- daquele KRI). Mensagem clara em pt-BR em vez de deixar o alerta torto.
+CREATE FUNCTION public.fn_medicao_trava_troca_kri()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.kri_id IS DISTINCT FROM OLD.kri_id
+     AND EXISTS (SELECT 1 FROM public.alertas_kri a WHERE a.medicao_id = OLD.id) THEN
+    RAISE EXCEPTION 'Esta leitura abriu um alerta do KRI e não pode mudar de KRI';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_medicao_trava_troca_kri() FROM public, anon, authenticated;
+
+CREATE TRIGGER trg_medicao_trava_troca_kri
+  BEFORE UPDATE OF kri_id ON public.medicoes_kri
+  FOR EACH ROW EXECUTE FUNCTION public.fn_medicao_trava_troca_kri();
+
 -- Travas de exclusão (mensagem clara em vez do erro técnico de chave estrangeira):
 --  (a) a leitura que ABRIU um alerta não pode ser apagada, porque o alerta é
 --      a prova do prazo; o que se corrige é a leitura nova, não a antiga;
@@ -497,7 +581,8 @@ REVOKE EXECUTE ON FUNCTION public.fn_kri_protege_alerta_comunicado()  FROM publi
 
 -- alertas_kri_situacao: o alerta + o prazo em dias úteis.
 --   vence_em           = ciência + 10 dias úteis;
---   dia_atual          = dias úteis desde a ciência (teto 99, para a tela);
+--   dia_atual          = dias úteis da ciência até o encerramento (ou até hoje, se
+--                        aberto; teto 99, para a tela);
 --   vencido            = só vale para alerta ABERTO e com mais de 10 dias úteis;
 --   dias_uteis_vencido = dias úteis além dos 10 (0 se encerrado ou no prazo).
 -- security_invoker: a visão obedece à RLS de quem consulta (gestor de outra
@@ -512,7 +597,7 @@ SELECT a.*,
          AS dias_uteis_vencido
   FROM public.alertas_kri a
  CROSS JOIN LATERAL (
-   SELECT least(public.fn_dias_uteis_entre(a.ciencia_em, public.fn_hoje()), 99) AS dia_atual
+   SELECT least(public.fn_dias_uteis_entre(a.ciencia_em, coalesce(a.encerrado_em, public.fn_hoje())), 99) AS dia_atual
  ) d;
 
 REVOKE ALL ON public.alertas_kri_situacao FROM anon, authenticated;
@@ -952,3 +1037,97 @@ COMMENT ON FUNCTION public.salvar_ficha_risco(jsonb) IS
 
 REVOKE EXECUTE ON FUNCTION public.salvar_ficha_risco(jsonb) FROM public, anon;
 GRANT  EXECUTE ON FUNCTION public.salvar_ficha_risco(jsonb) TO authenticated;
+
+-- ============================================================================
+-- SEÇÃO 6 — Correções da revisão de fim da Fase 1
+-- ============================================================================
+
+-- F5. KRI órfão com alerta comunicado NÃO é apagado.
+-- Definição vigente: migração 20261123001 (fn_kri_riscos_apaga_orfao). Só muda
+-- o DELETE: acrescenta "não tem alerta comunicado". Sem isso, desligar da ficha
+-- um KRI órfão com alerta já comunicado à CGOV disparava o gatilho
+-- fn_kri_protege_alerta_comunicado, que aborta o salvar_ficha_risco inteiro.
+-- Decisão D-4 do responsável: o KRI fica guardado como prova da comunicação.
+CREATE OR REPLACE FUNCTION public.fn_kri_riscos_apaga_orfao()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  -- FOR UPDATE: só uma remoção de cada vez conta as ligações deste KRI.
+  -- (Se o KRI já foi apagado nesta mesma transação — cascata do DELETE do
+  -- próprio KRI —, não há linha a travar e o DELETE abaixo não acha nada.)
+  PERFORM 1
+     FROM public.indicadores_kri AS k
+    WHERE k.id = OLD.kri_id
+      FOR UPDATE;
+  DELETE FROM public.indicadores_kri AS k
+   WHERE k.id = OLD.kri_id
+     AND NOT EXISTS (SELECT 1 FROM public.kri_riscos AS l WHERE l.kri_id = OLD.kri_id)
+     -- F5: KRI com alerta já comunicado à CGOV fica guardado (prova).
+     AND NOT EXISTS (SELECT 1 FROM public.alertas_kri AS a
+                      WHERE a.kri_id = OLD.kri_id AND a.comunicacao_id IS NOT NULL);
+  RETURN NULL;   -- gatilho AFTER: o valor de retorno é ignorado
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_kri_riscos_apaga_orfao() FROM public, anon, authenticated;
+
+-- F9. Auditoria de alertas_kri com o objeto do KRI.
+-- Definição vigente: migração 20261122004 (fn_registrar_auditoria). Só muda: o
+-- ramo novo para alertas_kri, que busca o objeto_id no KRI (como medicoes_kri).
+-- (comunicacoes_cgov e comunicacoes_riscos não têm objeto de gestão de riscos:
+-- pertencem a uma unidade; por isso o objeto_id delas continua nulo.)
+CREATE OR REPLACE FUNCTION public.fn_registrar_auditoria()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_linha  jsonb;   -- a ficha (NEW em INSERT/UPDATE; OLD em DELETE)
+  v_id     uuid;
+  v_objeto uuid;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    v_linha := to_jsonb(OLD);
+  ELSE
+    v_linha := to_jsonb(NEW);
+  END IF;
+
+  -- categorias_risco tem id numérico: não cabe em registro_id (uuid).
+  -- kri_riscos não tem id (a chave é o par kri_id + risco_id).
+  IF TG_TABLE_NAME IN ('categorias_risco', 'kri_riscos') THEN
+    v_id := NULL;
+  ELSE
+    v_id := (v_linha ->> 'id')::uuid;
+  END IF;
+
+  -- Descobre o objeto de contexto. Se a consulta não achar nada, fica NULL.
+  IF TG_TABLE_NAME = 'objetos_contexto' THEN
+    v_objeto := v_id;
+  ELSIF TG_TABLE_NAME IN ('riscos', 'indicadores_kri') THEN
+    v_objeto := (v_linha ->> 'objeto_id')::uuid;
+  ELSIF TG_TABLE_NAME IN ('controles_existentes', 'respostas_tratamento', 'kri_riscos') THEN
+    SELECT r.objeto_id INTO v_objeto
+      FROM public.riscos AS r
+     WHERE r.id = (v_linha ->> 'risco_id')::uuid;
+  ELSIF TG_TABLE_NAME IN ('medicoes_kri', 'alertas_kri') THEN   -- F9: alertas_kri junto
+    SELECT k.objeto_id INTO v_objeto
+      FROM public.indicadores_kri AS k
+     WHERE k.id = (v_linha ->> 'kri_id')::uuid;
+  END IF;
+
+  INSERT INTO public.auditoria_log
+    (tabela_afetada, registro_id, operacao, objeto_id, usuario_id, dados_anteriores, dados_novos)
+  VALUES
+    (TG_TABLE_NAME, v_id, TG_OP, v_objeto, auth.uid(),
+     CASE WHEN TG_OP = 'INSERT' THEN NULL ELSE to_jsonb(OLD) END,
+     CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE to_jsonb(NEW) END);
+
+  RETURN NULL;   -- gatilho AFTER: o valor de retorno é ignorado
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_registrar_auditoria() FROM public, anon, authenticated;

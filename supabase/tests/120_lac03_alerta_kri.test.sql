@@ -8,7 +8,8 @@
 --   Seção 1: feriados e dias úteis;
 --   Seção 2: limite e leitura numéricos, com conversão do texto antigo;
 --   Seção 3: o banco calcula o alerta e abre o prazo de 10 dias úteis;
---   Seção 4: a ficha do risco (salvar_ficha_risco) grava o limite numérico.
+--   Seção 4: a ficha do risco (salvar_ficha_risco) grava o limite numérico;
+--   Seção 6: correções da revisão de fim da Fase 1.
 -- Pré-requisito: `npm run db:reset`. Tudo é desfeito no final (rollback).
 -- ============================================================================
 
@@ -16,7 +17,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(118);
+select plan(134);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -489,6 +490,71 @@ select lives_ok(format($$delete from public.indicadores_kri where id = %L$$, :'k
                 '5. apagar o KRI com alerta não comunicado funciona (cascata)');
 select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 0,
           '5. os alertas do KRI apagado saíram junto');
+
+-- ============================================================================
+-- SEÇÃO 6 — Correções da revisão de fim da Fase 1
+-- ============================================================================
+select pg_temp.sair();
+
+-- F2. Mudar só o texto do limite reconverte os números (senão o número ficaria velho).
+select pg_temp.kri_lim('T6 KRI texto muda', '>', 10) as k6 \gset
+update public.indicadores_kri set limite_alerta = '> 10%' where id = :'k6';
+update public.indicadores_kri set limite_alerta = '> 20%' where id = :'k6';
+select is((select limite_operador || '|' || limite_valor::text || '|' || limite_unidade
+             from public.indicadores_kri where id = :'k6'),
+          '>|20|%', '6. F2: mudar só o texto para "> 20%" reconverte o número para 20');
+update public.indicadores_kri set limite_alerta = 'Entre 5 e 10' where id = :'k6';
+select is((select limite_operador is null and limite_valor is null and limite_unidade is null
+             from public.indicadores_kri where id = :'k6'),
+          true, '6. F2: texto ambíguo deixa os números nulos ("a converter")');
+update public.indicadores_kri set limite_alerta = 'texto livre', limite_operador = '<', limite_valor = 3
+ where id = :'k6';
+select is((select limite_operador || '|' || limite_valor::text from public.indicadores_kri where id = :'k6'),
+          '<|3', '6. F2: números enviados junto com o texto não são sobrescritos');
+
+-- F3. Alerta abre também quando o UPDATE leva a leitura para dentro do alerta.
+select pg_temp.kri_lim('T6 KRI abre no update', '>', 10) as k6b \gset
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico)
+values ('00000000-0000-4000-c000-0000000000f1', :'k6b', '5%', 5);
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k6b'), 0,
+          '6. F3: leitura 5 em "> 10" não abre alerta');
+update public.medicoes_kri set valor_numerico = 15 where id = '00000000-0000-4000-c000-0000000000f1';
+select is((select medicao_id from public.alertas_kri where kri_id = :'k6b' and encerrado_em is null),
+          '00000000-0000-4000-c000-0000000000f1'::uuid,
+          '6. F3: corrigir a leitura para 15 (UPDATE) abre o alerta');
+select throws_ok($$update public.medicoes_kri set kri_id = (select id from public.indicadores_kri
+                    where nome_indicador = 'T3 KRI maior que 10')
+                    where id = '00000000-0000-4000-c000-0000000000f1'$$,
+                 'P0001', 'Esta leitura abriu um alerta do KRI e não pode mudar de KRI',
+                 '6. F3: a leitura que abriu o alerta não muda de KRI');
+update public.medicoes_kri set valor_numerico = 5 where id = '00000000-0000-4000-c000-0000000000f1';
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k6b' and encerrado_em is null), 1,
+          '6. F3: corrigir a leitura para dentro do limite não encerra o alerta');
+
+-- F4. Separador de milhar é ambíguo: fica "a converter".
+select is((select count(*)::int from public.fn_converter_limite_texto('> 1.000 hectares')), 0,
+          '6. F4: "> 1.000 hectares" (milhar ou decimal?) fica a converter');
+select is((select count(*)::int from public.fn_converter_limite_texto('< 1,000')), 0,
+          '6. F4: "< 1,000" fica a converter');
+select is(public.fn_numero_de_texto('1.500'), null::numeric, '6. F4: leitura "1.500" fica sem número');
+select is(public.fn_numero_de_texto('1.500%'), null::numeric, '6. F4: leitura "1.500%" fica sem número');
+select is(pg_temp.conv('> 2,5 dias'), '>|2.5|dias', '6. F4: "2,5" continua convertendo');
+select is(pg_temp.conv('> 10.5'), '>|10.5|', '6. F4: "10.5" continua convertendo');
+select is(public.fn_numero_de_texto('70'), 70::numeric, '6. F4: leitura "70" continua válida');
+
+-- F8. Alerta encerrado para de contar dias.
+update public.alertas_kri set ciencia_em = date '2020-01-06', encerrado_em = date '2020-03-02'
+ where kri_id = :'k6b';
+select is((select dia_atual from public.alertas_kri_situacao where kri_id = :'k6b'),
+          least(public.fn_dias_uteis_entre(date '2020-01-06', date '2020-03-02'), 99),
+          '6. F8: dia_atual de alerta encerrado conta até o encerramento');
+
+-- F9. A auditoria do alerta carrega o objeto do KRI.
+select is((select objeto_id from public.auditoria_log
+            where tabela_afetada = 'alertas_kri' and operacao = 'INSERT'
+              and dados_novos->>'kri_id' = :'k6b'),
+          '00000000-0000-4000-b000-000000000001'::uuid,
+          '6. F9: a linha de auditoria da abertura do alerta tem o objeto_id do KRI');
 
 select * from finish();
 rollback;

@@ -17,7 +17,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(118);
+select plan(122);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -611,6 +611,40 @@ select is((select count(*)::int from public.auditoria_log
             where tabela_afetada = 'alertas_kri' and operacao = 'UPDATE'
               and registro_id = :'al1' and dados_novos->>'comunicacao_id' = :'c_al1'), 1,
           '8. o encerramento do alerta foi auditado');
+
+-- ----------------------------------------------------------------------------
+-- 11. F5: desligar da ficha um KRI órfão com alerta comunicado
+-- ----------------------------------------------------------------------------
+-- O KRI que fica sem ligação costuma ser apagado. Se ele tem alerta já
+-- comunicado à CGOV, fica guardado como prova (D-4) e a ficha salva normalmente.
+select pg_temp.sair();
+insert into public.riscos
+  (codigo_radar, objeto_id, responsavel_risco_nome, causas, evento_risco, consequencias,
+   objetivo_afetado, descricao_padrao, categoria_id, probabilidade, impacto,
+   nivel_inerente, classificacao_inerente, nivel_residual, classificacao_residual, status_fluxo)
+values ('T121-R5', :'obj_a', 'Responsável de demonstração', 'causa', 'evento', 'consequência',
+        'objetivo', 'x', 2, 1, 1, 0, 'Baixo', 0, 'Baixo', 'rascunho');
+select id as r5 from public.riscos where codigo_radar = 'T121-R5' \gset
+select pg_temp.kri_alerta('T121 KRI 5') as k5 \gset
+select id as al5 from public.alertas_kri where kri_id = :'k5' \gset
+select set_config('radar.fluxo', 'on', true);
+insert into public.kri_riscos (kri_id, risco_id) values (:'k5', :'r5');
+select set_config('radar.fluxo', '', true);
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select lives_ok(
+  format($$select public.enviar_comunicacao(jsonb_build_object(
+      'unidade_id', %L, 'hipotese', 'alerta_kri', 'alerta_id', %L, 'data_ciencia', public.fn_hoje(),
+      'descricao', 'alerta do KRI 5', 'risco_ids', jsonb_build_array(%L)))$$, :'un_a', :'al5', :'r5'),
+  '11. F5: comunica o alerta do KRI 5');
+select lives_ok(
+  format($$select public.salvar_ficha_risco(jsonb_build_object('id', %L, 'kris', '[]'::jsonb))$$, :'r5'),
+  '11. F5: desligar da ficha o KRI com alerta comunicado salva sem erro');
+select pg_temp.sair();
+select is((select count(*)::int from public.indicadores_kri where id = :'k5'), 1,
+          '11. F5: o KRI órfão com alerta comunicado continua existindo');
+select is((select count(*)::int from public.kri_riscos where kri_id = :'k5'), 0,
+          '11. F5: a ligação do KRI com o risco foi desfeita');
 
 select * from finish();
 rollback;
