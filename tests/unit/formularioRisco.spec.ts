@@ -20,6 +20,7 @@ import {
   dadosParaFicha,
   dadosVazios,
   demaisKrisQueFicam,
+  errosDoLimiteNumerico,
   kriFicaOrfao,
   numeroDoLimite,
   totalRiscosDoKri,
@@ -268,6 +269,38 @@ describe('etapa 4: limite numérico do KRI (operador + número + unidade)', () =
     const f = dadosParaFicha({ ...d, kriLimiteOperador: '<=', kriLimiteValor: '10', kriLimiteUnidade: '%' }, { ehIntegridade: false, existente });
     expect(f.kris![0]).toMatchObject({ id: 'k1', limiteOperador: '<=', limiteValor: 10, limiteUnidade: '%' });
   });
+  // N-6 (revisão de fim da Fase 2): o mesmo critério de `numeroDaLeitura` e de
+  // `converterLimiteTexto`: 3 dígitos depois do ponto/vírgula é ambíguo (mil ou um?).
+  it('"1.000" e "2,500" são ambíguos: numeroDoLimite recusa, com mensagem clara', () => {
+    expect(numeroDoLimite('1.000')).toBeUndefined();
+    expect(numeroDoLimite('2,500')).toBeUndefined();
+    expect(numeroDoLimite('1000')).toBe(1000);
+    expect(numeroDoLimite('1,0')).toBe(1);
+    expect(numeroDoLimite('2,5')).toBe(2.5);
+    const e = validarEtapa(4, { ...comLimite, kriLimiteValor: '1.000' }, CATEGORIAS, 'nao', undefined, [], true);
+    expect(e.kriLimiteValor).toBe('Número ambíguo: 1.000 é mil ou um? Escreva 1000 (mil) ou 1,0 (um).');
+  });
+  it('número inválido: a mensagem fala em vírgula OU ponto decimal (o que de fato é aceito)', () => {
+    const e = validarEtapa(4, { ...comLimite, kriLimiteValor: 'abc' }, CATEGORIAS, 'nao', undefined, [], true);
+    expect(e.kriLimiteValor).toBe('Número inválido: escreva só o número, com vírgula ou ponto decimal (ex.: 80 ou 2,5).');
+  });
+  it('valor gravado com 3 casas decimais (2,125) é mostrado sem ficar ambíguo e volta a ser lido', () => {
+    const c = camposKriDe({ id: 'k', objetoId: 'o', riscoIds: [], nomeIndicador: 'N', limiteOperador: '<', limiteValor: 2.125, medicoes: [] });
+    expect(numeroDoLimite(c.kriLimiteValor)).toBe(2.125);
+  });
+
+  // I-3: o salvar do rascunho confere SÓ operador e número de um KRI que já tem limite.
+  it('errosDoLimiteNumerico: só operador e número (o resto da etapa 4 fica de fora)', () => {
+    const semNada = { ...dadosVazios(), nomeKri: 'N', kriLimiteOperador: '' as const, kriLimiteValor: '' };
+    expect(errosDoLimiteNumerico(semNada)).toEqual({
+      kriLimiteOperador: 'Escolha quando o alerta acende (maior que, menor que…).',
+      kriLimiteValor: 'Informe o número do limite de alerta (ex.: 80).',
+    });
+    expect(errosDoLimiteNumerico({ ...semNada, kriLimiteOperador: '<', kriLimiteValor: '80' })).toEqual({});
+    // Sem nome, o KRI está sendo retirado da ficha: nada a conferir no limite.
+    expect(errosDoLimiteNumerico({ ...semNada, nomeKri: '  ' })).toEqual({});
+  });
+
   it('KRI que já tem limite numérico: o formulário mostra os valores', () => {
     const k = { id: 'k1', objetoId: 'o1', riscoIds: ['r1'], nomeIndicador: 'N', limiteOperador: '>=' as const, limiteValor: 2.5, limiteUnidade: 'dias', medicoes: [] };
     expect(camposKriDe(k)).toMatchObject({ kriLimiteOperador: '>=', kriLimiteValor: '2,5', kriLimiteUnidade: 'dias' });

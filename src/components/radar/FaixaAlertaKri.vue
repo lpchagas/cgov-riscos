@@ -11,8 +11,9 @@
  * RN-084). A faixa mostra esse prazo e os atalhos:
  *
  *   - alerta no prazo (tom de AVISO):
- *       "Em alerta desde 18/11/2026 · dia 3 de 10 dias úteis (vence em 02/12/2026)"
+ *       "Em alerta desde 18/11/2026 · dia 3 de 10 dias úteis (vence em 03/12/2026)"
  *     O número do dia vem do banco, SEM somar 1: no dia da ciência é "dia 0 de 10".
+ *     (Vence em 03/12, e não 02/12: 20/11, Dia da Consciência Negra, é feriado.)
  *   - prazo vencido (tom de PERIGO): "Prazo vencido há 4 dias úteis" (não bloqueia nada);
  *   - alerta comunicado (tom de SUCESSO): "Alerta comunicado à CGOV em 20/11/2026".
  *
@@ -39,6 +40,11 @@ const props = defineProps<{
   nomeKri: string;
   /** Riscos ligados que a pessoa vê (pode ser vazio: KRI sem risco ligado). */
   riscos: { id: string; codigoRadar: string; eventoRisco?: string }[];
+  /**
+   * true = nenhum risco visível, mas o KRI serve a riscos FORA da visão da pessoa
+   * (pela RLS, `totalRiscos` > 0). Muda só o texto: não há "Reavaliar" a mostrar.
+   */
+  riscosForaDaVisao?: boolean;
   /** true = só leitura (ex.: AUDIT): mostra a faixa e o prazo, sem os atalhos. */
   somenteLeitura?: boolean;
 }>();
@@ -72,6 +78,16 @@ const textos = computed<{ titulo: string; apoio?: string }>(() => {
   };
 });
 
+/**
+ * Orientação acima dos atalhos. Ex.: com riscos visíveis, "Reavalie os riscos ligados…";
+ * sem nenhum, distingue o KRI órfão do KRI cujos riscos a pessoa não vê.
+ */
+const orientacao = computed(() => {
+  if (props.riscos.length) return 'Reavalie os riscos ligados e comunique o resultado à CGOV.';
+  if (props.riscosForaDaVisao) return 'Os riscos deste indicador estão fora da sua visão: comunique o alerta à CGOV.';
+  return 'Este indicador não tem risco ligado: comunique o alerta à CGOV.';
+});
+
 /** Os atalhos aparecem só no alerta ABERTO (no prazo ou vencido) e para quem pode agir. */
 const mostrarAtalhos = computed(() => props.situacao !== 'comunicado' && !props.somenteLeitura);
 </script>
@@ -84,11 +100,7 @@ const mostrarAtalhos = computed(() => props.situacao !== 'comunicado' && !props.
       <p v-if="textos.apoio" class="faixa-alerta__apoio">{{ textos.apoio }}</p>
 
       <template v-if="mostrarAtalhos">
-        <p class="faixa-alerta__apoio">
-          {{ riscos.length
-            ? 'Reavalie os riscos ligados e comunique o resultado à CGOV.'
-            : 'Este indicador não tem risco ligado: comunique o alerta à CGOV.' }}
-        </p>
+        <p class="faixa-alerta__apoio">{{ orientacao }}</p>
         <ul v-if="riscos.length" class="faixa-alerta__riscos">
           <li v-for="r in riscos" :key="r.id">
             <span class="faixa-alerta__risco">

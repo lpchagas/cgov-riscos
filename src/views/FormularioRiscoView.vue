@@ -50,6 +50,7 @@ import {
   avisoKriCompartilhado as montarAvisoKriCompartilhado,
   kriFicaOrfao,
   numeroDoLimite,
+  errosDoLimiteNumerico,
   validarEtapa,
   type ErrosEtapa,
 } from '../utils/formularioRisco';
@@ -224,6 +225,17 @@ const exigeLimiteNumerico = computed(() => {
   if (!base) return true;
   const temNumero = base.limiteOperador !== undefined && Number.isFinite(base.limiteValor);
   return temNumero || !textoPreenchido(base.limiteAlerta);
+});
+/**
+ * O KRI em edição JÁ TEM limite numérico gravado (operador + número)? (I-3 da revisão
+ * da Fase 2.) Nesse caso, mesmo no "Salvar rascunho", operador e número não podem ser
+ * apagados: o banco manteria o valor antigo e a pessoa acharia que apagou.
+ * KRI da lista só ligado (campos só leitura) e KRI novo ficam de fora.
+ */
+const kriJaTemLimiteNumerico = computed(() => {
+  if (camposKriSoLeitura.value) return false;
+  const base = kriEscolhido.value ?? kriProprio.value;
+  return !!base && base.limiteOperador !== undefined && Number.isFinite(base.limiteValor);
 });
 /** Frase do limite conforme a pessoa digita. Ex.: "Alerta quando o valor for menor que 80 %". */
 const fraseDoLimite = computed(() => {
@@ -463,7 +475,8 @@ async function salvar(enviar: boolean): Promise<void> {
 
   // Ao enviar — ou ao editar um risco que já passou do rascunho (ex.: aprovado,
   // que volta para validação) — TODAS as etapas precisam estar válidas.
-  // Um rascunho só precisa da 1ª.
+  // Um rascunho só precisa da 1ª (e, se o KRI já tem limite numérico, do operador e
+  // do número dele: ver `kriJaTemLimiteNumerico`).
   const status = riscoEditado.value?.statusFluxo;
   const fichaCompleta = enviar || (modoEdicao.value && !!status && !['rascunho', 'devolvido', 'preliminar_cgov'].includes(status));
   const etapasParaValidar = fichaCompleta ? [1, 2, 3, 4] : [1];
@@ -474,6 +487,18 @@ async function salvar(enviar: boolean): Promise<void> {
       erros.value = e;
       focarPrimeiroErro();
       mostrar({ tom: 'perigo', mensagem: `Corrija a etapa ${n} (${ETAPAS_NOVO_RISCO[n - 1].titulo}) antes de ${enviar ? 'enviar' : 'salvar'}.` });
+      return;
+    }
+  }
+  // Rascunho: só o limite numérico do KRI que já o tem (a ficha completa já conferiu a etapa 4).
+  // Ex.: KRI "menor que 80 %" com o número apagado → mensagem no campo, nada é gravado.
+  if (!fichaCompleta && kriJaTemLimiteNumerico.value) {
+    const e = errosDoLimiteNumerico(d.value);
+    if (Object.keys(e).length) {
+      etapa.value = 4;
+      erros.value = e;
+      focarPrimeiroErro();
+      mostrar({ tom: 'perigo', mensagem: `Corrija o limite de alerta do KRI (etapa 4) antes de salvar.` });
       return;
     }
   }

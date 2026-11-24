@@ -926,6 +926,11 @@ describe('LAC-03: alerta do KRI na demonstração (imita o banco)', () => {
     expect((await fonte.listarAlertasKri()).length).toBe(antes);
   });
 
+  it('listarKrisSemRisco devolve só os KRIs sem risco ligado (I-1), em cópia', async () => {
+    const fonte = fonteComo('cgov');
+    expect(await fonte.listarKrisSemRisco()).toEqual([]);
+  });
+
   it('listarAlertasKri devolve cópias', async () => {
     const fonte = fonteComo('cgov');
     const lista = await fonte.listarAlertasKri();
@@ -1005,6 +1010,28 @@ describe('LAC-03: alerta do KRI na demonstração (imita o banco)', () => {
       expect(depois.limiteAlerta).toBe('Entre 5 e 10');
       expect(depois.limiteOperador).toBeUndefined();
       expect(depois.limiteValor).toBeUndefined();
+    });
+
+    // I-2 (revisão de fim da Fase 2): com operador + valor na ficha, a unidade ausente
+    // quer dizer APAGADA — o `fichaParaJson` manda limite_unidade: null e o banco grava NULL.
+    it('apagar só a unidade ("<" 80 "%" → "<" 80) grava sem unidade, como o banco', async () => {
+      const fonte = fonteComo('cgov');
+      const { id } = await fonte.salvarFicha({
+        objetoId: 'obj-anexo-ii', probabilidade: 1, impacto: 5,
+        kris: [{ ...KRI_OK, nomeIndicador: 'KRI da unidade', limiteAlerta: undefined, limiteOperador: '<', limiteValor: 80, limiteUnidade: '%' }],
+      });
+      const kri = (await fonte.relerRisco(id))!.kris[0];
+      expect(kri.limiteUnidade).toBe('%');
+      const depois = await reenviar(fonte, id, { ...kri, limiteUnidade: undefined });
+      expect(depois).toMatchObject({ limiteOperador: '<', limiteValor: 80 });
+      expect(depois.limiteUnidade).toBeUndefined();
+    });
+
+    it('sem operador/valor na ficha, unidade ausente continua "não enviada" (mantém a gravada)', async () => {
+      const fonte = fonteComo('cgov');
+      const { id, kri } = await kriConvertido(fonte);
+      const depois = await reenviar(fonte, id, { ...kri, limiteOperador: undefined, limiteValor: undefined, limiteUnidade: undefined });
+      expect(depois).toMatchObject({ limiteOperador: '<', limiteValor: 70, limiteUnidade: '%' });
     });
 
     it('operador/valor NOVOS enviados junto com o texto valem', async () => {

@@ -128,11 +128,19 @@ export function dadosExemplo(objetoId = ''): DadosNovoRisco {
 /**
  * Lê o número do limite como a pessoa digita. Aceita vírgula ou ponto decimal.
  * Ex.: '80' -> 80; '2,5' -> 2.5; '' , 'abc', '1,000,5' -> undefined (não é número).
+ * Exatamente 3 dígitos depois do ponto ou da vírgula é AMBÍGUO (separador de milhar
+ * ou decimal?) e é recusado, como em `numeroDaLeitura` e `converterLimiteTexto`
+ * (e no banco): '1.000' -> undefined (mil ou um?); '1000' -> 1000; '1,0' -> 1.
  */
 export function numeroDoLimite(texto: string): number | undefined {
   const t = texto.trim();
-  if (!/^-?\d+(?:[.,]\d+)?$/.test(t)) return undefined;
+  if (!/^-?\d+(?:[.,]\d+)?$/.test(t) || limiteAmbiguo(t)) return undefined;
   return Number(t.replace(',', '.'));
+}
+
+/** O texto do número termina em ponto/vírgula + 3 dígitos? Ex.: '1.000' e '2,500' -> true. */
+function limiteAmbiguo(texto: string): boolean {
+  return /^-?\d+[.,]\d{3}$/.test(texto.trim());
 }
 
 /** Os campos do KRI do formulário, no formato que a trava confere ('' vira "sem valor"). */
@@ -167,14 +175,44 @@ export function camposKriDe(k?: IndicadorKri): Pick<DadosNovoRisco, 'nomeKri' | 
     kriLimite: t(k?.limiteAlerta),
     kriLimiteOperador: k?.limiteOperador ?? '',
     // Mostra com vírgula decimal, como a pessoa escreve. Ex.: 2.5 -> '2,5'.
-    kriLimiteValor: Number.isFinite(k?.limiteValor) ? // toLocaleString evita a notação exponencial (1e-7), que numeroDoLimite não lê.
-      k!.limiteValor!.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 20 }).replace('.', ',') : '',
+    kriLimiteValor: Number.isFinite(k?.limiteValor) ? numeroParaCampo(k!.limiteValor!) : '',
     kriLimiteUnidade: k?.limiteUnidade ?? '',
     kriResponsavel: t(k?.responsavelMedicao),
   };
 }
 
+/**
+ * Número gravado -> texto do campo, com vírgula decimal e sem notação exponencial
+ * (1e-7, que `numeroDoLimite` não lê). Com exatamente 3 casas decimais, acrescenta
+ * um zero para o texto não ficar "ambíguo" e voltar a ser lido igual.
+ * Ex.: 2.5 -> '2,5'; 1e-7 -> '0,0000001'; 2.125 -> '2,1250'.
+ */
+function numeroParaCampo(n: number): string {
+  const texto = n.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 20 }).replace('.', ',');
+  return limiteAmbiguo(texto) ? `${texto}0` : texto;
+}
+
 const obrigatorio = (valor: string, minimo = 3) => valor.trim().length >= minimo;
+
+/**
+ * Erros SÓ do limite numérico do KRI (operador e número; a unidade é opcional).
+ * Usada pela etapa 4 e, sozinha, pelo "Salvar rascunho" de um KRI que JÁ TEM limite
+ * numérico (I-3 da revisão da Fase 2: apagar o número não pode passar calado, porque o
+ * banco manteria o valor antigo). KRI sem nome está sendo retirado: nada a conferir.
+ * Ex.: operador '<' e número '' -> { kriLimiteValor: 'Informe o número do limite de alerta (ex.: 80).' }
+ *      número '1.000'           -> { kriLimiteValor: 'Número ambíguo: 1.000 é mil ou um? …' }
+ */
+export function errosDoLimiteNumerico(
+  d: Pick<DadosNovoRisco, 'nomeKri' | 'kriLimiteOperador' | 'kriLimiteValor'>
+): ErrosEtapa {
+  const erros: ErrosEtapa = {};
+  if (!d.nomeKri.trim()) return erros;
+  if (d.kriLimiteOperador === '') erros.kriLimiteOperador = 'Escolha quando o alerta acende (maior que, menor que…).';
+  if (!d.kriLimiteValor.trim()) erros.kriLimiteValor = 'Informe o número do limite de alerta (ex.: 80).';
+  else if (limiteAmbiguo(d.kriLimiteValor)) erros.kriLimiteValor = 'Número ambíguo: 1.000 é mil ou um? Escreva 1000 (mil) ou 1,0 (um).';
+  else if (numeroDoLimite(d.kriLimiteValor) === undefined) erros.kriLimiteValor = 'Número inválido: escreva só o número, com vírgula ou ponto decimal (ex.: 80 ou 2,5).';
+  return erros;
+}
 
 // ---------------------------------------------------------------------------
 // KRI COMPARTILHADO (LAC-03): quantos riscos o KRI serve de verdade
@@ -312,11 +350,7 @@ export function validarEtapa(
     //     que a gravação mantém ligados.
     // Ex.: ficha com [KRI só com nome, KRI completo] → sem erro.
     // Não crítico segue livre.
-    if (exigeLimiteNumerico && d.nomeKri.trim()) {
-      if (d.kriLimiteOperador === '') erros.kriLimiteOperador = 'Escolha quando o alerta acende (maior que, menor que…).';
-      if (!d.kriLimiteValor.trim()) erros.kriLimiteValor = 'Informe o número do limite de alerta (ex.: 80).';
-      else if (numeroDoLimite(d.kriLimiteValor) === undefined) erros.kriLimiteValor = 'Número inválido: use só dígitos e vírgula decimal (ex.: 80 ou 2,5).';
-    }
+    if (exigeLimiteNumerico) Object.assign(erros, errosDoLimiteNumerico(d));
     const kriQueVale = d.kriExistenteId && kriLigado ? kriLigado : kriDosCampos(d);
     if (exige && ![kriQueVale, ...demaisKris].some(kriCompleto)) erros.nomeKri = MENSAGEM_TRAVA_KRI;
     if (d.estrategia !== 'Aceitar' || exige) {

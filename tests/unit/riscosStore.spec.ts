@@ -461,11 +461,74 @@ describe('ligarCarteiraASessao (carga e limpeza pela sessão)', () => {
       expect(store.alertaAbertoDoKri('kri-anexo-ii-2')).toBeDefined();
     });
 
-    it('falha ao ler os alertas leva a carteira ao estado de erro (sem dados pela metade)', async () => {
+    // N-7 (revisão de fim da Fase 2): os alertas são dado SECUNDÁRIO. Se só a leitura
+    // deles falhar (ex.: a visão ainda não existe na nuvem), a carteira abre mesmo assim,
+    // sem alertas, e a tela mostra o aviso para "Atualizar".
+    it('falha só ao ler os alertas: a carteira abre (pronto), sem alertas e com aviso em português', async () => {
       fonteFalsa({ listarAlertasKri: async () => { throw new ErroRadar(MENSAGEM_REDE, 'rede'); } });
       const store = useRiscosStore();
       await store.carregar();
-      expect(store.estado).toBe('erro');
+      expect(store.estado).toBe('pronto');
+      expect(store.riscos).toHaveLength(4);
+      expect(store.alertasKri).toEqual([]);
+      expect(store.avisoAtualizacao?.message).toBe(
+        'A carteira foi carregada, mas não foi possível ler os alertas dos indicadores (KRI). Use Atualizar.'
+      );
+      expect(store.avisoAtualizacao?.tipo).toBe('rede');
+    });
+
+    // N-5: "encerrado" é encerradoEm OU comunicacaoId (a mesma regra de situacaoKri).
+    it('alertaAbertoDoKri trata o alerta já comunicado (comunicacaoId sem encerradoEm) como encerrado', async () => {
+      const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.coordenador_geral });
+      fonteFalsa({
+        listarAlertasKri: async () => {
+          const lista = await base.listarAlertasKri();
+          const aberto = lista.find((a) => !a.encerradoEm && !a.comunicacaoId)!;
+          return [{ ...aberto, comunicacaoId: 'com-1' }];
+        },
+      });
+      const store = useRiscosStore();
+      await store.carregar();
+      const [comunicado] = store.alertasKri;
+      expect(comunicado.encerradoEm).toBeUndefined();
+      expect(store.alertaAbertoDoKri(comunicado.kriId)).toBeUndefined();
+    });
+
+    // I-1: o KRI que perde o seu único risco (exclusão ou desligamento) passa a ser
+    // "sem risco ligado"; a lista krisSemRisco e os alertas precisam ser relidos já,
+    // sem esperar a página recarregar (senão o cartão e a faixa somem do Monitoramento).
+    describe('KRI que fica sem risco ligado (I-1)', () => {
+      /** Rascunho novo com um KRI "menor que 70 %" e uma leitura em alerta (abre o alerta). */
+      async function rascunhoComKriEmAlerta() {
+        fonteFalsa();
+        const store = useRiscosStore();
+        await store.carregar();
+        const ficha = await store.salvarOuAtualizarRisco({
+          objetoId: 'obj-anexo-ii', causas: 'causa', eventoRisco: 'evento', consequencias: 'consequência',
+          objetivoAfetado: 'objetivo', categoriaId: 2, probabilidade: 3, impacto: 4, estrategiaPrincipal: 'Aceitar',
+          statusFluxo: 'rascunho',
+          kris: [{ id: '', nomeIndicador: 'KRI de teste (I-1)', limiteOperador: '<', limiteValor: 70, limiteUnidade: '%', medicoes: [], riscoIds: [], objetoId: '' }],
+        });
+        const kriId = store.obterRiscoPorId(ficha.id)!.kris[0].id;
+        await store.registrarMedicaoKri(ficha.id, kriId, { dataMedicao: '2026-12-01', valorApurado: '50', valorNumerico: 50 });
+        expect(store.alertaAbertoDoKri(kriId)).toBeDefined();
+        expect(store.krisSemRisco.some((k) => k.id === kriId)).toBe(false);
+        return { store, riscoId: ficha.id, kriId };
+      }
+
+      it('excluir o único risco do KRI com alerta: o KRI entra em krisSemRisco e o alerta continua', async () => {
+        const { store, riscoId, kriId } = await rascunhoComKriEmAlerta();
+        await store.excluirRisco(riscoId);
+        expect(store.krisSemRisco.map((k) => k.id)).toContain(kriId);
+        expect(store.alertaAbertoDoKri(kriId)).toBeDefined();
+      });
+
+      it('desligar o KRI do único risco (salvar a ficha sem ele): o KRI entra em krisSemRisco', async () => {
+        const { store, riscoId, kriId } = await rascunhoComKriEmAlerta();
+        await store.salvarOuAtualizarRisco({ id: riscoId, kris: [] });
+        expect(store.obterRiscoPorId(riscoId)!.kris).toEqual([]);
+        expect(store.krisSemRisco.map((k) => k.id)).toContain(kriId);
+      });
     });
   });
 });

@@ -429,6 +429,25 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
       return linhas.map(alertaKriDoBanco);
     },
 
+    /**
+     * Releitura leve dos KRIs sem risco ligado à vista (I-1 da revisão da Fase 2):
+     * lê os KRIs e as ligações que a pessoa vê; só para os KRIs sem ligação lê as
+     * medições e o total real de riscos (`kri_total_riscos`), que separa o KRI
+     * "sem risco nenhum" (0) do KRI com "riscos fora da sua visão" (> 0).
+     */
+    async listarKrisSemRisco() {
+      const [kriL, kriRiscosL] = await Promise.all([
+        lerTabela('indicadores_kri'),
+        lerTabela('kri_riscos', ['kri_id', 'risco_id']),
+      ]);
+      const ligados = new Set(kriRiscosL.map((x) => String(x.kri_id)));
+      const soltos = kriL.filter((k) => !ligados.has(String(k.id)));
+      if (!soltos.length) return [];
+      const ids = soltos.map((k) => String(k.id));
+      const [medL, totaisKri] = await Promise.all([lerFilhosPorIds('medicoes_kri', 'kri_id', ids), totaisDosKris(ids)]);
+      return soltos.map((k) => kriSemRiscoDoBanco(k, medL, totaisKri.get(String(k.id))));
+    },
+
     /** Monitoramento: andamento da ação 5W2H (mudar só o status não reabre o risco). */
     async atualizarStatusTratamento(respostaId, status) {
       const linhas = conferir(

@@ -451,8 +451,15 @@ export function criarFonteDemonstracao(
       const numeroEnviado = item.limiteOperador !== undefined || item.limiteValor !== undefined;
       const operadorValorMudaram =
         numeroEnviado && (item.limiteOperador !== existente.limiteOperador || item.limiteValor !== existente.limiteValor);
-      // Unidade ausente na ficha = não enviada (o banco mantém a gravada).
-      const unidadeEnviada = item.limiteUnidade !== undefined && (item.limiteUnidade.trim() || undefined) !== existente.limiteUnidade;
+      // Unidade: imita o `fichaParaJson` + banco (I-2 da revisão da Fase 2).
+      //   - ficha COM operador + valor: a unidade sempre vai (ausente = limite_unidade null),
+      //     então unidade ausente quer dizer APAGADA. Ex.: '<' 80 '%' → '<' 80 → sem unidade.
+      //   - ficha SEM operador + valor: nenhum campo do limite vai; unidade ausente = não
+      //     enviada (o banco mantém a gravada).
+      const limiteCompletoNaFicha = item.limiteOperador !== undefined && Number.isFinite(item.limiteValor);
+      const unidadeDaFicha = item.limiteUnidade?.trim() || undefined;
+      const unidadeEnviada =
+        (limiteCompletoNaFicha || item.limiteUnidade !== undefined) && unidadeDaFicha !== existente.limiteUnidade;
       const mudou = textoMudou || operadorValorMudaram || unidadeEnviada;
       if (!mudou) continue;
       const ligados = riscos.filter((x) => x.id !== r.id && existente.riscoIds.includes(x.id));
@@ -786,6 +793,12 @@ export function criarFonteDemonstracao(
     async listarAlertasKri() {
       const hoje = hojeEmBrasilia();
       return alertas.filter((a) => kris.some((k) => k.id === a.kriId)).map((a) => montarAlertaKri(a, hoje));
+    },
+
+    /** KRIs sem risco ligado (como em `carregarCarteira`), em cópia. */
+    async listarKrisSemRisco() {
+      if (estado === 'erro') throw new ErroRadar(MENSAGEM_REDE, 'rede');
+      return copiar(kris.filter((k) => k.riscoIds.length === 0));
     },
 
     /** Monitoramento: andamento da ação 5W2H também mantém o risco aprovado. */

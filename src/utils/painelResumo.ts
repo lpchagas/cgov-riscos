@@ -22,6 +22,7 @@ import type {
   ClasseRisco,
   FichaRisco,
   HistoricoFluxoItem,
+  IndicadorKri,
   NivelImpacto,
   NivelProbabilidade,
   PapelGovernanca,
@@ -173,13 +174,18 @@ function listaCodigos(riscos: FichaRisco[]): string {
  *
  * `alertas` são os alertas dos KRIs (LAC-03, visão `alertas_kri_situacao`): só o
  * alerta ABERTO (no prazo ou vencido) vira item; o já comunicado à CGOV, não.
+ *
+ * `krisSemRisco` (N-8 da revisão da Fase 2) são os KRIs sem risco ligado à vista
+ * (`riscosStore.krisSemRisco`): o alerta aberto deles também vira item, sem códigos de
+ * risco. Ex.: o único risco do KRI foi excluído → "Sem risco ligado · … · dia 3 de 10".
  */
 export function itensDeAtencao(
   riscos: FichaRisco[],
   papel: PapelGovernanca,
   hoje: Date,
   acoes: Record<string, AcoesFluxo> = {},
-  alertas: AlertaKri[] = []
+  alertas: AlertaKri[] = [],
+  krisSemRisco: IndicadorKri[] = []
 ): ItemAtencao[] {
   const itens: ItemAtencao[] = [];
 
@@ -277,6 +283,8 @@ export function itensDeAtencao(
         else porKri.set(kri.id, { kri, codigos: [r.codigoRadar] });
       }
     }
+    // KRIs sem risco ligado à vista: entram sem códigos (só os com alerta passam no filtro abaixo).
+    for (const kri of krisSemRisco) if (!porKri.has(kri.id)) porKri.set(kri.id, { kri, codigos: [] });
     for (const { kri, codigos } of porKri.values()) {
       const alerta = alertaAtualDoKri(alertas, kri.id);
       const situacao = situacaoKri(kri, alerta);
@@ -288,14 +296,18 @@ export function itensDeAtencao(
           ? `prazo vencido há ${plural(alerta.diasUteisVencido, 'dia útil', 'dias úteis')}`
           : `dia ${alerta.diaAtual} de 10 dias úteis`;
       const leitura = ultima ? ` · ${ultima.valorApurado} em ${dataCurta(ultima.dataMedicao)}` : '';
+      // Sem código de risco: diz por quê (órfão, ou riscos que a pessoa não vê — `totalRiscos`).
+      const semCodigos = (kri.totalRiscos ?? 0) > 0 ? 'Riscos fora da sua visão' : 'Sem risco ligado';
+      const riscosDoItem = codigos.length ? codigos.join(', ') : semCodigos;
       // Limite: o mesmo texto do Monitoramento (por extenso, "a converter" ou "limite não definido").
       itens.push({
         id: `kri-${kri.id}`,
         tipo: 'kri',
         tom: 'perigo',
         titulo: `Indicador em alerta: ${kri.nomeIndicador}`,
-        detalhe: `${codigos.join(', ')}${leitura} (alerta: ${descreverLimiteKri(kri)}) · ${prazo}`,
-        acao: papel === 'gestor' ? 'Registrar nova leitura' : 'Ver indicador',
+        detalhe: `${riscosDoItem}${leitura} (alerta: ${descreverLimiteKri(kri)}) · ${prazo}`,
+        // Sem risco ligado não há onde registrar leitura (o Monitoramento só oferece "Comunicar à CGOV").
+        acao: papel === 'gestor' && codigos.length ? 'Registrar nova leitura' : 'Ver indicador',
         destino: { name: 'monitoramento-kris' },
       });
     }

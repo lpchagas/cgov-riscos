@@ -185,6 +185,13 @@ export interface FonteDados {
   registrarMedicao(kriId: string, m: NovaMedicaoKri): Promise<void>;
   /** Alertas dos KRIs que a pessoa enxerga (visão `alertas_kri_situacao`; a RLS limita o alcance). */
   listarAlertasKri(): Promise<AlertaKri[]>;
+  /**
+   * Releitura LEVE dos KRIs sem nenhum risco ligado à vista (o mesmo `krisSemRisco` da
+   * carteira), para depois de excluir um risco ou desligar um KRI, sem reler tudo.
+   * Ex.: o único risco do KRI "% de autos revisados" foi excluído e o alerta dele ainda
+   * não foi comunicado → o KRI volta nesta lista e o Monitoramento continua mostrando-o.
+   */
+  listarKrisSemRisco(): Promise<IndicadorKri[]>;
   atualizarStatusTratamento(respostaId: string, status: RespostaTratamento5W2H['statusExecucao']): Promise<void>;
 
   // Objetos de gestão de riscos:

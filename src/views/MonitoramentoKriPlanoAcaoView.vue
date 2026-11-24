@@ -37,6 +37,7 @@ import { dataCurta, diasAte } from '../utils/painelResumo';
 import { alertaAtualDoKri, ordenarPorUrgencia, situacaoKri, type SituacaoKri } from '../utils/situacaoKri';
 import { numeroDaLeitura, passaDoLimite, textoLimite } from '../utils/limiteAlerta';
 import { hojeEmBrasilia } from '../utils/diasUteis';
+import { totalRiscosDoKri } from '../utils/formularioRisco';
 import StatCard from '../components/ui/StatCard.vue';
 import Chip from '../components/ui/Chip.vue';
 import Dialog from '../components/ui/Dialog.vue';
@@ -127,6 +128,17 @@ function selo(l: LinhaKri): { tom: TomVisual; icone: string; rotulo: string } {
 /** Limite numérico? (operador + número; 0 vale). Sem ele, o sistema não verifica o alerta. */
 function temLimiteNumerico(k: IndicadorKri): boolean {
   return !!k.limiteOperador && typeof k.limiteValor === 'number' && Number.isFinite(k.limiteValor);
+}
+
+/**
+ * KRI sem risco VISÍVEL, mas que serve a riscos fora da visão da pessoa (I-4 da revisão
+ * da Fase 2). Pela RLS, o KRI é lido pelo objeto e a ligação, pelo risco; o total real
+ * vem do banco (`totalRiscos`, de kri_total_riscos).
+ * Ex.: riscos [] e totalRiscos 2 → true ("Riscos fora da sua visão");
+ *      riscos [] e totalRiscos 0 → false ("Sem risco ligado").
+ */
+function foraDaVisao(l: LinhaKri): boolean {
+  return !l.riscos.length && totalRiscosDoKri(l.kri) > 0;
 }
 
 /** Nome do objeto do KRI (para o KRI sem risco ligado, que não tem `nomeObjetoCache`). */
@@ -443,6 +455,7 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
                           <RouterLink :to="{ name: 'ficha-bowtie-detalhe', params: { id: r.id } }" class="codigo">{{ r.codigoRadar }}</RouterLink><template v-if="i < l.riscos.length - 1">, </template>
                         </template>
                       </template>
+                      <template v-else-if="foraDaVisao(l)">Riscos fora da sua visão</template>
                       <template v-else>Sem risco ligado</template>
                       <template v-if="nomeObjeto(l)"> · {{ nomeObjeto(l) }}</template> · {{ l.kri.periodicidade ?? 'periodicidade não definida' }}
                     </p>
@@ -470,6 +483,7 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
                   :situacao="l.situacao"
                   :nome-kri="l.kri.nomeIndicador"
                   :riscos="l.riscos"
+                  :riscos-fora-da-visao="foraDaVisao(l)"
                   :somente-leitura="somenteLeitura"
                 />
 

@@ -382,6 +382,75 @@ describe('Página Novo risco', () => {
     });
   });
 
+  // I-3 (revisão de fim da Fase 2; decisão do controlador, revoga o R14): mesmo no
+  // rascunho, NÃO deixa apagar operador/número de um KRI que JÁ TEM limite numérico
+  // (o banco manteria o valor antigo, calado). Só esses dois campos são conferidos.
+  describe('Rascunho com KRI que já tem limite numérico (I-3)', () => {
+    async function rascunhoNaEtapa4() {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      const novo = await store.salvarOuAtualizarRisco({
+        objetoId: 'obj-anexo-ii', causas: 'causa', eventoRisco: 'evento', consequencias: 'consequência', objetivoAfetado: 'objetivo',
+        categoriaId: 2, probabilidade: 1, impacto: 1, estrategiaPrincipal: 'Aceitar', statusFluxo: 'rascunho',
+        kris: [{ id: '', nomeIndicador: 'KRI do rascunho', limiteOperador: '<', limiteValor: 80, limiteUnidade: '%', medicoes: [], riscoIds: [], objetoId: '' }],
+      });
+      salvarFicha.mockClear();
+      const { w } = await montar(`/riscos/novo?editar=${novo.id}`);
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.find('[aria-current="step"]').text()).toContain('Tratamento');
+      const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
+      return { w, salvarFicha, campo };
+    }
+
+    it('apagar o número e "Salvar alterações": não grava e aponta o campo', async () => {
+      const { w, salvarFicha, campo } = await rascunhoNaEtapa4();
+      await w.find(`#${campo('Valor do limite')}`).setValue('');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).not.toHaveBeenCalled();
+      expect(w.find(`#${campo('Valor do limite')}`).attributes('aria-invalid')).toBe('true');
+      expect(w.text()).toContain('Informe o número do limite de alerta');
+      w.unmount();
+    });
+
+    it('apagar o operador também é recusado', async () => {
+      const { w, salvarFicha, campo } = await rascunhoNaEtapa4();
+      await w.find(`#${campo('Alerta quando o valor for')}`).setValue('');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).not.toHaveBeenCalled();
+      expect(w.find(`#${campo('Alerta quando o valor for')}`).attributes('aria-invalid')).toBe('true');
+      w.unmount();
+    });
+
+    it('o resto da etapa 4 continua livre no rascunho (ex.: fonte dos dados em branco grava)', async () => {
+      const { w, salvarFicha, campo } = await rascunhoNaEtapa4();
+      await w.find(`#${campo('Fonte dos dados')}`).setValue('');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      w.unmount();
+    });
+  });
+
+  it('rascunho com KRI NOVO continua livre: sem o número, grava', async () => {
+    const { w } = await montar();
+    await botao(w, 'Preencher com exemplo').trigger('click');
+    for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+    const campo = w.findAll('label').find((l) => l.text().startsWith('Valor do limite'))!.attributes('for')!;
+    await w.find(`#${campo}`).setValue('');
+    const store = useRiscosStore();
+    const antes = store.riscos.length;
+    await botao(w, 'Salvar rascunho').trigger('click');
+    await flushPromises();
+    expect(store.riscos.length).toBe(antes + 1);
+    w.unmount();
+  });
+
   describe('"Salvar e enviar" com envio recusado', () => {
     it('grava UMA vez, avisa "Rascunho salvo…, mas não foi enviado" e abre a ficha', async () => {
       // Fonte falsa: grava normalmente, mas recusa o envio.

@@ -457,6 +457,33 @@ describe('Página Monitoramento', () => {
       w.unmount();
     });
 
+    // I-4 (revisão de fim da Fase 2): pela RLS, o KRI é lido pelo OBJETO e a ligação,
+    // pelo risco. Um KRI cujos riscos estão fora da visão da pessoa chega sem riscos
+    // visíveis, mas com `totalRiscos` > 0: não é "sem risco ligado".
+    it('KRI com os riscos fora da visão: a faixa diz isso (sem "Reavaliar") e o cartão não diz "Sem risco ligado"', async () => {
+      const base = criarFonteDemonstracao('normal');
+      definirFonteParaTeste({
+        ...base,
+        carregarCarteira: async () => {
+          const c = await base.carregarCarteira();
+          const oculto = c.riscos.flatMap((r) => r.kris).find((k) => k.id === 'kri-integra-1')!;
+          for (const r of c.riscos) r.kris = r.kris.filter((k) => k.id !== 'kri-integra-1');
+          return { ...c, krisSemRisco: [{ ...oculto, riscoIds: [], totalRiscos: 2 }] };
+        },
+      });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      const { w } = await montar();
+      const cartao = w.findAll('.kri').find((c) => c.text().includes('Percentual de processos sancionadores revisados'))!;
+      expect(cartao.text()).not.toContain('Sem risco ligado');
+      expect(cartao.text()).toContain('Riscos fora da sua visão');
+      const faixa = cartao.find('.faixa-alerta');
+      expect(faixa.text()).toContain('Os riscos deste indicador estão fora da sua visão');
+      expect(faixa.text()).not.toContain('não tem risco ligado');
+      expect(faixa.findAll('a').map((a) => a.text())).toEqual(['Comunicar à CGOV']);
+      w.unmount();
+    });
+
     describe('janela "Registrar leitura"', () => {
       async function abrirJanela(w: VueWrapper, kriId: string): Promise<HTMLElement> {
         await cartaoDe(w, kriId).findAll('button').find((b) => b.text().includes('Registrar leitura'))!.trigger('click');

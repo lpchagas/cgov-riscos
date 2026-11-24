@@ -122,6 +122,41 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
     expect(carteira.krisSemRisco?.[0].medicoes.map((m) => m.id)).toEqual(['m2']);
   });
 
+  it('KRI sem ligação visível mas com riscos fora da visão: krisSemRisco traz totalRiscos > 0 (I-4)', async () => {
+    const { cliente } = clienteFalso(
+      {
+        objetos_contexto: [{ id: 'o1', nome_objeto: 'Obj', unidade_id: 'u1' }],
+        indicadores_kri: [{ id: 'k9', objeto_id: 'o1', nome_indicador: 'Riscos ocultos' }],
+        kri_riscos: [],
+      },
+      { kri_total_riscos: [{ kri_id: 'k9', total: 2 }] },
+    );
+    const carteira = await criarFonteSupabase(cliente).carregarCarteira();
+    expect(carteira.krisSemRisco?.[0]).toMatchObject({ id: 'k9', riscoIds: [], totalRiscos: 2 });
+  });
+
+  it('listarKrisSemRisco relê só os KRIs sem ligação visível, com medições e total real (I-1)', async () => {
+    const { cliente, chamadasRpc } = clienteFalso(
+      {
+        indicadores_kri: [
+          { id: 'k1', objeto_id: 'o1', nome_indicador: 'Ligado' },
+          { id: 'k2', objeto_id: 'o1', nome_indicador: 'Órfão', limite_operador: '<', limite_valor: 80 },
+        ],
+        kri_riscos: [{ kri_id: 'k1', risco_id: 'r1' }],
+        medicoes_kri: [
+          { id: 'm1', kri_id: 'k1', data_medicao: '2026-11-01', valor_apurado: '90' },
+          { id: 'm2', kri_id: 'k2', data_medicao: '2026-11-01', valor_apurado: '70' },
+        ],
+      },
+      { kri_total_riscos: [{ kri_id: 'k2', total: 0 }] },
+    );
+    const soltos = await criarFonteSupabase(cliente).listarKrisSemRisco();
+    expect(soltos.map((k) => k.id)).toEqual(['k2']);
+    expect(soltos[0].medicoes.map((m) => m.id)).toEqual(['m2']);
+    expect(soltos[0].totalRiscos).toBe(0);
+    expect(chamadasRpc.find((c) => c.nome === 'kri_total_riscos')?.args).toEqual({ p_kris: ['k2'] });
+  });
+
   it('KRI ligado a riscos fora da visão: totalRiscos vem de kri_total_riscos (carteira e releitura)', async () => {
     // A RLS só deixa ler a ligação k1 → r1; o banco diz que k1 serve a 3 riscos.
     const { cliente, chamadasRpc } = clienteFalso(
