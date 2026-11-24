@@ -22,6 +22,7 @@ import { computed, onBeforeUnmount, onMounted } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { useRiscosStore } from '../../stores/riscosStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useComunicacoesStore } from '../../stores/comunicacoesStore';
 import { podeAbrirRota } from '../../utils/acessoPorPerfil';
 
 const props = defineProps<{
@@ -36,6 +37,7 @@ const emit = defineEmits<{ (e: 'fechar'): void; (e: 'alternar-recolhido'): void 
 const route = useRoute();
 const riscosStore = useRiscosStore();
 const authStore = useAuthStore();
+const comunicacoesStore = useComunicacoesStore();
 
 interface ItemMenu {
   nomeRota: string;
@@ -93,6 +95,16 @@ const todosOsGrupos = computed<{ titulo: string; itens: ItemMenu[] }[]>(() => [
       },
       { nomeRota: 'catalogo-objetos', rotulo: 'Objetos de gestão', icone: 'fa-solid fa-sitemap' },
       { nomeRota: 'monitoramento-kris', rotulo: 'Monitoramento', icone: 'fa-solid fa-heart-pulse' },
+      {
+        nomeRota: 'comunicacoes',
+        rotulo: 'Comunicações à CGOV',
+        icone: 'fa-solid fa-paper-plane',
+        // R17: o número de comunicações sem ciência só interessa à CGOV (quem dá a ciência).
+        // Para os demais perfis o contador fica 0 e, por isso, não aparece.
+        contador: authStore.usuarioAtual.papel === 'cgov' ? comunicacoesStore.novas.length : 0,
+        tomContador: 'aviso',
+        descricaoContador: 'comunicações novas',
+      },
     ],
   },
   {

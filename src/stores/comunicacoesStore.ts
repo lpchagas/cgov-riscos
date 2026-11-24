@@ -16,11 +16,12 @@
  * Erros das ações são lançados (`ErroRadar`, mensagem pronta para a tela).
  */
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, ref, watch, type WatchStopHandle } from 'vue';
 import type { ComunicacaoCgov } from '../types/radar.types';
 import type { NovaComunicacao } from '../services/dados/tipos';
 import { ErroRadar, traduzirErroBanco, traduzirErroComunicacao } from '../services/dados/errosBanco';
-import { useRiscosStore } from './riscosStore';
+import { useRiscosStore, type SessaoParaCarteira } from './riscosStore';
+import { useAuthStore } from './authStore';
 
 export const useComunicacoesStore = defineStore('comunicacoes', () => {
   const comunicacoes = ref<ComunicacaoCgov[]>([]);
@@ -32,15 +33,24 @@ export const useComunicacoesStore = defineStore('comunicacoes', () => {
   /** A fonte da riscosStore (a mesma instância, ver o comentário no topo). */
   const fonte = () => useRiscosStore().fonteDeDados();
 
+  /**
+   * "Geração" dos dados (mesma ideia da riscosStore): `limpar()` a avança, e uma leitura
+   * que termina depois disso é descartada. Ex.: a CGOV sai enquanto a lista carrega →
+   * a lista velha NÃO volta para a memória da próxima pessoa.
+   */
+  let geracao = 0;
+
   async function carregar(): Promise<void> {
+    const minha = ++geracao;
     carregando.value = true;
     erro.value = null;
     try {
-      comunicacoes.value = await fonte().listarComunicacoes();
+      const lidas = await fonte().listarComunicacoes();
+      if (minha === geracao) comunicacoes.value = lidas;
     } catch (e) {
-      erro.value = traduzirErroBanco(e);
+      if (minha === geracao) erro.value = traduzirErroBanco(e);
     } finally {
-      carregando.value = false;
+      if (minha === geracao) carregando.value = false;
     }
   }
 
@@ -64,6 +74,7 @@ export const useComunicacoesStore = defineStore('comunicacoes', () => {
 
   /** Ao sair da sessão: não deixa dados da pessoa anterior na memória. */
   function limpar(): void {
+    geracao++;
     comunicacoes.value = [];
     carregando.value = false;
     erro.value = null;
@@ -71,3 +82,32 @@ export const useComunicacoesStore = defineStore('comunicacoes', () => {
 
   return { comunicacoes, carregando, erro, novas, carregar, enviar, registrarCiencia, limpar };
 });
+
+/** O mínimo da store de comunicações de que a ligação precisa (a store real serve). */
+export interface ComunicacoesLigaveis {
+  carregar(): Promise<void>;
+  limpar(): void;
+}
+
+/**
+ * Liga as comunicações à sessão (chamada uma vez pelo `App.vue`, ao lado de `ligarCarteiraASessao`):
+ *   - qualquer mudança de pessoa, perfil ou situação → `limpar()` primeiro (nada da pessoa
+ *     anterior fica na memória, por exemplo ao sair ou trocar de perfil no simulador);
+ *   - sessão 'ativo' e perfil CGOV → `carregar()`, para o menu mostrar o número de novas (R17).
+ * Os outros perfis leem as comunicações quando abrem a tela `/comunicacoes`.
+ * Observa só textos (situação, id, papel), pelo mesmo motivo explicado em `ligarCarteiraASessao`.
+ * Ex.: CGOV entra → carrega (menu "Comunicações à CGOV 1"); sai → limpa.
+ */
+export function ligarComunicacoesASessao(
+  sessao: SessaoParaCarteira = useAuthStore(),
+  comunicacoes: ComunicacoesLigaveis = useComunicacoesStore()
+): WatchStopHandle {
+  return watch(
+    [() => sessao.situacao, () => sessao.usuarioAtual.id, () => sessao.usuarioAtual.papel],
+    ([situacao, , papel]) => {
+      comunicacoes.limpar();
+      if (situacao === 'ativo' && papel === 'cgov') void comunicacoes.carregar();
+    },
+    { immediate: true }
+  );
+}

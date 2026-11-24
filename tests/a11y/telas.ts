@@ -6,7 +6,7 @@
  *   - Nova largura de tela ou novo tema? Acrescente em `LARGURAS` ou `TEMAS`.
  *
  * O total de testes é a multiplicação das três listas:
- *   (17 + 4) telas × 5 larguras × 3 temas = 315 combinações.
+ *   (20 + 4) telas × 5 larguras × 3 temas = 360 combinações.
  *   As 4 telas a mais são os estados "carregando" e "erro" do Painel e de Riscos (Etapa B3).
  */
 
@@ -99,6 +99,10 @@ export const TELAS: Tela[] = [
   // Monitoramento tem duas abas com conteúdos bem diferentes (KRIs e Plano de ação).
   { nome: 'monitoramento', rota: '/monitoramento', titulo: 'Monitoramento' },
   { nome: 'plano', rota: '/monitoramento?aba=plano', titulo: 'Monitoramento', aba: 'Plano de ação' },
+  // Comunicações à CGOV (LAC-04, P-03): a lista da CGOV e, para o gestor, o painel "Nova comunicação"
+  // aberto pelo alerta do KRI da semente (`alerta-integra-1`, no dia 3 do prazo).
+  { nome: 'comunicacoes', rota: '/comunicacoes', titulo: 'Comunicações à CGOV' },
+  { nome: 'comunicacoes-alerta', rota: '/comunicacoes?alerta=alerta-integra-1', titulo: 'Comunicações à CGOV', perfil: 'gestor' },
   { nome: 'aprovacoes', rota: '/aprovacoes', titulo: 'Aprovações' },
   { nome: 'auditoria', rota: '/auditoria', titulo: 'Auditoria' },
   { nome: 'importar', rota: '/importar', titulo: 'Importar riscos' },

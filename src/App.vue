@@ -40,6 +40,7 @@ import { usePreferenciasInterface } from './composables/usePreferenciasInterface
 import { saidaExplicita } from './composables/useSaidaExplicita';
 import { useAuthStore } from './stores/authStore';
 import { ligarCarteiraASessao } from './stores/riscosStore';
+import { ligarComunicacoesASessao } from './stores/comunicacoesStore';
 import { useToast } from './composables/useToast';
 import { AVISO_SO_CGOV } from './router/guarda';
 import { podeAbrirRota } from './utils/acessoPorPerfil';
@@ -128,6 +129,8 @@ watch(
  * a cada foco da aba) está comentada em `ligarCarteiraASessao`.
  */
 ligarCarteiraASessao();
+// Comunicações à CGOV (LAC-04): limpa ao sair e, para a CGOV, carrega o número de novas do menu.
+ligarComunicacoesASessao();
 
 /**
  * Quando a janela volta ao foco, relemos o perfil: se a CGOV suspendeu a pessoa enquanto a
