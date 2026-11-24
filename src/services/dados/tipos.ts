@@ -44,7 +44,7 @@ import type {
  * o banco (e a demonstração) recalculam pelo limite do KRI.
  * Ex.: { dataMedicao: '2026-12-01', valorApurado: '65,5%' } -> valor_numerico 65.5
  */
-export type NovaMedicaoKri = Omit<MedicaoKri, 'id' | 'emAlerta'> & { emAlerta?: boolean };
+export type NovaMedicaoKri = Omit<MedicaoKri, 'id' | 'emAlerta' | 'registradoEm'> & { emAlerta?: boolean };
 
 /** Tudo o que as telas precisam ao abrir: riscos visíveis (com filhos) e listas de apoio. */
 export interface Carteira {

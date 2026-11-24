@@ -766,7 +766,14 @@ export function criarFonteDemonstracao(
           ? passaDoLimite(valorNumerico, kri.limiteOperador, kri.limiteValor)
           : false;
       const { emAlerta: _ignorado, valorNumerico: _numero, ...resto } = m;
-      const nova = { id: novoId('med'), ...resto, ...(valorNumerico !== undefined ? { valorNumerico } : {}), emAlerta };
+      // `registradoEm` imita o `criado_em` do banco (agora, com hora).
+      const nova = {
+        id: novoId('med'),
+        ...resto,
+        ...(valorNumerico !== undefined ? { valorNumerico } : {}),
+        emAlerta,
+        registradoEm: new Date().toISOString(),
+      };
       kri.medicoes.unshift(nova);
       // 1ª leitura em alerta sem alerta aberto: abre um (ciência = hoje, em Brasília). Um só por KRI.
       // Leitura dentro do limite NUNCA encerra o alerta (só a comunicação à CGOV encerra).

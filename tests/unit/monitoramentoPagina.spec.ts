@@ -337,6 +337,23 @@ describe('Página Monitoramento', () => {
       w.unmount();
     });
 
+    it('alerta comunicado vale até a próxima leitura: leitura nova dentro do limite volta a "Dentro do limite" (D-5)', async () => {
+      const { w } = await montar();
+      expect(cartaoDe(w, 'kri-socio-1').find('.faixa-alerta').exists()).toBe(true);
+      await cartaoDe(w, 'kri-socio-1').findAll('button').find((b) => b.text().includes('Registrar leitura'))!.trigger('click');
+      await flushPromises();
+      const dialogo = document.body.querySelector('[role="dialog"]') as HTMLElement;
+      const campo = dialogo.querySelector('input[type="text"]') as HTMLInputElement;
+      campo.value = '95%'; // limite: alerta quando menor que 90 %
+      campo.dispatchEvent(new Event('input'));
+      [...dialogo.querySelectorAll('button')].find((b) => b.textContent?.includes('Salvar leitura'))!.click();
+      await flushPromises();
+      const cartao = cartaoDe(w, 'kri-socio-1');
+      expect(cartao.find('.faixa-alerta').exists()).toBe(false);
+      expect(cartao.text()).toContain('Dentro do limite');
+      w.unmount();
+    });
+
     it('um "Reavaliar" por risco ligado (vai à ficha) e um "Comunicar à CGOV" (vai à P-03)', async () => {
       const { w } = await montar();
       const faixa = cartaoDe(w, 'kri-anexo-ii-1').find('.faixa-alerta');

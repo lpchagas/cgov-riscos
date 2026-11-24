@@ -403,8 +403,9 @@ const colunasAcoes: ColunaTabela<LinhaAcao>[] = [
 
     <section class="monitoramento__kpis" aria-label="Resumo do monitoramento">
       <StatCard rotulo="Indicadores (KRIs)" :valor="kris.length" descricao="Indicadores-Chave de Risco ativos" />
-      <!-- "Alertas abertos" (e não "Em alerta"): conta o prazo de 10 dias úteis correndo; o
-           filtro "Em alerta" é outra coisa (os cartões cuja leitura passou do limite). -->
+      <!-- "Alertas abertos": os alertas com o prazo de 10 dias úteis correndo ou vencido. É o
+           MESMO conjunto do filtro "Em alerta" (vencido + alerta), e o clique abre esse filtro.
+           O alerta já comunicado à CGOV não conta. -->
       <StatCard
         rotulo="Alertas abertos"
         :valor="alertasAbertos"

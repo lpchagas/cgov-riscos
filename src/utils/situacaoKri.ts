@@ -2,7 +2,7 @@
  * Situação de um KRI na tela de Monitoramento (LAC-03). Só decide a "etiqueta";
  * os números do prazo vêm do banco (visão `alertas_kri_situacao`).
  */
-import type { AlertaKri, IndicadorKri } from '../types/radar.types';
+import type { AlertaKri, IndicadorKri, MedicaoKri } from '../types/radar.types';
 import { diasUteisEntre, hojeEmBrasilia, somarDiasUteis } from './diasUteis';
 
 /** O que o banco GUARDA de um alerta (o resto — prazos — é calculado pela visão). */
@@ -34,9 +34,33 @@ export function montarAlertaKri(base: AlertaKriBase, hoje: string = hojeEmBrasil
 }
 
 /**
+ * O alerta já foi encerrado (comunicado à CGOV)? Critério ÚNICO, usado aqui e em
+ * `alertaAtualDoKri`: tem data de encerramento OU comunicação registrada.
+ */
+export function alertaEncerrado(a: AlertaKri): boolean {
+  return !!(a.encerradoEm || a.comunicacaoId);
+}
+
+/**
+ * Dia (no fuso de Brasília) em que a leitura foi REGISTRADA no sistema.
+ * Usa o carimbo `registradoEm` (criado_em do banco); leitura antiga sem carimbo
+ * usa a data da medição. Ex.: '2026-11-25T01:00:00Z' -> '2026-11-24' (22h em Brasília).
+ */
+function diaDoRegistro(m: MedicaoKri): string {
+  const carimbo = m.registradoEm ? new Date(m.registradoEm) : undefined;
+  // Carimbo ilegível não pode derrubar a tela: cai na data da medição.
+  return carimbo && !Number.isNaN(carimbo.getTime()) ? hojeEmBrasilia(carimbo) : m.dataMedicao.slice(0, 10);
+}
+
+/**
  * - vencido: alerta ABERTO e fora do prazo de 10 dias úteis;
  * - alerta: alerta ABERTO ainda no prazo;
- * - comunicado: alerta encerrado (tem `encerradoEm` ou `comunicacaoId`);
+ * - comunicado: alerta encerrado (tem `encerradoEm` ou `comunicacaoId`), SÓ ATÉ A PRÓXIMA
+ *   LEITURA (decisão D-5 do responsável, 2026-11-24). "Próxima leitura" = leitura registrada
+ *   em DIA POSTERIOR ao encerramento (o banco guarda o encerramento só como data, sem hora;
+ *   por isso uma leitura no mesmo dia da comunicação ainda não tira o "comunicado").
+ *   Depois dela, o KRI volta ao normal (dentro / sem limite); se a leitura passou do limite,
+ *   o banco abre um alerta NOVO, que é o que `alertaAtualDoKri` devolve.
  * - sem_limite: KRI sem limite numérico (inclui o KRI antigo só com o texto "a converter");
  * - dentro: tem limite numérico e nenhum alerta.
  */
@@ -52,8 +76,12 @@ const ORDEM: SituacaoKri[] = ['vencido', 'alerta', 'comunicado', 'sem_limite', '
  */
 export function situacaoKri(kri: IndicadorKri, alerta?: AlertaKri): SituacaoKri {
   if (alerta) {
-    if (alerta.encerradoEm || alerta.comunicacaoId) return 'comunicado';
-    return alerta.vencido ? 'vencido' : 'alerta';
+    if (!alertaEncerrado(alerta)) return alerta.vencido ? 'vencido' : 'alerta';
+    const fim = alerta.encerradoEm;
+    // Sem data de encerramento não há como comparar: continua "comunicado".
+    const houveLeituraNova = !!fim && kri.medicoes.some((m) => diaDoRegistro(m) > fim);
+    if (!houveLeituraNova) return 'comunicado';
+    // Leitura nova depois da comunicação: segue para a situação normal, abaixo.
   }
   // Limite numérico = operador E valor (valor 0 é válido, por isso não usamos "if (valor)").
   const temLimite =
@@ -81,7 +109,7 @@ export function ordenarPorUrgencia<T>(itens: T[], situacao: (t: T) => SituacaoKr
 export function alertaAtualDoKri(alertas: AlertaKri[], kriId: string): AlertaKri | undefined {
   const doKri = alertas.filter((a) => a.kriId === kriId);
   return (
-    doKri.find((a) => !a.encerradoEm) ??
+    doKri.find((a) => !alertaEncerrado(a)) ??
     [...doKri].sort((a, b) => b.cienciaEm.localeCompare(a.cienciaEm))[0]
   );
 }

@@ -251,6 +251,12 @@ export interface MedicaoKri {
   valorNumerico?: number;
   /** Quem decide é o banco (gatilho); na demonstração, a fonte imita a mesma regra. */
   emAlerta: boolean;
+  /**
+   * Quando a leitura foi REGISTRADA no sistema (`criado_em` do banco, com hora).
+   * Não é a data da medição (que pode ser antiga). Serve para saber se houve
+   * leitura nova depois da comunicação do alerta (D-5). Ausente em dado antigo.
+   */
+  registradoEm?: string;
   observacao?: string;
 }
 

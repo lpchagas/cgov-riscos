@@ -196,6 +196,8 @@ function medicaoDoBanco(l: LinhaBanco): MedicaoKri {
     valorNumerico: numeroOpcional(l.valor_numerico),
     emAlerta: booleano(l.em_alerta),
     observacao: textoOpcional(l.observacao),
+    // Carimbo de quando a leitura entrou no sistema (D-5: "comunicado" vale até a próxima leitura).
+    registradoEm: textoOpcional(l.criado_em),
   };
 }
 

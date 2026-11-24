@@ -73,6 +73,22 @@ describe('Ficha do risco', () => {
     expect(linhaDe('kri-anexo-ii-3').text()).toContain('alerta Acima de 5% — limite a converter');
   });
 
+  it('aba Monitoramento: o selo do KRI segue o Monitoramento (alerta aberto, não a marca da leitura) (M-1)', async () => {
+    const store = useRiscosStore();
+    // RADAR-2026-003: kri-socio-1 tem a última leitura "em alerta", mas o alerta já foi comunicado à CGOV.
+    const r = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-003')!;
+    const k = r.kris.find((x) => x.id === 'kri-socio-1')!;
+    const { w } = await montar(`/riscos/${r.id}?aba=monitoramento`);
+    const linha = w.findAll('.item-cartao').find((li) => li.text().includes(k.nomeIndicador))!;
+    expect(linha.text()).not.toContain('Em alerta');
+    expect(linha.text()).toContain('Alerta comunicado');
+    // RADAR-2026-001: kri-anexo-ii-1 tem alerta aberto (vencido) -> "Em alerta".
+    const r1 = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-001')!;
+    const k1 = r1.kris.find((x) => x.id === 'kri-anexo-ii-1')!;
+    const { w: w1 } = await montar(`/riscos/${r1.id}?aba=monitoramento`);
+    expect(w1.findAll('.item-cartao').find((li) => li.text().includes(k1.nomeIndicador))!.text()).toContain('Em alerta');
+  });
+
   it('endereço inexistente avisa "Risco não encontrado"', async () => {
     const { w } = await montar('/riscos/nao-existe');
     expect(w.find('h1').text()).toBe('Risco não encontrado');
