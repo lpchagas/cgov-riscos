@@ -449,6 +449,28 @@ describe('Painel (estados da carteira)', () => {
     expect(w.text()).toContain(kri.nomeIndicador);
   });
 
+  // D1 (CodeRabbit, 2ª rodada, PR #20): no ramo "carteira vazia" o cartão também corta em
+  // LIMITE_ATENCAO itens e precisa avisar "E mais N em Monitoramento" (como o ramo normal).
+  it('carteira vazia com 7 KRIs sem risco em alerta: mostra "E mais 1" com link ao Monitoramento', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const carteira = await base.carregarCarteira();
+    const alertas = await base.listarAlertasKri();
+    const aberto = alertas.find((a) => !a.encerradoEm && !a.comunicacaoId)!;
+    const kri = carteira.riscos.flatMap((r) => r.kris).find((k) => k.id === aberto.kriId)!;
+    // 7 cópias do KRI (ids próprios), cada uma com o seu alerta aberto.
+    const copias = Array.from({ length: 7 }, (_, i) => ({ ...kri, id: `kri-copia-${i}`, nomeIndicador: `KRI cópia ${i}`, riscoIds: [] }));
+    const { w } = await montarComFonte({
+      ...base,
+      carregarCarteira: async () => ({ ...carteira, riscos: [], krisSemRisco: copias }),
+      listarKrisSemRisco: async () => copias,
+      listarAlertasKri: async () => copias.map((k, i) => ({ ...aberto, id: `alerta-copia-${i}`, kriId: k.id })),
+    });
+    expect(w.text()).toContain('Nenhum risco no seu alcance');
+    expect(w.text()).toContain('E mais 1 em');
+    const link = w.findAll('a').find((a) => a.text() === 'Monitoramento');
+    expect(link).toBeTruthy();
+  });
+
   it('"Precisa da sua atenção" segue as ações liberadas (acoes), não o perfil', async () => {
     const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.gestor });
     const { w } = await montarComFonte({

@@ -490,9 +490,12 @@ async function salvar(enviar: boolean): Promise<void> {
       return;
     }
   }
-  // Rascunho: só o limite numérico do KRI que já o tem (a ficha completa já conferiu a etapa 4).
+  // Rascunho: o limite numérico do KRI que já o tem e o par incompleto (a ficha completa já conferiu a etapa 4).
   // Ex.: KRI "menor que 80 %" com o número apagado → mensagem no campo, nada é gravado.
-  if (!fichaCompleta && kriJaTemLimiteNumerico.value) {
+  // Também confere o PAR incompleto (só o operador ou só o número), que `kriDosCampos` omitiria
+  // calado (KRI antigo, só texto, ou KRI novo). Vazio total continua livre; KRI só ligado fica fora.
+  const tentouLimite = !camposKriSoLeitura.value && (d.value.kriLimiteOperador !== '' || d.value.kriLimiteValor.trim() !== '');
+  if (!fichaCompleta && (kriJaTemLimiteNumerico.value || tentouLimite)) {
     const e = errosDoLimiteNumerico(d.value);
     if (Object.keys(e).length) {
       etapa.value = 4;

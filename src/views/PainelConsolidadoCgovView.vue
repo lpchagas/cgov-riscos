@@ -274,6 +274,11 @@ watch(
           </div>
         </li>
       </ul>
+      <!-- Mesmo aviso do ramo normal: o cartão mostra só LIMITE_ATENCAO itens; o resto fica no Monitoramento. -->
+      <p v-if="atencao.length > LIMITE_ATENCAO" class="painel__dica">
+        E mais {{ atencao.length - LIMITE_ATENCAO }} em
+        <RouterLink :to="{ name: 'monitoramento-kris' }">Monitoramento</RouterLink>.
+      </p>
     </section>
     </template>
 
