@@ -449,3 +449,438 @@ SELECT a.*,
 
 REVOKE ALL ON public.alertas_kri_situacao FROM anon, authenticated;
 GRANT SELECT ON public.alertas_kri_situacao TO authenticated;
+
+-- ============================================================================
+-- SEÇÃO 4 — salvar_ficha_risco grava o limite de alerta numérico
+-- ============================================================================
+-- A ficha do risco (tela do KRI) passa a gravar também o limite numérico:
+--   limite_operador ('>', '>=', '<', '<='), limite_valor (número) e
+--   limite_unidade (texto livre, ex.: '%').
+-- Recriada CREATE OR REPLACE a partir da definição vigente (20261122004,
+-- seção 8) e MUDANDO SÓ o INSERT e o UPDATE de indicadores_kri, que ganham
+-- esses três campos. O texto antigo limite_alerta continua sendo gravado
+-- exatamente como antes. Assinatura, SECURITY INVOKER, search_path e
+-- permissões são os mesmos.
+-- Como os valores vêm de jsonb_populate_record sobre indicadores_kri, o
+-- número do JSON já chega como numeric; chave omitida em KRI existente
+-- mantém o valor atual.
+-- Ex.: {"limite_operador": "<", "limite_valor": 80, "limite_unidade": "%"}
+--   grava "alerta quando a leitura ficar abaixo de 80%".
+-- A trava do risco crítico não muda: um KRI sem limite numérico E sem o
+-- texto antigo continua "incompleto" (fn_kri_completo, seção 2).
+CREATE OR REPLACE FUNCTION public.salvar_ficha_risco(ficha jsonb)
+RETURNS TABLE (id uuid, codigo_radar text)
+LANGUAGE plpgsql
+VOLATILE
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+#variable_conflict use_column
+DECLARE
+  v_id      uuid;                         -- id do risco (novo ou existente)
+  v_codigo  text;                         -- codigo_radar do risco
+  v_risco   public.riscos;                -- o risco "montado" a partir do JSON
+  v_ctrl    public.controles_existentes;  -- um controle "montado" (alteração)
+  v_resp    public.respostas_tratamento;  -- uma resposta "montada" (alteração)
+  v_kri     public.indicadores_kri;       -- um KRI "montado" (alteração)
+  v_kri_id  uuid;                         -- id do KRI da vez (existente ou recém-criado)
+  v_objeto  uuid;                         -- objeto do risco GRAVADO (o KRI tem de ser dele)
+  v_item    jsonb;                        -- o item da vez de uma lista de filhos
+  v_grupo   text;                         -- nome da lista (controles, respostas, kris)
+  v_novo    boolean;                      -- true = ficha nova (sem id)
+  v_fator   numeric(3,2);                 -- fator do Quadro 6 (sai da eficácia)
+  v_linhas  integer;                      -- linhas alteradas pelo UPDATE do risco (e do KRI, na 2c)
+  -- Trava do risco crítico (LAC-13, bloco 2d): o risco como ficou gravado.
+  v_trava_estado     text;
+  v_trava_critico    text;
+  v_trava_estrategia text;
+  v_trava_motivo     text;
+
+  -- Valores padrão das tabelas, usados na CRIAÇÃO quando a chave não veio.
+  -- (São os mesmos DEFAULT das colunas em 20261109001_schema_radar.sql.)
+  c_padrao_risco     CONSTANT jsonb := '{"teste_integridade_aplicavel": false,
+                                         "possui_evidencia_controle": false,
+                                         "nivel_eficacia_controle": "Inexistente",
+                                         "estrategia_principal": "Mitigar"}';
+  c_padrao_controle  CONSTANT jsonb := '{"possui_evidencia_comprovada": false,
+                                         "desenho_adequado": false,
+                                         "operacao_comprovada": false}';
+  c_padrao_resposta  CONSTANT jsonb := '{"custo_quanto": "Sem custo adicional",
+                                         "status_execucao": "nao_iniciada"}';
+BEGIN
+  -- -------------------------------------------------------------------------
+  -- 0. Conferência do formato
+  -- -------------------------------------------------------------------------
+  IF ficha IS NULL OR jsonb_typeof(ficha) <> 'object' THEN
+    RAISE EXCEPTION 'RADAR: a ficha do risco deve ser um objeto JSON.'
+      USING ERRCODE = 'invalid_parameter_value';   -- 22023
+  END IF;
+  FOREACH v_grupo IN ARRAY ARRAY['controles', 'respostas', 'kris'] LOOP
+    IF jsonb_typeof(ficha -> v_grupo) NOT IN ('array', 'null') THEN
+      RAISE EXCEPTION 'RADAR: "%" da ficha deve ser uma lista.', v_grupo
+        USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+  END LOOP;
+
+  -- -------------------------------------------------------------------------
+  -- 1. O RISCO — primeiro "montamos" a linha (v_risco); depois gravamos.
+  -- -------------------------------------------------------------------------
+  v_novo := nullif(ficha ->> 'id', '') IS NULL;
+
+  IF v_novo THEN
+    -- 1a. CRIAÇÃO. jsonb_populate_record "monta" uma linha de riscos a partir
+    --     do JSON (padrões || ficha: o que veio na ficha vence o padrão).
+    v_risco := jsonb_populate_record(NULL::public.riscos, c_padrao_risco || ficha);
+  ELSE
+    -- 1b. ALTERAÇÃO. Lemos o risco atual (só se a pessoa o LÊ — RLS) e
+    --     "montamos" por cima dele: chave omitida mantém o valor atual.
+    v_id := (ficha ->> 'id')::uuid;
+    SELECT r.* INTO v_risco FROM public.riscos AS r WHERE r.id = v_id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'RADAR: risco não encontrado ou fora do seu alcance.'
+        USING ERRCODE = 'insufficient_privilege';   -- 42501
+    END IF;
+    -- Guardamos o código GRAVADO antes de misturar o JSON: um "codigo_radar"
+    -- enviado na ficha não pode aparecer nas mensagens de erro.
+    v_codigo := v_risco.codigo_radar;
+    v_risco  := jsonb_populate_record(v_risco, ficha);
+  END IF;
+
+  -- Fator do Quadro 6 a partir da eficácia escolhida (ver comentário acima),
+  -- calculado UMA vez e usado tanto na criação quanto na alteração.
+  -- Ex.: 'Forte' → 0,50. (A trava de evidência continua no gatilho.)
+  v_fator := CASE v_risco.nivel_eficacia_controle
+               WHEN 'Inexistente'  THEN 1.00
+               WHEN 'Fraco'        THEN 0.90
+               WHEN 'Mediano'      THEN 0.75
+               WHEN 'Satisfatório' THEN 0.60
+               WHEN 'Forte'        THEN 0.50
+             END;
+
+  -- search_path: o gatilho de cálculo (20261109001) usa nomes SEM `public.`
+  -- (calcular_nivel_inerente_q7, categorias_risco...). Com o caminho vazio
+  -- desta função ele não os acharia. Então, SÓ durante a gravação do risco,
+  -- o caminho vira "public, pg_temp" (pg_temp por último, como em
+  -- fn_fluxo_mudar_estado, 20261115004) e depois volta a ficar vazio.
+  IF v_novo THEN
+    -- Ano do código pelo horário de Brasília: o servidor roda em UTC, e entre
+    -- 21h e 24h de 31/12 (Brasília) o ano em UTC já seria o seguinte.
+    v_codigo := 'RADAR-' || extract(year FROM (now() AT TIME ZONE 'America/Sao_Paulo'))::int || '-'
+                || lpad(nextval('public.riscos_codigo_seq')::text, 3, '0');
+
+    -- Só as colunas de ENTRADA. As calculadas ficam de fora (o gatilho de
+    -- cálculo as preenche antes de o banco conferir os NOT NULL).
+    -- status_fluxo: 'rascunho', ou 'preliminar_cgov' se pedido — a política de
+    -- INSERT só aceita este último vindo da CGOV (senão: erro 42501).
+    PERFORM set_config('search_path', 'public, pg_temp', true);
+    INSERT INTO public.riscos AS r
+      (codigo_radar, objeto_id, responsavel_risco_nome,
+       causas, evento_risco, consequencias, objetivo_afetado,
+       categoria_id, subcategoria_integridade, teste_integridade_aplicavel,
+       justificativa_nao_integridade,
+       probabilidade, justificativa_probabilidade, impacto, justificativa_impacto,
+       possui_evidencia_controle, nivel_eficacia_controle, fator_controle,
+       estrategia_principal, origem_preliminar_cgov, status_fluxo)
+    VALUES
+      (v_codigo, v_risco.objeto_id, v_risco.responsavel_risco_nome,
+       v_risco.causas, v_risco.evento_risco, v_risco.consequencias, v_risco.objetivo_afetado,
+       v_risco.categoria_id, v_risco.subcategoria_integridade, v_risco.teste_integridade_aplicavel,
+       v_risco.justificativa_nao_integridade,
+       v_risco.probabilidade, v_risco.justificativa_probabilidade, v_risco.impacto,
+       v_risco.justificativa_impacto,
+       v_risco.possui_evidencia_controle, v_risco.nivel_eficacia_controle, v_fator,
+       v_risco.estrategia_principal,
+       coalesce((ficha ->> 'preliminar_cgov')::boolean, false),
+       CASE WHEN coalesce((ficha ->> 'preliminar_cgov')::boolean, false)
+            THEN 'preliminar_cgov' ELSE 'rascunho' END)
+    RETURNING r.id INTO v_id;
+    PERFORM set_config('search_path', '', true);
+
+  ELSE
+    -- Nunca status_fluxo, codigo_radar ou calculadas. Se este UPDATE mudar
+    -- P, I, eficácia... de um risco aprovado, o gatilho de trava o REABRE
+    -- (em_validacao_cg) e marca "reaberto neste comando" — os filhos abaixo
+    -- passam pela trava por estarem no mesmo comando.
+    PERFORM set_config('search_path', 'public, pg_temp', true);
+    UPDATE public.riscos AS r SET
+      objeto_id                     = v_risco.objeto_id,
+      responsavel_risco_nome        = v_risco.responsavel_risco_nome,
+      causas                        = v_risco.causas,
+      evento_risco                  = v_risco.evento_risco,
+      consequencias                 = v_risco.consequencias,
+      objetivo_afetado              = v_risco.objetivo_afetado,
+      categoria_id                  = v_risco.categoria_id,
+      subcategoria_integridade      = v_risco.subcategoria_integridade,
+      teste_integridade_aplicavel   = v_risco.teste_integridade_aplicavel,
+      justificativa_nao_integridade = v_risco.justificativa_nao_integridade,
+      probabilidade                 = v_risco.probabilidade,
+      justificativa_probabilidade   = v_risco.justificativa_probabilidade,
+      impacto                       = v_risco.impacto,
+      justificativa_impacto         = v_risco.justificativa_impacto,
+      possui_evidencia_controle     = v_risco.possui_evidencia_controle,
+      nivel_eficacia_controle       = v_risco.nivel_eficacia_controle,
+      fator_controle                = v_fator,
+      estrategia_principal          = v_risco.estrategia_principal
+    WHERE r.id = v_id;
+    -- Contamos as linhas ANTES do PERFORM abaixo: todo PERFORM reescreve a
+    -- variável FOUND, então "IF NOT FOUND" depois dele nunca seria verdadeiro.
+    GET DIAGNOSTICS v_linhas = ROW_COUNT;
+    PERFORM set_config('search_path', '', true);
+
+    -- A RLS não dá erro no UPDATE barrado: ela só "não acha" a linha.
+    -- Aqui transformamos isso num erro claro (42501), com o código GRAVADO.
+    IF v_linhas = 0 THEN
+      RAISE EXCEPTION 'RADAR: você não pode alterar a ficha do risco %.', v_codigo
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+  END IF;
+
+  -- Código final (na alteração, o que já estava gravado) e o objeto GRAVADO:
+  -- é dele que o KRI da ficha precisa ser (LAC-03).
+  SELECT r.codigo_radar, r.objeto_id INTO v_codigo, v_objeto FROM public.riscos AS r WHERE r.id = v_id;
+
+  -- -------------------------------------------------------------------------
+  -- 2. Os FILHOS — antes de tudo, nenhum id pode ser de filho de outro risco.
+  --    Ex.: mandar na ficha de RADAR-2026-003 o id de um controle de
+  --    RADAR-2026-002 → recusa (e nada é gravado).
+  --    O KRI (LAC-03) é do OBJETO: o id tem de ser de um KRI do mesmo objeto
+  --    do risco (ex.: na ficha de um risco da FLONA de Caçador, um KRI da CT
+  --    Curitiba → recusa). KRI que a pessoa não lê (RLS) também "não existe".
+  -- -------------------------------------------------------------------------
+  IF EXISTS (
+       SELECT 1
+         FROM jsonb_array_elements(CASE WHEN jsonb_typeof(ficha -> 'controles') = 'array'
+                                        THEN ficha -> 'controles' ELSE '[]' END) AS e(item)
+        WHERE nullif(e.item ->> 'id', '') IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM public.controles_existentes AS c
+                           WHERE c.id = (e.item ->> 'id')::uuid AND c.risco_id = v_id))
+  OR EXISTS (
+       SELECT 1
+         FROM jsonb_array_elements(CASE WHEN jsonb_typeof(ficha -> 'respostas') = 'array'
+                                        THEN ficha -> 'respostas' ELSE '[]' END) AS e(item)
+        WHERE nullif(e.item ->> 'id', '') IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM public.respostas_tratamento AS t
+                           WHERE t.id = (e.item ->> 'id')::uuid AND t.risco_id = v_id))
+  OR EXISTS (
+       SELECT 1
+         FROM jsonb_array_elements(CASE WHEN jsonb_typeof(ficha -> 'kris') = 'array'
+                                        THEN ficha -> 'kris' ELSE '[]' END) AS e(item)
+        WHERE nullif(e.item ->> 'id', '') IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM public.indicadores_kri AS k
+                           WHERE k.id = (e.item ->> 'id')::uuid AND k.objeto_id = v_objeto))
+  THEN
+    RAISE EXCEPTION 'RADAR: a ficha traz um controle, resposta ou KRI que não pertence ao risco % (o KRI precisa ser do mesmo objeto de gestão de riscos).', v_codigo
+      USING ERRCODE = 'invalid_parameter_value';   -- 22023
+  END IF;
+
+  -- -------------------------------------------------------------------------
+  -- 2a. CONTROLES EXISTENTES (só se a lista veio)
+  --     Ordem: apaga os que saíram → atualiza os que têm id → insere os novos.
+  -- -------------------------------------------------------------------------
+  IF jsonb_typeof(ficha -> 'controles') = 'array' THEN
+    DELETE FROM public.controles_existentes AS c
+     WHERE c.risco_id = v_id
+       AND c.id NOT IN (SELECT (e.item ->> 'id')::uuid
+                          FROM jsonb_array_elements(ficha -> 'controles') AS e(item)
+                         WHERE nullif(e.item ->> 'id', '') IS NOT NULL);
+
+    FOR v_item IN SELECT e.item FROM jsonb_array_elements(ficha -> 'controles') AS e(item)
+                   WHERE nullif(e.item ->> 'id', '') IS NOT NULL LOOP
+      SELECT c.* INTO v_ctrl FROM public.controles_existentes AS c
+       WHERE c.id = (v_item ->> 'id')::uuid;
+      v_ctrl := jsonb_populate_record(v_ctrl, v_item);   -- chave omitida = mantém
+      UPDATE public.controles_existentes AS c SET
+        descricao_controle          = v_ctrl.descricao_controle,
+        evidencia_funcionamento     = v_ctrl.evidencia_funcionamento,
+        possui_evidencia_comprovada = v_ctrl.possui_evidencia_comprovada,
+        desenho_adequado            = v_ctrl.desenho_adequado,
+        operacao_comprovada         = v_ctrl.operacao_comprovada
+      WHERE c.id = (v_item ->> 'id')::uuid AND c.risco_id = v_id;
+    END LOOP;
+
+    INSERT INTO public.controles_existentes
+      (risco_id, descricao_controle, evidencia_funcionamento,
+       possui_evidencia_comprovada, desenho_adequado, operacao_comprovada)
+    SELECT v_id, n.descricao_controle, n.evidencia_funcionamento,
+           n.possui_evidencia_comprovada, n.desenho_adequado, n.operacao_comprovada
+      FROM jsonb_array_elements(ficha -> 'controles') AS e(item)
+     CROSS JOIN LATERAL jsonb_populate_record(NULL::public.controles_existentes,
+                                              c_padrao_controle || e.item) AS n
+     WHERE nullif(e.item ->> 'id', '') IS NULL;
+  END IF;
+
+  -- -------------------------------------------------------------------------
+  -- 2b. RESPOSTAS DE TRATAMENTO — 5W2H (só se a lista veio)
+  -- -------------------------------------------------------------------------
+  IF jsonb_typeof(ficha -> 'respostas') = 'array' THEN
+    DELETE FROM public.respostas_tratamento AS t
+     WHERE t.risco_id = v_id
+       AND t.id NOT IN (SELECT (e.item ->> 'id')::uuid
+                          FROM jsonb_array_elements(ficha -> 'respostas') AS e(item)
+                         WHERE nullif(e.item ->> 'id', '') IS NOT NULL);
+
+    FOR v_item IN SELECT e.item FROM jsonb_array_elements(ficha -> 'respostas') AS e(item)
+                   WHERE nullif(e.item ->> 'id', '') IS NOT NULL LOOP
+      SELECT t.* INTO v_resp FROM public.respostas_tratamento AS t
+       WHERE t.id = (v_item ->> 'id')::uuid;
+      v_resp := jsonb_populate_record(v_resp, v_item);
+      UPDATE public.respostas_tratamento AS t SET
+        estrategia            = v_resp.estrategia,
+        acao_o_que            = v_resp.acao_o_que,
+        justificativa_por_que = v_resp.justificativa_por_que,
+        local_onde            = v_resp.local_onde,
+        responsavel_quem      = v_resp.responsavel_quem,
+        prazo_quando          = v_resp.prazo_quando,
+        procedimento_como     = v_resp.procedimento_como,
+        custo_quanto          = v_resp.custo_quanto,
+        status_execucao       = v_resp.status_execucao
+      WHERE t.id = (v_item ->> 'id')::uuid AND t.risco_id = v_id;
+    END LOOP;
+
+    INSERT INTO public.respostas_tratamento
+      (risco_id, estrategia, acao_o_que, justificativa_por_que, local_onde,
+       responsavel_quem, prazo_quando, procedimento_como, custo_quanto, status_execucao)
+    SELECT v_id, n.estrategia, n.acao_o_que, n.justificativa_por_que, n.local_onde,
+           n.responsavel_quem, n.prazo_quando, n.procedimento_como, n.custo_quanto, n.status_execucao
+      FROM jsonb_array_elements(ficha -> 'respostas') AS e(item)
+     CROSS JOIN LATERAL jsonb_populate_record(NULL::public.respostas_tratamento,
+                                              c_padrao_resposta || e.item) AS n
+     WHERE nullif(e.item ->> 'id', '') IS NULL;
+  END IF;
+
+
+  -- -------------------------------------------------------------------------
+  -- 2c. KRIs (LAC-03) — a lista diz QUAIS KRIs do objeto servem a este risco
+  --     Depois de gravar, os KRIs ligados ao risco são exatamente os da lista:
+  --       - item SEM id                   → KRI novo, do objeto do risco, já ligado;
+  --       - item com id                   → altera a DEFINIÇÃO daquele KRI (que
+  --                                         precisa ser do mesmo objeto) e o liga,
+  --                                         se ainda não estava;
+  --       - item com id e apenasLigar     → só liga um KRI que já existe no
+  --                                         objeto, sem tocar na definição;
+  --       - KRI ligado que não veio na lista → é só DESLIGADO deste risco.
+  --     Nunca se apaga aqui um KRI que outro risco ainda usa: quem apaga o KRI
+  --     que ficou sem nenhuma ligação (órfão, com as medições) é o gatilho de
+  --     kri_riscos. Medições ficam no Monitoramento (não passam por aqui).
+  --     Ex.: R-01 e R-04 da FLONA de Caçador usam o KRI "% de autorizações
+  --     fora do prazo". A ficha de R-04 vem sem ele → só R-04 é desligado; o
+  --     KRI e as medições continuam, ligados a R-01.
+  --     Os gatilhos de sempre valem: alterar a definição trava/reabre TODOS os
+  --     riscos ligados (fn_trava_reabertura_kri); ligar/desligar trava/reabre
+  --     este risco; KRI de outro objeto é recusado (23514).
+  -- -------------------------------------------------------------------------
+  IF jsonb_typeof(ficha -> 'kris') = 'array' THEN
+    -- Desliga os KRIs que saíram da lista (o órfão é apagado pelo gatilho).
+    DELETE FROM public.kri_riscos AS l
+     WHERE l.risco_id = v_id
+       AND l.kri_id NOT IN (SELECT (e.item ->> 'id')::uuid
+                              FROM jsonb_array_elements(ficha -> 'kris') AS e(item)
+                             WHERE nullif(e.item ->> 'id', '') IS NOT NULL);
+
+    FOR v_item IN SELECT e.item FROM jsonb_array_elements(ficha -> 'kris') AS e(item) LOOP
+      IF nullif(v_item ->> 'id', '') IS NULL THEN
+        -- KRI novo, no objeto do risco. Campo que não veio fica vazio (NULL):
+        -- o sistema não inventa valor (RF-183).
+        v_kri := jsonb_populate_record(NULL::public.indicadores_kri, v_item);
+        INSERT INTO public.indicadores_kri AS k
+          (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade,
+           meta_alvo, limite_alerta, responsavel_medicao,
+           limite_operador, limite_valor, limite_unidade)
+        VALUES
+          (v_objeto, v_kri.nome_indicador, v_kri.formula_calculo, v_kri.fonte_dados,
+           v_kri.periodicidade, v_kri.meta_alvo, v_kri.limite_alerta, v_kri.responsavel_medicao,
+           v_kri.limite_operador, v_kri.limite_valor, v_kri.limite_unidade)
+        RETURNING k.id INTO v_kri_id;
+      ELSE
+        v_kri_id := (v_item ->> 'id')::uuid;
+        IF NOT coalesce((v_item ->> 'apenasLigar')::boolean, false) THEN
+          SELECT k.* INTO v_kri FROM public.indicadores_kri AS k WHERE k.id = v_kri_id;
+          v_kri := jsonb_populate_record(v_kri, v_item);   -- chave omitida = mantém
+          UPDATE public.indicadores_kri AS k SET
+            nome_indicador      = v_kri.nome_indicador,
+            formula_calculo     = v_kri.formula_calculo,
+            fonte_dados         = v_kri.fonte_dados,
+            periodicidade       = v_kri.periodicidade,
+            meta_alvo           = v_kri.meta_alvo,
+            limite_alerta       = v_kri.limite_alerta,
+            responsavel_medicao = v_kri.responsavel_medicao,
+            limite_operador     = v_kri.limite_operador,
+            limite_valor        = v_kri.limite_valor,
+            limite_unidade      = v_kri.limite_unidade
+          WHERE k.id = v_kri_id AND k.objeto_id = v_objeto;
+          -- A RLS não dá erro no UPDATE barrado: só "não acha" a linha. Sem
+          -- esta conferência, a ficha diria "salvo" sem ter gravado o KRI.
+          -- Ex.: a CGOV, na ficha preliminar, altera um KRI que também serve
+          -- a um risco da unidade (ela lê o KRI, mas não pode alterá-lo).
+          GET DIAGNOSTICS v_linhas = ROW_COUNT;
+          IF v_linhas = 0 THEN
+            RAISE EXCEPTION 'RADAR: você não pode alterar a definição do KRI "%" na ficha do risco % (o KRI serve a risco que você não pode alterar).',
+              v_kri.nome_indicador, v_codigo
+              USING ERRCODE = 'insufficient_privilege';   -- 42501
+          END IF;
+        END IF;
+      END IF;
+
+      -- Liga, se ainda não estava ligado. (Conferimos antes, em vez de usar
+      -- ON CONFLICT: o gatilho BEFORE INSERT de kri_riscos roda ANTES da
+      -- conferência de conflito e reabriria o aprovado à toa.)
+      IF NOT EXISTS (SELECT 1 FROM public.kri_riscos AS l
+                      WHERE l.kri_id = v_kri_id AND l.risco_id = v_id) THEN
+        INSERT INTO public.kri_riscos (kri_id, risco_id) VALUES (v_kri_id, v_id);
+      END IF;
+    END LOOP;
+  END IF;
+
+  -- -------------------------------------------------------------------------
+  -- 2d. TRAVA DO RISCO CRÍTICO (LAC-13, migração 20261122002; LAC-03)
+  --     Fora do rascunho, do devolvido e do preliminar_cgov, a ficha crítica
+  --     precisa de tratamento: estratégia principal diferente de "Aceitar",
+  --     pelo menos uma ação 5W2H que não seja "Aceitar" e (LAC-03) pelo menos
+  --     um KRI completo ligado ao risco. Roda DEPOIS da gravação dos KRIs
+  --     (2c), então enxerga o KRI que acabou de ser ligado. Mesma regra de
+  --     fn_trava_risco_critico, escrita aqui em consultas simples porque esta
+  --     função é SECURITY INVOKER: as leituras passam pela RLS de quem grava
+  --     (que lê o próprio risco). Relemos o risco GRAVADO: o gatilho de
+  --     cálculo já atualizou a criticidade, e a edição de um aprovado pode tê-lo
+  --     reaberto (em_validacao_cg) neste mesmo comando.
+  --     Ex.: aprovado crítico gravado com "Aceitar" → recusa 23514, e o
+  --     comando inteiro é desfeito (a ficha continua aprovada como estava).
+  -- -------------------------------------------------------------------------
+  SELECT r.status_fluxo, r.status_critico, r.estrategia_principal
+    INTO v_trava_estado, v_trava_critico, v_trava_estrategia
+    FROM public.riscos AS r WHERE r.id = v_id;
+
+  IF v_trava_estado NOT IN ('rascunho', 'devolvido', 'preliminar_cgov')
+     AND v_trava_critico IN ('sim', 'pendente_dar') THEN
+    IF v_trava_estrategia = 'Aceitar' THEN
+      v_trava_motivo := 'a estratégia "Aceitar" não é permitida';
+    ELSIF NOT EXISTS (SELECT 1 FROM public.respostas_tratamento AS t
+                       WHERE t.risco_id = v_id AND t.estrategia <> 'Aceitar') THEN
+      v_trava_motivo := 'falta uma ação de tratamento (5W2H)';
+    ELSIF NOT EXISTS (SELECT 1
+                        FROM public.kri_riscos AS l
+                        JOIN public.indicadores_kri AS k ON k.id = l.kri_id
+                       WHERE l.risco_id = v_id AND public.fn_kri_completo(k)) THEN
+      v_trava_motivo := 'falta um KRI completo (nome, fórmula, fonte, periodicidade, limite de alerta e responsável)';
+    END IF;
+    IF v_trava_motivo IS NOT NULL THEN
+      RAISE EXCEPTION 'RADAR: o risco % é crítico (fora do apetite da DAR ou com DAR pendente) e precisa de tratamento: %.',
+        v_codigo, v_trava_motivo
+        USING ERRCODE = 'check_violation';   -- 23514
+    END IF;
+  END IF;
+
+  -- -------------------------------------------------------------------------
+  -- 3. Devolve o id e o código do risco gravado.
+  -- -------------------------------------------------------------------------
+  id           := v_id;
+  codigo_radar := v_codigo;
+  RETURN NEXT;
+END;
+$$;
+
+COMMENT ON FUNCTION public.salvar_ficha_risco(jsonb) IS
+  'RADAR (B3; LAC-13; LAC-03): grava a ficha do risco (risco + controles + respostas + ligações de KRI do objeto, com o limite de alerta numérico) num único comando, com as permissões de quem está logado; gera o código RADAR-<ano>-<NNN> na criação. Ver migrações 20261117001 (seção 2), 20261122002, 20261122004 (seção 8) e 20261123002 (seção 4).';
+
+REVOKE EXECUTE ON FUNCTION public.salvar_ficha_risco(jsonb) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.salvar_ficha_risco(jsonb) TO authenticated;

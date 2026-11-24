@@ -7,7 +7,8 @@
 -- `plan(N)` abaixo (o plan é o número total de testes do arquivo).
 --   Seção 1: feriados e dias úteis;
 --   Seção 2: limite e leitura numéricos, com conversão do texto antigo;
---   Seção 3: o banco calcula o alerta e abre o prazo de 10 dias úteis.
+--   Seção 3: o banco calcula o alerta e abre o prazo de 10 dias úteis;
+--   Seção 4: a ficha do risco (salvar_ficha_risco) grava o limite numérico.
 -- Pré-requisito: `npm run db:reset`. Tudo é desfeito no final (rollback).
 -- ============================================================================
 
@@ -15,7 +16,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(105);
+select plan(111);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -377,6 +378,92 @@ select throws_ok(format($$insert into public.alertas_kri (kri_id, medicao_id, ci
 -- 3.10 Auditoria do alerta aberto.
 select ok((select count(*) from public.auditoria_log where tabela_afetada = 'alertas_kri' and operacao = 'INSERT') >= 1,
           '3. a abertura do alerta fica na trilha de auditoria');
+
+-- ============================================================================
+-- SEÇÃO 4 — salvar_ficha_risco grava o limite de alerta numérico
+-- ============================================================================
+-- A ficha do risco passa a gravar limite_operador, limite_valor e
+-- limite_unidade no KRI (novo ou existente), sem deixar de gravar o texto
+-- antigo limite_alerta. A trava do risco crítico (LAC-03) não muda.
+
+-- Risco crítico (P=4, I=4 -> 21,00, Extremo), aprovado, com um KRI completo
+-- (texto antigo) ligado; e um risco crítico em rascunho para gravar KRI novo.
+create or replace function pg_temp.crit4(p_codigo text, p_status text)
+returns uuid language plpgsql as $$
+declare v_id uuid;
+begin
+  insert into public.riscos
+    (codigo_radar, objeto_id, responsavel_risco_nome, causas, evento_risco, consequencias,
+     objetivo_afetado, descricao_padrao, categoria_id, probabilidade, impacto,
+     nivel_inerente, classificacao_inerente, nivel_residual, classificacao_residual,
+     status_fluxo, estrategia_principal)
+  values (p_codigo, '00000000-0000-4000-b000-000000000001', 'Responsável de demonstração',
+          'causa', 'evento', 'consequência', 'objetivo', 'x', 2, 4, 4, 0, 'Baixo', 0, 'Baixo',
+          'rascunho', 'Mitigar')
+  returning id into v_id;
+  insert into public.respostas_tratamento
+    (risco_id, estrategia, acao_o_que, responsavel_quem, prazo_quando, procedimento_como)
+  values (v_id, 'Mitigar', 'ação de teste', 'Chefia', '2027-06-30', 'como de teste');
+  if p_status <> 'rascunho' then
+    perform public.fn_fluxo_mudar_estado(v_id, p_status);
+  end if;
+  return v_id;
+end;
+$$;
+
+select pg_temp.crit4('T4-CRIT-RASC', 'rascunho') as r4_rasc \gset
+select pg_temp.crit4('T4-CRIT-APR', 'rascunho') as r4_apr \gset
+select pg_temp.kri_lim('T4 KRI do aprovado', null, null) as k4_apr \gset
+select set_config('radar.fluxo', 'on', true);
+insert into public.kri_riscos (kri_id, risco_id) values (:'k4_apr', :'r4_apr');
+select set_config('radar.fluxo', '', true);
+select (public.fn_fluxo_mudar_estado(:'r4_apr', 'aprovado')).id as ok4_apr \gset
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
+
+-- 4.1 KRI novo com limite numérico + texto antigo: os campos persistem.
+select f.id as ok4_a from public.salvar_ficha_risco(jsonb_build_object('id', :'r4_rasc', 'kris', jsonb_build_array(
+         jsonb_build_object('nome_indicador', 'T4 KRI numérico', 'formula_calculo', 'a / b',
+                            'fonte_dados', 'Planilha', 'periodicidade', 'Mensal',
+                            'responsavel_medicao', 'Chefia', 'limite_alerta', 'abaixo de 80%',
+                            'limite_operador', '<', 'limite_valor', 80, 'limite_unidade', '%')))) as f \gset
+select pg_temp.sair();
+select is((select limite_operador || '|' || limite_valor::text || '|' || limite_unidade
+             from public.indicadores_kri where nome_indicador = 'T4 KRI numérico'),
+          '<|80|%', '4. a ficha grava operador, valor e unidade do KRI novo');
+select is((select limite_alerta from public.indicadores_kri where nome_indicador = 'T4 KRI numérico'),
+          'abaixo de 80%', '4. a ficha continua gravando o texto antigo limite_alerta');
+
+-- 4.2 KRI existente: a ficha muda o limite; chave omitida mantém.
+select id as k4_num from public.indicadores_kri where nome_indicador = 'T4 KRI numérico' \gset
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select f.id as ok4_b from public.salvar_ficha_risco(jsonb_build_object('id', :'r4_rasc', 'kris', jsonb_build_array(
+         jsonb_build_object('id', :'k4_num', 'limite_operador', '>=', 'limite_valor', 12.5)))) as f \gset
+select pg_temp.sair();
+select is((select limite_operador || '|' || limite_valor::text from public.indicadores_kri where id = :'k4_num'),
+          '>=|12.5', '4. a ficha altera o limite numérico de um KRI existente');
+select is((select limite_unidade from public.indicadores_kri where id = :'k4_num'),
+          '%', '4. chave omitida (limite_unidade) mantém o valor anterior');
+
+-- 4.3 A trava do risco crítico não mudou.
+select pg_temp.entrar_como('gestor.uc@radar.test');
+-- (a) aprovado crítico trocando o KRI completo por um KRI novo sem limite
+--     nenhum (nem numérico, nem texto): continua barrado.
+select throws_like(format($$select public.salvar_ficha_risco(%L::jsonb)$$,
+                   jsonb_build_object('id', :'r4_apr', 'kris', jsonb_build_array(
+                     jsonb_build_object('nome_indicador', 'T4 KRI sem limite', 'formula_calculo', 'a / b',
+                                        'fonte_dados', 'Planilha', 'periodicidade', 'Mensal',
+                                        'responsavel_medicao', 'Chefia')))),
+                   '%falta um KRI completo%',
+                   '4. KRI novo sem limite numérico nem texto não destrava o risco crítico');
+-- (b) KRI só com o texto antigo continua valendo (nada reabre).
+select lives_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$,
+                jsonb_build_object('id', :'r4_apr', 'kris', jsonb_build_array(
+                  jsonb_build_object('nome_indicador', 'T4 KRI só texto', 'formula_calculo', 'a / b',
+                                     'fonte_dados', 'Planilha', 'periodicidade', 'Mensal',
+                                     'responsavel_medicao', 'Chefia', 'limite_alerta', '> 10%')))),
+                '4. KRI só com o texto antigo continua completo para a trava');
+select pg_temp.sair();
 
 select * from finish();
 rollback;
