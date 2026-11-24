@@ -24,6 +24,7 @@ import type {
   UnidadeOrganizacional,
 } from '../types/radar.types';
 import { hojeEmBrasilia, somarDiasUteis, subtrairDiasUteis } from '../utils/diasUteis';
+import type { ComunicacaoBase } from '../utils/hipotesesComunicacao';
 
 // ----------------------------------------------------------------------------
 // ALERTAS DE KRI DA DEMONSTRAÇÃO (LAC-03)
@@ -56,6 +57,57 @@ export const ALERTAS_KRI_SEMENTE: Array<
     cienciaEm: CIENCIA_COMUNICADO,
     encerradoEm: somarDiasUteis(CIENCIA_COMUNICADO, 4),
     comunicacaoId: 'com-demo-1',
+  },
+];
+
+/** Meio-dia de Brasília (15h UTC) do dia dado: cai no mesmo dia em qualquer fuso razoável. */
+const MEIO_DIA = (dia: string) => `${dia}T15:00:00.000Z`;
+
+/**
+ * Comunicações à CGOV da demonstração (LAC-04), com datas relativas a HOJE como os alertas:
+ *  1. do alerta já comunicado (com-demo-1): no prazo, com ciência da CGOV;
+ *  2. hipótese V enviada FORA do prazo (14 dias úteis), com ciência da CGOV;
+ *  3. hipótese III enviada hoje, ainda "nova" (a CGOV não deu ciência).
+ * Dados fictícios, sem nome de pessoa. O prazo e a situação são calculados na hora.
+ */
+export const COMUNICACOES_SEMENTE: ComunicacaoBase[] = [
+  {
+    id: 'com-demo-1',
+    unidadeId: 'uni-gr1',
+    hipotese: 'alerta_kri',
+    supre: ['I'],
+    dataCiencia: CIENCIA_COMUNICADO,
+    comunicadaEm: MEIO_DIA(somarDiasUteis(CIENCIA_COMUNICADO, 4)),
+    descricao: 'Indicador de autorizações acima do limite. Reavaliamos o risco e o nível residual passou a ser Crítico.',
+    providencias: 'Reforço da conferência dos processos de autorização e reunião com a equipe.',
+    alertaId: 'alerta-socio-1',
+    riscoIds: ['risco-socio-03'],
+    cienciaCgovEm: MEIO_DIA(somarDiasUteis(CIENCIA_COMUNICADO, 5)),
+    observacaoCgov: 'Ciente. Acompanhar o tratamento no próximo ciclo.',
+  },
+  {
+    id: 'com-demo-2',
+    unidadeId: 'uni-parna-bsb',
+    hipotese: 'V',
+    supre: [],
+    dataCiencia: subtrairDiasUteis(HOJE_SEMENTE, 15),
+    comunicadaEm: MEIO_DIA(subtrairDiasUteis(HOJE_SEMENTE, 1)),
+    descricao: 'A ação de capacitação dos fiscais está atrasada por falta de oferta do curso.',
+    documentoSei: '00000.000000/2026-00',
+    riscoIds: ['risco-integra-02'],
+    cienciaCgovEm: MEIO_DIA(HOJE_SEMENTE),
+    observacaoCgov: 'Ciente. Enviada fora do prazo de 10 dias úteis.',
+  },
+  {
+    id: 'com-demo-3',
+    unidadeId: 'uni-cgov',
+    hipotese: 'III',
+    supre: [],
+    dataCiencia: subtrairDiasUteis(HOJE_SEMENTE, 2),
+    comunicadaEm: MEIO_DIA(HOJE_SEMENTE),
+    descricao: 'O evento previsto no risco aconteceu: houve indisponibilidade do sistema de registro por um dia.',
+    providencias: 'Registro do incidente e acionamento do plano de contingência.',
+    riscoIds: ['risco-anexo-ii-01'],
   },
 ];
 

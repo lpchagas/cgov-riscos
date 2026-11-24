@@ -180,3 +180,36 @@ export function traduzirErroBanco(erro: unknown): ErroRadar {
   // 5) Qualquer outro texto técnico NUNCA é exibido.
   return new ErroRadar(GENERICA, 'desconhecido', codigo);
 }
+
+/**
+ * Mensagens da RPC `enviar_comunicacao` e de `registrar_ciencia_comunicacao`: o banco as escreve
+ * em português claro, SEM o prefixo "RADAR:". Só estas (prefixos conhecidos) são repassadas
+ * à tela; qualquer outro texto técnico continua escondido por `traduzirErroBanco`.
+ * Ex.: { message: 'Este alerta já foi comunicado' } -> ErroRadar('Este alerta já foi comunicado', 'estado')
+ */
+const MENSAGENS_COMUNICACAO: Array<[string, TipoErroRadar]> = [
+  ['A auditoria não envia', 'permissao'],
+  ['Sem permissão para comunicar', 'permissao'],
+  ['Somente a CGOV', 'permissao'],
+  ['Comunicação não encontrada', 'nao_encontrado'],
+  ['Alerta não encontrado', 'nao_encontrado'],
+  ['Risco não encontrado', 'nao_encontrado'],
+  ['Este alerta já foi comunicado', 'estado'],
+  ['A ciência desta comunicação já foi registrada', 'estado'],
+  ['A comunicação é imutável', 'estado'],
+  ['Informe', 'validacao'],
+  ['Hipótese inválida', 'validacao'],
+  ['A data de ciência', 'validacao'],
+  ['A comunicação de', 'validacao'],
+];
+
+/** Como `traduzirErroBanco`, mas repassa as mensagens em português da comunicação. */
+export function traduzirErroComunicacao(erro: unknown): ErroRadar {
+  if (erro instanceof ErroRadar) return erro;
+  const mensagem = (erro as { message?: unknown } | null)?.message;
+  if (typeof mensagem === 'string') {
+    const achada = MENSAGENS_COMUNICACAO.find(([prefixo]) => mensagem.startsWith(prefixo));
+    if (achada) return new ErroRadar(mensagem, achada[1]);
+  }
+  return traduzirErroBanco(erro);
+}

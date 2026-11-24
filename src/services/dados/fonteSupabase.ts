@@ -31,6 +31,7 @@ import type { FichaRisco, ObjetoContexto, ProcessoCadeiaValor, UnidadeOrganizaci
 import {
   acoesDoBanco,
   alertaKriDoBanco,
+  comunicacaoDoBanco,
   categoriaDoBanco,
   eventoAuditoriaDoBanco,
   eventoFluxoDoBanco,
@@ -43,7 +44,7 @@ import {
   type LinhaBanco,
 } from './conversores';
 import { numeroDaLeitura } from '../../utils/limiteAlerta';
-import { ErroRadar, traduzirErroBanco } from './errosBanco';
+import { ErroRadar, traduzirErroBanco, traduzirErroComunicacao } from './errosBanco';
 import { emLotes, lerTodasAsPaginas } from './paginacao';
 import type { Carteira, FonteDados } from './tipos';
 
@@ -427,6 +428,46 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
     async listarAlertasKri() {
       const linhas = await lerTabela('alertas_kri_situacao', ['ciencia_em', 'id']);
       return linhas.map(alertaKriDoBanco);
+    },
+
+    /** Comunicações à CGOV (visão com prazo e situação) + os riscos ligados a cada uma. */
+    async listarComunicacoes() {
+      const [linhas, ligacoes] = await Promise.all([
+        lerTabela('comunicacoes_cgov_situacao', ['comunicada_em', 'id']),
+        lerTabela('comunicacoes_riscos', ['comunicacao_id', 'risco_id']),
+      ]);
+      const riscosPorComunicacao = agruparPor(ligacoes, 'comunicacao_id');
+      return linhas.map((l) =>
+        comunicacaoDoBanco(l, (riscosPorComunicacao.get(String(l.id)) ?? []).map((x) => String(x.risco_id))),
+      );
+    },
+
+    /** Envia a comunicação (RPC `enviar_comunicacao`; erros do banco já vêm em português). */
+    async enviarComunicacao(d) {
+      const { data, error } = await cliente.rpc('enviar_comunicacao', {
+        p: {
+          hipotese: d.hipotese,
+          unidade_id: d.unidadeId,
+          data_ciencia: d.dataCiencia,
+          alerta_id: d.alertaId ?? null,
+          risco_ids: d.riscoIds,
+          supre: d.supre,
+          descricao: d.descricao,
+          providencias: d.providencias ?? null,
+          documento_sei: d.documentoSei ?? null,
+        },
+      });
+      if (error) throw traduzirErroComunicacao(error);
+      return String(data);
+    },
+
+    /** Ciência da CGOV (RPC `registrar_ciencia_comunicacao`). */
+    async registrarCiencia(id, observacao) {
+      const { error } = await cliente.rpc('registrar_ciencia_comunicacao', {
+        p_id: id,
+        p_observacao: observacao ?? null,
+      });
+      if (error) throw traduzirErroComunicacao(error);
     },
 
     /**

@@ -47,6 +47,7 @@ import type {
 } from '../../types/radar.types';
 import {
   ALERTAS_KRI_SEMENTE,
+  COMUNICACOES_SEMENTE,
   CATEGORIAS_QUADRO_2_SEMENTE,
   OBJETOS_CONTEXTO_SEMENTE,
   RISCOS_SEMENTE_ANEXO_II,
@@ -61,6 +62,7 @@ import { capacidades, PAPEIS } from '../../utils/acessoPorPerfil';
 import { CHAVE_PERFIL_DEMO, PERFIS_DEMO_ICMBIO, type PerfilUsuarioDemo } from '../../stores/authStore';
 import { ErroRadar, MENSAGEM_REDE, traduzirErroBanco } from './errosBanco';
 import type { Carteira, EventoAuditoria, EventoFluxo, FichaParaSalvar, FonteDados } from './tipos';
+import { montarComunicacao, HIPOTESES, type ComunicacaoBase } from '../../utils/hipotesesComunicacao';
 
 export type EstadoDemonstracao = 'normal' | 'carregando' | 'erro';
 
@@ -185,6 +187,8 @@ export function criarFonteDemonstracao(
   // LAC-03: o que a tabela `alertas_kri` guardaria (ciência, encerramento e comunicação).
   // Os prazos são calculados na hora por `listarAlertasKri`, como a visão do banco faz.
   const alertas: AlertaKriBase[] = copiar(ALERTAS_KRI_SEMENTE);
+  // LAC-04: o que a tabela `comunicacoes_cgov` guardaria (prazo e situação são calculados ao listar).
+  const comunicacoes: ComunicacaoBase[] = copiar(COMUNICACOES_SEMENTE);
 
   /**
    * Refaz `risco.kris` a partir da lista central (mesmos objetos: sem cópia solta).
@@ -797,6 +801,81 @@ export function criarFonteDemonstracao(
     async listarAlertasKri() {
       const hoje = hojeEmBrasilia();
       return alertas.filter((a) => kris.some((k) => k.id === a.kriId)).map((a) => montarAlertaKri(a, hoje));
+    },
+
+    /** Comunicações à CGOV, com prazo e situação calculados agora (como a visão do banco). */
+    async listarComunicacoes() {
+      if (estado === 'erro') throw new ErroRadar(MENSAGEM_REDE, 'rede');
+      return comunicacoes.map((c) => montarComunicacao(copiar(c))).sort((a, b) => b.comunicadaEm.localeCompare(a.comunicadaEm));
+    },
+
+    /**
+     * Imita `enviar_comunicacao` do banco, com mensagens parecidas: risco obrigatório nas hipóteses
+     * que exigem; `supre` só com alerta de KRI; com alerta, o alerta tem de estar aberto, a hipótese
+     * é `alerta_kri` e a ciência é a do alerta; só uma comunicação por alerta, que ENCERRA o alerta.
+     */
+    async enviarComunicacao(d) {
+      if (estado === 'erro') throw new ErroRadar(MENSAGEM_REDE, 'rede');
+      const eu = quemSou();
+      if (eu.papel === 'auditoria') throw new ErroRadar('A auditoria não envia comunicação', 'permissao');
+      const invalida = (m: string) => new ErroRadar(m, 'validacao');
+      const hoje = hojeEmBrasilia();
+      const descricao = d.descricao?.trim() ?? '';
+      if (!d.unidadeId) throw invalida('Informe a unidade que comunica');
+      if (!(d.hipotese in HIPOTESES)) throw invalida('Hipótese inválida: use I, II, III, IV, V, VI ou alerta_kri');
+      if (!d.dataCiencia) throw invalida('Informe a data de ciência');
+      if (!descricao) throw invalida('Informe a descrição do fato');
+      if (d.dataCiencia > hoje) throw invalida('A data de ciência não pode ser futura');
+      if (d.hipotese === 'alerta_kri' && !d.alertaId) throw invalida('A comunicação de alerta de KRI exige o alerta');
+      if (d.supre.length > 0 && d.hipotese !== 'alerta_kri') {
+        throw invalida('Só a comunicação de alerta de KRI pode suprir as hipóteses I, II e III');
+      }
+      let alerta: AlertaKriBase | undefined;
+      if (d.alertaId) {
+        alerta = alertas.find((a) => a.id === d.alertaId);
+        if (!alerta) throw new ErroRadar('Alerta não encontrado ou fora da unidade que comunica', 'nao_encontrado');
+        if (d.hipotese !== 'alerta_kri') throw invalida('A comunicação de um alerta deve ter a hipótese alerta_kri');
+        if (alerta.encerradoEm || comunicacoes.some((c) => c.alertaId === alerta!.id)) {
+          throw new ErroRadar('Este alerta já foi comunicado', 'estado');
+        }
+        if (d.dataCiencia !== alerta.cienciaEm) throw invalida('A data de ciência deve ser a do alerta');
+      }
+      const riscoIds = [...new Set(d.riscoIds)];
+      if (HIPOTESES[d.hipotese].exigeRisco && riscoIds.length === 0) throw invalida('Informe o risco ligado');
+      if (riscoIds.some((id) => !riscos.some((r) => r.id === id))) {
+        throw new ErroRadar('Risco não encontrado ou fora da unidade que comunica', 'nao_encontrado');
+      }
+      const id = novoId('com');
+      comunicacoes.push({
+        id,
+        unidadeId: d.unidadeId,
+        hipotese: d.hipotese,
+        supre: [...d.supre],
+        dataCiencia: d.dataCiencia,
+        comunicadaEm: new Date().toISOString(),
+        descricao,
+        providencias: d.providencias?.trim() || undefined,
+        documentoSei: d.documentoSei?.trim() || undefined,
+        alertaId: d.alertaId,
+        riscoIds,
+      });
+      // Como o gatilho do banco: comunicar o alerta o ENCERRA (hoje, em Brasília).
+      if (alerta) {
+        alerta.encerradoEm = hoje;
+        alerta.comunicacaoId = id;
+      }
+      return id;
+    },
+
+    /** Ciência da CGOV: só o perfil CGOV, e uma única vez por comunicação. */
+    async registrarCiencia(id, observacao) {
+      if (estado === 'erro') throw new ErroRadar(MENSAGEM_REDE, 'rede');
+      if (quemSou().papel !== 'cgov') throw new ErroRadar('Somente a CGOV registra a ciência da comunicação', 'permissao');
+      const c = comunicacoes.find((x) => x.id === id);
+      if (!c) throw new ErroRadar('Comunicação não encontrada', 'nao_encontrado');
+      if (c.cienciaCgovEm) throw new ErroRadar('A ciência desta comunicação já foi registrada', 'estado');
+      c.cienciaCgovEm = new Date().toISOString();
+      c.observacaoCgov = observacao?.trim() || undefined;
     },
 
     /** KRIs sem risco ligado (como em `carregarCarteira`), em cópia. */

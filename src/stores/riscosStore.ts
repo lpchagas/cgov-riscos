@@ -914,6 +914,9 @@ export const useRiscosStore = defineStore('riscos', () => {
     tentarDeNovo,
     limpar,
     relerRiscos,
+    relerAlertas: relerAlertasDepoisDaAcao,
+    /** A fonte em uso (a das comunicações precisa ser a MESMA, pois a demonstração guarda tudo nela). */
+    fonteDeDados: fonte,
     // ações
     salvarOuAtualizarRisco,
     krisDoObjeto,

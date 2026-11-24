@@ -1058,3 +1058,72 @@ describe('LAC-03: alerta do KRI na demonstração (imita o banco)', () => {
     });
   });
 });
+
+describe('comunicações à CGOV (LAC-04)', () => {
+  const nova = (extra: Record<string, unknown> = {}) => ({
+    unidadeId: 'uni-cgov',
+    hipotese: 'V' as const,
+    dataCiencia: hojeEmBrasilia(),
+    descricao: 'Tratamento atrasado.',
+    riscoIds: ['risco-anexo-ii-01'],
+    supre: [] as Array<'I' | 'II' | 'III'>,
+    ...extra,
+  });
+
+  it('a semente tem comunicação no prazo, fora do prazo e nova, com prazo calculado', async () => {
+    const lista = await fonteComo('cgov').listarComunicacoes();
+    expect(lista.some((c) => c.noPrazo)).toBe(true);
+    expect(lista.some((c) => !c.noPrazo && c.prazoDiasUteis > 10)).toBe(true);
+    expect(lista.some((c) => c.situacao === 'nova')).toBe(true);
+    expect(lista.some((c) => c.situacao === 'ciencia_registrada')).toBe(true);
+  });
+
+  it('enviar a comunicação do alerta encerra o alerta; a 2ª do mesmo alerta é recusada', async () => {
+    const f = fonteComo('gestor');
+    const alerta = (await f.listarAlertasKri()).find((a) => !a.encerradoEm)!;
+    const dados = nova({ hipotese: 'alerta_kri', dataCiencia: alerta.cienciaEm, alertaId: alerta.id, supre: ['I'] });
+    const id = await f.enviarComunicacao(dados);
+    const depois = (await f.listarAlertasKri()).find((a) => a.id === alerta.id)!;
+    expect(depois.encerradoEm).toBe(hojeEmBrasilia());
+    expect(depois.comunicacaoId).toBe(id);
+    expect((await f.listarComunicacoes()).find((c) => c.id === id)?.supre).toEqual(['I']);
+    expect((await erroDe(f.enviarComunicacao(dados))).message).toContain('já foi comunicado');
+  });
+
+  it('recusa como o banco: risco obrigatório, supre sem alerta, data futura e ciência diferente da do alerta', async () => {
+    const f = fonteComo('gestor');
+    expect((await erroDe(f.enviarComunicacao(nova({ riscoIds: [] })))).message).toBe('Informe o risco ligado');
+    expect((await erroDe(f.enviarComunicacao(nova({ supre: ['I'] })))).message).toContain('Só a comunicação de alerta');
+    expect((await erroDe(f.enviarComunicacao(nova({ dataCiencia: '2999-01-01' })))).message).toContain('futura');
+    const alerta = (await f.listarAlertasKri()).find((a) => !a.encerradoEm)!;
+    const errada = nova({ hipotese: 'alerta_kri', alertaId: alerta.id, dataCiencia: '2026-01-02' });
+    expect((await erroDe(f.enviarComunicacao(errada))).message).toContain('deve ser a do alerta');
+    expect((await erroDe(f.enviarComunicacao(nova({ alertaId: alerta.id })))).message).toContain('hipótese alerta_kri');
+  });
+
+  it('hipótese sem risco obrigatório (IV) é aceita sem risco; a auditoria não envia', async () => {
+    await expect(fonteComo('gestor').enviarComunicacao(nova({ hipotese: 'IV', riscoIds: [] }))).resolves.toBeTruthy();
+    expect((await erroDe(fonteComo('auditoria').enviarComunicacao(nova()))).tipo).toBe('permissao');
+  });
+
+  it('prazo da comunicação nova segue a regra dos dias úteis', async () => {
+    const f = fonteComo('gestor');
+    const ciencia = '2026-01-05';
+    const id = await f.enviarComunicacao(nova({ dataCiencia: ciencia }));
+    const c = (await f.listarComunicacoes()).find((x) => x.id === id)!;
+    expect(c.prazoDiasUteis).toBe(diasUteisEntre(ciencia, hojeEmBrasilia()));
+    expect(c.venceEm).toBe(somarDiasUteis(ciencia, 10));
+    expect(c.noPrazo).toBe(false);
+  });
+
+  it('ciência: só a CGOV, e só uma vez', async () => {
+    const f = fonteComo('cgov');
+    const id = (await f.listarComunicacoes()).find((c) => c.situacao === 'nova')!.id;
+    expect((await erroDe(fonteComo('gestor').registrarCiencia(id))).tipo).toBe('permissao');
+    await f.registrarCiencia(id, 'Ciente.');
+    const c = (await f.listarComunicacoes()).find((x) => x.id === id)!;
+    expect(c.situacao).toBe('ciencia_registrada');
+    expect(c.observacaoCgov).toBe('Ciente.');
+    expect((await erroDe(f.registrarCiencia(id))).message).toContain('já foi registrada');
+  });
+});

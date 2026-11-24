@@ -198,3 +198,13 @@ describe('mensagens 23514 da migração 20261122001 (categorias e subcategorias)
     expect(e.message).toBe('Algum campo está fora dos valores permitidos. Revise o preenchimento.');
   });
 });
+
+describe('traduzirErroComunicacao (LAC-04)', () => {
+  it('repassa a mensagem em português do banco; esconde texto técnico', async () => {
+    const { traduzirErroComunicacao } = await import('../../src/services/dados/errosBanco');
+    const e = traduzirErroComunicacao({ message: 'Este alerta já foi comunicado' });
+    expect(e.message).toBe('Este alerta já foi comunicado');
+    expect(e.tipo).toBe('estado');
+    expect(traduzirErroComunicacao({ message: 'duplicate key value violates constraint x' }).message).not.toContain('duplicate');
+  });
+});

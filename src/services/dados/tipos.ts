@@ -31,6 +31,8 @@ import type {
   FichaRisco,
   HistoricoFluxoItem,
   AlertaKri,
+  ComunicacaoCgov,
+  HipoteseComunicacao,
   IndicadorKri,
   MedicaoKri,
   ObjetoContexto,
@@ -45,6 +47,23 @@ import type {
  * Ex.: { dataMedicao: '2026-12-01', valorApurado: '65,5%' } -> valor_numerico 65.5
  */
 export type NovaMedicaoKri = Omit<MedicaoKri, 'id' | 'emAlerta' | 'registradoEm'> & { emAlerta?: boolean };
+
+/**
+ * O que a tela manda para comunicar um fato à CGOV (LAC-04). A fonte manda ao banco
+ * (RPC `enviar_comunicacao`) e NUNCA envia prazo nem situação: quem calcula é a visão.
+ * Ex.: { unidadeId: 'u1', hipotese: 'V', dataCiencia: '2026-11-20', descricao: '...', riscoIds: ['r1'], supre: [] }
+ */
+export interface NovaComunicacao {
+  unidadeId: string;
+  hipotese: HipoteseComunicacao;
+  dataCiencia: string;
+  descricao: string;
+  providencias?: string;
+  documentoSei?: string;
+  alertaId?: string;
+  riscoIds: string[];
+  supre: Array<'I' | 'II' | 'III'>;
+}
 
 /** Tudo o que as telas precisam ao abrir: riscos visíveis (com filhos) e listas de apoio. */
 export interface Carteira {
@@ -192,6 +211,14 @@ export interface FonteDados {
    * não foi comunicado → o KRI volta nesta lista e o Monitoramento continua mostrando-o.
    */
   listarKrisSemRisco(): Promise<IndicadorKri[]>;
+
+  // Comunicações à CGOV (LAC-04): imutáveis; só a ciência da CGOV muda, uma única vez.
+  /** Comunicações do alcance da pessoa (visão `comunicacoes_cgov_situacao`, com os riscos ligados). */
+  listarComunicacoes(): Promise<ComunicacaoCgov[]>;
+  /** Grava a comunicação e devolve o id novo. Com `alertaId`, encerra o alerta do KRI. */
+  enviarComunicacao(d: NovaComunicacao): Promise<string>;
+  /** Só a CGOV, uma vez por comunicação. */
+  registrarCiencia(id: string, observacao?: string): Promise<void>;
   atualizarStatusTratamento(respostaId: string, status: RespostaTratamento5W2H['statusExecucao']): Promise<void>;
 
   // Objetos de gestão de riscos:
