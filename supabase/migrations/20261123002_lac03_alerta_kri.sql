@@ -136,6 +136,24 @@ GRANT  EXECUTE ON FUNCTION public.fn_somar_dias_uteis(date, integer) TO authenti
 REVOKE EXECUTE ON FUNCTION public.fn_dias_uteis_entre(date, date) FROM public, anon;
 GRANT  EXECUTE ON FUNCTION public.fn_dias_uteis_entre(date, date) TO authenticated, service_role;
 
+-- fn_hoje(): "hoje" no calendário de BRASÍLIA.
+-- Por que existe? O servidor roda com o relógio em UTC. current_date devolve o
+-- dia em UTC: às 22h de Brasília ele já é o dia SEGUINTE, e a ciência do alerta
+-- (início do prazo de 10 dias úteis) sairia com um dia a mais. fn_hoje() converte
+-- o instante atual para o fuso America/Sao_Paulo antes de tirar a data, e não
+-- depende do TimeZone da sessão. Use SEMPRE fn_hoje() para "hoje" nos prazos.
+-- Ex.: às 23h de 24/11 em Brasília (02h de 25/11 em UTC): current_date = 25/11,
+--      fn_hoje() = 24/11.
+CREATE FUNCTION public.fn_hoje()
+RETURNS date
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$ SELECT (now() AT TIME ZONE 'America/Sao_Paulo')::date $$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_hoje() FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.fn_hoje() TO authenticated, service_role;
+
 -- ============================================================================
 -- SEÇÃO 2 — Limite e leitura numéricos, com conversão
 -- ============================================================================
@@ -407,7 +425,7 @@ AS $$
 BEGIN
   IF NEW.em_alerta THEN
     INSERT INTO public.alertas_kri (kri_id, medicao_id, ciencia_em)
-    VALUES (NEW.kri_id, NEW.id, current_date)
+    VALUES (NEW.kri_id, NEW.id, public.fn_hoje())
     ON CONFLICT (kri_id) WHERE encerrado_em IS NULL DO NOTHING;
   END IF;
   RETURN NEW;
@@ -427,6 +445,56 @@ CREATE TRIGGER trg_medicao_abre_alerta
   AFTER INSERT ON public.medicoes_kri
   FOR EACH ROW EXECUTE FUNCTION public.fn_medicao_abre_alerta();
 
+-- Travas de exclusão (mensagem clara em vez do erro técnico de chave estrangeira):
+--  (a) a leitura que ABRIU um alerta não pode ser apagada, porque o alerta é
+--      a prova do prazo; o que se corrige é a leitura nova, não a antiga;
+--  (b) um KRI com alerta já COMUNICADO à CGOV não pode ser apagado, porque a
+--      comunicação é um registro imutável que cita o alerta.
+-- Apagar o KRI inteiro continua funcionando quando seus alertas NÃO foram
+-- comunicados: as leituras e os alertas saem juntos, em cascata. Na cascata a
+-- linha do KRI já não existe quando a leitura é apagada, e é isso que a
+-- trava (a) usa para deixar passar.
+CREATE FUNCTION public.fn_medicao_protege_alerta()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.alertas_kri a WHERE a.medicao_id = OLD.id)
+     AND EXISTS (SELECT 1 FROM public.indicadores_kri k WHERE k.id = OLD.kri_id) THEN
+    RAISE EXCEPTION 'Esta leitura abriu um alerta do KRI e não pode ser apagada';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER trg_medicao_protege_alerta
+  BEFORE DELETE ON public.medicoes_kri
+  FOR EACH ROW EXECUTE FUNCTION public.fn_medicao_protege_alerta();
+
+CREATE FUNCTION public.fn_kri_protege_alerta_comunicado()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.alertas_kri a
+              WHERE a.kri_id = OLD.id AND a.comunicacao_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'Este KRI tem alerta já comunicado à CGOV e não pode ser apagado';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER trg_kri_protege_alerta_comunicado
+  BEFORE DELETE ON public.indicadores_kri
+  FOR EACH ROW EXECUTE FUNCTION public.fn_kri_protege_alerta_comunicado();
+
+REVOKE EXECUTE ON FUNCTION public.fn_medicao_protege_alerta()         FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_kri_protege_alerta_comunicado()  FROM public, anon, authenticated;
+
 -- alertas_kri_situacao: o alerta + o prazo em dias úteis.
 --   vence_em           = ciência + 10 dias úteis;
 --   dia_atual          = dias úteis desde a ciência (teto 99, para a tela);
@@ -444,7 +512,7 @@ SELECT a.*,
          AS dias_uteis_vencido
   FROM public.alertas_kri a
  CROSS JOIN LATERAL (
-   SELECT least(public.fn_dias_uteis_entre(a.ciencia_em, current_date), 99) AS dia_atual
+   SELECT least(public.fn_dias_uteis_entre(a.ciencia_em, public.fn_hoje()), 99) AS dia_atual
  ) d;
 
 REVOKE ALL ON public.alertas_kri_situacao FROM anon, authenticated;

@@ -16,7 +16,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(111);
+select plan(118);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -273,7 +273,7 @@ select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4
 -- 3.4 Os alertas abertos até aqui: 1 do KRI "< 70" e 1 do KRI ">= 5" e 1 do "> 10".
 select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 1,
           '3. a 1ª leitura em alerta abriu 1 alerta');
-select is((select ciencia_em from public.alertas_kri where kri_id = :'k_menor'), current_date,
+select is((select ciencia_em from public.alertas_kri where kri_id = :'k_menor'), public.fn_hoje(),
           '3. a ciência é o dia do registro (current_date)');
 select is((select medicao_id from public.alertas_kri where kri_id = :'k_menor'),
           '00000000-0000-4000-c000-000000000001'::uuid, '3. o alerta aponta para a leitura que o abriu');
@@ -323,9 +323,9 @@ select pg_temp.entrar_como('gestor.uc@radar.test');
 select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 1,
           '3. gestor.uc@ lê o alerta do KRI da própria unidade');
 select throws_ok(format($$insert into public.alertas_kri (kri_id, medicao_id, ciencia_em)
-                          select kri_id, id, current_date from public.medicoes_kri where kri_id = %L limit 1$$, :'k_maior'),
+                          select kri_id, id, public.fn_hoje() from public.medicoes_kri where kri_id = %L limit 1$$, :'k_maior'),
                  '42501', null, '3. gestor não insere direto em alertas_kri');
-select throws_ok($$update public.alertas_kri set encerrado_em = current_date$$,
+select throws_ok($$update public.alertas_kri set encerrado_em = public.fn_hoje()$$,
                  '42501', null, '3. gestor não altera alertas_kri');
 select throws_ok($$delete from public.alertas_kri$$,
                  '42501', null, '3. gestor não apaga de alertas_kri');
@@ -345,16 +345,16 @@ update public.alertas_kri set ciencia_em = date '2026-11-19' where kri_id = :'k_
 select is((select vence_em from public.alertas_kri_situacao where kri_id = :'k_menor'),
           public.fn_somar_dias_uteis(date '2026-11-19', 10), '3. vence_em = ciência + 10 dias úteis');
 select is((select dia_atual from public.alertas_kri_situacao where kri_id = :'k_menor'),
-          least(public.fn_dias_uteis_entre(date '2026-11-19', current_date), 99),
+          least(public.fn_dias_uteis_entre(date '2026-11-19', public.fn_hoje()), 99),
           '3. dia_atual = dias úteis desde a ciência (limitado a 99)');
 select is((select vencido from public.alertas_kri_situacao where kri_id = :'k_menor'),
-          public.fn_dias_uteis_entre(date '2026-11-19', current_date) > 10,
+          public.fn_dias_uteis_entre(date '2026-11-19', public.fn_hoje()) > 10,
           '3. vencido = passou de 10 dias úteis (alerta aberto)');
 select is((select dias_uteis_vencido from public.alertas_kri_situacao where kri_id = :'k_menor'),
-          greatest(least(public.fn_dias_uteis_entre(date '2026-11-19', current_date), 99) - 10, 0),
+          greatest(least(public.fn_dias_uteis_entre(date '2026-11-19', public.fn_hoje()), 99) - 10, 0),
           '3. dias_uteis_vencido = atraso além dos 10 dias');
 -- Ciência de hoje: dia 0, não vencido.
-update public.alertas_kri set ciencia_em = current_date where kri_id = :'k_menor';
+update public.alertas_kri set ciencia_em = public.fn_hoje() where kri_id = :'k_menor';
 select is((select vencido from public.alertas_kri_situacao where kri_id = :'k_menor'), false,
           '3. ciência de hoje: não vencido');
 select is((select dias_uteis_vencido from public.alertas_kri_situacao where kri_id = :'k_menor'), 0,
@@ -372,7 +372,7 @@ select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor
 select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor' and encerrado_em is null), 1,
           '3. no máximo um alerta aberto por KRI (índice único parcial)');
 select throws_ok(format($$insert into public.alertas_kri (kri_id, medicao_id, ciencia_em)
-                          select kri_id, id, current_date from public.medicoes_kri where kri_id = %L limit 1$$, :'k_menor'),
+                          select kri_id, id, public.fn_hoje() from public.medicoes_kri where kri_id = %L limit 1$$, :'k_menor'),
                  '23505', null, '3. o índice único parcial recusa 2 alertas abertos do mesmo KRI');
 
 -- 3.10 Auditoria do alerta aberto.
@@ -464,6 +464,31 @@ select lives_ok(format($$select public.salvar_ficha_risco(%L::jsonb)$$,
                                      'responsavel_medicao', 'Chefia', 'limite_alerta', '> 10%')))),
                 '4. KRI só com o texto antigo continua completo para a trava');
 select pg_temp.sair();
+
+-- ============================================================================
+-- SEÇÃO 5 — "hoje" de Brasília e travas de exclusão
+-- ============================================================================
+-- fn_hoje() é o "hoje" do calendário de Brasília, igual em qualquer fuso da
+-- sessão (o servidor roda em UTC: current_date erraria o dia à noite).
+select pg_temp.sair();
+select has_function('public', 'fn_hoje', array[]::text[], '5. fn_hoje() existe');
+select is(public.fn_hoje(), (now() at time zone 'America/Sao_Paulo')::date,
+          '5. fn_hoje() é o dia de Brasília');
+set local timezone = 'UTC';
+select is(public.fn_hoje(), (now() at time zone 'America/Sao_Paulo')::date, '5. fn_hoje() igual com a sessão em UTC');
+set local timezone = 'Pacific/Auckland';
+select is(public.fn_hoje(), (now() at time zone 'America/Sao_Paulo')::date, '5. fn_hoje() igual com a sessão em Pacific/Auckland');
+set local timezone = 'UTC';
+
+-- A leitura que abriu um alerta não pode ser apagada (mensagem clara).
+select throws_ok($$delete from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000001'$$,
+                 'P0001', 'Esta leitura abriu um alerta do KRI e não pode ser apagada',
+                 '5. a leitura que abriu o alerta não é apagada');
+-- Apagar o KRI inteiro (sem alerta comunicado) continua funcionando em cascata.
+select lives_ok(format($$delete from public.indicadores_kri where id = %L$$, :'k_menor'),
+                '5. apagar o KRI com alerta não comunicado funciona (cascata)');
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 0,
+          '5. os alertas do KRI apagado saíram junto');
 
 select * from finish();
 rollback;
