@@ -974,4 +974,44 @@ describe('LAC-03: alerta do KRI na demonstração (imita o banco)', () => {
     expect(k.limiteValor).toBe(70);
     expect(k.limiteUnidade).toBe('%');
   });
+
+  describe('edição do texto do limite (espelha fn_kri_reconverte_limite)', () => {
+    /** Cria um KRI "Abaixo de 70%" (já convertido) e devolve a ficha e o KRI como a tela os veria. */
+    async function kriConvertido(fonte: ReturnType<typeof fonteComo>) {
+      const { id } = await fonte.salvarFicha({
+        objetoId: 'obj-anexo-ii', probabilidade: 1, impacto: 5,
+        kris: [{ ...KRI_OK, nomeIndicador: 'KRI do texto', limiteAlerta: 'Abaixo de 70%' }],
+      });
+      return { id, kri: (await fonte.relerRisco(id))!.kris[0] };
+    }
+    const reenviar = async (fonte: ReturnType<typeof fonteComo>, id: string, kri: Awaited<ReturnType<typeof kriConvertido>>['kri']) => {
+      const { medicoes: _m, objetoId: _o, riscoIds: _r, totalRiscos: _t, ...def } = kri;
+      await fonte.salvarFicha({ id, objetoId: 'obj-anexo-ii', kris: [def] });
+      return (await fonte.relerRisco(id))!.kris[0];
+    };
+
+    it('só o texto muda (operador e valor antigos reenviados): reconverte pelo texto novo', async () => {
+      const fonte = fonteComo('cgov');
+      const { id, kri } = await kriConvertido(fonte);
+      expect(kri.limiteValor).toBe(70);
+      const depois = await reenviar(fonte, id, { ...kri, limiteAlerta: 'Abaixo de 50%' });
+      expect(depois).toMatchObject({ limiteAlerta: 'Abaixo de 50%', limiteOperador: '<', limiteValor: 50, limiteUnidade: '%' });
+    });
+
+    it('texto novo ambíguo deixa o limite "a converter" (numéricos nulos)', async () => {
+      const fonte = fonteComo('cgov');
+      const { id, kri } = await kriConvertido(fonte);
+      const depois = await reenviar(fonte, id, { ...kri, limiteAlerta: 'Entre 5 e 10' });
+      expect(depois.limiteAlerta).toBe('Entre 5 e 10');
+      expect(depois.limiteOperador).toBeUndefined();
+      expect(depois.limiteValor).toBeUndefined();
+    });
+
+    it('operador/valor NOVOS enviados junto com o texto valem', async () => {
+      const fonte = fonteComo('cgov');
+      const { id, kri } = await kriConvertido(fonte);
+      const depois = await reenviar(fonte, id, { ...kri, limiteAlerta: 'Abaixo de 50%', limiteOperador: '<=', limiteValor: 40 });
+      expect(depois).toMatchObject({ limiteOperador: '<=', limiteValor: 40 });
+    });
+  });
 });

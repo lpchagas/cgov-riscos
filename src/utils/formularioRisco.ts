@@ -399,7 +399,7 @@ export function dadosParaFicha(
   const campos = kriDosCampos(d);
   let kri: IndicadorKri | undefined;
   if (d.nomeKri.trim()) {
-    const mudou = !base || !mesmaDefinicaoKri(base, campos);
+    const mudou = !base || !mesmaDefinicaoKri(base, { ...base, ...campos });
     kri = {
       ...(base ?? {
         id: d.kriExistenteId, objetoId: existente?.objetoId ?? d.objetoId, riscoIds: existente ? [existente.id] : [], medicoes: [],

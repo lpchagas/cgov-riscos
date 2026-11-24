@@ -580,7 +580,7 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
       // LAC-03: limite numérico. Só vai quando a ficha o traz (número, nunca ""):
       // sem ele, o banco mantém o que já tem. KRI NOVO com limite numérico omite
       // o texto antigo `limite_alerta` (ele só existe para os KRIs antigos).
-      const temLimiteNumerico = k.limiteOperador !== undefined && typeof k.limiteValor === 'number';
+      const temLimiteNumerico = k.limiteOperador !== undefined && Number.isFinite(k.limiteValor);
       if (temLimiteNumerico) {
         item.limite_operador = k.limiteOperador;
         item.limite_valor = k.limiteValor;

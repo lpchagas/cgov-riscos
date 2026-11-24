@@ -183,6 +183,13 @@ describe('dadosParaFicha: KRI (LAC-03)', () => {
     expect(editado.kris![0]).toMatchObject({ id: 'k1', limiteAlerta: 'Novo' });
     expect(editado.kris![0].apenasLigar).toBeUndefined();
   });
+  it('risco EXISTENTE escolhe KRI com limite numérico sem mudar nada: mantém apenasLigar (LAC-03)', () => {
+    const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'Abaixo de 70%', limiteOperador: '<' as const, limiteValor: 70, limiteUnidade: '%', responsavelMedicao: 'R', medicoes: [] };
+    const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'Abaixo de 70%', kriResponsavel: 'R' };
+    const existente = { id: 'r1', objetoId: 'o1', controlesExistentes: [], respostasTratamento: [], kris: [] } as unknown as FichaRisco;
+    const f = dadosParaFicha(d, { ehIntegridade: false, existente, krisDoObjeto: [escolhido] });
+    expect(f.kris![0]).toMatchObject({ id: 'k1', apenasLigar: true, limiteOperador: '<', limiteValor: 70 });
+  });
   it('risco NOVO com KRI da lista: sempre só liga, mesmo com campos alterados', () => {
     const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'L', responsavelMedicao: 'R', medicoes: [] };
     const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'Outro', kriResponsavel: 'R' };

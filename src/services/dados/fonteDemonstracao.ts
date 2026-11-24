@@ -250,7 +250,8 @@ export function criarFonteDemonstracao(
   function limiteNumericoDaFicha(
     item: Pick<IndicadorKri, 'limiteAlerta' | 'limiteOperador' | 'limiteValor' | 'limiteUnidade'>
   ): Pick<IndicadorKri, 'limiteOperador' | 'limiteValor' | 'limiteUnidade'> {
-    if (item.limiteOperador !== undefined && typeof item.limiteValor === 'number') {
+    if (item.limiteOperador !== undefined && Number.isFinite(item.limiteValor)) {
+      // (Number.isFinite: NaN e infinito violariam o CHECK do banco.)
       return {
         limiteOperador: item.limiteOperador,
         limiteValor: item.limiteValor,
@@ -445,13 +446,14 @@ export function criarFonteDemonstracao(
       if (item.apenasLigar) continue;
 
       const textoMudou = DEFINICAO_KRI.some((campo) => (item[campo] ?? '') !== (existente[campo] ?? ''));
+      // Como o gatilho do banco: operador/valor "mudaram" só se vieram DIFERENTES dos gravados
+      // (a tela reenvia os antigos junto com o KRI base; isso não conta como mudança).
       const numeroEnviado = item.limiteOperador !== undefined || item.limiteValor !== undefined;
-      const numeroMudou =
-        numeroEnviado &&
-        (item.limiteOperador !== existente.limiteOperador ||
-          item.limiteValor !== existente.limiteValor ||
-          (item.limiteUnidade || undefined) !== existente.limiteUnidade);
-      const mudou = textoMudou || numeroMudou;
+      const operadorValorMudaram =
+        numeroEnviado && (item.limiteOperador !== existente.limiteOperador || item.limiteValor !== existente.limiteValor);
+      // Unidade ausente na ficha = não enviada (o banco mantém a gravada).
+      const unidadeEnviada = item.limiteUnidade !== undefined && (item.limiteUnidade.trim() || undefined) !== existente.limiteUnidade;
+      const mudou = textoMudou || operadorValorMudaram || unidadeEnviada;
       if (!mudou) continue;
       const ligados = riscos.filter((x) => x.id !== r.id && existente.riscoIds.includes(x.id));
       const travado = ligados.find((x) => TRAVADOS.includes(estadoAntes.get(x.id) ?? x.statusFluxo));
@@ -462,8 +464,16 @@ export function criarFonteDemonstracao(
       }
       // Limite numérico: o que a ficha enviou vale; se só o texto mudou, o gatilho do banco
       // refaz o número pelo texto (e deixa "a converter" se for ambíguo).
-      if (numeroEnviado) Object.assign(existente, limiteNumericoDaFicha(item));
-      else if (textoMudou) Object.assign(existente, limiteNumericoDaFicha({ limiteAlerta: item.limiteAlerta }));
+      // Espelha `fn_kri_reconverte_limite`: se o texto mudou e operador/valor NÃO mudaram, refaz tudo
+      // pelo texto novo (a unidade enviada só vale se for diferente da gravada).
+      if (operadorValorMudaram) {
+        Object.assign(existente, limiteNumericoDaFicha(item));
+      } else if (textoMudou) {
+        const refeito = limiteNumericoDaFicha({ limiteAlerta: item.limiteAlerta });
+        Object.assign(existente, refeito, unidadeEnviada ? { limiteUnidade: item.limiteUnidade?.trim() || undefined } : {});
+      } else if (unidadeEnviada) {
+        existente.limiteUnidade = item.limiteUnidade?.trim() || undefined;
+      }
       for (const x of ligados) {
         // Só o aprovado reabre; o já reaberto por um KRI anterior desta
         // gravação (agora em_validacao_cg) não ganha 2ª reabertura.

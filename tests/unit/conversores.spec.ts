@@ -613,6 +613,15 @@ describe('LAC-03: limite numérico, leitura numérica e alerta do KRI', () => {
     expect(item.limite_alerta).toBe('Entre 5 e 10');
   });
 
+  it('fichaParaJson: limiteValor NaN/infinito não vai ao banco (viola o CHECK)', () => {
+    for (const v of [NaN, Infinity]) {
+      const json = fichaParaJson({ objetoId: 'o1', kris: [{ id: KRI.id, nomeIndicador: 'X', limiteAlerta: 'texto', limiteOperador: '<', limiteValor: v }] });
+      const item = (json.kris as Array<Record<string, unknown>>)[0];
+      expect(item).not.toHaveProperty('limite_valor');
+      expect(item).not.toHaveProperty('limite_operador');
+    }
+  });
+
   it('fichaParaJson: KRI NOVO com limite numérico omite limite_alerta', () => {
     const json = fichaParaJson({
       objetoId: 'o1',
