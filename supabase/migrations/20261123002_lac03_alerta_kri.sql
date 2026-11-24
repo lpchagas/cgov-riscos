@@ -4,8 +4,9 @@
 -- EXPLICAÇÃO DIDÁTICA:
 -- Esta migração é montada por SEÇÕES, uma por tarefa do plano
 -- (docs/superpowers/specs/2026-11-23-alerta-kri-comunicacoes-design.md, seção 4):
---   Seção 1: feriados e dias úteis (esta parte);
-
+--   Seção 1: feriados e dias úteis;
+--   Seção 2: limite e leitura numéricos, com conversão do texto antigo;
+--   Seções 3 e 4: acrescentadas pelas tarefas seguintes.
 -- ============================================================================
 
 -- ============================================================================
@@ -174,6 +175,9 @@ COMMENT ON COLUMN public.medicoes_kri.valor_numerico IS
 -- ----------------------------------------------------------------------------
 -- fn_converter_limite_texto(t): traduz o texto antigo do limite SÓ quando ele
 -- é inequívoco. Devolve UMA linha (operador, valor, unidade) ou NENHUMA.
+-- A UNIDADE, quando existe, é '%' OU uma única palavra de pelo menos 3 letras
+-- (dias, horas, pontos). Assim 'ou' e 'e' NÃO viram unidade: '> 5 ou' e '< 5 e'
+-- ficam a converter. (O front repete esta regra em TypeScript.)
 -- Aceita (sem diferenciar maiúsculas de minúsculas; vírgula ou ponto decimal;
 -- unidade opcional de uma palavra, como % ou dias):
 --   '< 80%'          -> (<, 80, %)          'Abaixo de 70%' -> (<, 70, %)
@@ -201,10 +205,10 @@ AS $$
       SELECT coalesce(
                -- Símbolo + número: '< 80%', '>=2,5 dias' (espaço opcional).
                regexp_match(lower(btrim(t)),
-                 '^(<=|>=|<|>)\s*(\d+(?:[.,]\d+)?)\s*(%|[[:alpha:]]+)?$'),
+                 '^(<=|>=|<|>)\s*(\d+(?:[.,]\d+)?)\s*(%|[[:alpha:]]{3,})?$'),
                -- Palavras + número: 'abaixo de 70%' (espaço obrigatório).
                regexp_match(lower(btrim(t)),
-                 '^(abaixo de|acima de|menor que|maior que)\s+(\d+(?:[.,]\d+)?)\s*(%|[[:alpha:]]+)?$')
+                 '^(abaixo de|acima de|menor que|maior que)\s+(\d+(?:[.,]\d+)?)\s*(%|[[:alpha:]]{3,})?$')
              ) AS m
     ) x
    WHERE m IS NOT NULL;
@@ -285,6 +289,7 @@ BEGIN
 END;
 $$;
 
+-- (Este UPDATE gera linhas de auditoria sem usuario_id: esperado, é a migração.)
 -- Leituras antigas ganham o número quando o texto é só um número (% opcional).
 UPDATE public.medicoes_kri
    SET valor_numerico = public.fn_numero_de_texto(valor_apurado)

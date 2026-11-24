@@ -14,7 +14,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(54);
+select plan(56);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -112,6 +112,8 @@ select is((select count(*)::int from public.fn_converter_limite_texto('Até 10%'
 select is((select count(*)::int from public.fn_converter_limite_texto('Entre 5 e 10')), 0, '2. "Entre 5 e 10" (intervalo) fica a converter');
 select is((select count(*)::int from public.fn_converter_limite_texto('Abaixo de 70% ou acima de 90%')), 0,
           '2. dois números e palavras extras: fica a converter');
+select is((select count(*)::int from public.fn_converter_limite_texto('> 5 ou')), 0, '2. "> 5 ou": conectivo não é unidade');
+select is((select count(*)::int from public.fn_converter_limite_texto('< 5 e')), 0, '2. "< 5 e": conectivo não é unidade');
 select is((select count(*)::int from public.fn_converter_limite_texto('')), 0, '2. texto vazio: fica a converter');
 select is((select count(*)::int from public.fn_converter_limite_texto(null)), 0, '2. texto nulo: fica a converter');
 
