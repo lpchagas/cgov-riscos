@@ -73,10 +73,11 @@ kanban-plugin: basic
 
 ## Pronto para iniciar (WIP 5)
 
-- [ ] [figma] Modelagem — P-01 Apetite (DAR): aba "Proposta e rito" (minuta da DAR, manifestação do CTGRIC, aprovação do CIG e portaria, em vez de a CGOV mudar o apetite direto): desenhar no arquivo RADAR — Painel o par 📌 Original × ✏️ Trabalho (computador 1440 e celular 390) só com componentes da biblioteca, pelo [[manual-fluxo-figma-vscode]] (skills `figma:figma-use` e `figma:figma-generate-design`); a CGOV aprova antes do código · origem: [[mapa-telas]] §2 · IDs: UC-14, LAC-08, RF-086, RF-089 a RF-093 · #normativo
 
 
 ## Modelagem (WIP 3)
+
+- [ ] [figma] Modelagem — P-01 Apetite (DAR): aba "Proposta e rito" (minuta da DAR, manifestação do CTGRIC, aprovação do CIG e portaria, em vez de a CGOV mudar o apetite direto): desenhar no arquivo RADAR — Painel o par 📌 Original × ✏️ Trabalho (computador 1440 e celular 390) só com componentes da biblioteca, pelo [[manual-fluxo-figma-vscode]] (skills `figma:figma-use` e `figma:figma-generate-design`); a CGOV aprova antes do código · origem: [[mapa-telas]] §2 · IDs: UC-14, LAC-08, RF-086, RF-089 a RF-093 · #normativo · desenho e plano: `docs/superpowers/specs/2026-11-23-p01-dar-proposta-e-rito-design.md` e `docs/superpowers/plans/2026-11-23-p01-dar-proposta-e-rito-plan.md` (2026-11-23)
 
 
 
