@@ -30,6 +30,7 @@ import type {
   ControleExistente,
   FichaRisco,
   HistoricoFluxoItem,
+  AlertaKri,
   IndicadorKri,
   MedicaoKri,
   ObjetoContexto,
@@ -37,6 +38,13 @@ import type {
   RespostaTratamento5W2H,
   UnidadeOrganizacional,
 } from '../../types/radar.types';
+
+/**
+ * Leitura nova de um KRI. `emAlerta` é aceito só por compatibilidade e IGNORADO:
+ * o banco (e a demonstração) recalculam pelo limite do KRI.
+ * Ex.: { dataMedicao: '2026-12-01', valorApurado: '65,5%' } -> valor_numerico 65.5
+ */
+export type NovaMedicaoKri = Omit<MedicaoKri, 'id' | 'emAlerta'> & { emAlerta?: boolean };
 
 /** Tudo o que as telas precisam ao abrir: riscos visíveis (com filhos) e listas de apoio. */
 export interface Carteira {
@@ -162,7 +170,13 @@ export interface FonteDados {
   devolver(id: string, motivo: string): Promise<void>;
 
   // Monitoramento (não reabre o risco aprovado):
-  registrarMedicao(kriId: string, m: Omit<MedicaoKri, 'id'>): Promise<void>;
+  /**
+   * LAC-03: manda `valorNumerico` (ou o número lido de `valorApurado`, com vírgula
+   * decimal aceita) e NUNCA `emAlerta`: quem decide se passou do limite é o banco.
+   */
+  registrarMedicao(kriId: string, m: NovaMedicaoKri): Promise<void>;
+  /** Alertas dos KRIs que a pessoa enxerga (visão `alertas_kri_situacao`; a RLS limita o alcance). */
+  listarAlertasKri(): Promise<AlertaKri[]>;
   atualizarStatusTratamento(respostaId: string, status: RespostaTratamento5W2H['statusExecucao']): Promise<void>;
 
   // Objetos de gestão de riscos:

@@ -81,13 +81,14 @@ describe('painelResumo', () => {
       );
 
     // CGOV supervisiona o que está parado no fluxo (itens neutros), sem decidir.
-    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'prazo', 'prazo']);
+    // (3 'kri': a semente tem 3 KRIs com a última leitura em alerta — vencido, dia 3 e comunicado.)
+    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'kri', 'kri', 'prazo', 'prazo']);
     // A Coordenação-Geral vê a SUA fila de validação, não a da Diretoria.
-    expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'prazo', 'prazo']);
+    expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'kri', 'kri', 'prazo', 'prazo']);
     // A Diretoria vê a SUA homologação (e também valida, spec B1 7.1) e não recebe alertas de KRI.
     expect(await tipos('diretor')).toEqual(['validacao', 'homologacao', 'prazo', 'prazo']);
     // O gestor (1ª Linha) não vê filas de aprovação dos degraus de cima.
-    expect(await tipos('gestor')).toEqual(['kri', 'prazo', 'prazo']);
+    expect(await tipos('gestor')).toEqual(['kri', 'kri', 'kri', 'prazo', 'prazo']);
   });
 
   it('fala com a pessoa: "aguardando a sua validação" para a Coordenação-Geral', async () => {

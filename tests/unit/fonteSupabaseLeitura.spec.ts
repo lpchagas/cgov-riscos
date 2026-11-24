@@ -152,4 +152,36 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
       { nome: 'reatribuir_objeto', args: { objeto: 'o1', nova_unidade: 'u2' } },
     ]);
   });
+
+  it('listarAlertasKri lê a visão alertas_kri_situacao e converte para camelCase (LAC-03)', async () => {
+    const tabelasLidas: string[] = [];
+    const { cliente } = clienteFalso({
+      alertas_kri_situacao: [
+        { id: 'a1', kri_id: 'k1', ciencia_em: '2026-11-19', encerrado_em: null, comunicacao_id: null,
+          vence_em: '2026-12-04', dia_atual: 3, vencido: false, dias_uteis_vencido: 0 },
+      ],
+    });
+    const fromOriginal = cliente.from.bind(cliente);
+    cliente.from = ((t: string) => { tabelasLidas.push(t); return fromOriginal(t); }) as typeof cliente.from;
+    const alertas = await criarFonteSupabase(cliente).listarAlertasKri();
+    expect(tabelasLidas).toEqual(['alertas_kri_situacao']);
+    expect(alertas).toHaveLength(1);
+    expect(alertas[0]).toMatchObject({ id: 'a1', kriId: 'k1', cienciaEm: '2026-11-19', venceEm: '2026-12-04', diaAtual: 3, vencido: false });
+  });
+
+  it('registrarMedicao manda valor_numerico (aceita vírgula) e NÃO manda em_alerta (LAC-03)', async () => {
+    let enviado: Record<string, unknown> | undefined;
+    const cliente = {
+      from: () => ({ insert: (linha: Record<string, unknown>) => { enviado = linha; return Promise.resolve({ data: null, error: null }); } }),
+    } as unknown as SupabaseClient;
+    const fonte = criarFonteSupabase(cliente);
+    await fonte.registrarMedicao('k1', { dataMedicao: '2026-12-01', valorApurado: '65,5%' });
+    expect(enviado).toEqual({ kri_id: 'k1', data_medicao: '2026-12-01', valor_apurado: '65,5%', valor_numerico: 65.5, observacao: null });
+    expect(enviado).not.toHaveProperty('em_alerta');
+    await fonte.registrarMedicao('k1', { dataMedicao: '2026-12-02', valorApurado: 'sem número', emAlerta: true });
+    expect(enviado).toHaveProperty('valor_numerico', null);
+    expect(enviado).not.toHaveProperty('em_alerta');
+    await fonte.registrarMedicao('k1', { dataMedicao: '2026-12-03', valorApurado: '70', valorNumerico: 70 });
+    expect(enviado).toHaveProperty('valor_numerico', 70);
+  });
 });

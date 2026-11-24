@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { passaDoLimite, textoLimite, converterLimiteTexto } from '../../src/utils/limiteAlerta';
+import { passaDoLimite, textoLimite, converterLimiteTexto, numeroDaLeitura } from '../../src/utils/limiteAlerta';
 
 describe('passaDoLimite', () => {
   it('compara com os 4 operadores (limite < 80: 79 passa, 80 não)', () => {
@@ -64,5 +64,20 @@ describe('converterLimiteTexto (mesmos casos de fn_converter_limite_texto, teste
   it('texto nulo ou indefinido fica a converter', () => {
     expect(converterLimiteTexto(null as unknown as string)).toBeNull();
     expect(converterLimiteTexto(undefined as unknown as string)).toBeNull();
+  });
+});
+
+describe('numeroDaLeitura (espelho de fn_numero_de_texto)', () => {
+  it('aceita número com vírgula ou ponto e % opcional', () => {
+    expect(numeroDaLeitura('12,5%')).toBe(12.5);
+    expect(numeroDaLeitura(' 80 ')).toBe(80);
+    expect(numeroDaLeitura('7.5')).toBe(7.5);
+  });
+  it('texto com palavras, milhar ambíguo ou vazio fica sem número', () => {
+    expect(numeroDaLeitura('cerca de 80')).toBeUndefined();
+    expect(numeroDaLeitura('12 dias')).toBeUndefined();
+    expect(numeroDaLeitura('1.000')).toBeUndefined();
+    expect(numeroDaLeitura('2,500')).toBeUndefined();
+    expect(numeroDaLeitura('')).toBeUndefined();
   });
 });

@@ -247,6 +247,9 @@ export interface MedicaoKri {
   id: string;
   dataMedicao: string;
   valorApurado: string;
+  /** Leitura como número (LAC-03), comparada com o limite do KRI. Ausente = texto sem número. */
+  valorNumerico?: number;
+  /** Quem decide é o banco (gatilho); na demonstração, a fonte imita a mesma regra. */
   emAlerta: boolean;
   observacao?: string;
 }

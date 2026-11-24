@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { somarDiasUteis, diasUteisEntre, hojeEmBrasilia } from '../../src/utils/diasUteis';
+import { somarDiasUteis, diasUteisEntre, hojeEmBrasilia, subtrairDiasUteis } from '../../src/utils/diasUteis';
 import { FERIADOS_NACIONAIS } from '../../src/utils/feriadosNacionais';
 
 describe('somarDiasUteis (espelho de fn_somar_dias_uteis)', () => {
@@ -59,5 +59,26 @@ describe('FERIADOS_NACIONAIS', () => {
     const datasDoBanco = [...bloco.matchAll(/\('(\d{4}-\d{2}-\d{2})'/g)].map((m) => m[1]);
     expect(datasDoBanco.length).toBeGreaterThan(20);
     expect([...FERIADOS_NACIONAIS].sort()).toEqual([...datasDoBanco].sort());
+  });
+});
+
+describe('subtrairDiasUteis (volta N dias úteis; serve à semente de demonstração)', () => {
+  it('3 dias úteis antes de 24/11/2026 = 18/11 (pula o fim de semana e o feriado de 20/11)', () => {
+    expect(subtrairDiasUteis('2026-11-24', 3)).toBe('2026-11-18');
+  });
+  it('n <= 0 devolve a própria data', () => {
+    expect(subtrairDiasUteis('2026-11-24', 0)).toBe('2026-11-24');
+  });
+  it('o resultado sempre é um dia útil e fica a exatamente n dias úteis de distância', () => {
+    // Inclui datas de hoje caindo em fim de semana (sábado 21/11 e domingo 22/11).
+    for (const hoje of ['2026-11-24', '2026-11-21', '2026-11-22', '2026-11-23', '2026-12-28']) {
+      for (const n of [1, 3, 5, 8, 14]) {
+        const x = subtrairDiasUteis(hoje, n);
+        expect(diasUteisEntre(x, hoje)).toBe(n);
+        const diaDaSemana = new Date(`${x}T00:00:00Z`).getUTCDay(); // 0 = domingo
+        expect(diaDaSemana).toBeGreaterThanOrEqual(1);
+        expect(diaDaSemana).toBeLessThanOrEqual(5);
+      }
+    }
   });
 });

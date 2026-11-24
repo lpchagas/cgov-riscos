@@ -30,6 +30,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { FichaRisco, ObjetoContexto, ProcessoCadeiaValor, UnidadeOrganizacional } from '../../types/radar.types';
 import {
   acoesDoBanco,
+  alertaKriDoBanco,
   categoriaDoBanco,
   eventoAuditoriaDoBanco,
   eventoFluxoDoBanco,
@@ -40,6 +41,7 @@ import {
   unidadeDoBanco,
   type LinhaBanco,
 } from './conversores';
+import { numeroDaLeitura } from '../../utils/limiteAlerta';
 import { ErroRadar, traduzirErroBanco } from './errosBanco';
 import { emLotes, lerTodasAsPaginas } from './paginacao';
 import type { Carteira, FonteDados } from './tipos';
@@ -407,10 +409,18 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
           kri_id: kriId,
           data_medicao: m.dataMedicao,
           valor_apurado: m.valorApurado,
-          em_alerta: m.emAlerta,
+          // LAC-03: o número da leitura (a vírgula decimal vale: '65,5%' -> 65.5). NÃO mandamos
+          // `em_alerta`: o gatilho do banco compara com o limite do KRI e abre o alerta.
+          valor_numerico: m.valorNumerico ?? numeroDaLeitura(m.valorApurado) ?? null,
           observacao: m.observacao ?? null,
         }),
       );
+    },
+
+    /** Alertas dos KRIs (visão com prazos em dias úteis; a RLS já limita ao alcance da pessoa). */
+    async listarAlertasKri() {
+      const linhas = await lerTabela('alertas_kri_situacao', ['ciencia_em', 'id']);
+      return linhas.map(alertaKriDoBanco);
     },
 
     /** Monitoramento: andamento da ação 5W2H (mudar só o status não reabre o risco). */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { situacaoKri, ordenarPorUrgencia, type SituacaoKri } from '../../src/utils/situacaoKri';
+import { situacaoKri, ordenarPorUrgencia, montarAlertaKri, type SituacaoKri } from '../../src/utils/situacaoKri';
 import type { AlertaKri, IndicadorKri } from '../../src/types/radar.types';
 
 const kriBase: IndicadorKri = {
@@ -55,5 +55,23 @@ describe('ordenarPorUrgencia', () => {
     const copia = [...itens];
     ordenarPorUrgencia(itens, sit);
     expect(itens).toEqual(copia);
+  });
+});
+
+describe('montarAlertaKri (imita a visão alertas_kri_situacao)', () => {
+  it('aberto no prazo: ciência 19/11, hoje 24/11 -> dia 2 (20/11 é feriado; 23 e 24 contam), vence em 04/12', () => {
+    const a = montarAlertaKri({ id: 'a', kriId: 'k', cienciaEm: '2026-11-19' }, '2026-11-24');
+    expect(a).toMatchObject({ diaAtual: 2, vencido: false, diasUteisVencido: 0, venceEm: '2026-12-04' });
+  });
+  it('aberto vencido: dia 11 em diante; dias além do prazo contam sem o teto de 99', () => {
+    const v = montarAlertaKri({ id: 'a', kriId: 'k', cienciaEm: '2026-11-19' }, '2026-12-07');
+    expect(v).toMatchObject({ diaAtual: 11, vencido: true, diasUteisVencido: 1 });
+    const longe = montarAlertaKri({ id: 'a', kriId: 'k', cienciaEm: '2026-01-02' }, '2027-06-30');
+    expect(longe.diaAtual).toBe(99);
+    expect(longe.diasUteisVencido).toBeGreaterThan(89);
+  });
+  it('encerrado: conta até o encerramento e nunca fica vencido', () => {
+    const e = montarAlertaKri({ id: 'a', kriId: 'k', cienciaEm: '2026-11-19', encerradoEm: '2026-12-09', comunicacaoId: 'c' }, '2027-03-01');
+    expect(e).toMatchObject({ diaAtual: 13, vencido: false, diasUteisVencido: 0, comunicacaoId: 'c' });
   });
 });

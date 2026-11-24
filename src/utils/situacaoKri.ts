@@ -3,6 +3,35 @@
  * os números do prazo vêm do banco (visão `alertas_kri_situacao`).
  */
 import type { AlertaKri, IndicadorKri } from '../types/radar.types';
+import { diasUteisEntre, hojeEmBrasilia, somarDiasUteis } from './diasUteis';
+
+/** O que o banco GUARDA de um alerta (o resto — prazos — é calculado pela visão). */
+export type AlertaKriBase = Pick<AlertaKri, 'id' | 'kriId' | 'cienciaEm' | 'encerradoEm' | 'comunicacaoId'>;
+
+/**
+ * Calcula os campos derivados do alerta como a visão `alertas_kri_situacao` do banco
+ * (usada pela demonstração, que não tem banco):
+ *   venceEm = ciência + 10 dias úteis;
+ *   diaAtual = dias úteis da ciência até o encerramento (ou até hoje, se aberto; teto 99);
+ *   vencido = só alerta ABERTO com mais de 10 dias úteis;
+ *   diasUteisVencido = dias além dos 10 (0 se encerrado ou no prazo; sem o teto de 99).
+ * Ex.: ciência 19/11/2026, hoje 24/11 -> diaAtual 1 (20 é feriado), venceEm 04/12, vencido false.
+ */
+export function montarAlertaKri(base: AlertaKriBase, hoje: string = hojeEmBrasilia()): AlertaKri {
+  const dias = diasUteisEntre(base.cienciaEm, base.encerradoEm ?? hoje);
+  const aberto = !base.encerradoEm;
+  return {
+    id: base.id,
+    kriId: base.kriId,
+    cienciaEm: base.cienciaEm,
+    venceEm: somarDiasUteis(base.cienciaEm, 10),
+    diaAtual: Math.min(dias, 99),
+    vencido: aberto && dias > 10,
+    diasUteisVencido: aberto ? Math.max(dias - 10, 0) : 0,
+    encerradoEm: base.encerradoEm,
+    comunicacaoId: base.comunicacaoId,
+  };
+}
 
 /**
  * - vencido: alerta ABERTO e fora do prazo de 10 dias úteis;

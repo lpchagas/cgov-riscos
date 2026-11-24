@@ -17,11 +17,47 @@
  */
 
 import type {
+  AlertaKri,
   CategoriaRisco,
   FichaRisco,
   ObjetoContexto,
   UnidadeOrganizacional,
 } from '../types/radar.types';
+import { hojeEmBrasilia, somarDiasUteis, subtrairDiasUteis } from '../utils/diasUteis';
+
+// ----------------------------------------------------------------------------
+// ALERTAS DE KRI DA DEMONSTRAÇÃO (LAC-03)
+// ----------------------------------------------------------------------------
+// As datas são calculadas A PARTIR DE HOJE (voltando dias úteis), para o "dia 3"
+// continuar sendo dia 3 e o "vencido" continuar vencido em qualquer data em que
+// a demonstração for aberta. Ex.: hoje 24/11/2026 -> ciência do "dia 3" = 18/11.
+const HOJE_SEMENTE = hojeEmBrasilia();
+/** Alerta no prazo: ciência há 3 dias úteis ("dia 3 de 10"). */
+const CIENCIA_ALERTA_DIA_3 = subtrairDiasUteis(HOJE_SEMENTE, 3);
+/** Alerta vencido: ciência há 14 dias úteis (4 dias úteis além do prazo). */
+const CIENCIA_VENCIDO = subtrairDiasUteis(HOJE_SEMENTE, 14);
+/** Alerta já comunicado à CGOV: ciência há 8 dias úteis, encerrado 4 dias úteis depois. */
+const CIENCIA_COMUNICADO = subtrairDiasUteis(HOJE_SEMENTE, 8);
+
+/**
+ * O que o banco guardaria dos alertas da semente (tabela `alertas_kri`):
+ * um vencido, um no dia 3 e um já comunicado. Os prazos (venceEm, diaAtual...)
+ * são calculados na hora por `montarAlertaKri`. A comunicação 'com-demo-1' é
+ * de mentira: as Comunicações à CGOV chegam na Fase 3.
+ */
+export const ALERTAS_KRI_SEMENTE: Array<
+  Pick<AlertaKri, 'id' | 'kriId' | 'cienciaEm' | 'encerradoEm' | 'comunicacaoId'>
+> = [
+  { id: 'alerta-anexo-ii-1', kriId: 'kri-anexo-ii-1', cienciaEm: CIENCIA_VENCIDO },
+  { id: 'alerta-integra-1', kriId: 'kri-integra-1', cienciaEm: CIENCIA_ALERTA_DIA_3 },
+  {
+    id: 'alerta-socio-1',
+    kriId: 'kri-socio-1',
+    cienciaEm: CIENCIA_COMUNICADO,
+    encerradoEm: somarDiasUteis(CIENCIA_COMUNICADO, 4),
+    comunicacaoId: 'com-demo-1',
+  },
+];
 
 /**
  * Unidades Organizacionais representativas do ICMBio (com `coordenacao-geral`).
@@ -343,12 +379,16 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         periodicidade: 'Trimestral',
         metaAlvo: '100%',
         limiteAlerta: 'Abaixo de 70%',
+        limiteOperador: '<',
+        limiteValor: 70,
+        limiteUnidade: '%',
         responsavelMedicao: 'Ponto Focal de Gestão de Riscos',
         medicoes: [
           {
             id: 'med-1',
-            dataMedicao: '2026-10-15',
+            dataMedicao: CIENCIA_VENCIDO, // a leitura que abriu o alerta vencido
             valorApurado: '60%',
+            valorNumerico: 60,
             emAlerta: true,
             observacao: '3 de 5 fluxos críticos já documentados.',
           },
@@ -367,6 +407,9 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         periodicidade: 'Trimestral',
         metaAlvo: '100%',
         limiteAlerta: 'Abaixo de 80%',
+        limiteOperador: '<',
+        limiteValor: 80,
+        limiteUnidade: '%',
         responsavelMedicao: 'Coordenador da Unidade',
         medicoes: [],
       },
@@ -381,6 +424,8 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         fonteDados: 'Painel de Controle de Processos SEI',
         periodicidade: 'Trimestral',
         metaAlvo: '0%',
+        // LAC-03: de propósito SEM limite numérico — mostra o caso "limite a converter"
+        // (só o texto antigo; uma pessoa informa o operador e o número).
         limiteAlerta: 'Acima de 5%',
         responsavelMedicao: 'Ponto Focal de Gestão de Riscos',
         medicoes: [],
@@ -484,12 +529,24 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         periodicidade: 'Trimestral',
         metaAlvo: '100%',
         limiteAlerta: 'Abaixo de 95%',
+        limiteOperador: '<',
+        limiteValor: 95,
+        limiteUnidade: '%',
         responsavelMedicao: 'Ponto Focal de Integridade',
         medicoes: [
+          {
+            id: 'med-integra-2',
+            dataMedicao: CIENCIA_ALERTA_DIA_3, // a leitura que abriu o alerta (dia 3)
+            valorApurado: '92%',
+            valorNumerico: 92,
+            emAlerta: true,
+            observacao: '46 de 50 processos com dupla assinatura verificada.',
+          },
           {
             id: 'med-integra-1',
             dataMedicao: '2026-10-30',
             valorApurado: '96%',
+            valorNumerico: 96,
             emAlerta: false,
             observacao: '48 de 50 processos com dupla assinatura verificada.',
           },
@@ -610,12 +667,24 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         periodicidade: 'Trimestral',
         metaAlvo: '100%',
         limiteAlerta: 'Abaixo de 90%',
+        limiteOperador: '<',
+        limiteValor: 90,
+        limiteUnidade: '%',
         responsavelMedicao: 'Analista Ambiental — Uso Público',
         medicoes: [
+          {
+            id: 'med-socio-2',
+            dataMedicao: CIENCIA_COMUNICADO, // a leitura que abriu o alerta já comunicado
+            valorApurado: '85%',
+            valorNumerico: 85,
+            emAlerta: true,
+            observacao: 'Laudos de 3 autorizações vencidos.',
+          },
           {
             id: 'med-socio-1',
             dataMedicao: '2026-11-01',
             valorApurado: '100%',
+            valorNumerico: 100,
             emAlerta: false,
             observacao: 'Todas as 18 autorizações do trimestre conferidas.',
           },
@@ -716,6 +785,9 @@ export const RISCOS_SEMENTE_ANEXO_II: FichaRisco[] = [
         periodicidade: 'Trimestral',
         metaAlvo: '100%',
         limiteAlerta: 'Abaixo de 80%',
+        limiteOperador: '<',
+        limiteValor: 80,
+        limiteUnidade: '%',
         responsavelMedicao: 'Coordenador da Unidade',
         medicoes: [],
       },

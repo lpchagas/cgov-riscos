@@ -95,3 +95,16 @@ export function converterLimiteTexto(
   if (unidade) resultado.unidade = unidade;
   return resultado;
 }
+
+/**
+ * Número de uma leitura digitada, como `fn_numero_de_texto` do banco: só vale
+ * quando o texto é APENAS um número (vírgula ou ponto decimal), com % opcional.
+ * Ex.: '12,5%' -> 12.5; '80' -> 80; 'cerca de 80' -> undefined;
+ *      '1.000' -> undefined (milhar ou decimal? não adivinhamos).
+ */
+export function numeroDaLeitura(t: string): number | undefined {
+  const m = /^[ \t\n\r\f\v]*(\d+(?:[.,]\d+)?)[ \t\n\r\f\v]*%?[ \t\n\r\f\v]*$/.exec(t);
+  if (!m || /[.,]\d{3}$/.test(m[1])) return undefined;
+  const valor = Number(m[1].replace(',', '.'));
+  return Number.isFinite(valor) ? valor : undefined;
+}

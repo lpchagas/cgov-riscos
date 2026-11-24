@@ -41,12 +41,12 @@ import { defineStore } from 'pinia';
 import { computed, ref, watch, type WatchStopHandle } from 'vue';
 import type {
   AcoesFluxo,
+  AlertaKri,
   ApetiteDeclarado,
   CategoriaRisco,
   ClasseRisco,
   FichaRisco,
   IndicadorKri,
-  MedicaoKri,
   NivelEficaciaControle,
   NivelImpacto,
   NivelProbabilidade,
@@ -62,6 +62,7 @@ import type {
   FichaParaSalvar,
   FiltrosAuditoria,
   FonteDados,
+  NovaMedicaoKri,
 } from '../services/dados/tipos';
 import { fichaDaSkillParaSalvar, fichaParaSalvarDeRisco } from '../services/dados/conversores';
 import { ErroRadar, traduzirErroBanco } from '../services/dados/errosBanco';
@@ -211,6 +212,8 @@ export const useRiscosStore = defineStore('riscos', () => {
   const processos = ref<ProcessoCadeiaValor[]>([]);
   /** O que a pessoa logada pode fazer com cada risco. Ex.: acoes.value['risco-1'].podeValidar */
   const acoes = ref<Record<string, AcoesFluxo>>({});
+  /** Alertas dos KRIs (LAC-03): abertos e encerrados, com o prazo já calculado pela fonte. */
+  const alertasKri = ref<AlertaKri[]>([]);
 
   const estado = ref<EstadoCarteira>('ocioso');
   const erro = ref<ErroRadar | null>(null);
@@ -253,7 +256,10 @@ export const useRiscosStore = defineStore('riscos', () => {
     try {
       const carteira = await fonte().carregarCarteira();
       if (velha()) return;
-      const listaAcoes = await fonte().acoesNoFluxo(carteira.riscos.map((r) => r.id));
+      const [listaAcoes, listaAlertas] = await Promise.all([
+        fonte().acoesNoFluxo(carteira.riscos.map((r) => r.id)),
+        fonte().listarAlertasKri(),
+      ]);
       if (velha()) return;
       riscos.value = carteira.riscos;
       objetosContexto.value = carteira.objetos;
@@ -261,6 +267,7 @@ export const useRiscosStore = defineStore('riscos', () => {
       unidades.value = carteira.unidades;
       processos.value = carteira.processos;
       acoes.value = porRisco(listaAcoes);
+      alertasKri.value = listaAlertas;
       avisoAtualizacao.value = null;
       estado.value = 'pronto';
     } catch (e) {
@@ -284,6 +291,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     unidades.value = [];
     processos.value = [];
     acoes.value = {};
+    alertasKri.value = [];
     estado.value = 'ocioso';
     erro.value = null;
     avisoAtualizacao.value = null;
@@ -364,6 +372,30 @@ export const useRiscosStore = defineStore('riscos', () => {
       throw comoErroRadar(e);
     }
     await relerDepoisDaAcao(idsParaReler());
+  }
+
+  /**
+   * Relê os alertas dos KRIs (uma leitura nova pode ter aberto um). Como `relerDepoisDaAcao`:
+   * não lança; se falhar, guarda o aviso "tela desatualizada". Descarta o resultado se a
+   * pessoa saiu no meio (mesma "geração" dos dados).
+   */
+  async function relerAlertasDepoisDaAcao(): Promise<void> {
+    const minha = geracao;
+    try {
+      const lidos = await fonte().listarAlertasKri();
+      if (minha !== geracao) return;
+      alertasKri.value = lidos;
+    } catch (e) {
+      avisoAtualizacao.value = new ErroRadar(MENSAGEM_TELA_DESATUALIZADA, comoErroRadar(e).tipo);
+    }
+  }
+
+  /**
+   * O alerta ABERTO (sem `encerradoEm`) de um KRI, ou `undefined`. Há no máximo um por KRI.
+   * Ex.: alertaAbertoDoKri('kri-integra-1')?.diaAtual -> 3
+   */
+  function alertaAbertoDoKri(kriId: string): AlertaKri | undefined {
+    return alertasKri.value.find((a) => a.kriId === kriId && !a.encerradoEm);
   }
 
   // ---------------------------------------------------------------------------
@@ -612,7 +644,7 @@ export const useRiscosStore = defineStore('riscos', () => {
   async function registrarMedicaoKri(
     riscoId: string,
     kriId: string,
-    medicao: Omit<MedicaoKri, 'id'>
+    medicao: NovaMedicaoKri
   ): Promise<void> {
     // Um KRI pode servir a vários riscos: relemos todos os ligados a ele, não só o informado.
     await executar(
@@ -622,6 +654,8 @@ export const useRiscosStore = defineStore('riscos', () => {
         return [...new Set([riscoId, ...ligados])];
       }
     );
+    // A leitura pode ter aberto um alerta (quem decide é o banco): atualiza a lista.
+    await relerAlertasDepoisDaAcao();
   }
 
   async function atualizarStatusTratamento(
@@ -807,6 +841,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     objetosContexto,
     processos,
     acoes,
+    alertasKri,
     estado,
     erro,
     avisoAtualizacao,
@@ -824,6 +859,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     resumoPorClasse,
     obterRiscoPorId,
     obterApetitePorCategoria,
+    alertaAbertoDoKri,
     // ciclo de vida
     carregar,
     tentarDeNovo,

@@ -79,3 +79,31 @@ export function hojeEmBrasilia(agora: Date = new Date()): string {
     day: '2-digit',
   }).format(agora);
 }
+
+/**
+ * Volta `n` dias úteis a partir de `d`: devolve o dia útil `x` tal que
+ * `diasUteisEntre(x, d) === n`. Serve à semente de demonstração: "alerta no dia 3"
+ * = ciência 3 dias úteis antes de hoje, em qualquer data.
+ * Ex.: subtrairDiasUteis('2026-11-24', 3) = '2026-11-18'
+ *      (24 conta 1; 23 conta 2; 22 e 21 são fim de semana; 20 é feriado; 19 conta 3;
+ *      a ciência é o dia anterior ao 19, o dia 18).
+ * n <= 0 devolve a própria data.
+ */
+export function subtrairDiasUteis(
+  d: string,
+  n: number,
+  feriados: ReadonlySet<string> = FERIADOS_PADRAO
+): string {
+  if (n <= 0) return d;
+  let dia = paraDias(d);
+  let contados = 0;
+  // Conta os dias úteis de `d` para trás: o n-ésimo é o primeiro dia do intervalo (x, d].
+  while (contados < n) {
+    if (ehDiaUtil(dia, feriados)) contados += 1;
+    dia -= 1;
+  }
+  // `dia` está um dia antes do n-ésimo dia útil. A ciência real é sempre num dia útil:
+  // se caiu em fim de semana ou feriado, continua voltando (a contagem não muda).
+  while (!ehDiaUtil(dia, feriados)) dia -= 1;
+  return paraIso(dia);
+}

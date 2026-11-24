@@ -425,4 +425,47 @@ describe('ligarCarteiraASessao (carga e limpeza pela sessão)', () => {
       expect(relidos).toContain(r1.id);
     });
   });
+
+  describe('alertas do KRI (LAC-03)', () => {
+    it('carregar() traz os alertas; alertaAbertoDoKri acha o aberto e ignora o encerrado', async () => {
+      fonteFalsa();
+      const store = useRiscosStore();
+      await store.carregar();
+      expect(store.alertasKri.length).toBeGreaterThan(0);
+      const aberto = store.alertasKri.find((a) => !a.encerradoEm)!;
+      expect(store.alertaAbertoDoKri(aberto.kriId)?.id).toBe(aberto.id);
+      const encerrado = store.alertasKri.find((a) => a.encerradoEm)!;
+      expect(store.alertaAbertoDoKri(encerrado.kriId)).toBeUndefined();
+      expect(store.alertaAbertoDoKri('kri-inexistente')).toBeUndefined();
+    });
+
+    it('limpar() esvazia os alertas', async () => {
+      fonteFalsa();
+      const store = useRiscosStore();
+      await store.carregar();
+      store.limpar();
+      expect(store.alertasKri).toEqual([]);
+    });
+
+    it('registrar uma leitura em alerta atualiza os alertas da store', async () => {
+      fonteFalsa();
+      const store = useRiscosStore();
+      await store.carregar();
+      const antes = store.alertasKri.length;
+      // kri-anexo-ii-2 ("menor que 80") não tem alerta na semente.
+      expect(store.alertaAbertoDoKri('kri-anexo-ii-2')).toBeUndefined();
+      await store.registrarMedicaoKri('risco-anexo-ii-01', 'kri-anexo-ii-2', {
+        dataMedicao: '2026-12-01', valorApurado: '50', valorNumerico: 50,
+      });
+      expect(store.alertasKri.length).toBe(antes + 1);
+      expect(store.alertaAbertoDoKri('kri-anexo-ii-2')).toBeDefined();
+    });
+
+    it('falha ao ler os alertas leva a carteira ao estado de erro (sem dados pela metade)', async () => {
+      fonteFalsa({ listarAlertasKri: async () => { throw new ErroRadar(MENSAGEM_REDE, 'rede'); } });
+      const store = useRiscosStore();
+      await store.carregar();
+      expect(store.estado).toBe('erro');
+    });
+  });
 });

@@ -81,6 +81,10 @@ export function mesmaDefinicaoKri(a: KriDefinicao, b: KriDefinicao): boolean {
     (a.periodicidade ?? '') === (b.periodicidade ?? '') &&
     norm(a.metaAlvo) === norm(b.metaAlvo) &&
     norm(a.limiteAlerta) === norm(b.limiteAlerta) &&
+    // LAC-03: o limite numérico também é parte da definição (mudar só o número é editar o KRI).
+    (a.limiteOperador ?? '') === (b.limiteOperador ?? '') &&
+    (a.limiteValor ?? null) === (b.limiteValor ?? null) &&
+    (a.limiteUnidade ?? '') === (b.limiteUnidade ?? '') &&
     norm(a.responsavelMedicao) === norm(b.responsavelMedicao)
   );
 }
@@ -89,7 +93,8 @@ export function mesmaDefinicaoKri(a: KriDefinicao, b: KriDefinicao): boolean {
 export type KriDefinicao = Pick<
   IndicadorKri,
   'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'metaAlvo' | 'limiteAlerta' | 'responsavelMedicao'
->;
+> &
+  Partial<Pick<IndicadorKri, 'limiteOperador' | 'limiteValor' | 'limiteUnidade'>>;
 
 /** Por que a ficha foi recusada. */
 export type MotivoTrava = 'aceitar_em_critico' | 'sem_acao_em_critico' | 'sem_kri_em_critico';
