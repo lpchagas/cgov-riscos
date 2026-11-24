@@ -167,7 +167,8 @@ export function camposKriDe(k?: IndicadorKri): Pick<DadosNovoRisco, 'nomeKri' | 
     kriLimite: t(k?.limiteAlerta),
     kriLimiteOperador: k?.limiteOperador ?? '',
     // Mostra com vírgula decimal, como a pessoa escreve. Ex.: 2.5 -> '2,5'.
-    kriLimiteValor: Number.isFinite(k?.limiteValor) ? String(k!.limiteValor).replace('.', ',') : '',
+    kriLimiteValor: Number.isFinite(k?.limiteValor) ? // toLocaleString evita a notação exponencial (1e-7), que numeroDoLimite não lê.
+      k!.limiteValor!.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 20 }).replace('.', ',') : '',
     kriLimiteUnidade: k?.limiteUnidade ?? '',
     kriResponsavel: t(k?.responsavelMedicao),
   };
@@ -246,10 +247,11 @@ export const ERRO_ACEITAR_RISCO_CRITICO =
  * do "KRI completo" é sobre ele, e não sobre os campos da tela.
  *   Ex.: campos vazios + kriLigado completo → sem erro de KRI.
  *
- * `kriNovo` (opcional, LAC-03): o KRI dos campos da tela é NOVO (ainda sem id).
- * Então o limite numérico é obrigatório: operador + número (unidade é opcional).
- * KRI antigo (só texto) não é obrigado a converter na hora.
- *   Ex.: KRI novo, operador '<' e número vazio → { kriLimiteValor: 'Informe o número do limite…' }
+ * `exigeLimiteNumerico` (LAC-03): o limite numérico é obrigatório (operador + número; unidade é
+ * opcional). Vale para KRI NOVO e para KRI existente que JÁ TEM limite numérico ou NÃO TEM texto
+ * antigo (apagar o número não pode passar calado: o banco manteria o valor antigo). Só o KRI
+ * antigo "a converter" (apenas texto) fica dispensado.
+ *   Ex.: operador '<' e número vazio → { kriLimiteValor: 'Informe o número do limite…' }
  */
 export function validarEtapa(
   etapa: number,
@@ -258,7 +260,7 @@ export function validarEtapa(
   statusCritico?: StatusCriticidadeDAR,
   kriLigado?: KriParaTrava,
   demaisKris: KriParaTrava[] = [],
-  kriNovo = false
+  exigeLimiteNumerico = false
 ): ErrosEtapa {
   const erros: ErrosEtapa = {};
 
@@ -310,8 +312,7 @@ export function validarEtapa(
     //     que a gravação mantém ligados.
     // Ex.: ficha com [KRI só com nome, KRI completo] → sem erro.
     // Não crítico segue livre.
-    // Limite numérico do KRI NOVO (campos da tela; um KRI da lista só ligado vem pronto do banco).
-    if (kriNovo && d.nomeKri.trim() && !(d.kriExistenteId && kriLigado)) {
+    if (exigeLimiteNumerico && d.nomeKri.trim()) {
       if (d.kriLimiteOperador === '') erros.kriLimiteOperador = 'Escolha quando o alerta acende (maior que, menor que…).';
       if (!d.kriLimiteValor.trim()) erros.kriLimiteValor = 'Informe o número do limite de alerta (ex.: 80).';
       else if (numeroDoLimite(d.kriLimiteValor) === undefined) erros.kriLimiteValor = 'Número inválido: use só dígitos e vírgula decimal (ex.: 80 ou 2,5).';

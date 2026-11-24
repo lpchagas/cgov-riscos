@@ -21,6 +21,7 @@ import {
   dadosVazios,
   demaisKrisQueFicam,
   kriFicaOrfao,
+  numeroDoLimite,
   totalRiscosDoKri,
   validarEtapa,
   type DadosNovoRisco,
@@ -236,6 +237,15 @@ describe('etapa 4: limite numérico do KRI (operador + número + unidade)', () =
     expect(e.nomeKri).toBe(MENSAGEM_TRAVA_KRI);
     expect(e.kriLimiteValor).toBeDefined();
     expect(validarEtapa(4, comLimite, CATEGORIAS, 'sim', undefined, [], true)).toEqual({});
+  });
+  it('KRI existente com limite numérico: apagar o número é recusado (exigeLimiteNumerico)', () => {
+    const apagado = { ...comLimite, kriLimite: 'Abaixo de 80%', kriLimiteValor: '' };
+    expect(validarEtapa(4, apagado, CATEGORIAS, 'nao', undefined, [], true).kriLimiteValor).toBeDefined();
+  });
+  it('mostra o número sem notação exponencial (1e-7) e ele volta a ser lido', () => {
+    const c = camposKriDe({ id: 'k', objetoId: 'o', riscoIds: [], nomeIndicador: 'N', limiteOperador: '<', limiteValor: 1e-7, medicoes: [] });
+    expect(c.kriLimiteValor).toBe('0,0000001');
+    expect(numeroDoLimite(c.kriLimiteValor)).toBe(1e-7);
   });
   it('KRI antigo (só texto, com id): não exige o número e continua completo para a trava', () => {
     const antigo = { ...comLimite, kriLimite: 'Abaixo de 90%', kriLimiteOperador: '' as const, kriLimiteValor: '', kriLimiteUnidade: '' };

@@ -328,6 +328,21 @@ describe('Página Novo risco', () => {
       w.unmount();
     });
 
+    it('editar KRI que já tem limite numérico: apagar o número é recusado e o campo é apontado', async () => {
+      const store = useRiscosStore();
+      // Ficha já fora do rascunho: o salvar confere TODAS as etapas (rascunho só confere a 1ª).
+      const risco = store.riscos.find((r) => r.kris[0]?.limiteValor !== undefined && !['rascunho', 'devolvido', 'preliminar_cgov'].includes(r.statusFluxo) && store.acoes[r.id]?.podeEditar === true)!;
+      expect(risco).toBeDefined();
+      const { w } = await montar(`/riscos/novo?editar=${risco.id}`);
+      await w.find('form').trigger('submit'); await flushPromises();
+      for (let i = 0; i < 3 && !w.text().includes('Valor do limite'); i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      const campo = w.findAll('label').find((l) => l.text().startsWith('Valor do limite'))!.attributes('for')!;
+      await w.find(`#${campo}`).setValue('');
+      await w.find('form').trigger('submit'); await flushPromises();
+      expect(w.find(`#${campo}`).attributes('aria-invalid')).toBe('true');
+      w.unmount();
+    });
+
     it('risco crítico com KRI novo sem o número é travado e aponta o campo', async () => {
       const { w } = await ateEtapa4NoObjeto();
       const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;

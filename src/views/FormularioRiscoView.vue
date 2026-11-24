@@ -55,7 +55,7 @@ import {
 } from '../utils/formularioRisco';
 import { textoLimite, type OperadorLimite } from '../utils/limiteAlerta';
 import { ROTULOS_APETITE } from '../utils/darImpacto';
-import { ajudaTravaCritico, exigeTratamento } from '../utils/travaRiscoCritico';
+import { ajudaTravaCritico, exigeTratamento, textoPreenchido } from '../utils/travaRiscoCritico';
 import FormField from '../components/ui/FormField.vue';
 import GrupoOpcoesDescritas from '../components/ui/GrupoOpcoesDescritas.vue';
 import type { OpcaoDescrita } from '../components/ui/tipos';
@@ -213,10 +213,16 @@ const demaisKris = computed(() => demaisKrisQueFicam(d.value, riscoEditado.value
 /** O KRI que está sendo EDITADO (o escolhido e liberado, ou o próprio da ficha). */
 const kriEmEdicao = computed(() => kriEscolhido.value && liberouEdicaoKri.value ? kriEscolhido.value : !d.value.kriExistenteId ? kriProprio.value : undefined);
 /**
- * O KRI dos campos é NOVO (sem id)? Então o limite numérico é obrigatório (LAC-03).
- * Um KRI da lista, ou o que a ficha já tem, é antigo: não exige a conversão na hora.
+ * O limite numérico é obrigatório? Sim para KRI novo e para KRI existente que já tem
+ * limite numérico ou não tem texto antigo (senão apagar o número passaria calado e o
+ * banco manteria o valor antigo). Só o KRI antigo "a converter" (apenas texto) é dispensado.
  */
-const kriNovo = computed(() => !d.value.kriExistenteId && !kriProprio.value);
+const exigeLimiteNumerico = computed(() => {
+  const base = kriEscolhido.value ?? kriProprio.value;
+  if (!base) return true;
+  const temNumero = base.limiteOperador !== undefined && Number.isFinite(base.limiteValor);
+  return temNumero || !textoPreenchido(base.limiteAlerta);
+});
 /** Frase do limite conforme a pessoa digita. Ex.: "Alerta quando o valor for menor que 80 %". */
 const fraseDoLimite = computed(() => {
   const valor = numeroDoLimite(d.value.kriLimiteValor);
@@ -409,7 +415,7 @@ async function focarPrimeiroErro(): Promise<void> {
 }
 
 function validar(): boolean {
-  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value, kriNovo.value);
+  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value, exigeLimiteNumerico.value);
   if (Object.keys(erros.value).length) {
     focarPrimeiroErro();
     return false;
@@ -460,7 +466,7 @@ async function salvar(enviar: boolean): Promise<void> {
   const fichaCompleta = enviar || (modoEdicao.value && !!status && !['rascunho', 'devolvido', 'preliminar_cgov'].includes(status));
   const etapasParaValidar = fichaCompleta ? [1, 2, 3, 4] : [1];
   for (const n of etapasParaValidar) {
-    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value, kriNovo.value);
+    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value, exigeLimiteNumerico.value);
     if (Object.keys(e).length) {
       etapa.value = n;
       erros.value = e;
@@ -723,7 +729,7 @@ async function salvar(enviar: boolean): Promise<void> {
                   <input v-bind="attrs" v-model="d.kriMeta" type="text" :readonly="camposKriSoLeitura" />
                 </FormField>
                 <!-- Limite de alerta (LAC-03): operador + número + unidade. O banco é que decide se uma leitura passa do limite. -->
-                <FormField rotulo="Alerta quando o valor for" :obrigatorio="exigeTratamentoCritico || kriNovo" :erro="erros.kriLimiteOperador" ajuda="Quando a leitura do indicador acende o alerta." v-slot="{ attrs }">
+                <FormField rotulo="Alerta quando o valor for" :obrigatorio="exigeTratamentoCritico || exigeLimiteNumerico" :erro="erros.kriLimiteOperador" ajuda="Quando a leitura do indicador acende o alerta." v-slot="{ attrs }">
                   <select v-bind="attrs" v-model="d.kriLimiteOperador" :disabled="camposKriSoLeitura">
                     <option value="">Escolha…</option>
                     <option v-for="o in OPERADORES_LIMITE" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
@@ -731,7 +737,7 @@ async function salvar(enviar: boolean): Promise<void> {
                 </FormField>
               </div>
               <div class="duas-colunas">
-                <FormField rotulo="Valor do limite" :obrigatorio="exigeTratamentoCritico || kriNovo" :erro="erros.kriLimiteValor" ajuda="Só o número. Pode usar vírgula (ex.: 80 ou 2,5)." v-slot="{ attrs }">
+                <FormField rotulo="Valor do limite" :obrigatorio="exigeTratamentoCritico || exigeLimiteNumerico" :erro="erros.kriLimiteValor" ajuda="Só o número. Pode usar vírgula (ex.: 80 ou 2,5)." v-slot="{ attrs }">
                   <input v-bind="attrs" v-model="d.kriLimiteValor" type="text" inputmode="decimal" :readonly="camposKriSoLeitura" />
                 </FormField>
                 <FormField rotulo="Unidade do limite (opcional)" ajuda="Ex.: %, dias." v-slot="{ attrs }">
