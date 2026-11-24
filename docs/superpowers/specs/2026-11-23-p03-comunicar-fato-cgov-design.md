@@ -54,6 +54,17 @@ IV Risco emergente    —               10/11     26/11        fora do prazo   C
 - **Menu:** item "Comunicações à CGOV" no grupo GESTÃO DE RISCOS, depois de Monitoramento; para a CGOV, com
   selo do número de novas *(chamada do Claude)*.
 
+### 4.1.1 Lista no celular: resumo leve (decisão do responsável, 2026-11-23)
+
+O cartão com dois selos, o nome inteiro da hipótese, os códigos em fonte de código e as duas datas ficou
+pesado de ler. No celular, a lista vira **um cartão só, com itens separados por linha fina**, cada um com:
+a **marca da hipótese** (I a VI ou KRI, em destaque), o **nome curto** (I Mudança de nível · II Falha de
+controle · III Materialização · IV Risco emergente · V Atraso no tratamento · VI Revisão do Plano · KRI Alerta
+do KRI), uma linha discreta com o risco (o primeiro e "+N") e a data da comunicação, a situação em texto
+pequeno ("● Nova" ou "✓ Ciência") e a seta "›". O prazo só aparece quando está **fora** ("⚠ Fora do prazo").
+Tocar abre o painel com tudo. Ficaram de fora: lista agrupada por situação, sem cartão, e o cartão antigo
+enxugado. *(Chamada do Claude: um cartão com divisórias, e não um cartão por item, para aliviar ainda mais.)*
+
 ### 4.2 Painel "Nova comunicação" (`SideSheet`)
 
 - **Hipótese** (`FormField` lista, obrigatória): I a VI, com a explicação curta de cada uma.
