@@ -61,7 +61,7 @@ ficam para decidir com a CGOV (a tabela diz o ator principal do caso de uso). Ca
 
 | Rota | View (.vue) | UC atendidos | Perfis (matriz §7) | Página Figma (Original/Trabalho) | Componentes Code Connect | Situação |
 | --- | --- | --- | --- | --- | --- | --- |
-| P-01 `/dar` (nova aba "Proposta e rito") | `DeclaracaoApetiteDarView.vue` (ampliar) | UC-14 | fora da matriz; ator: CGOV | ✏️ Trabalho — Apetite (DAR) (a desenhar) | a definir no protótipo | a prototipar (LAC-08) |
+| P-01 `/dar` (nova aba "Proposta e rito") | `DeclaracaoApetiteDarView.vue` (ampliar) | UC-14 | fora da matriz; ator: CGOV (decisão de 2026-11-23: a CGOV edita e todos os perfis leem) | ✏️ Trabalho — Apetite (DAR): quadros "P-01 · …" (`102:931`, `102:1551`, `102:2428`, `102:3206`, `103:1552`, `103:2056`) | BrTabs, _BrStep · Etapa (5 etapas), SegmentedControl, Chip, StatCard, BrMessage, BrButton, Dialog, RiskBadge | desenhado em 2026-11-23, aguardando a aprovação da CGOV (LAC-08) |
 | P-02 `/monitoramento` (tratar alerta de KRI) | `MonitoramentoKriPlanoAcaoView.vue` (ampliar) | UC-15 | fora da matriz; ator: gestor de riscos | ✏️ Trabalho — Monitoramento (a desenhar) | a definir no protótipo | a prototipar (LAC-03) |
 | P-03 `/comunicacoes` (sugestão) | nova | UC-16 | fora da matriz; ator: gestor de riscos | página nova (a criar) | a definir no protótipo | a prototipar (LAC-04) |
 | P-04 `/plano` (sugestão) | nova | UC-17, UC-21 | fora da matriz; atores: CGOV (UC-17) e gestor de riscos (UC-21) | página nova (a criar) | a definir no protótipo | a prototipar (LAC-01) |
