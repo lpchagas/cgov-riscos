@@ -102,6 +102,26 @@ definido"; LAC-03). Sobre ela, o cartão em alerta:
 - **Perfis:** quem só lê (AUDIT, por exemplo) vê a faixa e o prazo, sem os botões (segue a linha
   "Monitoramento" da Matriz §7).
 
+### 4.3.1 Revisão do responsável sobre a lista (2026-11-23)
+
+Depois de ver os quadros, o responsável achou a lista longa demais e os cartões difíceis de separar. Decidiu:
+
+- **Navegação: urgência + filtro + páginas.** A lista vem por urgência (prazo vencido, em alerta, alerta
+  comunicado, sem limite numérico, dentro do limite), com filtro por situação e contagem (`SegmentedControl`:
+  Todos · Em alerta · Sem limite · Dentro do limite) e páginas numeradas de 10 cartões, no padrão da
+  paginação do `DataTable`. O que pede ação nunca cai na página 2. Ficaram de fora: só paginar, sem ordem
+  (o alerta podia sumir na página 2), e rolagem com cartões compactos.
+- **Separação: cartão + faixa de cor.** Cada KRI é um cartão com borda e cantos arredondados, com fundo
+  cinza-claro entre eles e uma faixa à esquerda na cor do selo (vermelho em alerta, verde dentro do limite,
+  cinza sem limite). Ficaram de fora: cartão só com borda, e fundo alternado.
+- **Cartão compacto** *(chamada do Claude)*: meta, responsável e histórico de leituras vão para "Ver
+  detalhes", que abre e fecha (como o `<details>` de hoje); no cartão ficam o limite, a última leitura e a
+  faixa de alerta.
+- **Nome do indicador do topo** *(chamada do Claude)*: "Alertas abertos" (prazo correndo), para não
+  confundir com o filtro "Em alerta" (KRIs cuja última leitura passou do limite).
+- **Para o código:** os números das páginas não existem no `DataTable` de hoje (ele mostra a faixa e as
+  setas); o cartão do código acrescenta os números aos dois.
+
 ### 4.4 Quadros a desenhar na página ✏️ Trabalho — Monitoramento
 
 A 📌 Original fica **intocada**. Na ✏️ Trabalho:

@@ -61,3 +61,8 @@
 
 - [x] **Step 1:** atualizar a linha P-02 do [[mapa-telas]] §2 (nós dos quadros, componentes, "desenhado em 2026-11-23, aguardando a CGOV"); cartão P-02 do [[quadro]] com os nós; mover para Concluído o cartão "Atualizar no Figma a etapa 4 … KRI compartilhado".
 - [x] **Step 2:** commit `docs(p-02): ...` (o hook roda o `documentacao.spec.ts`).
+
+### Task 7: Revisão do responsável (2026-11-23)
+
+- [x] **Step 1:** nos quadros `108:2915` e `108:3101`: ordem por urgência, filtro `SegmentedControl` com contagens, cartões separados com faixa de cor (sombra interna de 5 px), "Ver detalhes" no lugar de meta e responsável, paginação do `DataTable` com números; "Alertas abertos" no indicador do topo; nota da seção atualizada.
+- [x] **Step 2:** registrar no desenho (§4.3.1) e fazer o commit.
