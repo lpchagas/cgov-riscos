@@ -237,6 +237,7 @@ erDiagram
         timestamptz ciencia_cgov_em "ciência da CGOV, dada uma vez"
         uuid ciencia_cgov_por
         text observacao_cgov
+        xid8 criada_na_transacao "transação que criou; base do vínculo com riscos"
     }
     comunicacoes_riscos {
         uuid comunicacao_id PK

@@ -47,6 +47,12 @@ CREATE TABLE public.comunicacoes_cgov (
   ciencia_cgov_em  timestamptz,
   ciencia_cgov_por uuid,
   observacao_cgov  text,
+  -- Número da transação que CRIOU a comunicação (xid8, 64 bits, sem volta).
+  -- Serve só para o gatilho do vínculo com riscos (ver 3e). Quem manda é o
+  -- banco: o gatilho BEFORE INSERT sempre grava pg_current_xact_id(), então
+  -- um INSERT direto não consegue forjar o valor; depois, é imutável (o
+  -- gatilho de imutabilidade compara a linha inteira).
+  criada_na_transacao xid8 NOT NULL DEFAULT pg_current_xact_id(),
   -- supre só aceita I, II e III...
   CONSTRAINT comunicacoes_cgov_supre_valores
     CHECK (supre <@ ARRAY['I', 'II', 'III']::text[]),
@@ -234,6 +240,8 @@ AS $$
 DECLARE
   v_al public.alertas_kri%ROWTYPE;
 BEGIN
+  -- Sempre a transação atual, para qualquer um (não se forja; ver 3e).
+  NEW.criada_na_transacao := pg_current_xact_id();
   IF auth.uid() IS NOT NULL THEN
     IF (SELECT m.papel_governanca FROM public.meu_perfil() AS m) = 'auditoria' THEN
       RAISE EXCEPTION 'A auditoria não envia comunicação';
@@ -309,39 +317,22 @@ CREATE CONSTRAINT TRIGGER trg_comunicacao_exige_risco
 -- 3e. comunicacoes_riscos: vínculos só nascem junto com a comunicação e só
 -- com riscos da unidade que comunica; depois, são imutáveis.
 -- "Junto com a comunicação" = na MESMA transação, para qualquer um (com ou sem
--- usuário logado). Como saber? Toda linha do PostgreSQL guarda na coluna de
--- sistema `xmin` o número da transação que a criou. Se a transação dona do
--- xmin ainda está "em andamento" E a linha é visível para nós, ela só pode ser
--- a NOSSA (linha de transação alheia não confirmada é invisível). Por que não
--- usar outra pista:
+-- usuário logado). Como saber? A comunicação guarda em `criada_na_transacao`
+-- o número da transação que a criou (gravado pelo gatilho BEFORE INSERT, e
+-- imutável). O vínculo só entra se esse número for o da transação atual.
+-- Por que não usar outra pista:
 --   - comunicada_em = now(): a carga histórica do administrador grava uma data
 --     antiga de propósito (ver 3c), então a data não prova nada;
 --   - auth.uid() IS NULL: abria uma porta (service_role/administrador) para
---     pendurar risco em comunicação antiga.
--- Por que não `xmin = pg_current_xact_id()::xid`: dentro de um bloco
--- BEGIN ... EXCEPTION (como o da RPC enviar_comunicacao) ou de um SAVEPOINT, a
--- linha ganha o xmin da SUBtransação, diferente do da transação principal, e a
--- comparação recusaria o envio legítimo. `pg_xact_status` = 'in progress' vale
--- para as duas.
--- registrar_ciencia_comunicacao faz UPDATE e muda o xmin da comunicação, mas só
--- abre essa janela dentro da própria transação da ciência, e aquela função
--- (DEFINER) não insere vínculos: nada a explorar.
-CREATE FUNCTION public.fn_xmin_e_da_transacao_atual(p_xmin xid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SET search_path = ''
-AS $$
-  -- O xmin tem 32 bits; o "epoch" (parte alta) é o da transação atual.
-  -- Perto da volta do contador de transações (wraparound) a checagem só pode RECUSAR, nunca aceitar por engano.
-  SELECT coalesce(
-           pg_xact_status(
-             (((pg_current_xact_id()::text::bigint >> 32) << 32)
-              + p_xmin::text::bigint)::text::xid8) = 'in progress',
-           false);
-$$;
-
-REVOKE EXECUTE ON FUNCTION public.fn_xmin_e_da_transacao_atual(xid) FROM public, anon, authenticated;
+--     pendurar risco em comunicação antiga;
+--   - a coluna de sistema xmin da linha: ela é a da VERSÃO da linha. Se um
+--     administrador atualizasse a ciência de uma comunicação antiga e ligasse
+--     um risco na mesma transação, o xmin novo seria o da transação atual e o
+--     vínculo tardio passaria. A coluna própria não muda com o UPDATE.
+-- pg_current_xact_id() devolve sempre o número da transação PRINCIPAL, mesmo
+-- dentro do bloco BEGIN ... EXCEPTION (subtransação) da RPC enviar_comunicacao
+-- (conferido no PostgreSQL 17); por isso a comparação não recusa o envio
+-- legítimo. xid8 tem 64 bits: não há volta do contador (wraparound) a temer.
 
 CREATE FUNCTION public.fn_comunicacao_risco_antes_de_inserir()
 RETURNS trigger
@@ -351,13 +342,13 @@ SET search_path = ''
 AS $$
 DECLARE
   v_unidade uuid;
-  v_xmin    xid;
+  v_criada  xid8;
   v_achou   boolean;
 BEGIN
-  SELECT c.unidade_id, c.xmin INTO v_unidade, v_xmin
+  SELECT c.unidade_id, c.criada_na_transacao INTO v_unidade, v_criada
     FROM public.comunicacoes_cgov AS c WHERE c.id = NEW.comunicacao_id;
   v_achou := FOUND;
-  IF NOT v_achou OR NOT public.fn_xmin_e_da_transacao_atual(v_xmin) THEN
+  IF NOT v_achou OR v_criada IS DISTINCT FROM pg_current_xact_id() THEN
     RAISE EXCEPTION 'Só é possível ligar riscos na mesma transação que cria a comunicação';
   END IF;
   IF NOT public.fn_risco_na_unidade(NEW.risco_id, v_unidade) THEN

@@ -512,7 +512,7 @@ select throws_ok(
   '9. não se liga risco a comunicação que não é desta transação (aqui: inexistente)');
 -- (Desde a 2ª rodada, "já enviada" = criada em OUTRA transação, pelo xmin. Num
 -- arquivo pgTAP tudo é uma transação só, então o caso "de transação anterior"
--- é coberto pelo teste direto de fn_xmin_e_da_transacao_atual, no fim do arquivo.)
+-- é coberto pelo teste de criada_na_transacao, no fim do arquivo.)
 select throws_ok(
   format($$insert into public.comunicacoes_riscos (comunicacao_id, risco_id) values (%L, %L)$$, :'c_forja', :'rb'),
   'P0001', 'Risco não encontrado ou fora da unidade que comunica', '9. INSERT direto de vínculo com risco de outra unidade é recusado');
@@ -737,30 +737,30 @@ select throws_ok(
   'P0001', 'A comunicação é imutável e não pode ser apagada',
   '12. DELETE de comunicação sem riscos ligados é recusado até como administrador');
 
--- 2ª rodada do CodeRabbit (PR #19), M3: o vínculo só vale na MESMA transação
--- que criou a comunicação, identificada pelo xmin da linha. Num arquivo pgTAP
--- tudo roda numa transação só (não dá para ter uma comunicação "de transação
--- anterior"), então testamos a função de checagem diretamente: o xmin de uma
--- linha já confirmada (catálogo do sistema) NÃO é da transação atual; o de
--- linhas criadas aqui é, inclusive dentro de um SAVEPOINT/bloco EXCEPTION
--- (é o caso da RPC enviar_comunicacao).
--- (Linha escolhida com xmin ANTERIOR ao menor xid ainda ativo no snapshot, em ordem fixa por oid:
--- sem isso, o limit 1 poderia pegar uma tabela temporária criada nesta mesma transação.)
-select is(public.fn_xmin_e_da_transacao_atual((select xmin from pg_class
-                                                   where xmin::text::bigint < pg_snapshot_xmin(pg_current_snapshot())::text::bigint
-                                                   order by oid limit 1)), false,
-          '12. M3: xmin de linha de transação anterior (confirmada) não é da transação atual');
-select is(public.fn_xmin_e_da_transacao_atual((select xmin from public.comunicacoes_cgov where id = :'c_hist')),
-          true, '12. M3: xmin da comunicação criada nesta transação é da transação atual');
-do $$ begin
-  begin
-    create temp table _m3_sub on commit drop as select 1 as x;
-    perform set_config('radar.m3_sub', (select public.fn_xmin_e_da_transacao_atual(xmin)::text from _m3_sub), true);
-  exception when others then null;
-  end;
-end $$;
-select is(current_setting('radar.m3_sub'), 'true',
-          '12. M3: linha criada dentro de bloco EXCEPTION (subtransação) também conta');
+-- 3ª rodada do CodeRabbit (PR #19): o vínculo compara criada_na_transacao
+-- (gravada pelo gatilho, imutável) com a transação atual. Num arquivo pgTAP
+-- tudo roda numa transação só; a comunicação "de transação anterior" é
+-- simulada com session_replication_role = replica (gatilhos desligados), que
+-- deixa o INSERT gravar um criada_na_transacao diferente do atual.
+select is((select criada_na_transacao = pg_current_xact_id() from public.comunicacoes_cgov where id = :'c_hist'),
+          true, '12. criada_na_transacao = transação atual (também via INSERT sem usuário)');
+select is((select criada_na_transacao = pg_current_xact_id() from public.comunicacoes_cgov where id = :'c_forja'),
+          true, '12. INSERT direto não forja criada_na_transacao (o gatilho sobrescreve)');
+-- (o caso da RPC enviar_comunicacao, dentro de BEGIN...EXCEPTION, é coberto pelos
+-- testes da seção 9: o envio com risco passa.)
+set local session_replication_role = replica;
+insert into public.comunicacoes_cgov (id, unidade_id, hipotese, data_ciencia, descricao, criada_na_transacao)
+values ('00000000-0000-4000-d000-0000000000aa', :'un_a', 'I', '2026-01-05', 'Comunicação de transação anterior (simulada)',
+        ((pg_current_xact_id()::text::bigint) - 1)::text::xid8);
+set local session_replication_role = origin;
+-- Mesmo com a ciência atualizada NESTA transação (o xmin da linha ficaria "atual"), o vínculo é recusado.
+update public.comunicacoes_cgov set ciencia_cgov_em = now(), observacao_cgov = 'ciente'
+ where id = '00000000-0000-4000-d000-0000000000aa';
+select throws_ok(
+  format($$insert into public.comunicacoes_riscos (comunicacao_id, risco_id)
+           values ('00000000-0000-4000-d000-0000000000aa', %L)$$, :'r1'),
+  'P0001', 'Só é possível ligar riscos na mesma transação que cria a comunicação',
+  '12. vínculo em comunicação de outra transação é recusado, mesmo após UPDATE da ciência aqui');
 
 select * from finish();
 rollback;
