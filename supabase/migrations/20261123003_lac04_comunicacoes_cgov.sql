@@ -125,8 +125,36 @@ AS $$
    WHERE a.id = p_alerta;
 $$;
 
+-- fn_unidades_de_escrita(unidade): a unidade + suas subunidades INTERNAS.
+-- É o MESMO alcance de public.pode_escrever_unidade (20261115002, seção 5): a
+-- própria unidade e, descendo a árvore, só as filhas de tipo divisao, servico,
+-- setor ou base-avancada. Quem comunica por uma unidade só pode tratar do que
+-- essa unidade também pode gravar: uma Gerência Regional NÃO comunica o alerta
+-- nem liga os riscos de uma UC que está sob ela (isso é da UC), enquanto um
+-- Setor dentro da própria unidade é dela. Por isso NÃO usamos
+-- unidades_descendentes (a árvore inteira). pode_escrever_unidade parte da
+-- lotação da pessoa logada; esta parte da unidade que comunica (parâmetro).
+-- Mantida igual de propósito: se a regra de escrita mudar, mude as duas.
+CREATE FUNCTION public.fn_unidades_de_escrita(p_unidade uuid)
+RETURNS SETOF uuid
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  WITH RECURSIVE propria(id) AS (
+    SELECT p_unidade
+    UNION
+    SELECT filha.id
+      FROM public.unidades AS filha
+      JOIN propria AS pr ON filha.unidade_pai_id = pr.id
+     WHERE filha.tipo IN ('divisao', 'servico', 'setor', 'base-avancada')
+  )
+  SELECT propria.id FROM propria;
+$$;
+
 -- fn_risco_na_unidade(risco, unidade): o risco é da unidade ou de uma
--- subunidade dela? (árvore de unidades_descendentes, a mesma do alcance.)
+-- subunidade INTERNA dela? (fn_unidades_de_escrita, acima.)
 CREATE FUNCTION public.fn_risco_na_unidade(p_risco uuid, p_unidade uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -139,10 +167,10 @@ AS $$
       FROM public.riscos AS r
       JOIN public.objetos_contexto AS o ON o.id = r.objeto_id
      WHERE r.id = p_risco
-       AND o.unidade_id IN (SELECT d.id FROM public.unidades_descendentes(p_unidade) AS d(id)));
+       AND o.unidade_id IN (SELECT public.fn_unidades_de_escrita(p_unidade)));
 $$;
 
--- fn_alerta_na_unidade(alerta, unidade): o alerta é de um KRI da unidade (ou subunidade)?
+-- fn_alerta_na_unidade(alerta, unidade): o alerta é de um KRI da unidade (ou de subunidade interna)?
 CREATE FUNCTION public.fn_alerta_na_unidade(p_alerta uuid, p_unidade uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -151,13 +179,16 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
   SELECT coalesce(public.fn_unidade_do_alerta(p_alerta)
-                  IN (SELECT d.id FROM public.unidades_descendentes(p_unidade) AS d(id)), false);
+                  IN (SELECT public.fn_unidades_de_escrita(p_unidade)), false);
 $$;
 
-REVOKE EXECUTE ON FUNCTION public.fn_unidade_do_alerta(uuid)          FROM public, anon;
+-- fn_unidade_do_alerta e fn_unidades_de_escrita só são chamadas por dentro das
+-- funções DEFINER acima: ninguém de fora precisa executá-las. As outras duas
+-- ficam com authenticated porque a RPC (INVOKER) as chama.
+REVOKE EXECUTE ON FUNCTION public.fn_unidade_do_alerta(uuid)          FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_unidades_de_escrita(uuid)        FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.fn_risco_na_unidade(uuid, uuid)     FROM public, anon;
 REVOKE EXECUTE ON FUNCTION public.fn_alerta_na_unidade(uuid, uuid)    FROM public, anon;
-GRANT  EXECUTE ON FUNCTION public.fn_unidade_do_alerta(uuid)          TO authenticated;
 GRANT  EXECUTE ON FUNCTION public.fn_risco_na_unidade(uuid, uuid)     TO authenticated;
 GRANT  EXECUTE ON FUNCTION public.fn_alerta_na_unidade(uuid, uuid)    TO authenticated;
 
@@ -410,7 +441,7 @@ CREATE TRIGGER trg_auditoria_comunicacoes_riscos
 --   - com alerta_id: hipótese alerta_kri, alerta aberto, data_ciencia igual à
 --     do alerta (o prazo corre desde a ciência do alerta);
 --   - data_ciencia não pode ser futura (comparada com fn_hoje(), o dia de Brasília);
---   - os riscos são da unidade que comunica (ou de subunidades dela);
+--   - os riscos são da unidade que comunica ou de subunidades INTERNAS dela;
 --   - fora do prazo de 10 dias úteis GRAVA mesmo assim (o prazo é informação
 --     que a visão mostra, não uma trava).
 -- Tudo roda numa transação: se qualquer passo falha, nada fica gravado.
@@ -472,7 +503,7 @@ BEGIN
     RAISE EXCEPTION 'Informe o risco ligado';
   END IF;
 
-  -- Só liga riscos da unidade que comunica (ou de subunidades dela) que a
+  -- Só liga riscos da unidade que comunica (ou de subunidades internas) que a
   -- pessoa enxerga (a RLS de riscos filtra o resto).
   SELECT count(*) INTO v_dentro
     FROM public.riscos AS r

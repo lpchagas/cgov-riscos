@@ -17,7 +17,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(110);
+select plan(118);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -526,6 +526,72 @@ values (:'un_a', 'I', public.fn_hoje(), 'hipótese I direto, sem risco');
 select throws_ok($$set constraints all immediate$$, 'P0001', 'Informe o risco ligado',
                  '9. INSERT direto de hipótese I sem risco é barrado ao fim da transação');
 select pg_temp.sair();
+
+-- ----------------------------------------------------------------------------
+-- 10. Alcance = o de escrita: a unidade + subunidades INTERNAS (não a árvore toda)
+-- ----------------------------------------------------------------------------
+-- Fixture (administrador): sob a unidade A criamos uma DIVISÃO (interna) e uma
+-- UC filha (não interna), cada uma com um objeto, um risco e um KRI em alerta.
+select pg_temp.sair();
+insert into public.unidades (icmbio_id, nome, tipo, unidade_pai_id)
+values ('T121-DIV', 'Divisão de teste', 'divisao', :'un_a'),
+       ('T121-UCF', 'UC filha de teste', 'uc', :'un_a');
+select id as un_div from public.unidades where icmbio_id = 'T121-DIV' \gset
+select id as un_ucf from public.unidades where icmbio_id = 'T121-UCF' \gset
+insert into public.objetos_contexto (id, tipo_objeto, nome_objeto, unidade_id, objetivo_estrategico_associado, ciclo_ano)
+values ('00000000-0000-4000-b000-0000000000d1', 'Processo', 'Objeto da divisão', :'un_div', 'obj', 2026),
+       ('00000000-0000-4000-b000-0000000000d2', 'Processo', 'Objeto da UC filha', :'un_ucf', 'obj', 2026);
+insert into public.riscos
+  (codigo_radar, objeto_id, responsavel_risco_nome, causas, evento_risco, consequencias,
+   objetivo_afetado, descricao_padrao, categoria_id, probabilidade, impacto,
+   nivel_inerente, classificacao_inerente, nivel_residual, classificacao_residual, status_fluxo)
+select c, o, 'Responsável de demonstração', 'causa', 'evento', 'consequência', 'objetivo', 'x', 2, 1, 1,
+       0, 'Baixo', 0, 'Baixo', 'rascunho'
+  from (values ('T121-RDIV', '00000000-0000-4000-b000-0000000000d1'::uuid),
+               ('T121-RUCF', '00000000-0000-4000-b000-0000000000d2'::uuid)) as v(c, o);
+select id as r_div from public.riscos where codigo_radar = 'T121-RDIV' \gset
+select id as r_ucf from public.riscos where codigo_radar = 'T121-RUCF' \gset
+select pg_temp.kri_alerta('T121 KRI DIV', '00000000-0000-4000-b000-0000000000d1') as k_div \gset
+select pg_temp.kri_alerta('T121 KRI UCF', '00000000-0000-4000-b000-0000000000d2') as k_ucf \gset
+select id as al_div from public.alertas_kri where kri_id = :'k_div' \gset
+select id as al_ucf from public.alertas_kri where kri_id = :'k_ucf' \gset
+
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(
+  format($$select public.enviar_comunicacao(jsonb_build_object(
+      'unidade_id', %L, 'hipotese', 'I', 'data_ciencia', public.fn_hoje(),
+      'descricao', 'risco da UC filha', 'risco_ids', jsonb_build_array(%L)))$$, :'un_a', :'r_ucf'),
+  'P0001', 'Risco não encontrado ou fora da unidade que comunica',
+  '10. risco de uma UC filha (não é subunidade interna) é recusado');
+select throws_ok(
+  format($$select public.enviar_comunicacao(jsonb_build_object(
+      'unidade_id', %L, 'hipotese', 'alerta_kri', 'alerta_id', %L, 'data_ciencia', public.fn_hoje(),
+      'descricao', 'alerta da UC filha', 'risco_ids', jsonb_build_array(%L)))$$, :'un_a', :'al_ucf', :'r1'),
+  'P0001', 'O alerta não pertence à unidade que comunica',
+  '10. alerta de uma UC filha é recusado');
+select throws_ok(
+  format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao, alerta_id)
+           values (%L, 'alerta_kri', public.fn_hoje(), 'direto, UC filha', %L)$$, :'un_a', :'al_ucf'),
+  'P0001', 'O alerta não pertence à unidade que comunica',
+  '10. INSERT direto com alerta de UC filha é recusado');
+select lives_ok(
+  format($$select public.enviar_comunicacao(jsonb_build_object(
+      'unidade_id', %L, 'hipotese', 'I', 'data_ciencia', public.fn_hoje(),
+      'descricao', 'risco da divisão', 'risco_ids', jsonb_build_array(%L)))$$, :'un_a', :'r_div'),
+  '10. risco de uma divisão (subunidade interna) é aceito');
+select lives_ok(
+  format($$select public.enviar_comunicacao(jsonb_build_object(
+      'unidade_id', %L, 'hipotese', 'alerta_kri', 'alerta_id', %L, 'data_ciencia', public.fn_hoje(),
+      'descricao', 'alerta da divisão', 'risco_ids', jsonb_build_array(%L)))$$, :'un_a', :'al_div', :'r_div'),
+  '10. alerta de uma divisão (subunidade interna) é aceito e encerrado');
+select pg_temp.sair();
+select is((select encerrado_em from public.alertas_kri where id = :'al_div'), public.fn_hoje(),
+          '10. o alerta da divisão foi encerrado');
+select is((select encerrado_em from public.alertas_kri where id = :'al_ucf'), null,
+          '10. o alerta da UC filha segue aberto');
+select is(has_function_privilege('authenticated', 'public.fn_unidade_do_alerta(uuid)', 'EXECUTE')
+       or has_function_privilege('authenticated', 'public.fn_unidades_de_escrita(uuid)', 'EXECUTE'),
+          false, '10. authenticated não executa os auxiliares internos');
 
 -- ----------------------------------------------------------------------------
 -- 8. Trilha de auditoria
