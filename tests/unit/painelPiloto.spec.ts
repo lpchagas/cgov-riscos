@@ -433,6 +433,22 @@ describe('Painel (estados da carteira)', () => {
     expect(w.findAll('button.matriz__celula')).toHaveLength(0);
   });
 
+  // C7 (CodeRabbit, PR #20): carteira vazia + KRI sem risco com alerta: a pendência continua visível.
+  it('carteira vazia com KRI sem risco em alerta: mostra o estado vazio E "Precisa da sua atenção"', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const carteira = await base.carregarCarteira();
+    const alertas = await base.listarAlertasKri();
+    const aberto = alertas.find((a) => !a.encerradoEm && !a.comunicacaoId)!;
+    const kri = carteira.riscos.flatMap((r) => r.kris).find((k) => k.id === aberto.kriId)!;
+    const { w } = await montarComFonte({
+      ...base,
+      carregarCarteira: async () => ({ ...carteira, riscos: [], krisSemRisco: [{ ...kri, riscoIds: [] }] }),
+    });
+    expect(w.text()).toContain('Nenhum risco no seu alcance');
+    expect(w.text()).toContain('Precisa da sua atenção');
+    expect(w.text()).toContain(kri.nomeIndicador);
+  });
+
   it('"Precisa da sua atenção" segue as ações liberadas (acoes), não o perfil', async () => {
     const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.gestor });
     const { w } = await montarComFonte({

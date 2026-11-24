@@ -460,6 +460,10 @@ export function criarFonteDemonstracao(
       const unidadeDaFicha = item.limiteUnidade?.trim() || undefined;
       const unidadeEnviada =
         (limiteCompletoNaFicha || item.limiteUnidade !== undefined) && unidadeDaFicha !== existente.limiteUnidade;
+      // O PRÓPRIO texto do limite mudou? (calculado ANTES de copiar a ficha para o KRI.)
+      // Só isso, como o gatilho do banco (`NEW.limite_alerta IS DISTINCT FROM OLD.limite_alerta`),
+      // refaz o número: mudar só nome/fonte/responsável não pode apagar o limite numérico.
+      const limiteTextoMudou = (item.limiteAlerta ?? '') !== (existente.limiteAlerta ?? '');
       const mudou = textoMudou || operadorValorMudaram || unidadeEnviada;
       if (!mudou) continue;
       const ligados = riscos.filter((x) => x.id !== r.id && existente.riscoIds.includes(x.id));
@@ -475,7 +479,7 @@ export function criarFonteDemonstracao(
       // pelo texto novo (a unidade enviada só vale se for diferente da gravada).
       if (operadorValorMudaram) {
         Object.assign(existente, limiteNumericoDaFicha(item));
-      } else if (textoMudou) {
+      } else if (limiteTextoMudou) {
         const refeito = limiteNumericoDaFicha({ limiteAlerta: item.limiteAlerta });
         Object.assign(existente, refeito, unidadeEnviada ? { limiteUnidade: item.limiteUnidade?.trim() || undefined } : {});
       } else if (unidadeEnviada) {

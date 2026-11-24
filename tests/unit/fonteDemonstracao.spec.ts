@@ -1003,6 +1003,22 @@ describe('LAC-03: alerta do KRI na demonstração (imita o banco)', () => {
       expect(depois).toMatchObject({ limiteAlerta: 'Abaixo de 50%', limiteOperador: '<', limiteValor: 50, limiteUnidade: '%' });
     });
 
+    // C1 (CodeRabbit, PR #20): o gatilho só refaz o limite quando o PRÓPRIO limite_alerta muda.
+    // Mudar só a fonte de dados (ou o nome) não pode apagar o limite numérico.
+    it('mudar só a fonte de dados NÃO reconverte nem apaga o limite numérico', async () => {
+      const fonte = fonteComo('cgov');
+      // KRI novo só com limite numérico (sem texto antigo), como a tela cria hoje.
+      const { id } = await fonte.salvarFicha({
+        objetoId: 'obj-anexo-ii', probabilidade: 1, impacto: 5,
+        kris: [{ ...KRI_OK, nomeIndicador: 'KRI numérico', limiteAlerta: undefined, limiteOperador: '<', limiteValor: 70, limiteUnidade: '%' }],
+      });
+      const base = (await fonte.relerRisco(id))!.kris[0];
+      expect(base).toMatchObject({ limiteOperador: '<', limiteValor: 70 });
+      const depois = await reenviar(fonte, id, { ...base, fonteDados: 'Outra fonte' });
+      expect(depois.fonteDados).toBe('Outra fonte');
+      expect(depois).toMatchObject({ limiteOperador: '<', limiteValor: 70, limiteUnidade: '%' });
+    });
+
     it('texto novo ambíguo deixa o limite "a converter" (numéricos nulos)', async () => {
       const fonte = fonteComo('cgov');
       const { id, kri } = await kriConvertido(fonte);

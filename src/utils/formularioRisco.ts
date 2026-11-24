@@ -135,7 +135,9 @@ export function dadosExemplo(objetoId = ''): DadosNovoRisco {
 export function numeroDoLimite(texto: string): number | undefined {
   const t = texto.trim();
   if (!/^-?\d+(?:[.,]\d+)?$/.test(t) || limiteAmbiguo(t)) return undefined;
-  return Number(t.replace(',', '.'));
+  const n = Number(t.replace(',', '.'));
+  // '9' repetido 400 vezes vira Infinity: não é um limite válido (o banco também recusaria).
+  return Number.isFinite(n) ? n : undefined;
 }
 
 /** O texto do número termina em ponto/vírgula + 3 dígitos? Ex.: '1.000' e '2,500' -> true. */
@@ -188,8 +190,25 @@ export function camposKriDe(k?: IndicadorKri): Pick<DadosNovoRisco, 'nomeKri' | 
  * Ex.: 2.5 -> '2,5'; 1e-7 -> '0,0000001'; 2.125 -> '2,1250'.
  */
 function numeroParaCampo(n: number): string {
-  const texto = n.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 20 }).replace('.', ',');
+  const texto = decimalSemExpoente(n).replace('.', ',');
   return limiteAmbiguo(texto) ? `${texto}0` : texto;
+}
+
+/**
+ * Escreve o número em decimal puro, SEM perder dígitos (o `toLocaleString` com limite de
+ * casas arredondaria 1e-21 para 0). Parte da forma mais curta que o JavaScript sabe
+ * (`String(n)`, que pode vir como '1e-21' ou '1.5e+25') e só desloca a vírgula.
+ * Ex.: 2.5 -> '2.5'; 1e-7 -> '0.0000001'; 1e-21 -> '0.000000000000000000001'; 1.5e25 -> '15000000000000000000000000'.
+ */
+function decimalSemExpoente(n: number): string {
+  const m = /^(-?)(\d+)(?:\.(\d+))?e([+-]\d+)$/.exec(String(n));
+  if (!m) return String(n); // já está em decimal comum
+  const [, sinal, inteira, fracao = '', exp] = m;
+  const digitos = inteira + fracao; // todos os dígitos, sem a vírgula
+  const posicao = inteira.length + Number(exp); // onde a vírgula cai nos dígitos
+  if (posicao <= 0) return `${sinal}0.${'0'.repeat(-posicao)}${digitos}`;
+  if (posicao >= digitos.length) return `${sinal}${digitos}${'0'.repeat(posicao - digitos.length)}`;
+  return `${sinal}${digitos.slice(0, posicao)}.${digitos.slice(posicao)}`;
 }
 
 const obrigatorio = (valor: string, minimo = 3) => valor.trim().length >= minimo;
@@ -350,7 +369,11 @@ export function validarEtapa(
     //     que a gravação mantém ligados.
     // Ex.: ficha com [KRI só com nome, KRI completo] → sem erro.
     // Não crítico segue livre.
-    if (exigeLimiteNumerico) Object.assign(erros, errosDoLimiteNumerico(d));
+    // KRI antigo (só texto) pode deixar o limite numérico vazio; mas se a pessoa preencheu
+    // o operador OU o número, o par precisa estar completo (não omitir tentativa incompleta).
+    // KRI só ligado (campos só leitura) não conta: a pessoa não pode editá-lo aqui.
+    const tentouLimite = !kriLigado && (d.kriLimiteOperador !== '' || d.kriLimiteValor.trim() !== '');
+    if (exigeLimiteNumerico || tentouLimite) Object.assign(erros, errosDoLimiteNumerico(d));
     const kriQueVale = d.kriExistenteId && kriLigado ? kriLigado : kriDosCampos(d);
     if (exige && ![kriQueVale, ...demaisKris].some(kriCompleto)) erros.nomeKri = MENSAGEM_TRAVA_KRI;
     if (d.estrategia !== 'Aceitar' || exige) {

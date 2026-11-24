@@ -82,7 +82,6 @@ trava de escrita fora de um bloco `DO`; corrigida no commit `cbbe8c3` ([[guia-su
   (`npm ci`) e `npm run db:start` passa a apagar `supabase/.temp/postgres-version` (a fixação gravada pelo
   `supabase link`) pelo `scripts/banco-local-imagem.mjs`, então o banco local sobe com a imagem padrão do CLI.
   Na troca de computador: `npm ci`, `npm run db:stop`, `npm run db:start`, `npm run db:reset`.
-  **Decisão pendente do responsável:** a nuvem do piloto também usa a 17.6.1.104. Se o defeito valer lá, um
-  visitante anônimo que chame pela API uma função sem permissão derruba a conexão do banco (todas as conexões
-  reiniciam). Atualizar o Postgres da nuvem (painel do Supabase, *Infrastructure*) é passo com
-  **[AUTORIZAÇÃO]**; vale fazer antes da homologação.
+  **Nuvem (concluído em 2026-11-24):** o responsável atualizou o Postgres da nuvem do piloto de
+  `17.6.1.104` para **17.12.0.000** (*Upgrade project*, com autorização), e a conferência por leitura está no
+  [[guia-supabase-nuvem]] (seção 4, histórico). Não há mais pendência de autorização nesse ponto.

@@ -361,7 +361,9 @@ export const useRiscosStore = defineStore('riscos', () => {
       }
     });
     for (const a of listaAcoes) acoes.value[a.riscoId] = a;
-    avisoAtualizacao.value = null;
+    // Esta releitura NÃO lê os alertas dos KRIs. Então só limpa o aviso se ele não for o de
+    // "alertas indisponíveis": esse só some quando os alertas forem lidos de verdade (carregar).
+    if (avisoAtualizacao.value?.message !== MENSAGEM_ALERTAS_INDISPONIVEIS) avisoAtualizacao.value = null;
   }
 
   /**

@@ -110,6 +110,9 @@ export function alertaAtualDoKri(alertas: AlertaKri[], kriId: string): AlertaKri
   const doKri = alertas.filter((a) => a.kriId === kriId);
   return (
     doKri.find((a) => !alertaEncerrado(a)) ??
-    [...doKri].sort((a, b) => b.cienciaEm.localeCompare(a.cienciaEm))[0]
+    // Mais recente pela ciência; se empatar, pelo encerramento (as datas ISO ordenam como texto).
+    [...doKri].sort(
+      (a, b) => b.cienciaEm.localeCompare(a.cienciaEm) || (b.encerradoEm ?? '').localeCompare(a.encerradoEm ?? '')
+    )[0]
   );
 }

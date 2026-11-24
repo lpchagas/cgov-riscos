@@ -271,6 +271,32 @@ describe('etapa 4: limite numérico do KRI (operador + número + unidade)', () =
   });
   // N-6 (revisão de fim da Fase 2): o mesmo critério de `numeroDaLeitura` e de
   // `converterLimiteTexto`: 3 dígitos depois do ponto/vírgula é ambíguo (mil ou um?).
+  // C5 (CodeRabbit, PR #20): KRI antigo (só texto) pode deixar o limite numérico vazio,
+  // mas se a pessoa preencher operador OU número, o par precisa estar completo.
+  it('etapa 4, KRI antigo (exigeLimiteNumerico=false): operador sem número é erro; vazio passa', () => {
+    const base = { ...dadosExemplo('o1'), kriLimiteOperador: '' as const, kriLimiteValor: '' };
+    expect(validarEtapa(4, base, CATEGORIAS, undefined, undefined, [], false)).toEqual({});
+    const soOperador = { ...base, kriLimiteOperador: '<' as const };
+    expect(validarEtapa(4, soOperador, CATEGORIAS, undefined, undefined, [], false).kriLimiteValor).toBeDefined();
+    const soNumero = { ...base, kriLimiteValor: '80' };
+    expect(validarEtapa(4, soNumero, CATEGORIAS, undefined, undefined, [], false).kriLimiteOperador).toBeDefined();
+  });
+
+  // C2 (CodeRabbit, PR #20): número gigante vira Infinity; não é um limite válido.
+  it('numeroDoLimite recusa número que estoura (Infinity)', () => {
+    expect(numeroDoLimite('9'.repeat(400))).toBeUndefined();
+  });
+
+  // C3: o campo não pode arredondar um limite minúsculo para 0.
+  it('camposKriDe preserva 1e-21 e 2.125 ao voltar para o campo', () => {
+    const campo = (v: number) =>
+      camposKriDe({ id: 'k', objetoId: 'o', riscoIds: [], nomeIndicador: 'N', limiteOperador: '<', limiteValor: v, medicoes: [] }).kriLimiteValor;
+    expect(campo(1e-21)).toBe('0,000000000000000000001');
+    expect(numeroDoLimite(campo(1e-21))).toBe(1e-21);
+    expect(numeroDoLimite(campo(2.125))).toBe(2.125);
+    expect(campo(2.5)).toBe('2,5');
+  });
+
   it('"1.000" e "2,500" são ambíguos: numeroDoLimite recusa, com mensagem clara', () => {
     expect(numeroDoLimite('1.000')).toBeUndefined();
     expect(numeroDoLimite('2,500')).toBeUndefined();

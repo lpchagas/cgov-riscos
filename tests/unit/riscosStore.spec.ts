@@ -477,6 +477,17 @@ describe('ligarCarteiraASessao (carga e limpeza pela sessão)', () => {
       expect(store.avisoAtualizacao?.tipo).toBe('rede');
     });
 
+    // C6 (CodeRabbit, PR #20): relerRiscos não relê os alertas; então não pode apagar
+    // o aviso de que os alertas estão indisponíveis.
+    it('relerRiscos mantém o aviso de falha dos alertas (eles não foram relidos)', async () => {
+      fonteFalsa({ listarAlertasKri: async () => { throw new ErroRadar(MENSAGEM_REDE, 'rede'); } });
+      const store = useRiscosStore();
+      await store.carregar();
+      expect(store.avisoAtualizacao).not.toBeNull();
+      await store.relerRiscos([store.riscos[0].id]);
+      expect(store.avisoAtualizacao?.message).toContain('alertas dos indicadores');
+    });
+
     // N-5: "encerrado" é encerradoEm OU comunicacaoId (a mesma regra de situacaoKri).
     it('alertaAbertoDoKri trata o alerta já comunicado (comunicacaoId sem encerradoEm) como encerrado', async () => {
       const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.coordenador_geral });

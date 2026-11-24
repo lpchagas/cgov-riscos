@@ -124,6 +124,13 @@ describe('alertaAtualDoKri', () => {
     expect(alertaAtualDoKri([antigo, aberto], 'k1')?.id).toBe('novo');
     expect(alertaAtualDoKri([aberto, antigo], 'k1')?.id).toBe('novo');
   });
+  // C4 (CodeRabbit, PR #20): ciência igual -> desempata pelo encerramento mais recente.
+  it('com a mesma ciência, vale o encerrado por último', () => {
+    const a: AlertaKri = { ...alertaBase, id: 'a', cienciaEm: '2026-10-01', encerradoEm: '2026-10-03' };
+    const b: AlertaKri = { ...alertaBase, id: 'b', cienciaEm: '2026-10-01', encerradoEm: '2026-10-09' };
+    expect(alertaAtualDoKri([b, a], 'k1')?.id).toBe('b');
+    expect(alertaAtualDoKri([a, b], 'k1')?.id).toBe('b');
+  });
   it('sem aberto, devolve o encerrado mais recente; sem alerta, undefined', () => {
     const a1: AlertaKri = { ...alertaBase, id: 'a1', cienciaEm: '2026-09-01', encerradoEm: '2026-09-03' };
     const a2: AlertaKri = { ...alertaBase, id: 'a2', cienciaEm: '2026-10-01', encerradoEm: '2026-10-03' };
