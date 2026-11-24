@@ -218,6 +218,8 @@ const kriEmEdicao = computed(() => kriEscolhido.value && liberouEdicaoKri.value 
  * banco manteria o valor antigo). Só o KRI antigo "a converter" (apenas texto) é dispensado.
  */
 const exigeLimiteNumerico = computed(() => {
+  // KRI da lista só LIGADO: campos só leitura, a pessoa não pode preenchê-los. A trava do risco crítico (kriCompleto) continua valendo.
+  if (camposKriSoLeitura.value) return false;
   const base = kriEscolhido.value ?? kriProprio.value;
   if (!base) return true;
   const temNumero = base.limiteOperador !== undefined && Number.isFinite(base.limiteValor);

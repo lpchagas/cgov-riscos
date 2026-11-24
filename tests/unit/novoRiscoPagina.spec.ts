@@ -343,6 +343,18 @@ describe('Página Novo risco', () => {
       w.unmount();
     });
 
+    it('KRI da lista só ligado: a etapa 4 não exige o limite (campos só leitura)', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      await lista.setValue('kri-anexo-ii-2');
+      // KRI sem nenhum limite (nem número, nem texto): a pessoa não consegue preenchê-lo sem liberar a edição.
+      const kri = useRiscosStore().krisDoObjeto('obj-anexo-ii').find((k) => k.id === 'kri-anexo-ii-2')!;
+      Object.assign(kri, { limiteOperador: undefined, limiteValor: undefined, limiteAlerta: undefined });
+      await flushPromises();
+      expect((w.vm as unknown as { exigeLimiteNumerico: boolean }).exigeLimiteNumerico).toBe(false);
+      w.unmount();
+    });
+
     it('risco crítico com KRI novo sem o número é travado e aponta o campo', async () => {
       const { w } = await ateEtapa4NoObjeto();
       const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;

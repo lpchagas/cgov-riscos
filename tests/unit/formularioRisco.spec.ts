@@ -247,6 +247,14 @@ describe('etapa 4: limite numérico do KRI (operador + número + unidade)', () =
     expect(c.kriLimiteValor).toBe('0,0000001');
     expect(numeroDoLimite(c.kriLimiteValor)).toBe(1e-7);
   });
+  it('KRI da lista só ligado (sem limite): não crítico passa; crítico é travado pelo kriCompleto', () => {
+    const ligadoSemLimite = { nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, responsavelMedicao: 'R' };
+    const d = { ...dadosVazios(), ...camposKriDe(undefined), nomeKri: 'N', kriExistenteId: 'k1' } as DadosNovoRisco;
+    const base = { ...dadosExemplo('o1'), estrategia: 'Evitar' as const };
+    // a tela passa exigeLimiteNumerico = false para KRI só ligado
+    expect(validarEtapa(4, { ...base, ...d, acaoOQue: 'x x x', acaoQuem: 'Chefe', acaoPrazo: '2027-01-01' }, CATEGORIAS, 'nao', ligadoSemLimite, [], false)).toEqual({});
+    expect(validarEtapa(4, { ...base, ...d, acaoOQue: 'x x x', acaoQuem: 'Chefe', acaoPrazo: '2027-01-01' }, CATEGORIAS, 'sim', ligadoSemLimite, [], false).nomeKri).toBe(MENSAGEM_TRAVA_KRI);
+  });
   it('KRI antigo (só texto, com id): não exige o número e continua completo para a trava', () => {
     const antigo = { ...comLimite, kriLimite: 'Abaixo de 90%', kriLimiteOperador: '' as const, kriLimiteValor: '', kriLimiteUnidade: '' };
     expect(validarEtapa(4, antigo, CATEGORIAS, 'sim', undefined, [], false)).toEqual({});
