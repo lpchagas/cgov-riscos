@@ -43,7 +43,7 @@ Branch de trabalho: `claude/icmbio-risk-policy-modeling-q840ho`.
 | `npm run test:db` (pgTAP) | 20 arquivos, 1064 testes, `PASS` (2026-11-23, depois dos achados da revisão final da LAC-03, com a imagem 17.11.0.006; a 17.6.1.104 derruba o `030` e o `050`, ver §5). |
 | `npm run test:a11y` | 329 testes passaram, 0 violações em 315 combinações ((17 + 4) telas × 5 larguras × 3 temas, com a etapa 3 do formulário), medido em 2026-11-22, depois da LAC-12; **re-medir**: a etapa 4 do formulário e o monitoramento mudaram na LAC-03. |
 | Documentação | 115 RN, 195 RF (135 implementados, 5 parciais, 55 não iniciados), 51 RNF, 26 casos de uso, 20 ADRs, 17 migrações em `supabase/migrations/` (o DER lista as 14 que mudam a estrutura; a `20261122002` só troca funções, a `20261122003` só acrescenta um gatilho e a `20261123001` só põe travas de linha nos gatilhos de `kri_riscos`). |
-| Kanban | 74 cartões: 63 no Backlog, 0 em "Pronto para iniciar", 1 em Modelagem (P-02), 3 em "Homologação CGOV" (LAC-13, LAC-03 e o importador) e 7 concluídos (entre eles o desenho P-01, aprovado pela CGOV em 2026-11-23). |
+| Kanban | 74 cartões: 62 no Backlog, 0 em "Pronto para iniciar", 1 em Modelagem (P-02, desenhado e aguardando a CGOV), 3 em "Homologação CGOV" (LAC-13, LAC-03 e o importador) e 8 concluídos (entre eles o desenho P-01, aprovado pela CGOV em 2026-11-23). |
 
 **Pendente de prova real:** as mudanças da cópia (um único `pg_dump`, parcial exclusivo, TLS obrigatório na
 nuvem) passaram nos testes, mas a primeira prova completa do [[guia-copia-restauracao]] (seção 8) ainda não
@@ -56,8 +56,8 @@ Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. "Pronto pa
 1. **Importador (2026-11-23): revisão e PR** da branch de trabalho, "Importador antes da primeira carga real"; o merge depende de pedido do responsável. Em paralelo, **aplicar o pedido de 18 colunas na skill** `cgov-gestao-riscos`, numa sessão própria no repositório `cgov-geral` (cartão no Backlog).
 2. **PR #17 (Fase 1 da LAC-03) aberta**, com a triagem do CodeRabbit corrigida em 2026-11-23; o merge depende de pedido do responsável.
 3. **`20261123001` (travas de linha da LAC-03): aplicada na nuvem do piloto em 2026-11-23** (registro no [[guia-supabase-nuvem]]).
-4. Cartão do Figma: atualizar a etapa 4 do formulário e o monitoramento com os campos do KRI e o KRI compartilhado (Backlog).
-5. **Desenho P-02 (tratar alerta de KRI) em Modelagem desde 2026-11-23**; depois dele, o cartão do alerta do KRI (RF-102, com o RF-109 e a LAC-04). A LAC-08 (rito da DAR) já tem o desenho P-01 aprovado pela CGOV (2026-11-23, sem ajustes) e espera o P-10. Em paralelo, a etapa D segue com a Task 7 da D1.
+4. Cartão do Figma da etapa 4 e do monitoramento com os campos do KRI: **concluído em 2026-11-23**, junto com o desenho P-02.
+5. **Desenho P-02 (tratar alerta de KRI) desenhado no Figma em 2026-11-23, aguardando a aprovação da CGOV** (faixa de alerta no cartão do KRI, limite de alerta numérico com comparação automática, atalhos para P-09 e P-03; seção `108:2906` da ✏️ Trabalho — Monitoramento); depois dele, o cartão do alerta do KRI (RF-102, com o RF-109 e a LAC-04). A LAC-08 (rito da DAR) já tem o desenho P-01 aprovado pela CGOV (2026-11-23, sem ajustes) e espera o P-10. Em paralelo, a etapa D segue com a Task 7 da D1.
 
 PR #16 (LAC-13) mesclada na `main` em 2026-11-22 (merge `dcb4a7a`), depois da triagem do CodeRabbit. Desenho da LAC-03 em `docs/superpowers/specs/2026-11-22-lac-03-kri-obrigatorio-design.md` e plano em `docs/superpowers/plans/2026-11-22-lac-03-kri-obrigatorio-plan.md`.
 
