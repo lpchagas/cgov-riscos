@@ -197,7 +197,7 @@ describe('Página Novo risco', () => {
     // a pessoa preenche os campos do KRI pela tela (esvaziamos os do exemplo antes).
     for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
     const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
-    for (const r of ['Fórmula de cálculo', 'Fonte dos dados', 'Limite de alerta', 'Responsável pelo monitoramento']) await w.find(`#${campo(r)}`).setValue('');
+    for (const r of ['Fórmula de cálculo', 'Fonte dos dados', 'Valor do limite', 'Responsável pelo monitoramento']) await w.find(`#${campo(r)}`).setValue('');
     await w.find(`#${campo('Periodicidade de monitoramento')}`).setValue('');
     await w.find('form').trigger('submit'); // tenta enviar com o KRI incompleto
     await flushPromises();
@@ -206,7 +206,7 @@ describe('Página Novo risco', () => {
     await w.find(`#${campo('Fórmula de cálculo')}`).setValue('itens conformes / total');
     await w.find(`#${campo('Fonte dos dados')}`).setValue('Processos SEI');
     await w.find(`#${campo('Periodicidade de monitoramento')}`).setValue('Mensal');
-    await w.find(`#${campo('Limite de alerta')}`).setValue('Abaixo de 90%');
+    await w.find(`#${campo('Valor do limite')}`).setValue('90');
     await w.find(`#${campo('Responsável pelo monitoramento')}`).setValue('Chefe da unidade');
     await w.find('form').trigger('submit');
     await flushPromises();
@@ -295,6 +295,50 @@ describe('Página Novo risco', () => {
       expect(d.nomeKri).toBe(exemplo.nomeKri);
       expect(d.kriFonte).toBe(exemplo.kriFonte);
       expect(d.kriResponsavel).toBe(exemplo.kriResponsavel);
+      w.unmount();
+    });
+
+    it('limite numérico: operador + número + unidade mostram a frase e gravam os três campos', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
+      const operador = w.find(`#${campo('Alerta quando o valor for')}`);
+      expect(operador.findAll('option').map((o) => o.text())).toEqual(expect.arrayContaining(['maior que', 'maior ou igual a', 'menor que', 'menor ou igual a']));
+      await operador.setValue('<');
+      await w.find(`#${campo('Valor do limite')}`).setValue('80');
+      await w.find(`#${campo('Unidade do limite')}`).setValue('%');
+      expect(w.text()).toContain('Alerta quando o valor for menor que 80 %');
+      const store = useRiscosStore();
+      const salvar = vi.spyOn(store, 'salvarOuAtualizarRisco');
+      await botao(w, 'Salvar rascunho').trigger('click');
+      await flushPromises();
+      expect(salvar.mock.calls[0][0].kris![0]).toMatchObject({ limiteOperador: '<', limiteValor: 80, limiteUnidade: '%' });
+      w.unmount();
+    });
+
+    it('KRI antigo (só texto): mostra "Limite a converter" com o texto antigo; com operador + número, some', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const vm = w.vm as unknown as { d: { kriLimite: string; kriLimiteOperador: string; kriLimiteValor: string } };
+      Object.assign(vm.d, { kriLimite: 'Até 10%', kriLimiteOperador: '', kriLimiteValor: '' });
+      await flushPromises();
+      expect(w.text()).toContain('Limite a converter: informe o operador e o número');
+      expect(w.text()).toContain('Até 10%');
+      Object.assign(vm.d, { kriLimiteOperador: '<=', kriLimiteValor: '10' });
+      await flushPromises();
+      expect(w.text()).not.toContain('Limite a converter');
+      w.unmount();
+    });
+
+    it('risco crítico com KRI novo sem o número é travado e aponta o campo', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
+      await w.find(`#${campo('Valor do limite')}`).setValue('');
+      const store = useRiscosStore();
+      const antes = store.riscos.length;
+      await w.find('form').trigger('submit');
+      await flushPromises();
+      expect(store.riscos.length).toBe(antes);
+      expect(w.text()).toContain('precisa de um KRI completo');
+      expect(w.find(`#${campo('Valor do limite')}`).attributes('aria-invalid')).toBe('true');
       w.unmount();
     });
 

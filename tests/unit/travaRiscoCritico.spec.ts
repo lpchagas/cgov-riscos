@@ -89,6 +89,15 @@ describe('KRI completo como 3º motivo da trava (LAC-03)', () => {
       }
     },
   );
+  // R11: espelho de fn_kri_completo no banco: (operador E número) OU texto antigo.
+  it('kriCompleto: o limite numérico (operador + valor) vale no lugar do texto antigo', () => {
+    const { limiteAlerta: _t, ...semTexto } = KRI_OK;
+    expect(kriCompleto(semTexto)).toBe(false);
+    expect(kriCompleto({ ...semTexto, limiteOperador: '<', limiteValor: 80 })).toBe(true);
+    expect(kriCompleto({ ...semTexto, limiteOperador: '<' })).toBe(false); // falta o número
+    expect(kriCompleto({ ...semTexto, limiteValor: 80 })).toBe(false); // falta o operador
+    expect(kriCompleto({ ...KRI_OK })).toBe(true); // só o texto antigo continua valendo
+  });
   it('crítico sem KRI é recusado', () => {
     expect(verificarTravaRiscoCritico({ ...base, kris: [] })).toEqual({ ok: false, motivo: 'sem_kri_em_critico' });
   });

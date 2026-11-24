@@ -14,6 +14,8 @@ import { describe, it, expect } from 'vitest';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import {
   avisoKriCompartilhado,
+  camposKriDe,
+  dadosDeRisco,
   dadosExemplo,
   dadosParaFicha,
   dadosVazios,
@@ -185,7 +187,7 @@ describe('dadosParaFicha: KRI (LAC-03)', () => {
   });
   it('risco EXISTENTE escolhe KRI com limite numérico sem mudar nada: mantém apenasLigar (LAC-03)', () => {
     const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'Abaixo de 70%', limiteOperador: '<' as const, limiteValor: 70, limiteUnidade: '%', responsavelMedicao: 'R', medicoes: [] };
-    const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'Abaixo de 70%', kriResponsavel: 'R' };
+    const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'Abaixo de 70%', kriLimiteOperador: '<', kriLimiteValor: '70', kriLimiteUnidade: '%', kriResponsavel: 'R' };
     const existente = { id: 'r1', objetoId: 'o1', controlesExistentes: [], respostasTratamento: [], kris: [] } as unknown as FichaRisco;
     const f = dadosParaFicha(d, { ehIntegridade: false, existente, krisDoObjeto: [escolhido] });
     expect(f.kris![0]).toMatchObject({ id: 'k1', apenasLigar: true, limiteOperador: '<', limiteValor: 70 });
@@ -194,5 +196,62 @@ describe('dadosParaFicha: KRI (LAC-03)', () => {
     const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'L', responsavelMedicao: 'R', medicoes: [] };
     const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'Outro', kriResponsavel: 'R' };
     expect(dadosParaFicha(d, { ehIntegridade: false, krisDoObjeto: [escolhido] }).kris![0]).toMatchObject({ id: 'k1', apenasLigar: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Limite de alerta NUMÉRICO do KRI (LAC-03, Tarefa 8)
+// ---------------------------------------------------------------------------
+describe('etapa 4: limite numérico do KRI (operador + número + unidade)', () => {
+  const comLimite: DadosNovoRisco = { ...dadosExemplo('o1'), kriLimite: '', kriLimiteOperador: '<', kriLimiteValor: '80', kriLimiteUnidade: '%' };
+
+  it('operador, número e unidade gravam os três campos (número de verdade, não texto)', () => {
+    const f = dadosParaFicha(comLimite, { ehIntegridade: false });
+    expect(f.kris![0]).toMatchObject({ limiteOperador: '<', limiteValor: 80, limiteUnidade: '%' });
+  });
+  it('aceita a vírgula decimal: "2,5" vira 2.5', () => {
+    const f = dadosParaFicha({ ...comLimite, kriLimiteValor: '2,5', kriLimiteUnidade: '' }, { ehIntegridade: false });
+    expect(f.kris![0].limiteValor).toBe(2.5);
+    expect(f.kris![0].limiteUnidade).toBeUndefined();
+  });
+  it('sem número, não grava operador nem valor (nunca "")', () => {
+    const f = dadosParaFicha({ ...comLimite, kriLimiteValor: '' }, { ehIntegridade: false });
+    expect(f.kris![0].limiteOperador).toBeUndefined();
+    expect(f.kris![0].limiteValor).toBeUndefined();
+  });
+  it('KRI novo sem operador ou sem número: a etapa 4 recusa (mesmo não crítico)', () => {
+    const semNumero = { ...comLimite, kriLimiteValor: '' };
+    const semOperador = { ...comLimite, kriLimiteOperador: '' as const };
+    expect(validarEtapa(4, semNumero, CATEGORIAS, 'nao', undefined, [], true).kriLimiteValor).toBeDefined();
+    expect(validarEtapa(4, semOperador, CATEGORIAS, 'nao', undefined, [], true).kriLimiteOperador).toBeDefined();
+    expect(validarEtapa(4, comLimite, CATEGORIAS, 'nao', undefined, [], true)).toEqual({});
+  });
+  it('número inválido ("abc", "1,000,5") é recusado', () => {
+    expect(validarEtapa(4, { ...comLimite, kriLimiteValor: 'abc' }, CATEGORIAS, 'nao', undefined, [], true).kriLimiteValor).toBeDefined();
+    expect(validarEtapa(4, { ...comLimite, kriLimiteValor: '1,000,5' }, CATEGORIAS, 'nao', undefined, [], true).kriLimiteValor).toBeDefined();
+  });
+  it('risco crítico com KRI novo sem número é travado (trava do KRI completo)', () => {
+    const semNumero = { ...comLimite, kriLimiteValor: '' };
+    const e = validarEtapa(4, semNumero, CATEGORIAS, 'sim', undefined, [], true);
+    expect(e.nomeKri).toBe(MENSAGEM_TRAVA_KRI);
+    expect(e.kriLimiteValor).toBeDefined();
+    expect(validarEtapa(4, comLimite, CATEGORIAS, 'sim', undefined, [], true)).toEqual({});
+  });
+  it('KRI antigo (só texto, com id): não exige o número e continua completo para a trava', () => {
+    const antigo = { ...comLimite, kriLimite: 'Abaixo de 90%', kriLimiteOperador: '' as const, kriLimiteValor: '', kriLimiteUnidade: '' };
+    expect(validarEtapa(4, antigo, CATEGORIAS, 'sim', undefined, [], false)).toEqual({});
+  });
+  it('KRI antigo: com operador + número preenchidos, eles são enviados', () => {
+    const k = { id: 'k1', objetoId: 'o1', riscoIds: ['r1'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'Até 10%', responsavelMedicao: 'R', medicoes: [] };
+    const existente = { id: 'r1', objetoId: 'o1', controlesExistentes: [], respostasTratamento: [], kris: [k] } as unknown as FichaRisco;
+    const d = dadosDeRisco(existente);
+    expect(d.kriLimite).toBe('Até 10%');
+    expect(d.kriLimiteOperador).toBe('');
+    const f = dadosParaFicha({ ...d, kriLimiteOperador: '<=', kriLimiteValor: '10', kriLimiteUnidade: '%' }, { ehIntegridade: false, existente });
+    expect(f.kris![0]).toMatchObject({ id: 'k1', limiteOperador: '<=', limiteValor: 10, limiteUnidade: '%' });
+  });
+  it('KRI que já tem limite numérico: o formulário mostra os valores', () => {
+    const k = { id: 'k1', objetoId: 'o1', riscoIds: ['r1'], nomeIndicador: 'N', limiteOperador: '>=' as const, limiteValor: 2.5, limiteUnidade: 'dias', medicoes: [] };
+    expect(camposKriDe(k)).toMatchObject({ kriLimiteOperador: '>=', kriLimiteValor: '2,5', kriLimiteUnidade: 'dias' });
   });
 });

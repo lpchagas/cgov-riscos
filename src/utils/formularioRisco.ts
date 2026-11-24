@@ -28,6 +28,7 @@ import type {
   NivelProbabilidade,
   StatusCriticidadeDAR,
 } from '../types/radar.types';
+import type { OperadorLimite } from './limiteAlerta';
 import { validarRegraIntegridade } from './calculadoraRiscoRadar';
 import { exigeTratamento, kriCompleto, mesmaDefinicaoKri, MENSAGEM_TRAVA_KRI, textoPreenchido, type KriParaTrava } from './travaRiscoCritico';
 
@@ -61,7 +62,12 @@ export interface DadosNovoRisco {
   kriFonte: string;
   kriPeriodicidade: '' | 'Mensal' | 'Trimestral' | 'Semestral' | 'Anual';
   kriMeta: string;
+  /** Texto ANTIGO do limite (só leitura na tela). KRI novo usa operador + número + unidade. */
   kriLimite: string;
+  /** Limite numérico (LAC-03): operador, número digitado (aceita vírgula) e unidade opcional. '' = vazio. */
+  kriLimiteOperador: '' | OperadorLimite;
+  kriLimiteValor: string;
+  kriLimiteUnidade: string;
   kriResponsavel: string;
   /** Id de um KRI já definido NESTE objeto, escolhido na lista. '' = definir um KRI próprio deste risco. */
   kriExistenteId: string;
@@ -83,7 +89,7 @@ export function dadosVazios(): DadosNovoRisco {
     categoriaId: null, subcategoriaIntegridade: '', decideSobreTerceiros: false, justificativaNaoIntegridade: '',
     probabilidade: null, impacto: null, eficacia: 'Inexistente', possuiEvidencia: false, descricaoControle: '', evidenciaControle: '',
     estrategia: 'Mitigar', acaoOQue: '', acaoQuem: '', acaoPrazo: '', nomeKri: '',
-    kriFormula: '', kriFonte: '', kriPeriodicidade: '', kriMeta: '', kriLimite: '', kriResponsavel: '', kriExistenteId: '',
+    kriFormula: '', kriFonte: '', kriPeriodicidade: '', kriMeta: '', kriLimite: '', kriLimiteOperador: '', kriLimiteValor: '', kriLimiteUnidade: '', kriResponsavel: '', kriExistenteId: '',
   };
 }
 
@@ -112,14 +118,29 @@ export function dadosExemplo(objetoId = ''): DadosNovoRisco {
     kriFormula: 'processos com checklist assinado / processos instruídos no mês × 100',
     kriFonte: 'Processos SEI da unidade',
     kriPeriodicidade: 'Mensal',
-    kriLimite: 'Abaixo de 90%',
+    kriLimiteOperador: '<',
+    kriLimiteValor: '90',
+    kriLimiteUnidade: '%',
     kriResponsavel: 'Coordenador do Processo',
   };
 }
 
+/**
+ * Lê o número do limite como a pessoa digita. Aceita vírgula ou ponto decimal.
+ * Ex.: '80' -> 80; '2,5' -> 2.5; '' , 'abc', '1,000,5' -> undefined (não é número).
+ */
+export function numeroDoLimite(texto: string): number | undefined {
+  const t = texto.trim();
+  if (!/^-?\d+(?:[.,]\d+)?$/.test(t)) return undefined;
+  return Number(t.replace(',', '.'));
+}
+
 /** Os campos do KRI do formulário, no formato que a trava confere ('' vira "sem valor"). */
-export function kriDosCampos(d: DadosNovoRisco): Pick<IndicadorKri, 'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'metaAlvo' | 'limiteAlerta' | 'responsavelMedicao'> {
+export function kriDosCampos(d: DadosNovoRisco): Pick<IndicadorKri, 'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'metaAlvo' | 'limiteAlerta' | 'limiteOperador' | 'limiteValor' | 'limiteUnidade' | 'responsavelMedicao'> {
   const ou = (t: string) => (t.trim() ? t : undefined);
+  // O limite numérico só existe com operador E número válido (nunca "" nem NaN).
+  const valor = numeroDoLimite(d.kriLimiteValor);
+  const numerico = d.kriLimiteOperador !== '' && valor !== undefined;
   return {
     nomeIndicador: d.nomeKri,
     formulaCalculo: ou(d.kriFormula),
@@ -127,12 +148,15 @@ export function kriDosCampos(d: DadosNovoRisco): Pick<IndicadorKri, 'nomeIndicad
     periodicidade: d.kriPeriodicidade || undefined,
     metaAlvo: ou(d.kriMeta),
     limiteAlerta: ou(d.kriLimite),
+    limiteOperador: numerico ? d.kriLimiteOperador || undefined : undefined,
+    limiteValor: numerico ? valor : undefined,
+    limiteUnidade: numerico ? ou(d.kriLimiteUnidade)?.trim() : undefined,
     responsavelMedicao: ou(d.kriResponsavel),
   };
 }
 
 /** Os campos de KRI do formulário preenchidos a partir de um KRI (ou vazios, sem KRI). Texto "A definir" vira ''. */
-export function camposKriDe(k?: IndicadorKri): Pick<DadosNovoRisco, 'nomeKri' | 'kriFormula' | 'kriFonte' | 'kriPeriodicidade' | 'kriMeta' | 'kriLimite' | 'kriResponsavel'> {
+export function camposKriDe(k?: IndicadorKri): Pick<DadosNovoRisco, 'nomeKri' | 'kriFormula' | 'kriFonte' | 'kriPeriodicidade' | 'kriMeta' | 'kriLimite' | 'kriLimiteOperador' | 'kriLimiteValor' | 'kriLimiteUnidade' | 'kriResponsavel'> {
   const t = (v?: string) => (textoPreenchido(v) ? (v as string) : '');
   return {
     nomeKri: k?.nomeIndicador ?? '',
@@ -141,6 +165,10 @@ export function camposKriDe(k?: IndicadorKri): Pick<DadosNovoRisco, 'nomeKri' | 
     kriPeriodicidade: k?.periodicidade ?? '',
     kriMeta: t(k?.metaAlvo),
     kriLimite: t(k?.limiteAlerta),
+    kriLimiteOperador: k?.limiteOperador ?? '',
+    // Mostra com vírgula decimal, como a pessoa escreve. Ex.: 2.5 -> '2,5'.
+    kriLimiteValor: Number.isFinite(k?.limiteValor) ? String(k!.limiteValor).replace('.', ',') : '',
+    kriLimiteUnidade: k?.limiteUnidade ?? '',
     kriResponsavel: t(k?.responsavelMedicao),
   };
 }
@@ -217,6 +245,11 @@ export const ERRO_ACEITAR_RISCO_CRITICO =
  * só LIGAR (campos só leitura). É ele que chega ao banco, então a conferência
  * do "KRI completo" é sobre ele, e não sobre os campos da tela.
  *   Ex.: campos vazios + kriLigado completo → sem erro de KRI.
+ *
+ * `kriNovo` (opcional, LAC-03): o KRI dos campos da tela é NOVO (ainda sem id).
+ * Então o limite numérico é obrigatório: operador + número (unidade é opcional).
+ * KRI antigo (só texto) não é obrigado a converter na hora.
+ *   Ex.: KRI novo, operador '<' e número vazio → { kriLimiteValor: 'Informe o número do limite…' }
  */
 export function validarEtapa(
   etapa: number,
@@ -224,7 +257,8 @@ export function validarEtapa(
   categorias: CategoriaRisco[],
   statusCritico?: StatusCriticidadeDAR,
   kriLigado?: KriParaTrava,
-  demaisKris: KriParaTrava[] = []
+  demaisKris: KriParaTrava[] = [],
+  kriNovo = false
 ): ErrosEtapa {
   const erros: ErrosEtapa = {};
 
@@ -276,6 +310,12 @@ export function validarEtapa(
     //     que a gravação mantém ligados.
     // Ex.: ficha com [KRI só com nome, KRI completo] → sem erro.
     // Não crítico segue livre.
+    // Limite numérico do KRI NOVO (campos da tela; um KRI da lista só ligado vem pronto do banco).
+    if (kriNovo && d.nomeKri.trim() && !(d.kriExistenteId && kriLigado)) {
+      if (d.kriLimiteOperador === '') erros.kriLimiteOperador = 'Escolha quando o alerta acende (maior que, menor que…).';
+      if (!d.kriLimiteValor.trim()) erros.kriLimiteValor = 'Informe o número do limite de alerta (ex.: 80).';
+      else if (numeroDoLimite(d.kriLimiteValor) === undefined) erros.kriLimiteValor = 'Número inválido: use só dígitos e vírgula decimal (ex.: 80 ou 2,5).';
+    }
     const kriQueVale = d.kriExistenteId && kriLigado ? kriLigado : kriDosCampos(d);
     if (exige && ![kriQueVale, ...demaisKris].some(kriCompleto)) erros.nomeKri = MENSAGEM_TRAVA_KRI;
     if (d.estrategia !== 'Aceitar' || exige) {
