@@ -66,3 +66,8 @@
 
 - [x] **Step 1:** nos quadros `108:2915` e `108:3101`: ordem por urgência, filtro `SegmentedControl` com contagens, cartões separados com faixa de cor (sombra interna de 5 px), "Ver detalhes" no lugar de meta e responsável, paginação do `DataTable` com números; "Alertas abertos" no indicador do topo; nota da seção atualizada.
 - [x] **Step 2:** registrar no desenho (§4.3.1) e fazer o commit.
+
+### Task 8: Correção do quadro de celular (2026-11-23)
+
+- [x] **Step 1:** análise de transbordamento no quadro `108:3101` (cada elemento comparado com a área útil do pai, inclusive o interior dos componentes): a linha de ações dos 5 cartões tinha 301 px num espaço de 276 px e era cortada pelo cartão (o link "Ver detalhes" sem quebra de linha); o cartão "sem limite numérico" estava sem borda; três margens internas encaixadas deixavam só 276 px de texto.
+- [x] **Step 2:** linha de ações e link com largura do cartão e quebra de linha; "Registrar leitura" em largura total, como os outros botões; borda devolvida; margens do celular reduzidas (cartão das abas 12 px, fundo cinza 8 px, cartão do KRI 14/12 px), com 290 px de texto; o "·" solto no começo da linha de riscos saiu. Nova conferência: nenhum elemento passa da área útil do pai.
