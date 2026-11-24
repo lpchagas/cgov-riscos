@@ -330,11 +330,11 @@ $$;
 -- mandou. Sem limite numérico no KRI (só o texto antigo) ou sem número na
 -- leitura, o resultado é false. "Passa do limite" = valor <operador> limite:
 -- com limite "< 70", a leitura 60 é alerta; a 70 não (fronteira exata).
--- SECURITY DEFINER para ler o limite do KRI qualquer que seja o chamador.
+-- SECURITY INVOKER (o padrão): quem grava a leitura já enxerga o KRI pela RLS.
 CREATE FUNCTION public.fn_medicao_calcula_alerta()
 RETURNS trigger
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = ''
 AS $$
 DECLARE
@@ -417,8 +417,10 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.fn_medicao_calcula_alerta() FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.fn_medicao_abre_alerta()    FROM public, anon, authenticated;
 
+-- Dispara também ao mexer em em_alerta ou kri_id: assim o cliente não adultera
+-- o alerta por UPDATE, e trocar a leitura de KRI recalcula pelo limite novo.
 CREATE TRIGGER trg_medicao_calcula_alerta
-  BEFORE INSERT OR UPDATE OF valor_numerico ON public.medicoes_kri
+  BEFORE INSERT OR UPDATE OF valor_numerico, em_alerta, kri_id ON public.medicoes_kri
   FOR EACH ROW EXECUTE FUNCTION public.fn_medicao_calcula_alerta();
 
 CREATE TRIGGER trg_medicao_abre_alerta

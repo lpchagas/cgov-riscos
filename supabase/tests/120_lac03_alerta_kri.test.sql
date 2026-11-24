@@ -15,7 +15,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(102);
+select plan(105);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -300,6 +300,17 @@ select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor
 update public.medicoes_kri set valor_numerico = 95 where id = '00000000-0000-4000-c000-000000000001';
 select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000001'),
           false, '3. corrigir a leitura para 95 recalcula em_alerta = false');
+
+-- 3.6b Mexer só em em_alerta ou em kri_id também recalcula (cliente não manda).
+update public.medicoes_kri set em_alerta = true where id = '00000000-0000-4000-c000-000000000002';
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000002'),
+          false, '3. UPDATE de em_alerta = true numa leitura dentro do limite: continua false');
+update public.medicoes_kri set em_alerta = false where id = '00000000-0000-4000-c000-000000000006';
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000006'),
+          true, '3. UPDATE de em_alerta = false numa leitura em alerta: continua true');
+update public.medicoes_kri set kri_id = :'k_menor' where id = '00000000-0000-4000-c000-000000000005';
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000005'),
+          true, '3. trocar o kri_id (leitura 10 vai para "< 70") recalcula em_alerta = true');
 
 -- 3.7 RN-052: registrar leitura não reabre o risco aprovado.
 select pg_temp.sair();
