@@ -5,6 +5,8 @@
  */
 import { FERIADOS_NACIONAIS } from './feriadosNacionais';
 
+// Nota: as travas do SQL (n > 3660, intervalo > 36600 dias, data infinita) não são
+// replicadas aqui, porque o front só usa n = 10 e datas vindas do banco.
 const FERIADOS_PADRAO: ReadonlySet<string> = new Set(FERIADOS_NACIONAIS);
 
 const DIA_EM_MS = 24 * 60 * 60 * 1000;

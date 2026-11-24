@@ -51,6 +51,16 @@ describe('converterLimiteTexto (mesmos casos de fn_converter_limite_texto, teste
     expect(converterLimiteTexto(texto)).toBeNull();
   });
 
+  it('espaço especial (NBSP) fica a converter, como no banco', () => {
+    expect(converterLimiteTexto('<\u00a080')).toBeNull();
+    expect(converterLimiteTexto('< 80\u00a0%')).toBeNull();
+    expect(converterLimiteTexto('abaixo de\u00a070')).toBeNull();
+  });
+
+  it('número grande demais (Infinity) fica a converter', () => {
+    expect(converterLimiteTexto('< ' + '9'.repeat(400))).toBeNull();
+  });
+
   it('texto nulo ou indefinido fica a converter', () => {
     expect(converterLimiteTexto(null as unknown as string)).toBeNull();
     expect(converterLimiteTexto(undefined as unknown as string)).toBeNull();

@@ -47,12 +47,14 @@ const MAGNITUDES = new Set([
   'trilhao', 'trilhão', 'trilhoes', 'trilhões',
 ]);
 
+// Só espaço ASCII (não usamos \s: em JS ele aceita NBSP e outros espaços Unicode,
+// que o banco recusa). Ex.: '<\u00a080' fica a converter.
 // Símbolo + número: '< 80%', '>=2,5 dias' (espaço opcional).
 // A unidade é "%" OU uma palavra de 3+ letras (assim "ou" e "e" não viram unidade).
-const COM_SIMBOLO = /^(<=|>=|<|>)\s*(\d+(?:[.,]\d+)?)\s*(%|\p{L}{3,})?$/u;
+const COM_SIMBOLO = /^(<=|>=|<|>)[ \t\n\r\f\v]*(\d+(?:[.,]\d+)?)[ \t\n\r\f\v]*(%|\p{L}{3,})?$/u;
 // Palavras + número: 'abaixo de 70%' (espaço obrigatório depois da expressão).
 const COM_PALAVRAS =
-  /^(abaixo de|acima de|menor que|maior que)\s+(\d+(?:[.,]\d+)?)\s*(%|\p{L}{3,})?$/u;
+  /^(abaixo de|acima de|menor que|maior que)[ \t\n\r\f\v]+(\d+(?:[.,]\d+)?)[ \t\n\r\f\v]*(%|\p{L}{3,})?$/u;
 
 const OPERADOR_DA_PALAVRA: Record<string, OperadorLimite> = {
   'abaixo de': '<',
@@ -84,9 +86,11 @@ export function converterLimiteTexto(
   if (unidade && MAGNITUDES.has(unidade)) return null; // '10 mil' não é unidade
 
   const operador = (OPERADOR_DA_PALAVRA[op] ?? op) as OperadorLimite;
+  const valor = Number(numero.replace(',', '.'));
+  if (!Number.isFinite(valor)) return null; // dígitos demais viram Infinity
   const resultado: { operador: OperadorLimite; valor: number; unidade?: string } = {
     operador,
-    valor: Number(numero.replace(',', '.')),
+    valor,
   };
   if (unidade) resultado.unidade = unidade;
   return resultado;
