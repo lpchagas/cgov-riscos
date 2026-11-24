@@ -373,8 +373,9 @@ UPDATE public.medicoes_kri
 -- Regra no UPDATE: se limite_alerta mudou e operador/valor/unidade NÃO mudaram
 -- no mesmo UPDATE, os três campos numéricos são refeitos pela mesma conversão
 -- da migração. Texto ambíguo ('Entre 5 e 10') deixa os numéricos nulos ("a
--- converter"). Se o UPDATE traz números ou unidade novos, eles valem (a unidade
--- explícita, ex.: 'horas', não é apagada pela reconversão).
+-- converter"). Se o UPDATE traz operador ou valor novos, eles valem; a unidade
+-- enviada explicitamente (ex.: 'horas') também prevalece, mas SÓ ela: operador e
+-- valor continuam sendo refeitos pelo texto (ver o comentário no corpo).
 -- Decisão A (PR #19): o mesmo vale no INSERT. KRI NOVO que chega só com o texto
 -- ('Abaixo de 70%') ganha o número na hora; se o texto for ambíguo, fica "a
 -- converter"; se o INSERT já traz operador/valor, eles valem. (A ficha passará a
@@ -404,12 +405,21 @@ BEGIN
     END IF;
   ELSIF NEW.limite_alerta IS DISTINCT FROM OLD.limite_alerta
      AND NEW.limite_operador IS NOT DISTINCT FROM OLD.limite_operador
-     AND NEW.limite_valor    IS NOT DISTINCT FROM OLD.limite_valor
-     AND NEW.limite_unidade  IS NOT DISTINCT FROM OLD.limite_unidade THEN
-    SELECT c.operador, c.valor, c.unidade
-      INTO NEW.limite_operador, NEW.limite_valor, NEW.limite_unidade
+     AND NEW.limite_valor    IS NOT DISTINCT FROM OLD.limite_valor THEN
+    -- 2ª rodada do CodeRabbit (PR #19): operador e valor NÃO foram enviados,
+    -- então eles SEMPRE são refeitos pelo texto novo, mesmo que a unidade
+    -- tenha vindo diferente no mesmo UPDATE. Exemplo: (>, 10, dias) e o UPDATE
+    -- limite_alerta = '> 20 horas', limite_unidade = 'horas' vira (>, 20, horas);
+    -- sem isto o valor ficaria 10 e o alerta compararia com o limite velho.
+    SELECT c.operador, c.valor, c.unidade INTO v_op, v_val, v_un
       FROM (SELECT 1) AS um
       LEFT JOIN public.fn_converter_limite_texto(NEW.limite_alerta) AS c ON true;
+    NEW.limite_operador := v_op;
+    NEW.limite_valor    := v_val;
+    -- Só a UNIDADE enviada explicitamente prevalece sobre a do texto.
+    IF NEW.limite_unidade IS NOT DISTINCT FROM OLD.limite_unidade THEN
+      NEW.limite_unidade := v_un;
+    END IF;
   END IF;
   RETURN NEW;
 END;
@@ -590,6 +600,10 @@ CREATE TRIGGER trg_medicao_abre_alerta_update
   AFTER UPDATE ON public.medicoes_kri
   FOR EACH ROW
   WHEN (NEW.em_alerta
+        -- 2ª rodada (PR #19): o valor NOVO também tem de passar do limite
+        -- ATUAL. Leitura legada com em_alerta = true marcado à mão (valor 5,
+        -- limite '> 10') mexida só na observação não pode abrir alerta falso.
+        AND coalesce(public.fn_kri_valor_em_alerta(NEW.kri_id, NEW.valor_numerico), false)
         AND (OLD.kri_id IS DISTINCT FROM NEW.kri_id
              OR NOT coalesce(public.fn_kri_valor_em_alerta(OLD.kri_id, OLD.valor_numerico), false)))
   EXECUTE FUNCTION public.fn_medicao_abre_alerta();

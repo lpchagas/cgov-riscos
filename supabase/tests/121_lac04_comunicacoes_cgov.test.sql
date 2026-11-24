@@ -17,7 +17,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(134);
+select plan(137);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -507,9 +507,12 @@ select throws_ok(
 select pg_temp.entrar_como('gestor.uc@radar.test');
 select throws_ok(
   format($$insert into public.comunicacoes_riscos (comunicacao_id, risco_id)
-           values ('00000000-0000-4000-d000-000000000001', %L)$$, :'r1'),
+           values ('00000000-0000-4000-d000-0000000000ff', %L)$$, :'r1'),
   'P0001', 'Só é possível ligar riscos na mesma transação que cria a comunicação',
-  '9. não se acrescenta risco a comunicação já enviada');
+  '9. não se liga risco a comunicação que não é desta transação (aqui: inexistente)');
+-- (Desde a 2ª rodada, "já enviada" = criada em OUTRA transação, pelo xmin. Num
+-- arquivo pgTAP tudo é uma transação só, então o caso "de transação anterior"
+-- é coberto pelo teste direto de fn_xmin_e_da_transacao_atual, no fim do arquivo.)
 select throws_ok(
   format($$insert into public.comunicacoes_riscos (comunicacao_id, risco_id) values (%L, %L)$$, :'c_forja', :'rb'),
   'P0001', 'Risco não encontrado ou fora da unidade que comunica', '9. INSERT direto de vínculo com risco de outra unidade é recusado');
@@ -733,6 +736,27 @@ select throws_ok(
   format($$delete from public.comunicacoes_cgov where id = %L$$, :'c_iv'),
   'P0001', 'A comunicação é imutável e não pode ser apagada',
   '12. DELETE de comunicação sem riscos ligados é recusado até como administrador');
+
+-- 2ª rodada do CodeRabbit (PR #19), M3: o vínculo só vale na MESMA transação
+-- que criou a comunicação, identificada pelo xmin da linha. Num arquivo pgTAP
+-- tudo roda numa transação só (não dá para ter uma comunicação "de transação
+-- anterior"), então testamos a função de checagem diretamente: o xmin de uma
+-- linha já confirmada (catálogo do sistema) NÃO é da transação atual; o de
+-- linhas criadas aqui é, inclusive dentro de um SAVEPOINT/bloco EXCEPTION
+-- (é o caso da RPC enviar_comunicacao).
+select is(public.fn_xmin_e_da_transacao_atual((select xmin from pg_class limit 1)), false,
+          '12. M3: xmin de linha de transação anterior (confirmada) não é da transação atual');
+select is(public.fn_xmin_e_da_transacao_atual((select xmin from public.comunicacoes_cgov where id = :'c_hist')),
+          true, '12. M3: xmin da comunicação criada nesta transação é da transação atual');
+do $$ begin
+  begin
+    create temp table _m3_sub on commit drop as select 1 as x;
+    perform set_config('radar.m3_sub', (select public.fn_xmin_e_da_transacao_atual(xmin)::text from _m3_sub), true);
+  exception when others then null;
+  end;
+end $$;
+select is(current_setting('radar.m3_sub'), 'true',
+          '12. M3: linha criada dentro de bloco EXCEPTION (subtransação) também conta');
 
 select * from finish();
 rollback;

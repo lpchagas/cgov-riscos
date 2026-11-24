@@ -17,7 +17,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(155);
+select plan(158);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -666,6 +666,31 @@ select throws_ok(format($$delete from public.indicadores_kri where id = %L$$, :'
 select ok(pg_get_functiondef('public.salvar_ficha_risco(jsonb)'::regprocedure)
             ~ 'PERFORM 1\s+FROM public\.indicadores_kri AS k\s+WHERE k\.id = v_kri_id\s+FOR UPDATE',
           '6. C: salvar_ficha_risco trava a linha do KRI (FOR UPDATE) antes de lê-la');
+
+-- 2ª rodada do CodeRabbit (PR #19), M1: texto novo + unidade nova no mesmo
+-- UPDATE, sem operador/valor: operador e valor são refeitos pelo texto; só a
+-- unidade enviada prevalece.
+select pg_temp.kri_lim('T6 KRI unidade e texto', '>', 10) as k6m1 \gset
+update public.indicadores_kri set limite_unidade = 'dias' where id = :'k6m1';
+update public.indicadores_kri set limite_alerta = '> 20 horas', limite_unidade = 'horas' where id = :'k6m1';
+select is((select limite_operador || '|' || limite_valor::text || '|' || limite_unidade
+             from public.indicadores_kri where id = :'k6m1'),
+          '>|20|horas', '6. M1: (>, 10, dias) + texto "> 20 horas" + unidade "horas" vira (>, 20, horas)');
+
+-- M2: leitura LEGADA em_alerta = true com valor 5 num KRI "> 10". Mexer só na
+-- observação não pode abrir alerta (o valor novo não passa do limite atual);
+-- corrigir para 15 continua abrindo.
+select pg_temp.kri_lim('T6 KRI legado observação', '>', 10) as k6m2 \gset
+set local session_replication_role = replica;
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico, em_alerta)
+values ('00000000-0000-4000-c000-0000000000f3', :'k6m2', '5', 5, true);
+set local session_replication_role = origin;
+update public.medicoes_kri set observacao = 'só uma anotação' where id = '00000000-0000-4000-c000-0000000000f3';
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k6m2'), 0,
+          '6. M2: leitura legada (5, em_alerta marcado) mexida só na observação não abre alerta');
+update public.medicoes_kri set valor_numerico = 15 where id = '00000000-0000-4000-c000-0000000000f3';
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k6m2' and encerrado_em is null), 1,
+          '6. M2: corrigir a mesma leitura para 15 abre o alerta');
 
 select * from finish();
 rollback;

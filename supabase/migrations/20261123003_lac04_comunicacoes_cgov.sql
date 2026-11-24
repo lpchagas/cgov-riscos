@@ -308,8 +308,40 @@ CREATE CONSTRAINT TRIGGER trg_comunicacao_exige_risco
 
 -- 3e. comunicacoes_riscos: vínculos só nascem junto com a comunicação e só
 -- com riscos da unidade que comunica; depois, são imutáveis.
--- "Junto com a comunicação" = na mesma transação: now() é constante dentro da
--- transação e comunicada_em recebeu now() no INSERT da comunicação.
+-- "Junto com a comunicação" = na MESMA transação, para qualquer um (com ou sem
+-- usuário logado). Como saber? Toda linha do PostgreSQL guarda na coluna de
+-- sistema `xmin` o número da transação que a criou. Se a transação dona do
+-- xmin ainda está "em andamento" E a linha é visível para nós, ela só pode ser
+-- a NOSSA (linha de transação alheia não confirmada é invisível). Por que não
+-- usar outra pista:
+--   - comunicada_em = now(): a carga histórica do administrador grava uma data
+--     antiga de propósito (ver 3c), então a data não prova nada;
+--   - auth.uid() IS NULL: abria uma porta (service_role/administrador) para
+--     pendurar risco em comunicação antiga.
+-- Por que não `xmin = pg_current_xact_id()::xid`: dentro de um bloco
+-- BEGIN ... EXCEPTION (como o da RPC enviar_comunicacao) ou de um SAVEPOINT, a
+-- linha ganha o xmin da SUBtransação, diferente do da transação principal, e a
+-- comparação recusaria o envio legítimo. `pg_xact_status` = 'in progress' vale
+-- para as duas.
+-- registrar_ciencia_comunicacao faz UPDATE e muda o xmin da comunicação, mas só
+-- abre essa janela dentro da própria transação da ciência, e aquela função
+-- (DEFINER) não insere vínculos: nada a explorar.
+CREATE FUNCTION public.fn_xmin_e_da_transacao_atual(p_xmin xid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  -- O xmin tem 32 bits; o "epoch" (parte alta) é o da transação atual.
+  SELECT coalesce(
+           pg_xact_status(
+             (((pg_current_xact_id()::text::bigint >> 32) << 32)
+              + p_xmin::text::bigint)::text::xid8) = 'in progress',
+           false);
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_xmin_e_da_transacao_atual(xid) FROM public, anon, authenticated;
+
 CREATE FUNCTION public.fn_comunicacao_risco_antes_de_inserir()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -317,16 +349,17 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_com public.comunicacoes_cgov%ROWTYPE;
+  v_unidade uuid;
+  v_xmin    xid;
+  v_achou   boolean;
 BEGIN
-  SELECT * INTO v_com FROM public.comunicacoes_cgov WHERE id = NEW.comunicacao_id;
-  -- A regra "mesma transação" vale só para quem está logado. Carga
-  -- administrativa (sem auth.uid()) preserva a data de envio histórica
-  -- (ver 3c), então comunicada_em <> now() é esperado e o vínculo tem de fechar.
-  IF NOT FOUND OR (auth.uid() IS NOT NULL AND v_com.comunicada_em <> now()) THEN
+  SELECT c.unidade_id, c.xmin INTO v_unidade, v_xmin
+    FROM public.comunicacoes_cgov AS c WHERE c.id = NEW.comunicacao_id;
+  v_achou := FOUND;
+  IF NOT v_achou OR NOT public.fn_xmin_e_da_transacao_atual(v_xmin) THEN
     RAISE EXCEPTION 'Só é possível ligar riscos na mesma transação que cria a comunicação';
   END IF;
-  IF NOT public.fn_risco_na_unidade(NEW.risco_id, v_com.unidade_id) THEN
+  IF NOT public.fn_risco_na_unidade(NEW.risco_id, v_unidade) THEN
     -- Mesma mensagem da RPC (risco inexistente = risco de fora): não revela qual.
     RAISE EXCEPTION 'Risco não encontrado ou fora da unidade que comunica';
   END IF;

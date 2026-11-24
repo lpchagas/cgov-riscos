@@ -37,13 +37,15 @@
 | Comando | Onde age |
 | --- | --- |
 | `npm run db:start`, `npm run db:reset`, `npm run test:db` | Só no **computador** (Docker). |
-| `npx supabase db push --linked` | Na **nuvem** (projeto ligado pelo `link`). Escreva sempre `--linked`: a CLI avisa que, na próxima versão principal, o padrão do `db push` passará a ser o banco **local**. |
-| `npx supabase db reset` | No **computador** (padrão `--local`). **Nunca** use `--linked`: apagaria a nuvem. |
+| `npx supabase db push --remote` | Na **nuvem** (projeto ligado pelo `link`). Desde a CLI 3.3.0, o `db push` é **local por padrão** (conferido em `db push --help`: "Local by default. Pass --remote for the linked project"); sem `--remote`, ele age no banco do computador. `--linked` ainda é aceito, mas saiu da ajuda (obsoleto). |
+| `npx supabase db push` (sem flag) | No **computador** (padrão local). |
+| `npx supabase db reset` | No **computador** (padrão `--local`). **Nunca** use `--remote` nem `--linked`: apagaria a nuvem. |
 
 > [!tip] Regra de ouro
-> A documentação da Supabase avisa que os padrões não são iguais entre os comandos (`db reset` vai no
-> local; `db push`, `db pull` e `db dump` vão no projeto ligado). **Na dúvida, escreva o alvo**:
-> `--local` ou `--linked`.
+> Na CLI 3.3.0, `db reset`, `db push`, `db pull` e `db dump` são todos **locais por padrão**; só
+> `--remote` leva o comando ao projeto ligado. **Na dúvida, escreva o alvo**: `--local` ou `--remote`.
+> (Na CLI 2.122.0, `db push`, `db pull` e `db dump` iam ao projeto ligado por padrão; o histórico da
+> seção 4 foi escrito nesse tempo e fica como foi.)
 
 ---
 
@@ -76,7 +78,7 @@
    (`AGENTS.md`, "Regras do piloto da Sede").
 2. **Nunca** aplicar `seed-demonstracao.sql` nem rodar `sync:estrutura -- --sim` na nuvem.
 3. **Nunca** usar `npx supabase db push --include-seed` (a documentação desaconselha em produção).
-4. **Nunca** usar `npx supabase db reset --linked`.
+4. **Nunca** usar `npx supabase db reset` com `--remote` ou `--linked`.
 5. A Edge Function `gerenciar-acesso` **não** é publicada na D1 (ela envia e-mail; vai na D2, com trava).
 6. Nenhum dado real antes do **Registro de Decisão** assinado ([[registro-decisao-piloto-sede]]).
 7. Mudança de banco (campo, tabela, regra) **só por migração nova**, testada no local antes
@@ -211,8 +213,8 @@ npx supabase login
 - O código de verificação vale **uma vez só**; depois de usado, não serve para mais nada.
 - Para ver ou apagar os tokens criados: `https://supabase.com/dashboard/account/tokens` (apague o token
   de um computador que você não usa mais).
-- O aviso "A new version of Supabase CLI is available" pode ser ignorado: o projeto fixa a 2.122.0 e
-  atualizar é uma decisão separada.
+- O aviso "A new version of Supabase CLI is available" pode ser ignorado: o projeto está fixado na
+  3.3.0 (desde 2026-11-24) e atualizar é uma decisão separada.
 
 ### 6.2 Ligar o repositório ao projeto (uma vez por computador)
 
@@ -220,7 +222,7 @@ npx supabase login
 npx supabase link --project-ref bekqcwaolpbhpxzcdyhx
 ```
 - Esperado: `Finished supabase link.`
-- Na CLI 2.122.0 (2026-11-20), o `link` **não pediu a senha do banco**: a CLI usou o token do passo 6.1
+- Histórico: na CLI 2.122.0 (2026-11-20), o `link` **não pediu a senha do banco**: a CLI usou o token do passo 6.1
   (a linha `Initialising login role...` aparece no comando seguinte). A documentação ainda fala que a
   senha pode ser pedida; se pedir, digite a senha (nada aparece enquanto digita; é normal). A senha
   continua necessária para a cópia cifrada ([[guia-copia-restauracao]]).
@@ -232,20 +234,25 @@ npx supabase link --project-ref bekqcwaolpbhpxzcdyhx
 ### 6.3 Prévia (não muda nada)
 
 ```bash
-npx supabase db push --linked --dry-run
+npx supabase db push --remote --dry-run
 ```
-- `--dry-run` = "ensaio": mostra o que **seria** aplicado, sem aplicar. `--linked` = no projeto ligado.
+- `--dry-run` = "ensaio": mostra o que **seria** aplicado, sem aplicar. `--remote` = no projeto ligado
+  (na CLI 3.3.0 o padrão é o banco local).
 - Esperado: `DRY RUN: migrations will *not* be pushed to the database.`, depois `Would push these
   migrations:` com a lista das **12 migrações**, de `20261109001_schema_radar.sql` a
   `20261117001_leitura_acoes_e_gravacao_ficha.sql`.
 - Confira a lista antes de seguir.
-- Sem `--linked`, a CLI 2.122.0 avisa: `supabase db push will target the local database by default in the
-  next major version`. Por isso escrevemos o alvo.
+- Escreva sempre o alvo (`--remote`): sem ele, a CLI 3.3.0 age no banco **local**.
+
+> [!danger] PARE: migrações da Fase 1 do alerta do KRI e das comunicações
+> **Não aplique** `20261123002_lac03_alerta_kri.sql` e `20261123003_lac04_comunicacoes_cgov.sql` na nuvem
+> antes do front da Fase 2 e de **nova autorização** do responsável. Se a prévia (`--dry-run`) listar essas
+> duas migrações, **pare** e não rode o `db push` real.
 
 ### 6.4 Aplicar **[AUTORIZAÇÃO]**
 
 ```bash
-npx supabase db push --linked
+npx supabase db push --remote
 ```
 - Pergunta `Do you want to push these migrations to the remote database? [Y/n]`: responda `Y`.
 - Na primeira vez, a CLI cria a tabela `supabase_migrations.schema_migrations`, que guarda **quais
@@ -345,8 +352,8 @@ Exemplo: a revisão da interface pede um **campo novo** numa tabela.
    do trecho novo dentro de um `BEGIN`: o `db push` roda o arquivo sem `BEGIN`, e comandos como `LOCK TABLE`
    solto passam num caso e falham no outro (aconteceu em 2026-11-22, seção 4).
 4. Commit na branch de trabalho.
-5. Na nuvem **[AUTORIZAÇÃO]**: `npx supabase db push --linked --dry-run` (deve listar **só** a migração
-   nova) e depois `npx supabase db push --linked`.
+5. Na nuvem **[AUTORIZAÇÃO]**: `npx supabase db push --remote --dry-run` (deve listar **só** a migração
+   nova) e depois `npx supabase db push --remote`.
 
 > [!warning] Antes e depois dos dados reais
 > Enquanto a nuvem está **vazia** (até a carga da D3), uma migração nova é só mais um `db push`. Depois que
