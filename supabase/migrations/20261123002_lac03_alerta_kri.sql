@@ -313,3 +313,137 @@ AS $$
           OR public.fn_texto_preenchido(k.limite_alerta))
      AND public.fn_texto_preenchido(k.responsavel_medicao);
 $$;
+
+-- ============================================================================
+-- SEÇÃO 3 — Alerta calculado e aberto pelo banco
+-- ============================================================================
+-- Quem decide se uma leitura "passa do limite" é o BANCO, não o navegador:
+-- o front pode errar ou ser adulterado. Dois gatilhos em medicoes_kri:
+--   1) BEFORE: compara valor_numerico com o limite do KRI e grava em_alerta;
+--   2) AFTER:  se a leitura está em alerta e o KRI não tem alerta aberto,
+--              abre um registro em alertas_kri (a "ciência" = hoje, que é o
+--              início do prazo de 10 dias úteis).
+-- As leituras antigas NÃO são recalculadas: esta migração não mexe no
+-- em_alerta que já existe.
+
+-- fn_medicao_calcula_alerta: define NEW.em_alerta, ignorando o que o cliente
+-- mandou. Sem limite numérico no KRI (só o texto antigo) ou sem número na
+-- leitura, o resultado é false. "Passa do limite" = valor <operador> limite:
+-- com limite "< 70", a leitura 60 é alerta; a 70 não (fronteira exata).
+-- SECURITY DEFINER para ler o limite do KRI qualquer que seja o chamador.
+CREATE FUNCTION public.fn_medicao_calcula_alerta()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_op     text;
+  v_limite numeric;
+BEGIN
+  SELECT k.limite_operador, k.limite_valor INTO v_op, v_limite
+    FROM public.indicadores_kri k
+   WHERE k.id = NEW.kri_id;
+
+  NEW.em_alerta := coalesce(
+    CASE
+      WHEN v_op IS NULL OR v_limite IS NULL OR NEW.valor_numerico IS NULL THEN false
+      WHEN v_op = '>'  THEN NEW.valor_numerico >  v_limite
+      WHEN v_op = '>=' THEN NEW.valor_numerico >= v_limite
+      WHEN v_op = '<'  THEN NEW.valor_numerico <  v_limite
+      WHEN v_op = '<=' THEN NEW.valor_numerico <= v_limite
+      ELSE false
+    END, false);
+  RETURN NEW;
+END;
+$$;
+
+-- alertas_kri: um registro por "episódio" de alerta de um KRI.
+--   ciencia_em    = dia em que o alerta foi registrado (início dos 10 dias úteis);
+--   encerrado_em  = nulo enquanto aberto (o encerramento vem em tarefa seguinte);
+--   comunicacao_id = comunicação à CGOV (a FK é criada na migração das comunicações).
+CREATE TABLE public.alertas_kri (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kri_id         uuid NOT NULL REFERENCES public.indicadores_kri(id) ON DELETE CASCADE,
+  medicao_id     uuid NOT NULL REFERENCES public.medicoes_kri(id),
+  ciencia_em     date NOT NULL,
+  encerrado_em   date,
+  comunicacao_id uuid,
+  criado_em      timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE public.alertas_kri IS
+  'Alerta de um KRI: aberto pelo banco na 1ª leitura além do limite; ciencia_em inicia o prazo de 10 dias úteis.';
+
+-- No máximo UM alerta aberto por KRI (os encerrados podem se repetir).
+CREATE UNIQUE INDEX alertas_kri_um_aberto_por_kri
+  ON public.alertas_kri (kri_id) WHERE encerrado_em IS NULL;
+
+-- RLS: lê quem enxerga o KRI (a RLS de indicadores_kri já é a regra de
+-- alcance). Ninguém escreve direto: só o gatilho abaixo (SECURITY DEFINER).
+ALTER TABLE public.alertas_kri ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Alertas do KRI: leitura no alcance"
+  ON public.alertas_kri FOR SELECT TO authenticated
+  USING (kri_id IN (SELECT k.id FROM public.indicadores_kri AS k));
+
+REVOKE ALL ON public.alertas_kri FROM anon, authenticated;
+GRANT SELECT ON public.alertas_kri TO authenticated;
+
+CREATE TRIGGER trg_auditoria_alertas_kri
+  AFTER INSERT OR UPDATE OR DELETE ON public.alertas_kri
+  FOR EACH ROW EXECUTE FUNCTION public.fn_registrar_auditoria();
+
+-- fn_medicao_abre_alerta: abre o alerta se a leitura recém-gravada está em
+-- alerta. ON CONFLICT DO NOTHING (índice único parcial): se já há alerta
+-- aberto, ou se duas leituras chegam juntas, o segundo gatilho não falha e
+-- não duplica. Leitura dentro do limite nunca encerra nada.
+CREATE FUNCTION public.fn_medicao_abre_alerta()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.em_alerta THEN
+    INSERT INTO public.alertas_kri (kri_id, medicao_id, ciencia_em)
+    VALUES (NEW.kri_id, NEW.id, current_date)
+    ON CONFLICT (kri_id) WHERE encerrado_em IS NULL DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_medicao_calcula_alerta() FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_medicao_abre_alerta()    FROM public, anon, authenticated;
+
+CREATE TRIGGER trg_medicao_calcula_alerta
+  BEFORE INSERT OR UPDATE OF valor_numerico ON public.medicoes_kri
+  FOR EACH ROW EXECUTE FUNCTION public.fn_medicao_calcula_alerta();
+
+CREATE TRIGGER trg_medicao_abre_alerta
+  AFTER INSERT ON public.medicoes_kri
+  FOR EACH ROW EXECUTE FUNCTION public.fn_medicao_abre_alerta();
+
+-- alertas_kri_situacao: o alerta + o prazo em dias úteis.
+--   vence_em           = ciência + 10 dias úteis;
+--   dia_atual          = dias úteis desde a ciência (teto 99, para a tela);
+--   vencido            = só vale para alerta ABERTO e com mais de 10 dias úteis;
+--   dias_uteis_vencido = dias úteis além dos 10 (0 se encerrado ou no prazo).
+-- security_invoker: a visão obedece à RLS de quem consulta (gestor de outra
+-- unidade não vê nada).
+CREATE VIEW public.alertas_kri_situacao
+WITH (security_invoker = true) AS
+SELECT a.*,
+       public.fn_somar_dias_uteis(a.ciencia_em, 10) AS vence_em,
+       d.dia_atual,
+       (a.encerrado_em IS NULL AND d.dia_atual > 10) AS vencido,
+       CASE WHEN a.encerrado_em IS NULL THEN greatest(d.dia_atual - 10, 0) ELSE 0 END
+         AS dias_uteis_vencido
+  FROM public.alertas_kri a
+ CROSS JOIN LATERAL (
+   SELECT least(public.fn_dias_uteis_entre(a.ciencia_em, current_date), 99) AS dia_atual
+ ) d;
+
+REVOKE ALL ON public.alertas_kri_situacao FROM anon, authenticated;
+GRANT SELECT ON public.alertas_kri_situacao TO authenticated;

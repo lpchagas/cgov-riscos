@@ -56,8 +56,8 @@ select has_column('public', 'auditoria_log', 'dados_anteriores',  'auditoria_log
 select is((select relrowsecurity from pg_class where oid = 'public.auditoria_log'::regclass), true,
           'RLS ligada em auditoria_log');
 select is((select count(*)::int from pg_trigger
-            where tgname like 'trg_auditoria_%' and not tgisinternal), 10,
-          'dez gatilhos de auditoria (um por tabela, inclusive perfis, DAR, kri_riscos da LAC-03 e feriados)');
+            where tgname like 'trg_auditoria_%' and not tgisinternal), 11,
+          'onze gatilhos de auditoria (um por tabela, inclusive perfis, DAR, kri_riscos da LAC-03, feriados e alertas_kri)');
 select is((select prosecdef from pg_proc where oid = 'public.fn_registrar_auditoria()'::regprocedure), true,
           'fn_registrar_auditoria é SECURITY DEFINER');
 select is(has_function_privilege('authenticated', 'public.fn_registrar_auditoria()', 'EXECUTE'), false,

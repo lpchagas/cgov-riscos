@@ -6,7 +6,8 @@
 -- Cada tarefa acrescenta a sua seção ao final e soma os seus testes no
 -- `plan(N)` abaixo (o plan é o número total de testes do arquivo).
 --   Seção 1: feriados e dias úteis;
---   Seção 2: limite e leitura numéricos, com conversão do texto antigo.
+--   Seção 2: limite e leitura numéricos, com conversão do texto antigo;
+--   Seção 3: o banco calcula o alerta e abre o prazo de 10 dias úteis.
 -- Pré-requisito: `npm run db:reset`. Tudo é desfeito no final (rollback).
 -- ============================================================================
 
@@ -14,7 +15,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(56);
+select plan(102);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -167,6 +168,204 @@ select is((select public.fn_kri_completo(k) from public.indicadores_kri k where 
           false, '2. KRI sem limite numérico e sem texto: incompleto');
 select is(public.fn_kri_completo(k), true, '2. KRI da demonstração (texto antigo + limite numérico) completo')
   from public.indicadores_kri k where limite_operador = '>' and limite_valor = 10 limit 1;
+
+-- ============================================================================
+-- SEÇÃO 3 — Alerta calculado e aberto pelo banco
+-- ============================================================================
+-- Quem decide se a leitura "passa do limite" é o BANCO (o front pode mentir ou
+-- errar). Ao gravar uma leitura numérica, o gatilho compara com o limite do KRI
+-- e grava `em_alerta`. A primeira leitura em alerta abre um registro em
+-- `alertas_kri` com a ciência (início do prazo de 10 dias úteis) em hoje.
+
+select pg_temp.sair();
+
+select has_table('public', 'alertas_kri', '3. a tabela alertas_kri existe');
+select has_view('public', 'alertas_kri_situacao', '3. a visão alertas_kri_situacao existe');
+select has_trigger('public', 'medicoes_kri', 'trg_medicao_calcula_alerta', '3. gatilho que calcula o alerta');
+select has_trigger('public', 'medicoes_kri', 'trg_medicao_abre_alerta', '3. gatilho que abre o alerta');
+select has_trigger('public', 'alertas_kri', 'trg_auditoria_alertas_kri', '3. gatilho de auditoria dos alertas');
+select is((select (reloptions @> array['security_invoker=true'])
+             from pg_class where oid = 'public.alertas_kri_situacao'::regclass),
+          true, '3. a visão é security_invoker');
+select is(has_table_privilege('authenticated', 'public.alertas_kri', 'INSERT')
+       or has_table_privilege('authenticated', 'public.alertas_kri', 'UPDATE')
+       or has_table_privilege('authenticated', 'public.alertas_kri', 'DELETE')
+       or has_table_privilege('anon', 'public.alertas_kri', 'SELECT'),
+          false, '3. authenticated não escreve e anon não lê alertas_kri');
+
+select '00000000-0000-4000-b000-000000000001'::uuid as obj_a,
+       '00000000-0000-4000-b000-000000000004'::uuid as obj_b
+\gset
+
+-- Cenário: dois KRIs do objeto A ("menor que 70 %" e "maior que 10 %"), um KRI
+-- só com texto antigo e um risco aprovado ligado ao KRI "menor que 70".
+create or replace function pg_temp.kri_lim(p_nome text, p_op text, p_valor numeric)
+returns uuid language sql as $$
+  insert into public.indicadores_kri
+    (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade,
+     meta_alvo, limite_alerta, responsavel_medicao, limite_operador, limite_valor, limite_unidade)
+  values ('00000000-0000-4000-b000-000000000001', p_nome, 'a / b', 'Planilha', 'Mensal',
+          '100%', case when p_op is null then '> 10%' else null end, 'Chefia', p_op, p_valor,
+          case when p_op is null then null else '%' end)
+  returning id;
+$$;
+
+select pg_temp.kri_lim('T3 KRI menor que 70', '<', 70) as k_menor \gset
+select pg_temp.kri_lim('T3 KRI maior que 10', '>', 10) as k_maior \gset
+select pg_temp.kri_lim('T3 KRI só texto', null, null) as k_texto \gset
+select pg_temp.kri_lim('T3 KRI limite 5', '>=', 5) as k_igual \gset
+
+-- Risco aprovado ligado ao KRI "menor que 70" (para o teste da RN-052).
+insert into public.riscos
+  (codigo_radar, objeto_id, responsavel_risco_nome, causas, evento_risco, consequencias,
+   objetivo_afetado, descricao_padrao, categoria_id, probabilidade, impacto,
+   nivel_inerente, classificacao_inerente, nivel_residual, classificacao_residual, status_fluxo)
+values ('T120-APROV', :'obj_a', 'Responsável de demonstração', 'causa', 'evento', 'consequência',
+        'objetivo', 'x', 2, 1, 1, 0, 'Baixo', 0, 'Baixo', 'rascunho');
+select id as r_aprov from public.riscos where codigo_radar = 'T120-APROV' \gset
+select (public.fn_fluxo_mudar_estado(:'r_aprov', 'aprovado')).id as ok_aprov \gset
+select set_config('radar.fluxo', 'on', true);
+insert into public.kri_riscos (kri_id, risco_id) values (:'k_menor', :'r_aprov');
+select set_config('radar.fluxo', '', true);
+
+-- Leituras entram como o gestor da unidade, como no uso real.
+select pg_temp.entrar_como('gestor.uc@radar.test');
+
+-- 3.1 O banco ignora o que o cliente mandou em em_alerta.
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico, em_alerta)
+values ('00000000-0000-4000-c000-000000000001', :'k_menor', '60%', 60, false);
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000001'),
+          true, '3. leitura 60 em KRI "< 70": em_alerta = true mesmo enviando false');
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico, em_alerta)
+values ('00000000-0000-4000-c000-000000000002', :'k_maior', '8%', 8, true);
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000002'),
+          false, '3. leitura 8 em KRI "> 10": em_alerta = false mesmo enviando true');
+
+-- 3.2 Fronteiras de cada operador.
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico)
+values ('00000000-0000-4000-c000-000000000003', :'k_menor', '70%', 70);
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000003'),
+          false, '3. leitura 70 em "< 70": exatamente no limite não é alerta');
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico)
+values ('00000000-0000-4000-c000-000000000004', :'k_igual', '5%', 5);
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000004'),
+          true, '3. leitura 5 em ">= 5": no limite é alerta');
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico)
+values ('00000000-0000-4000-c000-000000000005', :'k_maior', '10%', 10);
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000005'),
+          false, '3. leitura 10 em "> 10": no limite não é alerta');
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico)
+values ('00000000-0000-4000-c000-000000000006', :'k_maior', '10,5%', 10.5);
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000006'),
+          true, '3. leitura 10,5 em "> 10": é alerta (sem arredondar)');
+
+-- 3.3 KRI só com texto antigo, ou leitura sem número: nunca é alerta.
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico, em_alerta)
+values ('00000000-0000-4000-c000-000000000007', :'k_texto', '99%', 99, true);
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000007'),
+          false, '3. KRI só com texto antigo: em_alerta = false');
+insert into public.medicoes_kri (id, kri_id, valor_apurado, em_alerta)
+values ('00000000-0000-4000-c000-000000000008', :'k_menor', 'cerca de 5', true);
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000008'),
+          false, '3. leitura sem número: em_alerta = false');
+
+-- 3.4 Os alertas abertos até aqui: 1 do KRI "< 70" e 1 do KRI ">= 5" e 1 do "> 10".
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 1,
+          '3. a 1ª leitura em alerta abriu 1 alerta');
+select is((select ciencia_em from public.alertas_kri where kri_id = :'k_menor'), current_date,
+          '3. a ciência é o dia do registro (current_date)');
+select is((select medicao_id from public.alertas_kri where kri_id = :'k_menor'),
+          '00000000-0000-4000-c000-000000000001'::uuid, '3. o alerta aponta para a leitura que o abriu');
+select is((select encerrado_em from public.alertas_kri where kri_id = :'k_menor'), null,
+          '3. o alerta nasce aberto (encerrado_em nulo)');
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_texto'), 0,
+          '3. KRI só com texto antigo: nenhum alerta');
+
+-- 3.5 Segunda leitura em alerta: não abre outro e não dá erro.
+select lives_ok($$insert into public.medicoes_kri (kri_id, valor_apurado, valor_numerico)
+                   select id, '50%', 50 from public.indicadores_kri where nome_indicador = 'T3 KRI menor que 70'$$,
+                '3. 2ª leitura em alerta é gravada sem erro');
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 1,
+          '3. a 2ª leitura em alerta não abre outro alerta');
+-- Leitura dentro do limite não encerra.
+select lives_ok($$insert into public.medicoes_kri (kri_id, valor_apurado, valor_numerico)
+                   select id, '90%', 90 from public.indicadores_kri where nome_indicador = 'T3 KRI menor que 70'$$,
+                '3. leitura dentro do limite é gravada');
+select is((select encerrado_em from public.alertas_kri where kri_id = :'k_menor'), null,
+          '3. leitura dentro do limite não encerra o alerta');
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 1,
+          '3. leitura dentro do limite não abre nem fecha nada');
+
+-- 3.6 Corrigir o número recalcula o alerta (UPDATE OF valor_numerico).
+update public.medicoes_kri set valor_numerico = 95 where id = '00000000-0000-4000-c000-000000000001';
+select is((select em_alerta from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000001'),
+          false, '3. corrigir a leitura para 95 recalcula em_alerta = false');
+
+-- 3.7 RN-052: registrar leitura não reabre o risco aprovado.
+select pg_temp.sair();
+select is((select status_fluxo from public.riscos where id = :'r_aprov'), 'aprovado',
+          '3. registrar leituras não reabriu o risco aprovado (RN-052)');
+
+-- 3.8 RLS dos alertas e da visão.
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 1,
+          '3. gestor.uc@ lê o alerta do KRI da própria unidade');
+select throws_ok(format($$insert into public.alertas_kri (kri_id, medicao_id, ciencia_em)
+                          select kri_id, id, current_date from public.medicoes_kri where kri_id = %L limit 1$$, :'k_maior'),
+                 '42501', null, '3. gestor não insere direto em alertas_kri');
+select throws_ok($$update public.alertas_kri set encerrado_em = current_date$$,
+                 '42501', null, '3. gestor não altera alertas_kri');
+select throws_ok($$delete from public.alertas_kri$$,
+                 '42501', null, '3. gestor não apaga de alertas_kri');
+select is((select count(*)::int from public.alertas_kri_situacao where kri_id = :'k_menor'), 1,
+          '3. gestor.uc@ lê a visão de situação do próprio KRI');
+
+select pg_temp.entrar_como('gestor.base@radar.test');
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 0,
+          '3. gestor de outra unidade não lê o alerta');
+select is((select count(*)::int from public.alertas_kri_situacao where kri_id = :'k_menor'), 0,
+          '3. gestor de outra unidade não lê a visão do alerta');
+
+-- 3.9 Visão: prazo e atraso em dias úteis (só enquanto aberto).
+select pg_temp.sair();
+-- Alerta antigo: ciência em 19/11/2026. vence_em = 10 dias úteis depois.
+update public.alertas_kri set ciencia_em = date '2026-11-19' where kri_id = :'k_menor';
+select is((select vence_em from public.alertas_kri_situacao where kri_id = :'k_menor'),
+          public.fn_somar_dias_uteis(date '2026-11-19', 10), '3. vence_em = ciência + 10 dias úteis');
+select is((select dia_atual from public.alertas_kri_situacao where kri_id = :'k_menor'),
+          least(public.fn_dias_uteis_entre(date '2026-11-19', current_date), 99),
+          '3. dia_atual = dias úteis desde a ciência (limitado a 99)');
+select is((select vencido from public.alertas_kri_situacao where kri_id = :'k_menor'),
+          public.fn_dias_uteis_entre(date '2026-11-19', current_date) > 10,
+          '3. vencido = passou de 10 dias úteis (alerta aberto)');
+select is((select dias_uteis_vencido from public.alertas_kri_situacao where kri_id = :'k_menor'),
+          greatest(least(public.fn_dias_uteis_entre(date '2026-11-19', current_date), 99) - 10, 0),
+          '3. dias_uteis_vencido = atraso além dos 10 dias');
+-- Ciência de hoje: dia 0, não vencido.
+update public.alertas_kri set ciencia_em = current_date where kri_id = :'k_menor';
+select is((select vencido from public.alertas_kri_situacao where kri_id = :'k_menor'), false,
+          '3. ciência de hoje: não vencido');
+select is((select dias_uteis_vencido from public.alertas_kri_situacao where kri_id = :'k_menor'), 0,
+          '3. ciência de hoje: 0 dia útil de atraso');
+-- Alerta encerrado nunca aparece como vencido, mesmo antigo.
+update public.alertas_kri set ciencia_em = date '2020-01-06', encerrado_em = date '2020-03-02' where kri_id = :'k_menor';
+select is((select vencido from public.alertas_kri_situacao where kri_id = :'k_menor'), false,
+          '3. alerta encerrado não é vencido');
+select is((select dias_uteis_vencido from public.alertas_kri_situacao where kri_id = :'k_menor'), 0,
+          '3. alerta encerrado: 0 dia útil de atraso');
+-- Com o alerta encerrado, uma nova leitura em alerta abre OUTRO alerta.
+insert into public.medicoes_kri (kri_id, valor_apurado, valor_numerico) values (:'k_menor', '40%', 40);
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 2,
+          '3. depois de encerrado, nova leitura em alerta abre um novo alerta');
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor' and encerrado_em is null), 1,
+          '3. no máximo um alerta aberto por KRI (índice único parcial)');
+select throws_ok(format($$insert into public.alertas_kri (kri_id, medicao_id, ciencia_em)
+                          select kri_id, id, current_date from public.medicoes_kri where kri_id = %L limit 1$$, :'k_menor'),
+                 '23505', null, '3. o índice único parcial recusa 2 alertas abertos do mesmo KRI');
+
+-- 3.10 Auditoria do alerta aberto.
+select ok((select count(*) from public.auditoria_log where tabela_afetada = 'alertas_kri' and operacao = 'INSERT') >= 1,
+          '3. a abertura do alerta fica na trilha de auditoria');
 
 select * from finish();
 rollback;

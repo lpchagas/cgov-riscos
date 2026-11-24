@@ -206,6 +206,16 @@ erDiagram
         text valor_apurado
         boolean em_alerta
         text observacao "opcional"
+        numeric valor_numerico "leitura como número (20261123002)"
+        timestamptz criado_em
+    }
+    alertas_kri {
+        uuid id PK
+        uuid kri_id FK
+        uuid medicao_id FK
+        date ciencia_em "início do prazo de 10 dias úteis"
+        date encerrado_em "nulo = aberto"
+        uuid comunicacao_id "FK vem na migração das comunicações"
         timestamptz criado_em
     }
 
@@ -219,6 +229,8 @@ erDiagram
     indicadores_kri ||--o{ kri_riscos : "kri_id (em cascata)"
     riscos ||--o{ kri_riscos : "risco_id (em cascata)"
     indicadores_kri ||--o{ medicoes_kri : "kri_id (em cascata)"
+    indicadores_kri ||--o{ alertas_kri : "kri_id (em cascata)"
+    medicoes_kri ||--o{ alertas_kri : "medicao_id (a leitura que abriu o alerta)"
 ```
 
 "Em cascata" (`ON DELETE CASCADE`) quer dizer que, ao apagar a linha de cima, o banco apaga também as de
@@ -289,7 +301,8 @@ com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 | `respostas_tratamento` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
 | `indicadores_kri` | 2 | `20261109001` (`objeto_id` em `20261122004`) | `objeto_id` → `objetos_contexto` (em cascata); a ligação aos riscos fica em `kri_riscos` (`risco_id` saiu em `20261122004`) |
 | `kri_riscos` | 2 | `20261122004` | `kri_id` → `indicadores_kri` (em cascata); `risco_id` → `riscos` (em cascata) |
-| `medicoes_kri` | 2 | `20261109001` | `kri_id` → `indicadores_kri` (em cascata) |
+| `medicoes_kri` | 2 | `20261109001` (`valor_numerico` em `20261123002`) | `kri_id` → `indicadores_kri` (em cascata) |
+| `alertas_kri` | 2 | `20261123002` | `kri_id` → `indicadores_kri` (em cascata); `medicao_id` → `medicoes_kri` (a leitura que abriu o alerta) |
 | `historico_fluxo` | 3 | `20261109001` (`usuario_id` e `sequencia` em `20261115004`) | `risco_id` → `riscos` (em cascata) |
 | `auditoria_log` | 3 | `20261109001` (`objeto_id`, `usuario_id`, `dados_anteriores` em `20261115005`) | nenhuma, de propósito |
 
