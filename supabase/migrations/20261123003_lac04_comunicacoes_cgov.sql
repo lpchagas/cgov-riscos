@@ -333,6 +333,7 @@ STABLE
 SET search_path = ''
 AS $$
   -- O xmin tem 32 bits; o "epoch" (parte alta) é o da transação atual.
+  -- Perto da volta do contador de transações (wraparound) a checagem só pode RECUSAR, nunca aceitar por engano.
   SELECT coalesce(
            pg_xact_status(
              (((pg_current_xact_id()::text::bigint >> 32) << 32)

@@ -744,7 +744,11 @@ select throws_ok(
 -- linha já confirmada (catálogo do sistema) NÃO é da transação atual; o de
 -- linhas criadas aqui é, inclusive dentro de um SAVEPOINT/bloco EXCEPTION
 -- (é o caso da RPC enviar_comunicacao).
-select is(public.fn_xmin_e_da_transacao_atual((select xmin from pg_class limit 1)), false,
+-- (Linha escolhida com xmin ANTERIOR ao menor xid ainda ativo no snapshot, em ordem fixa por oid:
+-- sem isso, o limit 1 poderia pegar uma tabela temporária criada nesta mesma transação.)
+select is(public.fn_xmin_e_da_transacao_atual((select xmin from pg_class
+                                                   where xmin::text::bigint < pg_snapshot_xmin(pg_current_snapshot())::text::bigint
+                                                   order by oid limit 1)), false,
           '12. M3: xmin de linha de transação anterior (confirmada) não é da transação atual');
 select is(public.fn_xmin_e_da_transacao_atual((select xmin from public.comunicacoes_cgov where id = :'c_hist')),
           true, '12. M3: xmin da comunicação criada nesta transação é da transação atual');
