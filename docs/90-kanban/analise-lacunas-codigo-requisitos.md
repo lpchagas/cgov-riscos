@@ -54,7 +54,7 @@ porque trata da pendência que persiste depois da cobrança).
 | LAC-03 — confirmar no banco antes de apagar medições do KRI que fica sem ligação | RF-097 | `kri_riscos`, `indicadores_kri`, `medicoes_kri` | Backlog (triagem do CodeRabbit na PR #17, 2026-11-23) |
 | LAC-08 — rito da DAR (minuta, CTGRIC, CIG, portaria) | RF-092, RF-093, RF-122, RF-124, RF-127, RF-130, RF-195 | `categorias_risco` e tabela nova da minuta | Backlog (depois dos desenhos P-01 e P-10 no Figma; o P-10 cobre o RF-130) |
 | Importador antes da primeira carga real | RF-162, RF-171, RF-178 a RF-182, RF-185 a RF-188, RF-194 (o RF-183 e o RF-184 ficam na LAC-03) | `riscos`, `controles_existentes`, `indicadores_kri` | Homologação CGOV (implementado no código em 2026-11-23, sem migração; o RF-187 fica de fora, a decidir pela CGOV) |
-| Aplicar o pedido de 18 colunas na skill `cgov-gestao-riscos` (repositório cgov-geral) | RF-178, RF-185, RF-194 | — (fora deste repositório) | Backlog ([[pedido-skill-18-colunas]]) |
+| Aplicar o pedido de 18 colunas na skill `cgov-gestao-riscos` (repositório cgov-geral) | RF-178, RF-185, RF-194 | — (fora deste repositório) | Concluído em 2026-11-23 (plugin `cgov-escritorio` 1.2.0; [[pedido-skill-18-colunas]]) |
 
 O alerta do KRI (RF-102) saiu do cartão da LAC-03 para um cartão próprio, porque pede a tela P-02 aprovada
 antes do código. A LAC-08 não foi para "Pronto para iniciar" porque também pede tela nova: antes do código, a CGOV aprova o desenho

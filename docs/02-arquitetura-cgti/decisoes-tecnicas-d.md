@@ -51,6 +51,7 @@ A análise das licenças Microsoft que sustenta a D0-8 está na spec, §3.1.
 | D1-6 | `db push --linked` | Os comandos na nuvem levam o alvo escrito (`--linked`): a CLI 2.122.0 avisa que o padrão do `db push` vai mudar para o banco local. |
 | D1-7 | Semente na nuvem | Só o `supabase/seed.sql` (8 categorias + apetite padrão da DAR), aplicado via MCP numa transação; nunca `seed-demonstracao.sql`. |
 | D1-8 | Auth na nuvem | Cadastro avulso e login anônimo desligados; "Site URL" fica para a Task 7. |
+| D1-9 | `db push` com alvo escrito (substitui o D1-6) | Desde a CLI 3.3.0 (2026-11-24), `db push`, `db pull` e `db dump` são **locais por padrão**; para a nuvem, escreva `--remote` (`--linked` ainda funciona, mas saiu da ajuda). Na dúvida, escreva o alvo. |
 
 ### Pendências da Task 6 (banco na nuvem)
 

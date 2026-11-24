@@ -2,6 +2,7 @@
 
 > **Data:** 2026-11-23 · **Decisão:** [[0020-tabela-da-skill-com-18-colunas|ADR-0020]] · **Desenho:** [[2026-11-23-importador-primeira-carga-design]] (§4.1) · **Contrato atual:** [[FS-02-analise-ato-por-skills]], "Contrato com o Importar"
 > **Cartão do Kanban:** "Aplicar o pedido de 18 colunas na skill `cgov-gestao-riscos` (repositório cgov-geral)".
+> **Situação:** **aplicado** e publicado no plugin `cgov-escritorio` **1.2.0** em 2026-11-23 (conferido no `SKILL.md`: os três trechos da seção 3 entraram como propostos, com quatro regras a mais que reforçam o contrato: tabela única, marcador como último texto da célula, `Evidência: não` quando algum controle não tem evidência e col. 18 em branco, sem traço). O texto abaixo fica como registro do pedido.
 
 ## 1. O que este documento é, e o que ele não é
 
