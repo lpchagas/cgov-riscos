@@ -235,12 +235,13 @@ SELECT r.id, 'Mitigar',
 -- Um KRI por risco crítico (o nome leva o código, para achar o par na ligação).
 INSERT INTO public.indicadores_kri
   (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade,
-   meta_alvo, limite_alerta, responsavel_medicao)
+   meta_alvo, limite_alerta, limite_operador, limite_valor, limite_unidade,
+   responsavel_medicao)
 SELECT r.objeto_id,
        '% de entregas do processo atrasadas (' || r.codigo_radar || ')',
        'entregas atrasadas no mês / entregas previstas no mês × 100',
        'planilha de acompanhamento da unidade', 'Mensal',
-       '0%', '> 10%', 'Chefia da unidade'
+       '0%', '> 10%', '>', 10, '%', 'Chefia da unidade'
   FROM public.riscos r
  WHERE r.status_critico IN ('sim', 'pendente_dar');
 

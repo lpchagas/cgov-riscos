@@ -5,7 +5,7 @@
 -- Esta migração é montada por SEÇÕES, uma por tarefa do plano
 -- (docs/superpowers/specs/2026-11-23-alerta-kri-comunicacoes-design.md, seção 4):
 --   Seção 1: feriados e dias úteis (esta parte);
---   Seções 2 a 4: acrescentadas pelas tarefas seguintes.
+
 -- ============================================================================
 
 -- ============================================================================
@@ -134,3 +134,177 @@ REVOKE EXECUTE ON FUNCTION public.fn_somar_dias_uteis(date, integer) FROM public
 GRANT  EXECUTE ON FUNCTION public.fn_somar_dias_uteis(date, integer) TO authenticated, service_role;
 REVOKE EXECUTE ON FUNCTION public.fn_dias_uteis_entre(date, date) FROM public, anon;
 GRANT  EXECUTE ON FUNCTION public.fn_dias_uteis_entre(date, date) TO authenticated, service_role;
+
+-- ============================================================================
+-- SEÇÃO 2 — Limite e leitura numéricos, com conversão
+-- ============================================================================
+-- Até aqui o limite de alerta do KRI era só TEXTO livre ("> 10%", "Abaixo de
+-- 70%"), e o computador não consegue comparar uma leitura com um texto. Agora o
+-- limite tem três partes: operador (>, >=, <, <=), valor (número) e unidade.
+-- O texto antigo (`limite_alerta`) NÃO é apagado: fica como "limite antigo",
+-- só para leitura, e nada que estava completo deixa de estar.
+
+ALTER TABLE public.indicadores_kri
+  ADD COLUMN limite_operador text,
+  ADD COLUMN limite_valor    numeric,
+  ADD COLUMN limite_unidade  text;
+
+-- Operador só dos quatro tipos; e operador e valor andam juntos (os dois ou
+-- nenhum): "menor que ..." sem número não tem sentido.
+ALTER TABLE public.indicadores_kri
+  ADD CONSTRAINT indicadores_kri_limite_operador_check
+    CHECK (limite_operador IN ('>', '>=', '<', '<=')),
+  ADD CONSTRAINT indicadores_kri_limite_completo_check
+    CHECK ((limite_operador IS NULL) = (limite_valor IS NULL));
+
+COMMENT ON COLUMN public.indicadores_kri.limite_operador IS
+  'Operador do limite de alerta: >, >=, < ou <=. Junto com limite_valor, vale no lugar do texto antigo limite_alerta.';
+COMMENT ON COLUMN public.indicadores_kri.limite_valor IS
+  'Número do limite de alerta (ex.: 70 em "menor que 70 %").';
+COMMENT ON COLUMN public.indicadores_kri.limite_unidade IS
+  'Unidade do limite de alerta, opcional (ex.: %, dias).';
+
+-- A leitura (medição) também ganha um número comparável. O texto original
+-- (`valor_apurado`) continua existindo.
+ALTER TABLE public.medicoes_kri ADD COLUMN valor_numerico numeric;
+
+COMMENT ON COLUMN public.medicoes_kri.valor_numerico IS
+  'Valor da leitura como número, comparado com o limite do KRI para decidir se há alerta.';
+
+-- ----------------------------------------------------------------------------
+-- fn_converter_limite_texto(t): traduz o texto antigo do limite SÓ quando ele
+-- é inequívoco. Devolve UMA linha (operador, valor, unidade) ou NENHUMA.
+-- Aceita (sem diferenciar maiúsculas de minúsculas; vírgula ou ponto decimal;
+-- unidade opcional de uma palavra, como % ou dias):
+--   '< 80%'          -> (<, 80, %)          'Abaixo de 70%' -> (<, 70, %)
+--   '>= 2,5 dias'    -> (>=, 2.5, dias)     'Acima de 5%'   -> (>, 5, %)
+--   'menor que 4'    -> (<, 4, nada)        'Maior que 7.5' -> (>, 7.5, nada)
+-- NÃO converte (fica "a converter", uma pessoa decide): 'Até 10%' (inclui ou
+-- não o 10?), intervalos ('Entre 5 e 10'), dois números ('Abaixo de 70% ou
+-- acima de 90%') e textos com palavras a mais.
+-- IMMUTABLE: o resultado depende só do texto recebido.
+-- ----------------------------------------------------------------------------
+CREATE FUNCTION public.fn_converter_limite_texto(t text)
+RETURNS TABLE (operador text, valor numeric, unidade text)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT CASE m[1]
+           WHEN 'abaixo de' THEN '<'  WHEN 'menor que' THEN '<'
+           WHEN 'acima de'  THEN '>'  WHEN 'maior que' THEN '>'
+           ELSE m[1]
+         END,
+         replace(m[2], ',', '.')::numeric,
+         nullif(m[3], '')
+    FROM (
+      SELECT coalesce(
+               -- Símbolo + número: '< 80%', '>=2,5 dias' (espaço opcional).
+               regexp_match(lower(btrim(t)),
+                 '^(<=|>=|<|>)\s*(\d+(?:[.,]\d+)?)\s*(%|[[:alpha:]]+)?$'),
+               -- Palavras + número: 'abaixo de 70%' (espaço obrigatório).
+               regexp_match(lower(btrim(t)),
+                 '^(abaixo de|acima de|menor que|maior que)\s+(\d+(?:[.,]\d+)?)\s*(%|[[:alpha:]]+)?$')
+             ) AS m
+    ) x
+   WHERE m IS NOT NULL;
+$$;
+
+-- fn_numero_de_texto(t): número de uma leitura antiga em texto, SÓ quando o
+-- texto é apenas um número com % opcional ('12,5%' -> 12.5; '80' -> 80).
+-- 'cerca de 80' e '12 dias' ficam sem número (nulo).
+CREATE FUNCTION public.fn_numero_de_texto(t text)
+RETURNS numeric
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT replace((regexp_match(t, '^\s*(\d+(?:[.,]\d+)?)\s*%?\s*$'))[1], ',', '.')::numeric;
+$$;
+
+-- fn_converter_limites_existentes(): aplica a conversão nos KRIs que têm texto
+-- e ainda não têm limite numérico. Fica numa função para a migração (abaixo) e
+-- o teste usarem exatamente o mesmo código. Devolve quantos converteu e
+-- quantos ficaram "a converter". O texto antigo não é tocado.
+-- Não é chamada pelo sistema: só pela migração e pelos testes (sem EXECUTE
+-- para anon nem authenticated).
+CREATE FUNCTION public.fn_converter_limites_existentes()
+RETURNS TABLE (convertidos integer, a_converter integer)
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  v_sinal text := coalesce(current_setting('radar.fluxo', true), '');
+  v_conv  integer;
+  v_resta integer;
+BEGIN
+  -- Sinal do fluxo ligado só aqui: ajustar o limite não reabre aprovações.
+  PERFORM set_config('radar.fluxo', 'on', true);
+
+  -- (O UPDATE não aceita LATERAL sobre a própria tabela; por isso a conversão
+  -- é calculada num WITH e depois ligada ao KRI pelo id.)
+  WITH conv AS (
+    SELECT k.id, c.operador, c.valor, c.unidade
+      FROM public.indicadores_kri k
+     CROSS JOIN LATERAL public.fn_converter_limite_texto(k.limite_alerta) c
+     WHERE k.limite_operador IS NULL
+  )
+  UPDATE public.indicadores_kri k
+     SET limite_operador = conv.operador,
+         limite_valor    = conv.valor,
+         limite_unidade  = conv.unidade
+    FROM conv
+   WHERE k.id = conv.id;
+  GET DIAGNOSTICS v_conv = ROW_COUNT;
+
+  PERFORM set_config('radar.fluxo', v_sinal, true);
+
+  SELECT count(*) INTO v_resta
+    FROM public.indicadores_kri k
+   WHERE k.limite_operador IS NULL
+     AND public.fn_texto_preenchido(k.limite_alerta);
+
+  RETURN QUERY SELECT v_conv, v_resta;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_converter_limites_existentes() FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_converter_limite_texto(text) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.fn_converter_limite_texto(text) TO authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.fn_numero_de_texto(text) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.fn_numero_de_texto(text) TO authenticated, service_role;
+
+-- Converte o que já existe e conta, para a CGOV saber o que sobrou.
+DO $$
+DECLARE
+  r record;
+BEGIN
+  SELECT * INTO r FROM public.fn_converter_limites_existentes();
+  RAISE NOTICE 'LAC-03: % limite(s) de KRI convertido(s) para número; % a converter por uma pessoa (texto ambíguo).',
+    r.convertidos, r.a_converter;
+END;
+$$;
+
+-- Leituras antigas ganham o número quando o texto é só um número (% opcional).
+UPDATE public.medicoes_kri
+   SET valor_numerico = public.fn_numero_de_texto(valor_apurado)
+ WHERE valor_numerico IS NULL
+   AND public.fn_numero_de_texto(valor_apurado) IS NOT NULL;
+
+-- fn_kri_completo: igual à da migração 20261122004, MUDANDO só o limite. Ele
+-- conta como preenchido com (operador E valor) OU o texto antigo: assim nenhum
+-- KRI que estava completo reabre por causa desta migração.
+CREATE OR REPLACE FUNCTION public.fn_kri_completo(k public.indicadores_kri)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT public.fn_texto_preenchido(k.nome_indicador)
+     AND public.fn_texto_preenchido(k.formula_calculo)
+     AND public.fn_texto_preenchido(k.fonte_dados)
+     AND public.fn_texto_preenchido(k.periodicidade)
+     AND ((k.limite_operador IS NOT NULL AND k.limite_valor IS NOT NULL)
+          OR public.fn_texto_preenchido(k.limite_alerta))
+     AND public.fn_texto_preenchido(k.responsavel_medicao);
+$$;

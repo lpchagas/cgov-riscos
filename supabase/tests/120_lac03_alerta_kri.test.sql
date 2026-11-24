@@ -5,7 +5,8 @@
 -- Este arquivo é montado por SEÇÕES, uma por tarefa do plano do alerta do KRI.
 -- Cada tarefa acrescenta a sua seção ao final e soma os seus testes no
 -- `plan(N)` abaixo (o plan é o número total de testes do arquivo).
---   Seção 1: feriados e dias úteis (esta).
+--   Seção 1: feriados e dias úteis;
+--   Seção 2: limite e leitura numéricos, com conversão do texto antigo.
 -- Pré-requisito: `npm run db:reset`. Tudo é desfeito no final (rollback).
 -- ============================================================================
 
@@ -13,7 +14,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(22);
+select plan(54);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -77,6 +78,93 @@ select lives_ok($$insert into public.feriados (data, nome) values ('2030-01-02',
                 '1. CGOV insere em feriados');
 select is(public.fn_dias_uteis_entre('2030-01-01', '2030-01-03'), 1,
           '1. o feriado novo deixa de contar como dia útil');
+
+-- ============================================================================
+-- SEÇÃO 2 — Limite e leitura numéricos, com conversão
+-- ============================================================================
+-- O limite de alerta do KRI deixa de ser só texto: ganha operador (>, >=, <, <=),
+-- valor e unidade. O texto antigo (`limite_alerta`) fica só para leitura.
+-- fn_converter_limite_texto traduz o texto QUANDO ele é inequívoco; senão devolve
+-- nenhuma linha ("a converter" por uma pessoa).
+
+select pg_temp.sair();
+
+select has_column('public', 'indicadores_kri', 'limite_operador', '2. indicadores_kri.limite_operador existe');
+select has_column('public', 'indicadores_kri', 'limite_valor', '2. indicadores_kri.limite_valor existe');
+select has_column('public', 'indicadores_kri', 'limite_unidade', '2. indicadores_kri.limite_unidade existe');
+select has_column('public', 'medicoes_kri', 'valor_numerico', '2. medicoes_kri.valor_numerico existe');
+select has_function('public', 'fn_converter_limite_texto', array['text'], '2. fn_converter_limite_texto existe');
+
+-- Texto -> (operador, valor, unidade). Formato do resultado: 'op|valor|unidade'.
+create or replace function pg_temp.conv(t text) returns text language sql as $$
+  select operador || '|' || valor::text || '|' || coalesce(unidade, '')
+    from public.fn_converter_limite_texto(t);
+$$;
+
+select is(pg_temp.conv('< 80%'), '<|80|%', '2. "< 80%" vira (<, 80, %)');
+select is(pg_temp.conv('Abaixo de 70%'), '<|70|%', '2. "Abaixo de 70%" vira (<, 70, %)');
+select is(pg_temp.conv('Acima de 5%'), '>|5|%', '2. "Acima de 5%" vira (>, 5, %)');
+select is(pg_temp.conv('>= 2,5 dias'), '>=|2.5|dias', '2. ">= 2,5 dias" vira (>=, 2.5, dias), vírgula decimal');
+select is(pg_temp.conv('<=3'), '<=|3|', '2. "<=3" (sem espaço e sem unidade) vira (<=, 3, nada)');
+select is(pg_temp.conv('MAIOR QUE 7.5 dias'), '>|7.5|dias', '2. "MAIOR QUE 7.5 dias": maiúsculas e ponto decimal');
+select is(pg_temp.conv('menor que 4'), '<|4|', '2. "menor que 4" vira (<, 4, nada)');
+select is((select count(*)::int from public.fn_converter_limite_texto('Até 10%')), 0, '2. "Até 10%" fica a converter');
+select is((select count(*)::int from public.fn_converter_limite_texto('Entre 5 e 10')), 0, '2. "Entre 5 e 10" (intervalo) fica a converter');
+select is((select count(*)::int from public.fn_converter_limite_texto('Abaixo de 70% ou acima de 90%')), 0,
+          '2. dois números e palavras extras: fica a converter');
+select is((select count(*)::int from public.fn_converter_limite_texto('')), 0, '2. texto vazio: fica a converter');
+select is((select count(*)::int from public.fn_converter_limite_texto(null)), 0, '2. texto nulo: fica a converter');
+
+-- Número de um texto de leitura antiga: só número, com % opcional.
+select is(public.fn_numero_de_texto('12,5%'), 12.5::numeric, '2. "12,5%" vira 12.5');
+select is(public.fn_numero_de_texto(' 80 '), 80::numeric, '2. " 80 " vira 80');
+select is(public.fn_numero_de_texto('cerca de 80'), null::numeric, '2. "cerca de 80" não vira número');
+select is(public.fn_numero_de_texto('12 dias'), null::numeric, '2. "12 dias" não vira número (só % é aceito)');
+
+-- CHECKs: operador e valor andam juntos.
+select throws_ok($$insert into public.indicadores_kri
+    (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta,
+     responsavel_medicao, limite_operador)
+  select id, 'KRI t', 'f', 'fonte', 'Mensal', '0', 'x', 'r', '<' from public.objetos_contexto limit 1$$,
+  '23514', null, '2. CHECK recusa operador sem valor');
+select throws_ok($$insert into public.indicadores_kri
+    (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta,
+     responsavel_medicao, limite_operador, limite_valor)
+  select id, 'KRI t', 'f', 'fonte', 'Mensal', '0', 'x', 'r', '!=', 5 from public.objetos_contexto limit 1$$,
+  '23514', null, '2. CHECK recusa operador fora de > >= < <=');
+
+-- O UPDATE de conversão da migração (encapsulado em fn_converter_limites_existentes).
+insert into public.indicadores_kri
+  (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
+select id, n, 'f', 'fonte', 'Mensal', '0', l, 'r'
+  from (select id from public.objetos_contexto limit 1) o,
+       (values ('KRI-T2 claro', 'Abaixo de 70%'), ('KRI-T2 duvidoso', 'Até 10%')) v(n, l);
+
+create temp table t2_res as select * from public.fn_converter_limites_existentes();
+
+select is((select convertidos from t2_res), 1, '2. a conversão converteu 1 KRI de teste (o claro)');
+select cmp_ok((select a_converter from t2_res), '>=', 1, '2. a conversão deixou pelo menos 1 KRI a converter (o duvidoso)');
+select is((select limite_operador || '|' || limite_valor::text || '|' || limite_unidade
+             from public.indicadores_kri where nome_indicador = 'KRI-T2 claro'),
+          '<|70|%', '2. o KRI "Abaixo de 70%" ficou com (<, 70, %)');
+select is((select limite_operador from public.indicadores_kri where nome_indicador = 'KRI-T2 duvidoso'),
+          null, '2. o KRI "Até 10%" continua sem limite numérico');
+select is((select limite_alerta from public.indicadores_kri where nome_indicador = 'KRI-T2 claro'),
+          'Abaixo de 70%', '2. o texto antigo é preservado');
+
+-- fn_kri_completo: aceita limite numérico OU o texto antigo.
+select is((select public.fn_kri_completo(k) from public.indicadores_kri k where nome_indicador = 'KRI-T2 duvidoso'),
+          true, '2. KRI só com o texto antigo continua completo');
+update public.indicadores_kri set limite_alerta = '', limite_operador = '>', limite_valor = 1
+ where nome_indicador = 'KRI-T2 duvidoso';
+select is((select public.fn_kri_completo(k) from public.indicadores_kri k where nome_indicador = 'KRI-T2 duvidoso'),
+          true, '2. KRI só com o limite numérico é completo');
+update public.indicadores_kri set limite_operador = null, limite_valor = null
+ where nome_indicador = 'KRI-T2 duvidoso';
+select is((select public.fn_kri_completo(k) from public.indicadores_kri k where nome_indicador = 'KRI-T2 duvidoso'),
+          false, '2. KRI sem limite numérico e sem texto: incompleto');
+select is(public.fn_kri_completo(k), true, '2. KRI da demonstração (texto antigo + limite numérico) completo')
+  from public.indicadores_kri k where limite_operador = '>' and limite_valor = 10 limit 1;
 
 select * from finish();
 rollback;
