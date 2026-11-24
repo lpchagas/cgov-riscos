@@ -93,6 +93,12 @@ INSERT INTO public.feriados (data, nome) VALUES
 -- n <= 0 devolve a própria data. STABLE: lê a tabela, mas não grava nada.
 -- STRICT: se d ou n for nulo, o resultado é nulo (sem STRICT, d nulo faria o
 -- laço rodar para sempre).
+-- GUARDAS (triagem da PR #19): 'infinity' não tem dia da semana (isodow nulo) e
+-- o laço nunca terminaria; e um n gigante ocuparia o banco por muito tempo.
+-- O sistema usa n = 10; 3660 dias úteis (cerca de 15 anos) é folga de sobra.
+-- Esta função tem EXECUTE para authenticated (as visões security_invoker
+-- precisam). O statement_timeout do Supabase para authenticated só LIMITA o
+-- estrago, não o evita: por isso a recusa vem antes do laço.
 CREATE FUNCTION public.fn_somar_dias_uteis(d date, n integer)
 RETURNS date
 LANGUAGE plpgsql
@@ -104,6 +110,12 @@ DECLARE
   v_dia  date := d;
   v_feitos integer := 0;
 BEGIN
+  IF NOT isfinite(d) THEN
+    RAISE EXCEPTION 'Data inválida para o prazo';
+  END IF;
+  IF n > 3660 THEN
+    RAISE EXCEPTION 'Prazo grande demais: no máximo 3660 dias úteis';
+  END IF;
   WHILE v_feitos < n LOOP
     v_dia := v_dia + 1;
     -- extract(isodow): 1 = segunda ... 6 = sábado, 7 = domingo.
@@ -121,17 +133,29 @@ $$;
 -- Exemplo: ('2026-11-19', '2026-11-23') = 1 (20 é feriado; 21 e 22, fim de semana).
 -- STRICT: com data nula, o resultado é nulo. A série usa inteiros (inicio + g)
 -- para não depender do fuso horário da sessão.
+-- GUARDAS (triagem da PR #19): recusa data infinita e intervalo maior que
+-- 36600 dias (100 anos), que ocupariam o banco (a série teria bilhões de
+-- linhas). Como a função é chamada pelas visões por quem está logado, a
+-- recusa vem ANTES de gerar a série.
 CREATE FUNCTION public.fn_dias_uteis_entre(inicio date, fim date)
 RETURNS integer
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 STRICT
 SET search_path = ''
 AS $$
-  SELECT count(*)::integer
-    FROM generate_series(1, fim - inicio) AS g(n)
-   WHERE extract(isodow FROM inicio + g.n) < 6
-     AND NOT EXISTS (SELECT 1 FROM public.feriados f WHERE f.data = inicio + g.n);
+BEGIN
+  IF NOT isfinite(inicio) OR NOT isfinite(fim) THEN
+    RAISE EXCEPTION 'Data inválida para o prazo';
+  END IF;
+  IF fim - inicio > 36600 THEN
+    RAISE EXCEPTION 'Intervalo grande demais: no máximo 36600 dias';
+  END IF;
+  RETURN (SELECT count(*)::integer
+            FROM generate_series(1, fim - inicio) AS g(n)
+           WHERE extract(isodow FROM inicio + g.n) < 6
+             AND NOT EXISTS (SELECT 1 FROM public.feriados f WHERE f.data = inicio + g.n));
+END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.fn_somar_dias_uteis(date, integer) FROM public, anon;
@@ -179,6 +203,12 @@ ALTER TABLE public.indicadores_kri
   ADD CONSTRAINT indicadores_kri_limite_completo_check
     CHECK ((limite_operador IS NULL) = (limite_valor IS NULL));
 
+-- numeric aceita 'NaN' e 'Infinity', e no PostgreSQL 'NaN' > 10 é VERDADEIRO:
+-- um limite ou uma leitura NaN abriria alerta à toa. Só números de verdade.
+ALTER TABLE public.indicadores_kri
+  ADD CONSTRAINT indicadores_kri_limite_valor_finito
+    CHECK (limite_valor IS NULL OR limite_valor NOT IN ('NaN', 'Infinity', '-Infinity'));
+
 COMMENT ON COLUMN public.indicadores_kri.limite_operador IS
   'Operador do limite de alerta: >, >=, < ou <=. Junto com limite_valor, vale no lugar do texto antigo limite_alerta.';
 COMMENT ON COLUMN public.indicadores_kri.limite_valor IS
@@ -189,6 +219,9 @@ COMMENT ON COLUMN public.indicadores_kri.limite_unidade IS
 -- A leitura (medição) também ganha um número comparável. O texto original
 -- (`valor_apurado`) continua existindo.
 ALTER TABLE public.medicoes_kri ADD COLUMN valor_numerico numeric;
+ALTER TABLE public.medicoes_kri
+  ADD CONSTRAINT medicoes_kri_valor_numerico_finito
+    CHECK (valor_numerico IS NULL OR valor_numerico NOT IN ('NaN', 'Infinity', '-Infinity'));
 
 COMMENT ON COLUMN public.medicoes_kri.valor_numerico IS
   'Valor da leitura como número, comparado com o limite do KRI para decidir se há alerta.';
@@ -238,7 +271,13 @@ AS $$
    -- '2,5', '10.5' e '70' continuam valendo.
    -- (O front repete esta regra em TypeScript.)
    WHERE m IS NOT NULL
-     AND m[2] !~ '[.,]\d{3}$';
+     AND m[2] !~ '[.,]\d{3}$'
+     -- Palavra que muda o tamanho do número ('10 mil' = 10.000) NÃO é unidade:
+     -- sem esta trava, '> 10 mil' viraria (>, 10, 'mil') e o limite ficaria
+     -- 1.000 vezes menor. Fica a converter (uma pessoa decide).
+     AND coalesce(m[3], '') NOT IN ('mil', 'milhao', 'milhão', 'milhoes', 'milhões',
+                                    'bilhao', 'bilhão', 'bilhoes', 'bilhões',
+                                    'trilhao', 'trilhão', 'trilhoes', 'trilhões');
 $$;
 
 -- fn_numero_de_texto(t): número de uma leitura antiga em texto, SÓ quando o
@@ -331,20 +370,42 @@ UPDATE public.medicoes_kri
 -- F2. Texto do limite mudou, números não: reconverte. A ficha atual (front)
 -- só envia o texto `limite_alerta`; sem este gatilho, trocar '> 10%' por '> 20%'
 -- deixaria o número antigo (10) valendo e o alerta compararia com o limite velho.
--- Regra: se limite_alerta mudou e operador/valor NÃO mudaram no mesmo UPDATE,
--- os três campos numéricos são refeitos pela mesma conversão da migração.
--- Texto ambíguo ('Entre 5 e 10') deixa os numéricos nulos ("a converter").
--- Se o UPDATE traz números novos (mudou operador ou valor), eles valem.
+-- Regra no UPDATE: se limite_alerta mudou e operador/valor/unidade NÃO mudaram
+-- no mesmo UPDATE, os três campos numéricos são refeitos pela mesma conversão
+-- da migração. Texto ambíguo ('Entre 5 e 10') deixa os numéricos nulos ("a
+-- converter"). Se o UPDATE traz números ou unidade novos, eles valem (a unidade
+-- explícita, ex.: 'horas', não é apagada pela reconversão).
+-- Decisão A (PR #19): o mesmo vale no INSERT. KRI NOVO que chega só com o texto
+-- ('Abaixo de 70%') ganha o número na hora; se o texto for ambíguo, fica "a
+-- converter"; se o INSERT já traz operador/valor, eles valem. (A ficha passará a
+-- exigir o número na Fase 2; até lá, este gatilho evita KRI novo sem limite
+-- numérico quando o texto é claro.)
 -- SECURITY INVOKER (padrão): a função de conversão é só leitura de texto.
 CREATE FUNCTION public.fn_kri_reconverte_limite()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = ''
 AS $$
+DECLARE
+  v_op  text;
+  v_val numeric;
+  v_un  text;
 BEGIN
-  IF NEW.limite_alerta IS DISTINCT FROM OLD.limite_alerta
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.limite_operador IS NULL AND NEW.limite_valor IS NULL
+       AND public.fn_texto_preenchido(NEW.limite_alerta) THEN
+      SELECT c.operador, c.valor, c.unidade INTO v_op, v_val, v_un
+        FROM public.fn_converter_limite_texto(NEW.limite_alerta) AS c;
+      IF FOUND THEN   -- texto inequívoco; senão fica a converter (nulos)
+        NEW.limite_operador := v_op;
+        NEW.limite_valor    := v_val;
+        NEW.limite_unidade  := coalesce(NEW.limite_unidade, v_un);
+      END IF;
+    END IF;
+  ELSIF NEW.limite_alerta IS DISTINCT FROM OLD.limite_alerta
      AND NEW.limite_operador IS NOT DISTINCT FROM OLD.limite_operador
-     AND NEW.limite_valor    IS NOT DISTINCT FROM OLD.limite_valor THEN
+     AND NEW.limite_valor    IS NOT DISTINCT FROM OLD.limite_valor
+     AND NEW.limite_unidade  IS NOT DISTINCT FROM OLD.limite_unidade THEN
     SELECT c.operador, c.valor, c.unidade
       INTO NEW.limite_operador, NEW.limite_valor, NEW.limite_unidade
       FROM (SELECT 1) AS um
@@ -357,7 +418,7 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.fn_kri_reconverte_limite() FROM public, anon, authenticated;
 
 CREATE TRIGGER trg_kri_reconverte_limite
-  BEFORE UPDATE OF limite_alerta ON public.indicadores_kri
+  BEFORE INSERT OR UPDATE OF limite_alerta ON public.indicadores_kri
   FOR EACH ROW EXECUTE FUNCTION public.fn_kri_reconverte_limite();
 
 -- fn_kri_completo: igual à da migração 20261122004, MUDANDO só o limite. Ele
@@ -390,14 +451,18 @@ $$;
 -- As leituras antigas NÃO são recalculadas: esta migração não mexe no
 -- em_alerta que já existe.
 
--- fn_medicao_calcula_alerta: define NEW.em_alerta, ignorando o que o cliente
--- mandou. Sem limite numérico no KRI (só o texto antigo) ou sem número na
--- leitura, o resultado é false. "Passa do limite" = valor <operador> limite:
--- com limite "< 70", a leitura 60 é alerta; a 70 não (fronteira exata).
--- SECURITY INVOKER (o padrão): quem grava a leitura já enxerga o KRI pela RLS.
-CREATE FUNCTION public.fn_medicao_calcula_alerta()
-RETURNS trigger
+-- fn_kri_valor_em_alerta(kri, valor): o valor passa do limite do KRI?
+-- "Passa do limite" = valor <operador> limite: com limite "< 70", 60 é alerta;
+-- 70 não (fronteira exata). Sem limite numérico no KRI (só o texto antigo) ou
+-- sem valor, é false. É a ÚNICA tabela de operadores: o gatilho BEFORE (que
+-- marca em_alerta) e o gatilho AFTER UPDATE (que decide se abre alerta) usam
+-- esta mesma função. SECURITY INVOKER: quem grava a leitura já enxerga o KRI
+-- pela RLS; por isso authenticated precisa de EXECUTE (os gatilhos rodam como
+-- quem grava).
+CREATE FUNCTION public.fn_kri_valor_em_alerta(p_kri uuid, p_valor numeric)
+RETURNS boolean
 LANGUAGE plpgsql
+STABLE
 SECURITY INVOKER
 SET search_path = ''
 AS $$
@@ -407,17 +472,34 @@ DECLARE
 BEGIN
   SELECT k.limite_operador, k.limite_valor INTO v_op, v_limite
     FROM public.indicadores_kri k
-   WHERE k.id = NEW.kri_id;
+   WHERE k.id = p_kri;
 
-  NEW.em_alerta := coalesce(
+  RETURN coalesce(
     CASE
-      WHEN v_op IS NULL OR v_limite IS NULL OR NEW.valor_numerico IS NULL THEN false
-      WHEN v_op = '>'  THEN NEW.valor_numerico >  v_limite
-      WHEN v_op = '>=' THEN NEW.valor_numerico >= v_limite
-      WHEN v_op = '<'  THEN NEW.valor_numerico <  v_limite
-      WHEN v_op = '<=' THEN NEW.valor_numerico <= v_limite
+      WHEN v_op IS NULL OR v_limite IS NULL OR p_valor IS NULL THEN false
+      WHEN v_op = '>'  THEN p_valor >  v_limite
+      WHEN v_op = '>=' THEN p_valor >= v_limite
+      WHEN v_op = '<'  THEN p_valor <  v_limite
+      WHEN v_op = '<=' THEN p_valor <= v_limite
       ELSE false
     END, false);
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_kri_valor_em_alerta(uuid, numeric) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.fn_kri_valor_em_alerta(uuid, numeric) TO authenticated, service_role;
+
+-- fn_medicao_calcula_alerta: define NEW.em_alerta, ignorando o que o cliente
+-- mandou, com a comparação de fn_kri_valor_em_alerta.
+-- SECURITY INVOKER (o padrão): quem grava a leitura já enxerga o KRI pela RLS.
+CREATE FUNCTION public.fn_medicao_calcula_alerta()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
+BEGIN
+  NEW.em_alerta := public.fn_kri_valor_em_alerta(NEW.kri_id, NEW.valor_numerico);
   RETURN NEW;
 END;
 $$;
@@ -493,17 +575,23 @@ CREATE TRIGGER trg_medicao_abre_alerta
 
 -- F3. O em_alerta também é recalculado no UPDATE (corrigir o número, trocar o
 -- KRI). Então o alerta também abre quando a leitura PASSA a estar em alerta:
--- em_alerta foi de false para true, ou a leitura foi para outro KRI e está em
--- alerta lá. Mesma função e mesmo ON CONFLICT DO NOTHING. (WHEN em vez de
--- UPDATE OF, porque quem muda em_alerta é o gatilho BEFORE, não o comando.)
+-- a leitura foi para outro KRI e está em alerta lá, ou o valor ANTERIOR não
+-- passava do limite e o novo passa. Mesma função e mesmo ON CONFLICT DO
+-- NOTHING (alerta já aberto não duplica). (WHEN em vez de UPDATE OF, porque
+-- quem muda em_alerta é o gatilho BEFORE, não o comando.)
+-- Por que olhar o VALOR anterior (fn_kri_valor_em_alerta) e não a marca
+-- OLD.em_alerta: uma leitura antiga pode ter em_alerta = true marcado à mão
+-- com valor 5 num KRI "> 10"; corrigida para 15, OLD e NEW seriam ambos
+-- true e o alerta nunca abriria. Já 15 -> 16 (o anterior já passava) não
+-- abre de novo.
 -- Corrigir a leitura para dentro do limite NÃO encerra o alerta: encerrar é só
 -- pela comunicação à CGOV.
 CREATE TRIGGER trg_medicao_abre_alerta_update
   AFTER UPDATE ON public.medicoes_kri
   FOR EACH ROW
   WHEN (NEW.em_alerta
-        AND (OLD.em_alerta IS DISTINCT FROM NEW.em_alerta
-             OR OLD.kri_id IS DISTINCT FROM NEW.kri_id))
+        AND (OLD.kri_id IS DISTINCT FROM NEW.kri_id
+             OR NOT coalesce(public.fn_kri_valor_em_alerta(OLD.kri_id, OLD.valor_numerico), false)))
   EXECUTE FUNCTION public.fn_medicao_abre_alerta();
 
 -- F3. A leitura que abriu um alerta não muda de KRI (o alerta é prova do prazo
@@ -532,12 +620,13 @@ CREATE TRIGGER trg_medicao_trava_troca_kri
 -- Travas de exclusão (mensagem clara em vez do erro técnico de chave estrangeira):
 --  (a) a leitura que ABRIU um alerta não pode ser apagada, porque o alerta é
 --      a prova do prazo; o que se corrige é a leitura nova, não a antiga;
---  (b) um KRI com alerta já COMUNICADO à CGOV não pode ser apagado, porque a
---      comunicação é um registro imutável que cita o alerta.
--- Apagar o KRI inteiro continua funcionando quando seus alertas NÃO foram
--- comunicados: as leituras e os alertas saem juntos, em cascata. Na cascata a
--- linha do KRI já não existe quando a leitura é apagada, e é isso que a
--- trava (a) usa para deixar passar.
+--  (b) um KRI com QUALQUER alerta (decisão B da PR #19) não pode ser apagado:
+--      alerta COMUNICADO é citado por um registro imutável; alerta EM ABERTO
+--      ainda precisa ser comunicado à CGOV (encerrar só acontece pela
+--      comunicação), e apagar o KRI faria o alerta sumir sem registro.
+-- KRI sem alerta continua sendo apagado normalmente (as leituras saem junto,
+-- em cascata; nesse caso a linha do KRI já não existe quando a leitura é
+-- apagada, e é isso que a trava (a) usa para deixar passar).
 CREATE FUNCTION public.fn_medicao_protege_alerta()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -568,6 +657,9 @@ BEGIN
               WHERE a.kri_id = OLD.id AND a.comunicacao_id IS NOT NULL) THEN
     RAISE EXCEPTION 'Este KRI tem alerta já comunicado à CGOV e não pode ser apagado';
   END IF;
+  IF EXISTS (SELECT 1 FROM public.alertas_kri a WHERE a.kri_id = OLD.id) THEN
+    RAISE EXCEPTION 'Este KRI tem alerta em aberto: comunique à CGOV antes de apagar';
+  END IF;
   RETURN OLD;
 END;
 $$;
@@ -582,22 +674,24 @@ REVOKE EXECUTE ON FUNCTION public.fn_kri_protege_alerta_comunicado()  FROM publi
 -- alertas_kri_situacao: o alerta + o prazo em dias úteis.
 --   vence_em           = ciência + 10 dias úteis;
 --   dia_atual          = dias úteis da ciência até o encerramento (ou até hoje, se
---                        aberto; teto 99, para a tela);
+--                        aberto; teto 99, SÓ para a tela);
 --   vencido            = só vale para alerta ABERTO e com mais de 10 dias úteis;
---   dias_uteis_vencido = dias úteis além dos 10 (0 se encerrado ou no prazo).
+--   dias_uteis_vencido = dias úteis além dos 10 (0 se encerrado ou no prazo),
+--                        calculado com os dias REAIS (sem o teto de 99: com
+--                        100 dias úteis o atraso é 90, não 89).
 -- security_invoker: a visão obedece à RLS de quem consulta (gestor de outra
 -- unidade não vê nada).
 CREATE VIEW public.alertas_kri_situacao
 WITH (security_invoker = true) AS
 SELECT a.*,
        public.fn_somar_dias_uteis(a.ciencia_em, 10) AS vence_em,
-       d.dia_atual,
-       (a.encerrado_em IS NULL AND d.dia_atual > 10) AS vencido,
-       CASE WHEN a.encerrado_em IS NULL THEN greatest(d.dia_atual - 10, 0) ELSE 0 END
+       least(d.dias, 99) AS dia_atual,
+       (a.encerrado_em IS NULL AND d.dias > 10) AS vencido,
+       CASE WHEN a.encerrado_em IS NULL THEN greatest(d.dias - 10, 0) ELSE 0 END
          AS dias_uteis_vencido
   FROM public.alertas_kri a
  CROSS JOIN LATERAL (
-   SELECT least(public.fn_dias_uteis_entre(a.ciencia_em, coalesce(a.encerrado_em, public.fn_hoje())), 99) AS dia_atual
+   SELECT public.fn_dias_uteis_entre(a.ciencia_em, coalesce(a.encerrado_em, public.fn_hoje())) AS dias
  ) d;
 
 REVOKE ALL ON public.alertas_kri_situacao FROM anon, authenticated;
@@ -947,6 +1041,19 @@ BEGIN
       ELSE
         v_kri_id := (v_item ->> 'id')::uuid;
         IF NOT coalesce((v_item ->> 'apenasLigar')::boolean, false) THEN
+          -- FOR UPDATE (decisão C da PR #19): trava a linha do KRI até o fim da
+          -- transação. Como gravamos TODOS os campos do KRI abaixo, sem a trava
+          -- uma alteração feita ao mesmo tempo por outra pessoa seria
+          -- sobrescrita com os valores antigos lidos aqui. Ordem de travas:
+          -- risco primeiro, KRI depois (a mesma da migração 20261123001).
+          -- A trava é um PERFORM separado da leitura: com RLS, o FOR UPDATE só
+          -- enxerga a linha que a pessoa PODE ALTERAR; se a leitura também o
+          -- usasse, a CGOV (que lê, mas não altera, o KRI da unidade) perderia
+          -- o nome do KRI na mensagem de erro da conferência mais abaixo.
+          PERFORM 1
+             FROM public.indicadores_kri AS k
+            WHERE k.id = v_kri_id
+              FOR UPDATE;
           SELECT k.* INTO v_kri FROM public.indicadores_kri AS k WHERE k.id = v_kri_id;
           v_kri := jsonb_populate_record(v_kri, v_item);   -- chave omitida = mantém
           UPDATE public.indicadores_kri AS k SET
@@ -1042,12 +1149,14 @@ GRANT  EXECUTE ON FUNCTION public.salvar_ficha_risco(jsonb) TO authenticated;
 -- SEÇÃO 6 — Correções da revisão de fim da Fase 1
 -- ============================================================================
 
--- F5. KRI órfão com alerta comunicado NÃO é apagado.
+-- F5. KRI órfão com alerta NÃO é apagado.
 -- Definição vigente: migração 20261123001 (fn_kri_riscos_apaga_orfao). Só muda
--- o DELETE: acrescenta "não tem alerta comunicado". Sem isso, desligar da ficha
--- um KRI órfão com alerta já comunicado à CGOV disparava o gatilho
+-- o DELETE: acrescenta "não tem alerta" (qualquer um: comunicado ou aberto).
+-- Sem isso, desligar da ficha um KRI órfão com alerta disparava o gatilho
 -- fn_kri_protege_alerta_comunicado, que aborta o salvar_ficha_risco inteiro.
--- Decisão D-4 do responsável: o KRI fica guardado como prova da comunicação.
+-- Decisão D-4 do responsável: o KRI com alerta comunicado fica guardado como
+-- prova da comunicação; decisão B da PR #19: o mesmo vale para o alerta ainda
+-- em aberto, que precisa ser comunicado à CGOV antes de o KRI poder sumir.
 CREATE OR REPLACE FUNCTION public.fn_kri_riscos_apaga_orfao()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1065,9 +1174,9 @@ BEGIN
   DELETE FROM public.indicadores_kri AS k
    WHERE k.id = OLD.kri_id
      AND NOT EXISTS (SELECT 1 FROM public.kri_riscos AS l WHERE l.kri_id = OLD.kri_id)
-     -- F5: KRI com alerta já comunicado à CGOV fica guardado (prova).
+     -- F5 + decisão B: KRI com alerta (comunicado ou em aberto) fica guardado.
      AND NOT EXISTS (SELECT 1 FROM public.alertas_kri AS a
-                      WHERE a.kri_id = OLD.kri_id AND a.comunicacao_id IS NOT NULL);
+                      WHERE a.kri_id = OLD.kri_id);
   RETURN NULL;   -- gatilho AFTER: o valor de retorno é ignorado
 END;
 $$;

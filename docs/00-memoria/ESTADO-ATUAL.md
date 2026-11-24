@@ -53,7 +53,7 @@ rodou com Docker.
 
 Vem do [[quadro]], na ordem da [[analise-lacunas-codigo-requisitos]]. "Pronto para iniciar" está vazio: a LAC-12 foi concluída em 2026-11-22 (só no código), a LAC-13 e a LAC-03 estão na coluna "Homologação CGOV" (a LAC-13, aplicada na nuvem do piloto em 2026-11-22; a LAC-03, com a `20261122004` aplicada na nuvem do piloto em 2026-11-23).
 
-1. **Importador (2026-11-23): revisão e PR** da branch de trabalho, "Importador antes da primeira carga real"; o merge depende de pedido do responsável. Em paralelo, **aplicar o pedido de 18 colunas na skill** `cgov-gestao-riscos`, numa sessão própria no repositório `cgov-geral` (cartão no Backlog).
+1. **Importador (2026-11-23): revisão e PR** da branch de trabalho, "Importador antes da primeira carga real"; o merge depende de pedido do responsável. A skill `cgov-gestao-riscos` já entrega as 18 colunas (plugin `cgov-escritorio` 1.2.0, 2026-11-23; [[pedido-skill-18-colunas]]).
 2. **PR #17 (Fase 1 da LAC-03) aberta**, com a triagem do CodeRabbit corrigida em 2026-11-23; o merge depende de pedido do responsável.
 3. **`20261123001` (travas de linha da LAC-03): aplicada na nuvem do piloto em 2026-11-23** (registro no [[guia-supabase-nuvem]]).
 4. Cartão do Figma da etapa 4 e do monitoramento com os campos do KRI: **concluído em 2026-11-23**, junto com o desenho P-02.

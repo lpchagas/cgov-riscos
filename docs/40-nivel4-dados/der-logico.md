@@ -190,7 +190,10 @@ erDiagram
         text fonte_dados "opcional"
         text periodicidade "Mensal, Trimestral, Semestral, Anual (opcional)"
         text meta_alvo "opcional"
-        text limite_alerta "opcional"
+        text limite_alerta "limite antigo em texto, só leitura (LAC-03)"
+        text limite_operador "> >= < <= (20261123002); junto com limite_valor"
+        numeric limite_valor "os dois ou nenhum; nunca NaN nem infinito"
+        text limite_unidade "opcional (%, dias)"
         text responsavel_medicao "opcional"
         timestamptz criado_em
     }
@@ -262,6 +265,9 @@ erDiagram
 baixo. Exemplo: apagar um risco em rascunho apaga os seus controles, ações e as ligações dele com os KRIs
 (`kri_riscos`). O KRI em si só é apagado, com as medições dele, quando fica **órfão**, isto é, sem nenhum
 risco ligado (gatilho da migração `20261122004`, com a trava de linha da `20261123001` para duas remoções ao mesmo tempo); um KRI que ainda serve a outro risco do objeto continua.
+**Exceção (F5 e decisão B da PR #19, migração `20261123002`):** o KRI órfão **com alerta** (em aberto ou já
+comunicado à CGOV) **não** é apagado, nem as suas medições: o alerta só se encerra pela comunicação, que é
+imutável e cita o alerta. Apagar à mão um KRI com alerta também é recusado, com mensagem clara.
 O risco aprovado não pode ser apagado (RN-050).
 
 ## Bloco 3 — Fluxo e auditoria
@@ -310,7 +316,7 @@ de `perfis_usuarios`, e fica vazio quando o administrador altera o banco direto.
 Em `historico_fluxo`, `usuario_nome` e `usuario_papel` são gravados como texto para mostrar quem agiu e
 com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 
-## Resumo das 17 tabelas
+## Resumo das 18 tabelas
 
 | Tabela | Bloco | Criada em | Chaves estrangeiras declaradas |
 | --- | --- | --- | --- |
@@ -324,7 +330,7 @@ com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 | `riscos` | 2 | `20261109001` | `objeto_id` → `objetos_contexto` (em cascata); `categoria_id` → `categorias_risco`; (`categoria_id`, `subcategoria_integridade`) → `subcategorias_risco` (`20261122001`) |
 | `controles_existentes` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
 | `respostas_tratamento` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
-| `indicadores_kri` | 2 | `20261109001` (`objeto_id` em `20261122004`) | `objeto_id` → `objetos_contexto` (em cascata); a ligação aos riscos fica em `kri_riscos` (`risco_id` saiu em `20261122004`) |
+| `indicadores_kri` | 2 | `20261109001` (`objeto_id` em `20261122004`; `limite_operador`, `limite_valor` e `limite_unidade` em `20261123002`) | `objeto_id` → `objetos_contexto` (em cascata); a ligação aos riscos fica em `kri_riscos` (`risco_id` saiu em `20261122004`) |
 | `kri_riscos` | 2 | `20261122004` | `kri_id` → `indicadores_kri` (em cascata); `risco_id` → `riscos` (em cascata) |
 | `medicoes_kri` | 2 | `20261109001` (`valor_numerico` em `20261123002`) | `kri_id` → `indicadores_kri` (em cascata) |
 | `alertas_kri` | 2 | `20261123002` | `kri_id` → `indicadores_kri` (em cascata); `medicao_id` → `medicoes_kri` (a leitura que abriu o alerta); `comunicacao_id` → `comunicacoes_cgov` (`20261123003`) |

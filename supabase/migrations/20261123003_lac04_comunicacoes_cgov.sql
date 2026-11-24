@@ -55,7 +55,17 @@ CREATE TABLE public.comunicacoes_cgov (
     CHECK (supre = '{}'::text[] OR hipotese = 'alerta_kri'),
   -- A hipótese alerta_kri EXIGE o alerta, e só ela tem alerta.
   CONSTRAINT comunicacoes_cgov_alerta_so_com_hipotese
-    CHECK ((hipotese = 'alerta_kri') = (alerta_id IS NOT NULL))
+    CHECK ((hipotese = 'alerta_kri') = (alerta_id IS NOT NULL)),
+  -- A descrição não pode ser vazia nem só espaços (a comunicação é imutável:
+  -- não haveria como corrigir depois).
+  CONSTRAINT comunicacoes_cgov_descricao_preenchida
+    CHECK (btrim(descricao) <> ''),
+  -- A data de ciência tem de ser uma data de verdade. '-infinity' passaria
+  -- pela regra "não pode ser futura" e depois faria a visão de prazos dar erro
+  -- para todo mundo (e a linha é imutável). O limite de 2000 impede a
+  -- ciência absurdamente antiga (a visão recusa intervalos de mais de 100 anos).
+  CONSTRAINT comunicacoes_cgov_data_ciencia_finita
+    CHECK (isfinite(data_ciencia) AND data_ciencia >= date '2000-01-01')
 );
 
 COMMENT ON TABLE public.comunicacoes_cgov IS
@@ -78,13 +88,18 @@ CREATE TABLE public.comunicacoes_riscos (
 );
 
 -- ----------------------------------------------------------------------------
--- 3. Imutabilidade: BEFORE UPDATE
+-- 3. Imutabilidade: BEFORE UPDATE e BEFORE DELETE
 -- ----------------------------------------------------------------------------
 -- Além de não haver política nem privilégio de UPDATE para quem usa o sistema,
 -- este gatilho protege até de quem ignora a RLS (administrador, service_role):
 --   - qualquer coluna fora das três da ciência não pode mudar;
 --   - com a ciência já registrada, nada mais muda (a ciência é dada uma vez).
 -- Truque: to_jsonb(linha) - colunas compara "a linha inteira, menos a ciência".
+-- Também vale em DELETE (triagem da PR #19): sem isso, service_role ou o
+-- administrador apagariam uma comunicação (ex.: hipótese IV ou VI, sem riscos
+-- ligados, que nenhuma FK protege). A limpeza do piloto (retenção de 6 meses)
+-- usa db:reset / TRUNCATE (que não dispara este gatilho) ou desliga o gatilho
+-- de forma explícita e registrada.
 CREATE FUNCTION public.fn_comunicacao_imutavel()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -93,6 +108,9 @@ AS $$
 DECLARE
   v_ciencia text[] := ARRAY['ciencia_cgov_em', 'ciencia_cgov_por', 'observacao_cgov'];
 BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'A comunicação é imutável e não pode ser apagada';
+  END IF;
   IF (to_jsonb(NEW) - v_ciencia) IS DISTINCT FROM (to_jsonb(OLD) - v_ciencia) THEN
     RAISE EXCEPTION 'A comunicação é imutável: só a ciência da CGOV pode ser registrada';
   END IF;
@@ -104,7 +122,7 @@ END;
 $$;
 
 CREATE TRIGGER trg_comunicacao_imutavel
-  BEFORE UPDATE ON public.comunicacoes_cgov
+  BEFORE UPDATE OR DELETE ON public.comunicacoes_cgov
   FOR EACH ROW EXECUTE FUNCTION public.fn_comunicacao_imutavel();
 
 -- ----------------------------------------------------------------------------
@@ -182,15 +200,15 @@ AS $$
                   IN (SELECT public.fn_unidades_de_escrita(p_unidade)), false);
 $$;
 
--- fn_unidade_do_alerta e fn_unidades_de_escrita só são chamadas por dentro das
--- funções DEFINER acima: ninguém de fora precisa executá-las. As outras duas
--- ficam com authenticated porque a RPC (INVOKER) as chama.
+-- Os quatro auxiliares só são chamados por dentro dos gatilhos DEFINER: ninguém
+-- de fora precisa executá-los. Se authenticated pudesse chamar
+-- fn_risco_na_unidade / fn_alerta_na_unidade (DEFINER, leem sem RLS), serviriam
+-- de "oráculo": "este id é desta unidade?" para ids fora do alcance. Por isso o
+-- EXECUTE é revogado de todos (a RPC não os chama: quem confere é o gatilho).
 REVOKE EXECUTE ON FUNCTION public.fn_unidade_do_alerta(uuid)          FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.fn_unidades_de_escrita(uuid)        FROM public, anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.fn_risco_na_unidade(uuid, uuid)     FROM public, anon;
-REVOKE EXECUTE ON FUNCTION public.fn_alerta_na_unidade(uuid, uuid)    FROM public, anon;
-GRANT  EXECUTE ON FUNCTION public.fn_risco_na_unidade(uuid, uuid)     TO authenticated;
-GRANT  EXECUTE ON FUNCTION public.fn_alerta_na_unidade(uuid, uuid)    TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_risco_na_unidade(uuid, uuid)     FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_alerta_na_unidade(uuid, uuid)    FROM public, anon, authenticated;
 
 -- ----------------------------------------------------------------------------
 -- 3c. BEFORE INSERT em comunicacoes_cgov: gravar direto = gravar pela RPC
@@ -225,6 +243,14 @@ BEGIN
     NEW.ciencia_cgov_em  := NULL;
     NEW.ciencia_cgov_por := NULL;
     NEW.observacao_cgov  := NULL;
+    -- Só quem escreve na unidade comunica por ela. Esta checagem vem ANTES de
+    -- olhar o alerta: a RLS do INSERT só roda depois dos gatilhos BEFORE, e
+    -- sem isto as mensagens abaixo revelariam o estado de alertas de outras
+    -- unidades (existe? já foi comunicado?).
+    IF NOT public.pode_escrever_unidade(NEW.unidade_id) THEN
+      RAISE EXCEPTION 'Sem permissão para comunicar por esta unidade'
+        USING ERRCODE = 'insufficient_privilege';   -- 42501
+    END IF;
   END IF;
 
   IF NEW.data_ciencia > public.fn_hoje() THEN
@@ -233,17 +259,17 @@ BEGIN
 
   IF NEW.alerta_id IS NOT NULL THEN
     SELECT * INTO v_al FROM public.alertas_kri WHERE id = NEW.alerta_id;
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'Alerta não encontrado';
+    -- "Não existe" e "é de outra unidade" têm a MESMA mensagem, e vêm antes de
+    -- qualquer outra: quem não pode comunicar este alerta não descobre se ele
+    -- existe nem em que estado está.
+    IF NOT FOUND OR NOT public.fn_alerta_na_unidade(NEW.alerta_id, NEW.unidade_id) THEN
+      RAISE EXCEPTION 'Alerta não encontrado ou fora da unidade que comunica';
     END IF;
     IF NEW.hipotese IS DISTINCT FROM 'alerta_kri' THEN
       RAISE EXCEPTION 'A comunicação de um alerta deve ter a hipótese alerta_kri';
     END IF;
     IF v_al.encerrado_em IS NOT NULL THEN
       RAISE EXCEPTION 'Este alerta já foi comunicado';
-    END IF;
-    IF NOT public.fn_alerta_na_unidade(NEW.alerta_id, NEW.unidade_id) THEN
-      RAISE EXCEPTION 'O alerta não pertence à unidade que comunica';
     END IF;
     IF NEW.data_ciencia <> v_al.ciencia_em THEN
       RAISE EXCEPTION 'A data de ciência deve ser a do alerta';
@@ -294,11 +320,15 @@ DECLARE
   v_com public.comunicacoes_cgov%ROWTYPE;
 BEGIN
   SELECT * INTO v_com FROM public.comunicacoes_cgov WHERE id = NEW.comunicacao_id;
-  IF NOT FOUND OR v_com.comunicada_em <> now() THEN
+  -- A regra "mesma transação" vale só para quem está logado. Carga
+  -- administrativa (sem auth.uid()) preserva a data de envio histórica
+  -- (ver 3c), então comunicada_em <> now() é esperado e o vínculo tem de fechar.
+  IF NOT FOUND OR (auth.uid() IS NOT NULL AND v_com.comunicada_em <> now()) THEN
     RAISE EXCEPTION 'Só é possível ligar riscos na mesma transação que cria a comunicação';
   END IF;
   IF NOT public.fn_risco_na_unidade(NEW.risco_id, v_com.unidade_id) THEN
-    RAISE EXCEPTION 'O risco não pertence à unidade que comunica';
+    -- Mesma mensagem da RPC (risco inexistente = risco de fora): não revela qual.
+    RAISE EXCEPTION 'Risco não encontrado ou fora da unidade que comunica';
   END IF;
   RETURN NEW;
 END;
@@ -361,6 +391,8 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_linhas integer;
 BEGIN
   IF NEW.alerta_id IS NOT NULL THEN
     UPDATE public.alertas_kri
@@ -369,6 +401,13 @@ BEGIN
      WHERE id = NEW.alerta_id
        AND encerrado_em IS NULL
        AND public.fn_alerta_na_unidade(NEW.alerta_id, NEW.unidade_id);
+    -- Rede de segurança: se o UPDATE não encerrou nenhum alerta (já encerrado,
+    -- de outra unidade...), a comunicação NÃO pode ficar gravada com o alerta
+    -- aberto. A exceção desfaz o INSERT inteiro.
+    GET DIAGNOSTICS v_linhas = ROW_COUNT;
+    IF v_linhas = 0 THEN
+      RAISE EXCEPTION 'O alerta não pôde ser encerrado; a comunicação não foi gravada';
+    END IF;
   END IF;
   RETURN NEW;
 END;
@@ -473,6 +512,9 @@ BEGIN
   IF v_ciencia IS NULL THEN
     RAISE EXCEPTION 'Informe a data de ciência';
   END IF;
+  IF NOT public.fn_texto_preenchido(p ->> 'descricao') THEN
+    RAISE EXCEPTION 'Informe a descrição do fato';
+  END IF;
   IF v_ciencia > public.fn_hoje() THEN
     RAISE EXCEPTION 'A data de ciência não pode ser futura';
   END IF;
@@ -481,18 +523,19 @@ BEGIN
     RAISE EXCEPTION 'A comunicação de alerta de KRI exige o alerta';
   END IF;
   IF v_alerta IS NOT NULL THEN
+    -- A RPC é INVOKER: só enxerga o alerta quem o lê pela RLS. Alerta de
+    -- outra unidade que a pessoa até enxerga (ex.: a CT lê a FLONA) é barrado
+    -- pelo gatilho BEFORE INSERT, com esta mesma mensagem. (As funções
+    -- auxiliares de alcance não têm EXECUTE para authenticated.)
     SELECT * INTO v_al FROM public.alertas_kri WHERE id = v_alerta;
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'Alerta não encontrado';
+      RAISE EXCEPTION 'Alerta não encontrado ou fora da unidade que comunica';
     END IF;
     IF v_hip IS DISTINCT FROM 'alerta_kri' THEN
       RAISE EXCEPTION 'A comunicação de um alerta deve ter a hipótese alerta_kri';
     END IF;
     IF v_al.encerrado_em IS NOT NULL THEN
       RAISE EXCEPTION 'Este alerta já foi comunicado';
-    END IF;
-    IF NOT public.fn_alerta_na_unidade(v_alerta, v_unidade) THEN
-      RAISE EXCEPTION 'O alerta não pertence à unidade que comunica';
     END IF;
     IF v_ciencia <> v_al.ciencia_em THEN
       RAISE EXCEPTION 'A data de ciência deve ser a do alerta';
@@ -503,12 +546,13 @@ BEGIN
     RAISE EXCEPTION 'Informe o risco ligado';
   END IF;
 
-  -- Só liga riscos da unidade que comunica (ou de subunidades internas) que a
-  -- pessoa enxerga (a RLS de riscos filtra o resto).
+  -- Só conta os riscos que a pessoa ENXERGA (a RLS de riscos filtra o resto);
+  -- se algum não aparece, é erro. Que o risco seja da unidade que comunica (ou
+  -- de subunidade interna) é conferido pelo gatilho do vínculo, com a mesma
+  -- mensagem.
   SELECT count(*) INTO v_dentro
     FROM public.riscos AS r
-   WHERE r.id = ANY (v_riscos)
-     AND public.fn_risco_na_unidade(r.id, v_unidade);
+   WHERE r.id = ANY (v_riscos);
   IF v_dentro <> cardinality(v_riscos) THEN
     RAISE EXCEPTION 'Risco não encontrado ou fora da unidade que comunica';
   END IF;

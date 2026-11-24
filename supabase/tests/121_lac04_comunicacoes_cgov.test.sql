@@ -17,7 +17,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(122);
+select plan(134);
 
 -- ----------------------------------------------------------------------------
 -- 0. Preparação (como administrador)
@@ -76,6 +76,21 @@ select id as rb from public.riscos where codigo_radar = 'T121-RB' \gset
 select id as al1, ciencia_em as ci1 from public.alertas_kri where kri_id = :'k1' \gset
 select id as al2, ciencia_em as ci2 from public.alertas_kri where kri_id = :'k2' \gset
 select id as al3 from public.alertas_kri where kri_id = :'k3' \gset
+
+-- Item 19 (fica no começo do arquivo: ALTER TABLE não roda com eventos de gatilho
+-- adiados pendentes, e as comunicações de teste os criam): se o UPDATE não encerra o alerta, a comunicação não fica gravada.
+-- Como administrador desligamos o gatilho de validação para forçar um alerta
+-- já encerrado (a seguir religamos; tudo é desfeito no rollback).
+select pg_temp.kri_alerta('T121 KRI 19') as k19 \gset
+select id as al19 from public.alertas_kri where kri_id = :'k19' \gset
+update public.alertas_kri set encerrado_em = public.fn_hoje() where id = :'al19';
+alter table public.comunicacoes_cgov disable trigger trg_comunicacao_antes_de_inserir;
+select throws_ok(
+  format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao, alerta_id)
+           values (%L, 'alerta_kri', public.fn_hoje(), 'alerta já encerrado', %L)$$, :'un_a', :'al19'),
+  'P0001', 'O alerta não pôde ser encerrado; a comunicação não foi gravada',
+  '12. comunicação que não consegue encerrar o alerta é recusada');
+alter table public.comunicacoes_cgov enable trigger trg_comunicacao_antes_de_inserir;
 
 -- ----------------------------------------------------------------------------
 -- 1. Estrutura e permissões
@@ -192,7 +207,7 @@ select throws_ok(
 select throws_ok(
   format($$select public.enviar_comunicacao(jsonb_build_object(
       'unidade_id', %L, 'hipotese', 'IV', 'data_ciencia', public.fn_hoje()))$$, :'un_a'),
-  '23502', null, '2. descrição é obrigatória (NOT NULL)');
+  'P0001', 'Informe a descrição do fato', '2. descrição é obrigatória (mensagem clara)');
 
 -- Hipótese I com risco: grava a ligação em comunicacoes_riscos.
 select public.enviar_comunicacao(jsonb_build_object(
@@ -243,7 +258,7 @@ select throws_ok(
       'unidade_id', %L, 'hipotese', 'alerta_kri', 'alerta_id', '00000000-0000-4000-f000-0000000000fe',
       'data_ciencia', public.fn_hoje(), 'descricao', 'x', 'risco_ids', jsonb_build_array(%L)))$$,
       :'un_a', :'r1'),
-  'P0001', 'Alerta não encontrado', '3. alerta inexistente: erro claro');
+  'P0001', 'Alerta não encontrado ou fora da unidade que comunica', '3. alerta inexistente: erro claro');
 
 select public.enviar_comunicacao(jsonb_build_object(
   'unidade_id', :'un_a', 'hipotese', 'alerta_kri', 'alerta_id', :'al1', 'data_ciencia', :'ci1'::date,
@@ -401,8 +416,12 @@ select throws_ok(
   format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao, alerta_id)
            values (%L, 'alerta_kri', public.fn_hoje(), 'duplicada direta', %L)$$, :'un_a', :'al1'),
   'P0001', 'Este alerta já foi comunicado', '7. INSERT direto de 2ª comunicação do mesmo alerta: recusado');
-select is((select count(*)::int from pg_constraint where conrelid = 'public.comunicacoes_cgov'::regclass
-            and contype = 'u'), 1, '7. a UNIQUE de alerta_id segue como rede de segurança da corrida');
+select ok(exists(select 1 from pg_constraint c
+                  where c.conrelid = 'public.comunicacoes_cgov'::regclass and c.contype = 'u'
+                    and c.conkey = array[(select attnum from pg_attribute
+                                           where attrelid = 'public.comunicacoes_cgov'::regclass
+                                             and attname = 'alerta_id')]::smallint[]),
+          '7. UNIQUE exatamente em alerta_id (rede de segurança da corrida)');
 
 -- Fuso: comunicação às 22h de 30/11 em Brasília (= 01h de 01/12 em UTC).
 -- Dias úteis em (23/11, 30/11] = 5 (24, 25, 26, 27, 30). Com ::date direto,
@@ -450,7 +469,7 @@ select throws_ok(
 select throws_ok(
   format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao, alerta_id)
            values (%L, 'alerta_kri', public.fn_hoje(), 'alerta de outra unidade', %L)$$, :'un_a', :'al_b'),
-  'P0001', 'O alerta não pertence à unidade que comunica',
+  'P0001', 'Alerta não encontrado ou fora da unidade que comunica',
   '9. INSERT direto: alerta de outra unidade é recusado');
 select throws_ok(
   format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao, alerta_id)
@@ -476,7 +495,7 @@ select throws_ok(
       'unidade_id', %L, 'hipotese', 'alerta_kri', 'alerta_id', %L, 'data_ciencia', public.fn_hoje(),
       'descricao', 'CT comunicando alerta da FLONA', 'risco_ids', jsonb_build_array(%L)))$$,
       :'un_b', :'al4', :'r1'),
-  'P0001', 'O alerta não pertence à unidade que comunica', '9. RPC: alerta de outra unidade é recusado');
+  'P0001', 'Alerta não encontrado ou fora da unidade que comunica', '9. RPC: alerta de outra unidade é recusado');
 -- D-1: risco visível, mas de fora da unidade que comunica.
 select throws_ok(
   format($$select public.enviar_comunicacao(jsonb_build_object(
@@ -493,7 +512,7 @@ select throws_ok(
   '9. não se acrescenta risco a comunicação já enviada');
 select throws_ok(
   format($$insert into public.comunicacoes_riscos (comunicacao_id, risco_id) values (%L, %L)$$, :'c_forja', :'rb'),
-  'P0001', 'O risco não pertence à unidade que comunica', '9. INSERT direto de vínculo com risco de outra unidade é recusado');
+  'P0001', 'Risco não encontrado ou fora da unidade que comunica', '9. INSERT direto de vínculo com risco de outra unidade é recusado');
 select lives_ok(
   format($$insert into public.comunicacoes_riscos (comunicacao_id, risco_id) values (%L, %L)$$, :'c_forja', :'r1'),
   '9. vínculo com risco da unidade, na mesma transação, é aceito');
@@ -515,8 +534,9 @@ select throws_ok(format($$delete from public.indicadores_kri where id = %L$$, :'
 select throws_ok(format($$delete from public.medicoes_kri where kri_id = %L$$, :'k1'),
   'P0001', 'Esta leitura abriu um alerta do KRI e não pode ser apagada',
   '9. leitura que abriu o alerta não é apagada');
-select lives_ok(format($$delete from public.indicadores_kri where id = %L$$, :'kb'),
-  '9. KRI cujo alerta não foi comunicado é apagado em cascata');
+select throws_ok(format($$delete from public.indicadores_kri where id = %L$$, :'kb'),
+  'P0001', 'Este KRI tem alerta em aberto: comunique à CGOV antes de apagar',
+  '9. B: KRI com alerta em aberto também não é apagado');
 
 -- C-1: hipótese que exige risco, gravada direto sem risco, é barrada no fim da
 -- transação (gatilho deferido). SET CONSTRAINTS ... IMMEDIATE força a checagem agora.
@@ -567,12 +587,12 @@ select throws_ok(
   format($$select public.enviar_comunicacao(jsonb_build_object(
       'unidade_id', %L, 'hipotese', 'alerta_kri', 'alerta_id', %L, 'data_ciencia', public.fn_hoje(),
       'descricao', 'alerta da UC filha', 'risco_ids', jsonb_build_array(%L)))$$, :'un_a', :'al_ucf', :'r1'),
-  'P0001', 'O alerta não pertence à unidade que comunica',
+  'P0001', 'Alerta não encontrado ou fora da unidade que comunica',
   '10. alerta de uma UC filha é recusado');
 select throws_ok(
   format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao, alerta_id)
            values (%L, 'alerta_kri', public.fn_hoje(), 'direto, UC filha', %L)$$, :'un_a', :'al_ucf'),
-  'P0001', 'O alerta não pertence à unidade que comunica',
+  'P0001', 'Alerta não encontrado ou fora da unidade que comunica',
   '10. INSERT direto com alerta de UC filha é recusado');
 select lives_ok(
   format($$select public.enviar_comunicacao(jsonb_build_object(
@@ -645,6 +665,74 @@ select is((select count(*)::int from public.indicadores_kri where id = :'k5'), 1
           '11. F5: o KRI órfão com alerta comunicado continua existindo');
 select is((select count(*)::int from public.kri_riscos where kri_id = :'k5'), 0,
           '11. F5: a ligação do KRI com o risco foi desfeita');
+
+-- ----------------------------------------------------------------------------
+-- 12. Triagem da PR #19
+-- ----------------------------------------------------------------------------
+-- Item 14: descrição não pode ser vazia nem só espaços.
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(
+  format($$select public.enviar_comunicacao(jsonb_build_object(
+      'unidade_id', %L, 'hipotese', 'IV', 'data_ciencia', public.fn_hoje(), 'descricao', '   '))$$, :'un_a'),
+  'P0001', 'Informe a descrição do fato', '12. descrição só com espaços: mensagem clara');
+select pg_temp.sair();
+select throws_ok(
+  format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao)
+           values (%L, 'IV', public.fn_hoje(), '')$$, :'un_a'),
+  '23514', null, '12. INSERT direto com descrição vazia: CHECK (23514)');
+
+-- Item 15: os auxiliares de alcance não são chamáveis por quem está logado.
+select is(has_function_privilege('authenticated', 'public.fn_risco_na_unidade(uuid,uuid)', 'EXECUTE')
+       or has_function_privilege('authenticated', 'public.fn_alerta_na_unidade(uuid,uuid)', 'EXECUTE'),
+          false, '12. authenticated não executa fn_risco_na_unidade nem fn_alerta_na_unidade');
+
+-- Item 16: data de ciência infinita (ou absurdamente antiga) é recusada.
+select throws_ok(
+  format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao)
+           values (%L, 'IV', '-infinity', 'ciência infinita')$$, :'un_a'),
+  '23514', null, '12. INSERT direto com ciência -infinity: CHECK (23514)');
+select throws_ok(
+  format($$select public.enviar_comunicacao(jsonb_build_object(
+      'unidade_id', %L, 'hipotese', 'IV', 'data_ciencia', '-infinity', 'descricao', 'x'))$$, :'un_a'),
+  '23514', null, '12. RPC com ciência -infinity: recusada (23514)');
+select throws_ok(
+  format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao)
+           values (%L, 'IV', '1900-01-01', 'ciência antiga demais')$$, :'un_a'),
+  '23514', null, '12. ciência de 1900 recusada (a visão calcula prazos em dias úteis)');
+select lives_ok(
+  format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao)
+           values (%L, 'IV', '2026-01-05', 'ciência antiga, mas razoável')$$, :'un_a'),
+  '12. ciência finita no passado continua aceita (fora do prazo grava)');
+
+-- Item 17: INSERT direto não vaza se o alerta existe, nem se já foi comunicado.
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(
+  format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao, alerta_id)
+           values (%L, 'alerta_kri', public.fn_hoje(), 'sonda', %L)$$, :'un_b', :'al1'),
+  '42501', 'Sem permissão para comunicar por esta unidade',
+  '12. INSERT direto por unidade onde não escreve: "Sem permissão"');
+select throws_ok(
+  format($$insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, descricao, alerta_id)
+           values (%L, 'alerta_kri', public.fn_hoje(), 'sonda', %L)$$, :'un_a', :'al_b'),
+  'P0001', 'Alerta não encontrado ou fora da unidade que comunica',
+  '12. INSERT direto com alerta de outra unidade: mensagem genérica (não revela se já foi comunicado)');
+select pg_temp.sair();
+
+-- Item 18: carga administrativa (sem usuário logado) com data de envio histórica
+-- fecha o vínculo com o risco. (Num arquivo pgTAP tudo roda numa transação só:
+-- "outra transação" é simulada por comunicada_em <> now().)
+insert into public.comunicacoes_cgov (unidade_id, hipotese, data_ciencia, comunicada_em, descricao)
+values (:'un_a', 'I', '2025-01-06', '2025-01-10 12:00:00+00', 'Carga histórica hipótese I')
+returning id as c_hist \gset
+select lives_ok(
+  format($$insert into public.comunicacoes_riscos (comunicacao_id, risco_id) values (%L, %L)$$, :'c_hist', :'r1'),
+  '12. carga administrativa histórica liga o risco (comunicada_em antigo)');
+
+-- Item 21: nem o administrador apaga uma comunicação (o gatilho vale em DELETE).
+select throws_ok(
+  format($$delete from public.comunicacoes_cgov where id = %L$$, :'c_iv'),
+  'P0001', 'A comunicação é imutável e não pode ser apagada',
+  '12. DELETE de comunicação sem riscos ligados é recusado até como administrador');
 
 select * from finish();
 rollback;

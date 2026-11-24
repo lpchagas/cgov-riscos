@@ -17,7 +17,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(134);
+select plan(155);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -139,11 +139,15 @@ select throws_ok($$insert into public.indicadores_kri
   '23514', null, '2. CHECK recusa operador fora de > >= < <=');
 
 -- O UPDATE de conversão da migração (encapsulado em fn_converter_limites_existentes).
+-- Os dois KRIs abaixo simulam KRIs ANTIGOS (anteriores à migração): como o gatilho
+-- de INSERT já converteria o texto claro na hora, ele é desligado só aqui.
+alter table public.indicadores_kri disable trigger trg_kri_reconverte_limite;
 insert into public.indicadores_kri
   (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
 select id, n, 'f', 'fonte', 'Mensal', '0', l, 'r'
   from (select id from public.objetos_contexto limit 1) o,
        (values ('KRI-T2 claro', 'Abaixo de 70%'), ('KRI-T2 duvidoso', 'Até 10%')) v(n, l);
+alter table public.indicadores_kri enable trigger trg_kri_reconverte_limite;
 
 create temp table t2_res as select * from public.fn_converter_limites_existentes();
 
@@ -207,7 +211,7 @@ returns uuid language sql as $$
     (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade,
      meta_alvo, limite_alerta, responsavel_medicao, limite_operador, limite_valor, limite_unidade)
   values ('00000000-0000-4000-b000-000000000001', p_nome, 'a / b', 'Planilha', 'Mensal',
-          '100%', case when p_op is null then '> 10%' else null end, 'Chefia', p_op, p_valor,
+          '100%', case when p_op is null then 'Até 10%' else null end, 'Chefia', p_op, p_valor,
           case when p_op is null then null else '%' end)
   returning id;
 $$;
@@ -352,7 +356,7 @@ select is((select vencido from public.alertas_kri_situacao where kri_id = :'k_me
           public.fn_dias_uteis_entre(date '2026-11-19', public.fn_hoje()) > 10,
           '3. vencido = passou de 10 dias úteis (alerta aberto)');
 select is((select dias_uteis_vencido from public.alertas_kri_situacao where kri_id = :'k_menor'),
-          greatest(least(public.fn_dias_uteis_entre(date '2026-11-19', public.fn_hoje()), 99) - 10, 0),
+          greatest(public.fn_dias_uteis_entre(date '2026-11-19', public.fn_hoje()) - 10, 0),
           '3. dias_uteis_vencido = atraso além dos 10 dias');
 -- Ciência de hoje: dia 0, não vencido.
 update public.alertas_kri set ciencia_em = public.fn_hoje() where kri_id = :'k_menor';
@@ -485,11 +489,12 @@ set local timezone = 'UTC';
 select throws_ok($$delete from public.medicoes_kri where id = '00000000-0000-4000-c000-000000000001'$$,
                  'P0001', 'Esta leitura abriu um alerta do KRI e não pode ser apagada',
                  '5. a leitura que abriu o alerta não é apagada');
--- Apagar o KRI inteiro (sem alerta comunicado) continua funcionando em cascata.
-select lives_ok(format($$delete from public.indicadores_kri where id = %L$$, :'k_menor'),
-                '5. apagar o KRI com alerta não comunicado funciona (cascata)');
-select is((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), 0,
-          '5. os alertas do KRI apagado saíram junto');
+-- Decisão B: KRI com QUALQUER alerta (aberto ou comunicado) não é apagado.
+select throws_ok(format($$delete from public.indicadores_kri where id = %L$$, :'k_menor'),
+                 'P0001', 'Este KRI tem alerta em aberto: comunique à CGOV antes de apagar',
+                 '5. B: apagar o KRI com alerta em aberto dá mensagem clara');
+select cmp_ok((select count(*)::int from public.alertas_kri where kri_id = :'k_menor'), '>=', 1,
+              '5. B: os alertas do KRI continuam lá');
 
 -- ============================================================================
 -- SEÇÃO 6 — Correções da revisão de fim da Fase 1
@@ -555,6 +560,112 @@ select is((select objeto_id from public.auditoria_log
               and dados_novos->>'kri_id' = :'k6b'),
           '00000000-0000-4000-b000-000000000001'::uuid,
           '6. F9: a linha de auditoria da abertura do alerta tem o objeto_id do KRI');
+
+-- ----------------------------------------------------------------------------
+-- Triagem da PR #19
+-- ----------------------------------------------------------------------------
+-- Decisão A: KRI NOVO só com texto claro ganha o número na hora (BEFORE INSERT).
+insert into public.indicadores_kri
+  (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta, responsavel_medicao)
+select id, n, 'f', 'fonte', 'Mensal', '0', l, 'r'
+  from (select id from public.objetos_contexto limit 1) o,
+       (values ('T6A claro', 'Abaixo de 70%'), ('T6A ambíguo', 'Entre 5 e 10')) v(n, l);
+select is((select limite_operador || '|' || limite_valor::text || '|' || limite_unidade
+             from public.indicadores_kri where nome_indicador = 'T6A claro'),
+          '<|70|%', '6. A: KRI novo com "Abaixo de 70%" nasce com (<, 70, %)');
+select is((select limite_operador is null and limite_valor is null
+             from public.indicadores_kri where nome_indicador = 'T6A ambíguo'),
+          true, '6. A: KRI novo com "Entre 5 e 10" continua a converter (nulo)');
+insert into public.indicadores_kri
+  (objeto_id, nome_indicador, formula_calculo, fonte_dados, periodicidade, meta_alvo, limite_alerta,
+   responsavel_medicao, limite_operador, limite_valor)
+select id, 'T6A explícito', 'f', 'fonte', 'Mensal', '0', 'Abaixo de 70%', 'r', '>=', 3
+  from public.objetos_contexto limit 1;
+select is((select limite_operador || '|' || limite_valor::text
+             from public.indicadores_kri where nome_indicador = 'T6A explícito'),
+          '>=|3', '6. A: números explícitos no INSERT não são sobrescritos pelo texto');
+
+-- Item 5: dias úteis com data infinita ou prazo absurdo dão erro claro (sem laço sem fim).
+select throws_ok($$select public.fn_somar_dias_uteis('infinity'::date, 1)$$, 'P0001',
+                 'Data inválida para o prazo', '6. dias úteis: data infinita recusada');
+select throws_ok($$select public.fn_somar_dias_uteis('2026-01-01'::date, 100000)$$, 'P0001',
+                 'Prazo grande demais: no máximo 3660 dias úteis', '6. dias úteis: prazo enorme recusado');
+select throws_ok($$select public.fn_dias_uteis_entre('-infinity'::date, '2026-01-01'::date)$$, 'P0001',
+                 'Data inválida para o prazo', '6. dias úteis entre: data infinita recusada');
+
+-- Item 6: NaN e Infinity não entram como limite nem como leitura.
+select pg_temp.kri_lim('T6 KRI nan', '>', 10) as k6n \gset
+select throws_ok(format($$insert into public.medicoes_kri (kri_id, valor_apurado, valor_numerico)
+                          values (%L, 'x', 'NaN')$$, :'k6n'),
+                 '23514', null, '6. leitura NaN é recusada (CHECK)');
+select throws_ok(format($$update public.indicadores_kri set limite_valor = 'Infinity' where id = %L$$, :'k6n'),
+                 '23514', null, '6. limite Infinity é recusado (CHECK)');
+select lives_ok(format($$insert into public.medicoes_kri (kri_id, valor_apurado, valor_numerico)
+                         values (%L, '10,5', 10.5)$$, :'k6n'),
+                '6. leitura 10,5 continua aceita');
+
+-- Item 7: palavra de magnitude não é unidade (senão o limite ficaria 1.000 vezes menor).
+select is((select count(*)::int from public.fn_converter_limite_texto('> 10 mil')), 0,
+          '6. "> 10 mil" fica a converter');
+select is((select count(*)::int from public.fn_converter_limite_texto('Acima de 2 milhões')), 0,
+          '6. "Acima de 2 milhões" fica a converter');
+select is(pg_temp.conv('> 10 dias'), '>|10|dias', '6. "> 10 dias" continua convertendo');
+
+-- Item 8: unidade enviada junto com o texto vale.
+select pg_temp.kri_lim('T6 KRI unidade', '>', 10) as k6u \gset
+update public.indicadores_kri set limite_alerta = '> 10 dias' where id = :'k6u';
+update public.indicadores_kri set limite_alerta = '> 10', limite_unidade = 'horas' where id = :'k6u';
+select is((select limite_operador || '|' || limite_valor::text || '|' || limite_unidade
+             from public.indicadores_kri where id = :'k6u'),
+          '>|10|horas', '6. UPDATE de texto + unidade explícita mantém a unidade nova');
+
+-- Item 9: leitura LEGADA com em_alerta = true manual (valor 5, KRI "> 10"):
+-- corrigida para 15 abre alerta; 15 -> 16 não abre outro.
+select pg_temp.kri_lim('T6 KRI legado', '>', 10) as k6l \gset
+set local session_replication_role = replica;   -- liga/desliga gatilhos: simula dado antigo
+insert into public.medicoes_kri (id, kri_id, valor_apurado, valor_numerico, em_alerta)
+values ('00000000-0000-4000-c000-0000000000f2', :'k6l', '5', 5, true);
+set local session_replication_role = origin;
+update public.medicoes_kri set valor_numerico = 15 where id = '00000000-0000-4000-c000-0000000000f2';
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k6l' and encerrado_em is null), 1,
+          '6. leitura legada marcada em_alerta, corrigida 5 -> 15: abre o alerta');
+update public.alertas_kri set encerrado_em = public.fn_hoje() where kri_id = :'k6l';
+update public.medicoes_kri set valor_numerico = 16 where id = '00000000-0000-4000-c000-0000000000f2';
+select is((select count(*)::int from public.alertas_kri where kri_id = :'k6l'), 1,
+          '6. leitura já em alerta (15 -> 16) não abre alerta novo');
+
+-- Item 10: atraso sem teto; só dia_atual é limitado a 99.
+select pg_temp.kri_lim('T6 KRI atraso', '>', 10) as k6t \gset
+insert into public.medicoes_kri (kri_id, valor_apurado, valor_numerico) values (:'k6t', '20', 20);
+-- (A ciência de 02/01/2026 está a mais de 99 dias úteis de hoje.)
+update public.alertas_kri set ciencia_em = date '2026-01-02' where kri_id = :'k6t';
+select is((select dia_atual from public.alertas_kri_situacao where kri_id = :'k6t'), 99,
+          '6. dia_atual limitado a 99 para a tela');
+select is((select dias_uteis_vencido from public.alertas_kri_situacao where kri_id = :'k6t'),
+          public.fn_dias_uteis_entre(date '2026-01-02', public.fn_hoje()) - 10,
+          '6. dias_uteis_vencido não usa o teto de 99');
+
+-- Decisão B: KRI órfão com alerta ABERTO fica guardado ao desligar da ficha.
+select pg_temp.crit4('T6-B-ORFAO', 'rascunho') as r6b \gset
+select pg_temp.kri_lim('T6 KRI órfão com alerta', '>', 10) as k6b2 \gset
+insert into public.medicoes_kri (kri_id, valor_apurado, valor_numerico) values (:'k6b2', '20', 20);
+select set_config('radar.fluxo', 'on', true);
+insert into public.kri_riscos (kri_id, risco_id) values (:'k6b2', :'r6b');
+select set_config('radar.fluxo', '', true);
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select lives_ok(format($$select public.salvar_ficha_risco(jsonb_build_object('id', %L, 'kris', '[]'::jsonb))$$, :'r6b'),
+                '6. B: desligar da ficha o KRI com alerta aberto salva sem erro');
+select pg_temp.sair();
+select is((select count(*)::int from public.indicadores_kri where id = :'k6b2'), 1,
+          '6. B: o KRI órfão com alerta aberto continua existindo');
+select throws_ok(format($$delete from public.indicadores_kri where id = %L$$, :'k6b2'),
+                 'P0001', 'Este KRI tem alerta em aberto: comunique à CGOV antes de apagar',
+                 '6. B: apagar à mão o KRI com alerta aberto dá mensagem clara');
+
+-- Decisão C: a leitura do KRI em salvar_ficha_risco trava a linha (FOR UPDATE).
+select ok(pg_get_functiondef('public.salvar_ficha_risco(jsonb)'::regprocedure)
+            ~ 'PERFORM 1\s+FROM public\.indicadores_kri AS k\s+WHERE k\.id = v_kri_id\s+FOR UPDATE',
+          '6. C: salvar_ficha_risco trava a linha do KRI (FOR UPDATE) antes de lê-la');
 
 select * from finish();
 rollback;
