@@ -74,7 +74,12 @@ async function abrirTela(page: Page, tela: Tela, tema: Tema): Promise<void> {
     await expect(page.getByRole('heading', { level: 2 }).first()).toBeFocused();
   }
   if (tela.avancarEtapas) {
-    await expect(page.getByRole('group', { name: /Probabilidade/ }), 'a etapa 3 não abriu').toBeVisible();
+    // Anti "falso verde": cada tela de assistente declara o elemento que prova a etapa certa.
+    if (!tela.provaEtapa) throw new Error(`a tela ${tela.nome} usa avancarEtapas e precisa de provaEtapa`);
+    await expect(
+      page.getByRole(tela.provaEtapa.papel, { name: tela.provaEtapa.nome }),
+      `a etapa de destino de ${tela.nome} não abriu`,
+    ).toBeVisible();
   }
 }
 
