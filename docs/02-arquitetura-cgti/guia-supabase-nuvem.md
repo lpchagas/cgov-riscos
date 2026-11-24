@@ -115,7 +115,8 @@
 | 2026-11-23 | Conferência depois da migração (só leitura) | Ok: 16 migrações, a última `20261122004`; `kri_riscos` presente, com RLS ligada e sem `UPDATE` para `authenticated`; `indicadores_kri` com `objeto_id` e sem `risco_id`; `fn_kri_completo` e `kri_total_riscos` presentes (`authenticated` executa, `anon` não); 0 riscos, 0 KRIs, 0 medições, 0 ligações; `auditoria_log` = 19 (igual a antes). Aprovados antigos fora da regra: nenhum (0 riscos). |
 | 2026-11-23 | `db push --linked` (LAC-03, 2ª migração) | Ok, pelo Claude, com autorização: prévia listou só a `20261123001` (travas de linha nos gatilhos de `kri_riscos`, achados do CodeRabbit na PR #17); aplicada. Conferido por leitura: 17 migrações, a última `20261123001`; `fn_kri_riscos_mesmo_objeto` com `FOR SHARE` no KRI e `FOR NO KEY UPDATE` no risco, `fn_kri_grupo_mesmo_objeto` com `FOR SHARE`, `fn_kri_riscos_apaga_orfao` com `FOR UPDATE`; 0 riscos, 0 KRIs, `auditoria_log` = 19. |
 | 2026-11-24 | Conferência antes de atualizar o Postgres (só leitura, seção 5.4) | Ok, pelo Claude via MCP, com autorização: versão `17.6.1.104`; 0 riscos, 0 KRIs, 0 contas em `auth.users` (sem dados reais, cópia dispensada); 17 migrações, a última `20261123001`; banco com 13 MB; nenhum *slot* de replicação; nenhuma das extensões de cuidado (`timescaledb`, `plv8`, `pgjwt`). |
-| *(próximo)* | Atualizar o Postgres (seção 5.4) | Autorizado em 2026-11-24; feito pelo responsável no painel (**Upgrade project**). |
+| 2026-11-24 | Atualizar o Postgres (seção 5.4) | Ok, feito pelo responsável no painel (**Upgrade project**), com autorização: de `17.6.1.104` para `17.12.0.000`. |
+| 2026-11-24 | Conferência depois da atualização (só leitura, seção 5.4) | Ok, pelo Claude via MCP: `get_project` mostra `17.12.0.000` e `ACTIVE_HEALTHY` (`version()` = PostgreSQL 17.12); 17 migrações, a última `20261123001` (igual a antes); 14 tabelas em `public`, todas com RLS; 0 riscos, 0 KRIs, 0 contas; 8 categorias e 6 subcategorias; extensões sem mudança de risco. *Advisors* sem aviso novo por causa da atualização: SECURITY DEFINER para `authenticated` 23 (eram 21 em 2026-11-20; as 2 a mais são `kri_total_riscos` e `cgov_grava_no_kri_preliminar`, da LAC-03), `anon` 1 (`rls_auto_enable`, D1-P1), *search_path* mutável 3 (D1-P2), chave estrangeira sem índice 11, índice não usado 9 e várias políticas permissivas 15 (os acréscimos vêm de `indicadores_kri` e `kri_riscos`, da LAC-03). As `20261123002` e `20261123003` continuam esperando o fim da Fase 2. |
 | *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
 
 > [!note] Proteção da própria Supabase
@@ -188,6 +189,8 @@ que chamasse pela API uma função sem permissão poderia derrubar as conexões 
 5. Espere o painel mostrar o projeto saudável de novo (*Healthy*).
 6. **Depois:** peça ao Claude a conferência só de leitura: versão nova pelo MCP (`get_project`), lista de
    migrações igual à de antes, tabelas com RLS e o *Advisors* sem aviso novo. Registre na tabela da seção 4.
+
+**Feito em 2026-11-24:** `17.6.1.104` → `17.12.0.000`, conferido por leitura no mesmo dia (seção 4).
 
 Observações: a atualização não aplica migração nenhuma (as `20261123002` e `20261123003` continuam
 esperando o front da Fase 2); as senhas dos papéis da Supabase são migradas sozinhas para `scram-sha-256`;
