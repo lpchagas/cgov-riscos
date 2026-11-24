@@ -13,7 +13,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(14);
+select plan(22);
 
 -- ============================================================================
 -- SEÇÃO 1 — Feriados e dias úteis
@@ -28,6 +28,7 @@ select has_function('public', 'fn_somar_dias_uteis', array['date', 'integer'], '
 select has_function('public', 'fn_dias_uteis_entre', array['date', 'date'], '1. fn_dias_uteis_entre existe');
 
 -- Semente: 20/11/2026 (Consciência Negra) e Carnaval de 2027 estão lá.
+select is((select count(*)::int from public.feriados), 26, '1. a semente tem 26 feriados');
 select is((select count(*)::int from public.feriados where data in ('2026-11-20', '2027-02-08', '2027-02-09')),
           3, '1. a semente traz 20/11/2026 e o Carnaval de 2027');
 
@@ -48,11 +49,28 @@ select is(public.fn_dias_uteis_entre('2026-11-23', '2026-11-20'), 0,
 select is(public.fn_dias_uteis_entre('2026-11-23', '2026-11-23'), 0,
           '1. mesmo dia: 0 dia útil');
 
+-- Entrada nula dá resultado nulo (STRICT), sem laço infinito.
+select is(public.fn_somar_dias_uteis(null, 10), null, '1. somar dias úteis a data nula devolve nulo');
+select is(public.fn_dias_uteis_entre(null, '2026-11-23'), null, '1. dias úteis com início nulo devolve nulo');
+-- O resultado não depende do fuso horário da sessão.
+set local timezone = 'America/Sao_Paulo';
+select is(public.fn_dias_uteis_entre('2026-11-19', '2026-11-23'), 1, '1. mesmo resultado em America/Sao_Paulo');
+set local timezone = 'Pacific/Auckland';
+select is(public.fn_dias_uteis_entre('2026-11-19', '2026-11-23'), 1, '1. mesmo resultado em Pacific/Auckland');
+-- Anon não executa as funções (só se confere o privilégio; não se chama como anon).
+select is(has_function_privilege('anon', 'public.fn_somar_dias_uteis(date,integer)', 'EXECUTE')
+          or has_function_privilege('anon', 'public.fn_dias_uteis_entre(date,date)', 'EXECUTE'),
+          false, '1. anon não tem EXECUTE nas funções de dias úteis');
+
 -- RLS: gestor lê, mas não grava; CGOV grava.
 select pg_temp.entrar_como('gestor.uc@radar.test');
 select ok((select count(*) from public.feriados) > 0, '1. gestor lê os feriados');
 select throws_ok($$insert into public.feriados (data, nome) values ('2030-01-02', 'teste')$$,
                  '42501', null, '1. gestor não insere em feriados');
+select is(pg_temp.linhas_afetadas($$update public.feriados set nome = 'x' where data = '2026-11-20'$$), 0,
+          '1. gestor não altera feriados (0 linhas)');
+select is(pg_temp.linhas_afetadas($$delete from public.feriados where data = '2026-11-20'$$), 0,
+          '1. gestor não apaga feriados (0 linhas)');
 
 select pg_temp.entrar_como('cgov@radar.test');
 select lives_ok($$insert into public.feriados (data, nome) values ('2030-01-02', 'Feriado de teste')$$,

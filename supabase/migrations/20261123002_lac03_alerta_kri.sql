@@ -87,10 +87,13 @@ INSERT INTO public.feriados (data, nome) VALUES
 -- Exemplos: (sexta, 1) = segunda seguinte (se não for feriado);
 --           ('2026-11-21' sábado, 10) = '2026-12-04'.
 -- n <= 0 devolve a própria data. STABLE: lê a tabela, mas não grava nada.
+-- STRICT: se d ou n for nulo, o resultado é nulo (sem STRICT, d nulo faria o
+-- laço rodar para sempre).
 CREATE FUNCTION public.fn_somar_dias_uteis(d date, n integer)
 RETURNS date
 LANGUAGE plpgsql
 STABLE
+STRICT
 SET search_path = ''
 AS $$
 DECLARE
@@ -112,17 +115,22 @@ $$;
 -- fn_dias_uteis_entre(inicio, fim): dias úteis em (inicio, fim], ou seja,
 -- NÃO conta o dia de início e conta o dia final. Devolve 0 se fim <= inicio.
 -- Exemplo: ('2026-11-19', '2026-11-23') = 1 (20 é feriado; 21 e 22, fim de semana).
+-- STRICT: com data nula, o resultado é nulo. A série usa inteiros (inicio + g)
+-- para não depender do fuso horário da sessão.
 CREATE FUNCTION public.fn_dias_uteis_entre(inicio date, fim date)
 RETURNS integer
 LANGUAGE sql
 STABLE
+STRICT
 SET search_path = ''
 AS $$
   SELECT count(*)::integer
-    FROM generate_series(inicio + 1, fim, interval '1 day') AS g(dia)
-   WHERE extract(isodow FROM g.dia) < 6
-     AND NOT EXISTS (SELECT 1 FROM public.feriados f WHERE f.data = g.dia::date);
+    FROM generate_series(1, fim - inicio) AS g(n)
+   WHERE extract(isodow FROM inicio + g.n) < 6
+     AND NOT EXISTS (SELECT 1 FROM public.feriados f WHERE f.data = inicio + g.n);
 $$;
 
-GRANT EXECUTE ON FUNCTION public.fn_somar_dias_uteis(date, integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.fn_dias_uteis_entre(date, date) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_somar_dias_uteis(date, integer) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.fn_somar_dias_uteis(date, integer) TO authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.fn_dias_uteis_entre(date, date) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.fn_dias_uteis_entre(date, date) TO authenticated, service_role;
