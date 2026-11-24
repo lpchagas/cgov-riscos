@@ -112,6 +112,8 @@
 | 2026-11-23 | `db push --linked` (LAC-03) | Ok, pelo Claude, com autorização: prévia (`--dry-run`) listou só a `20261122004`; aplicada (`Finished supabase db push.`). |
 | 2026-11-23 | Conferência depois da migração (só leitura) | Ok: 16 migrações, a última `20261122004`; `kri_riscos` presente, com RLS ligada e sem `UPDATE` para `authenticated`; `indicadores_kri` com `objeto_id` e sem `risco_id`; `fn_kri_completo` e `kri_total_riscos` presentes (`authenticated` executa, `anon` não); 0 riscos, 0 KRIs, 0 medições, 0 ligações; `auditoria_log` = 19 (igual a antes). Aprovados antigos fora da regra: nenhum (0 riscos). |
 | 2026-11-23 | `db push --linked` (LAC-03, 2ª migração) | Ok, pelo Claude, com autorização: prévia listou só a `20261123001` (travas de linha nos gatilhos de `kri_riscos`, achados do CodeRabbit na PR #17); aplicada. Conferido por leitura: 17 migrações, a última `20261123001`; `fn_kri_riscos_mesmo_objeto` com `FOR SHARE` no KRI e `FOR NO KEY UPDATE` no risco, `fn_kri_grupo_mesmo_objeto` com `FOR SHARE`, `fn_kri_riscos_apaga_orfao` com `FOR UPDATE`; 0 riscos, 0 KRIs, `auditoria_log` = 19. |
+| 2026-11-24 | Conferência antes de atualizar o Postgres (só leitura, seção 5.4) | Ok, pelo Claude via MCP, com autorização: versão `17.6.1.104`; 0 riscos, 0 KRIs, 0 contas em `auth.users` (sem dados reais, cópia dispensada); 17 migrações, a última `20261123001`; banco com 13 MB; nenhum *slot* de replicação; nenhuma das extensões de cuidado (`timescaledb`, `plv8`, `pgjwt`). |
+| *(próximo)* | Atualizar o Postgres (seção 5.4) | Autorizado em 2026-11-24; feito pelo responsável no painel (**Upgrade project**). |
 | *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
 
 > [!note] Proteção da própria Supabase
@@ -162,6 +164,33 @@ commit;
 → **Reset database password** → **Generate a password** → copie para o gerenciador de senhas →
 **Reset password**. A documentação avisa: a senha nova **pode levar alguns minutos** para valer.
 
+### 5.4 Atualizar a versão do Postgres **[AUTORIZAÇÃO]**
+
+**Por quê (2026-11-24):** a imagem **17.6.1.104** tem um defeito na extensão `supautils`: quando o papel
+`anon` ou `authenticated` chama uma função sem permissão, o servidor cai (*segmentation fault*) em vez de
+responder "permission denied". No banco local isso derrubava 5 arquivos de teste; na nuvem, um visitante
+que chamasse pela API uma função sem permissão poderia derrubar as conexões do banco. As versões 17.11 e
+17.12 respondem certo. O responsável autorizou a atualização em 2026-11-24.
+
+**Como (documentação da Supabase, "Upgrading", atualização no lugar com `pg_upgrade`):**
+
+1. **Antes:** confira se há dados reais. Se houver, faça a cópia cifrada do [[guia-copia-restauracao]]
+   antes de tudo. Se a atualização falhar, a Supabase volta o banco original sozinha, mas a cópia é a rede
+   de segurança.
+2. Escolha um horário sem uso: o banco e a API **ficam fora do ar** durante a atualização (minutos, num
+   banco pequeno; a regra da Supabase é cerca de 100 MB por segundo).
+3. Abra `https://supabase.com/dashboard/project/bekqcwaolpbhpxzcdyhx/settings/infrastructure`.
+4. Na seção do Postgres, veja a versão atual (`17.6.1.104`) e a oferecida. Clique em **Upgrade project**
+   e confirme. Se o botão não aparecer, o projeto ainda não tem versão nova liberada: avise o Claude e
+   não faça "pausar e restaurar" (só vale para o plano gratuito e tem outros efeitos).
+5. Espere o painel mostrar o projeto saudável de novo (*Healthy*).
+6. **Depois:** peça ao Claude a conferência só de leitura: versão nova pelo MCP (`get_project`), lista de
+   migrações igual à de antes, tabelas com RLS e o *Advisors* sem aviso novo. Registre na tabela da seção 4.
+
+Observações: a atualização não aplica migração nenhuma (as `20261123002` e `20261123003` continuam
+esperando o front da Fase 2); as senhas dos papéis da Supabase são migradas sozinhas para `scram-sha-256`;
+o projeto não usa replicação lógica nem `timescaledb`/`plv8`, que a documentação lista como cuidados.
+
 ---
 
 ## 6. Aplicar as migrações na nuvem (CLI)
@@ -196,6 +225,9 @@ npx supabase link --project-ref bekqcwaolpbhpxzcdyhx
   senha pode ser pedida; se pedir, digite a senha (nada aparece enquanto digita; é normal). A senha
   continua necessária para a cópia cifrada ([[guia-copia-restauracao]]).
 - Se mostrar diferenças de configuração ou fizer perguntas, **não aceite**: copie a mensagem e peça ajuda.
+- O `link` grava em `supabase/.temp/postgres-version` a versão do Postgres da nuvem. Desde 2026-11-24, o
+  `npm run db:start` apaga esse arquivo (`scripts/banco-local-imagem.mjs`) para o banco **local** subir com
+  a imagem padrão do CLI 3.3.0, sem o defeito da 17.6.1.104 (seção 5.4). A ligação com a nuvem não muda.
 
 ### 6.3 Prévia (não muda nada)
 
