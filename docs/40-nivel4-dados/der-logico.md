@@ -121,6 +121,10 @@ erDiagram
         text descricao_normativa
         smallint ordem "posição no Quadro 3"
     }
+    feriados {
+        date data PK "um dia por linha"
+        text nome
+    }
     riscos {
         uuid id PK
         text codigo_radar UK "ex.: RADAR-2026-003"
@@ -269,7 +273,7 @@ de `perfis_usuarios`, e fica vazio quando o administrador altera o banco direto.
 Em `historico_fluxo`, `usuario_nome` e `usuario_papel` são gravados como texto para mostrar quem agiu e
 com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 
-## Resumo das 14 tabelas
+## Resumo das 15 tabelas
 
 | Tabela | Bloco | Criada em | Chaves estrangeiras declaradas |
 | --- | --- | --- | --- |
@@ -279,6 +283,7 @@ com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 | `objetos_contexto` | 1 | `20261109001` (`processo_id` em `20261115001`) | `unidade_id`, `macroprocesso_supervisor_id`, `diretoria_id` → `unidades`; `processo_id` → `processos_cadeia_valor` |
 | `categorias_risco` | 2 | `20261109001` | nenhuma |
 | `subcategorias_risco` | 2 | `20261122001` | `categoria_id` → `categorias_risco` |
+| `feriados` | 2 | `20261123002` | nenhuma (lista de feriados que não contam como dia útil nos prazos do alerta do KRI, LAC-03) |
 | `riscos` | 2 | `20261109001` | `objeto_id` → `objetos_contexto` (em cascata); `categoria_id` → `categorias_risco`; (`categoria_id`, `subcategoria_integridade`) → `subcategorias_risco` (`20261122001`) |
 | `controles_existentes` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
 | `respostas_tratamento` | 2 | `20261109001` | `risco_id` → `riscos` (em cascata) |
