@@ -200,11 +200,41 @@ describe('mensagens 23514 da migração 20261122001 (categorias e subcategorias)
 });
 
 describe('traduzirErroComunicacao (LAC-04)', () => {
-  it('repassa a mensagem em português do banco; esconde texto técnico', async () => {
-    const { traduzirErroComunicacao } = await import('../../src/services/dados/errosBanco');
-    const e = traduzirErroComunicacao({ message: 'Este alerta já foi comunicado' });
+  const trad = async (e: unknown) => (await import('../../src/services/dados/errosBanco')).traduzirErroComunicacao(e);
+
+  it('repassa a mensagem P0001 conhecida, com o tipo pelo prefixo', async () => {
+    const e = await trad({ code: 'P0001', message: 'Este alerta já foi comunicado' });
     expect(e.message).toBe('Este alerta já foi comunicado');
     expect(e.tipo).toBe('estado');
-    expect(traduzirErroComunicacao({ message: 'duplicate key value violates constraint x' }).message).not.toContain('duplicate');
+  });
+
+  it('repassa mensagem P0001 fora da lista, intacta, com tipo desconhecido', async () => {
+    const e = await trad({ code: 'P0001', message: 'As ligações da comunicação são imutáveis' });
+    expect(e.message).toBe('As ligações da comunicação são imutáveis');
+    expect(e.tipo).toBe('desconhecido');
+  });
+
+  it('repassa "O alerta não pôde ser encerrado"', async () => {
+    const m = 'O alerta não pôde ser encerrado; a comunicação não foi gravada';
+    expect((await trad({ code: 'P0001', message: m })).message).toBe(m);
+  });
+
+  it('42501 "Sem permissão" chega como permissão', async () => {
+    const e = await trad({ code: '42501', message: 'Sem permissão para comunicar por esta unidade' });
+    expect(e.message).toBe('Sem permissão para comunicar por esta unidade');
+    expect(e.tipo).toBe('permissao');
+  });
+
+  it('23514 dos CHECK de supre vira a mensagem em português', async () => {
+    for (const nome of ['comunicacoes_cgov_supre_so_alerta', 'comunicacoes_cgov_supre_valores']) {
+      const e = await trad({ code: '23514', message: `new row violates check constraint "${nome}"` });
+      expect(e.message).toBe('Só a comunicação de alerta de KRI pode suprir as hipóteses I, II e III');
+      expect(e.tipo).toBe('validacao');
+    }
+  });
+
+  it('erro técnico (23505) não vaza texto em inglês: vira o texto genérico', async () => {
+    const e = await trad({ code: '23505', message: 'duplicate key value violates unique constraint "x"' });
+    expect(e.message).toBe('Já existe um registro com estes dados.');
   });
 });

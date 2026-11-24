@@ -182,14 +182,16 @@ export function traduzirErroBanco(erro: unknown): ErroRadar {
 }
 
 /**
- * Mensagens da RPC `enviar_comunicacao` e de `registrar_ciencia_comunicacao`: o banco as escreve
- * em português claro, SEM o prefixo "RADAR:". Só estas (prefixos conhecidos) são repassadas
- * à tela; qualquer outro texto técnico continua escondido por `traduzirErroBanco`.
- * Ex.: { message: 'Este alerta já foi comunicado' } -> ErroRadar('Este alerta já foi comunicado', 'estado')
+ * Comunicações à CGOV: as RPCs `enviar_comunicacao` e `registrar_ciencia_comunicacao` escrevem
+ * TODA mensagem de RAISE EXCEPTION em português claro, sem o prefixo "RADAR:" (código P0001;
+ * a falta de permissão vem como 42501). Essas mensagens são repassadas à pessoa como estão.
+ * O prefixo só escolhe o TIPO do erro; o padrão é 'desconhecido'.
+ * Erros técnicos (outros códigos) continuam no texto genérico.
+ * Ex.: { code: 'P0001', message: 'Este alerta já foi comunicado' } -> ErroRadar(mesma frase, 'estado')
  */
-const MENSAGENS_COMUNICACAO: Array<[string, TipoErroRadar]> = [
+const TIPOS_COMUNICACAO: Array<[string, TipoErroRadar]> = [
   ['A auditoria não envia', 'permissao'],
-  ['Sem permissão para comunicar', 'permissao'],
+  ['Sem permissão', 'permissao'],
   ['Somente a CGOV', 'permissao'],
   ['Comunicação não encontrada', 'nao_encontrado'],
   ['Alerta não encontrado', 'nao_encontrado'],
@@ -203,13 +205,25 @@ const MENSAGENS_COMUNICACAO: Array<[string, TipoErroRadar]> = [
   ['A comunicação de', 'validacao'],
 ];
 
-/** Como `traduzirErroBanco`, mas repassa as mensagens em português da comunicação. */
+/** Os dois CHECK de `supre` (23514): a mesma frase que a demonstração dá. */
+const MENSAGEM_SUPRE = 'Só a comunicação de alerta de KRI pode suprir as hipóteses I, II e III';
+
+/** Como `traduzirErroBanco`, mas repassa as mensagens em português das RPCs de comunicação. */
 export function traduzirErroComunicacao(erro: unknown): ErroRadar {
   if (erro instanceof ErroRadar) return erro;
-  const mensagem = (erro as { message?: unknown } | null)?.message;
-  if (typeof mensagem === 'string') {
-    const achada = MENSAGENS_COMUNICACAO.find(([prefixo]) => mensagem.startsWith(prefixo));
-    if (achada) return new ErroRadar(mensagem, achada[1]);
+  const e = (erro ?? {}) as { message?: unknown; code?: unknown };
+  const mensagem = typeof e.message === 'string' ? e.message : '';
+  const codigo = typeof e.code === 'string' ? e.code : null;
+
+  if (codigo === 'P0001' && mensagem.trim()) {
+    const achada = TIPOS_COMUNICACAO.find(([prefixo]) => mensagem.startsWith(prefixo));
+    return new ErroRadar(mensagem, achada ? achada[1] : 'desconhecido', codigo);
+  }
+  if (codigo === '42501' && mensagem.startsWith('Sem permissão')) {
+    return new ErroRadar(mensagem, 'permissao', codigo);
+  }
+  if (codigo === '23514' && /comunicacoes_cgov_supre_(so_alerta|valores)/.test(mensagem)) {
+    return new ErroRadar(MENSAGEM_SUPRE, 'validacao', codigo);
   }
   return traduzirErroBanco(erro);
 }

@@ -19,7 +19,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type { ComunicacaoCgov } from '../types/radar.types';
 import type { NovaComunicacao } from '../services/dados/tipos';
-import { ErroRadar, traduzirErroBanco } from '../services/dados/errosBanco';
+import { ErroRadar, traduzirErroBanco, traduzirErroComunicacao } from '../services/dados/errosBanco';
 import { useRiscosStore } from './riscosStore';
 
 export const useComunicacoesStore = defineStore('comunicacoes', () => {
@@ -47,7 +47,7 @@ export const useComunicacoesStore = defineStore('comunicacoes', () => {
   /** Grava a comunicação, relê a lista e devolve o id novo. */
   async function enviar(d: NovaComunicacao): Promise<string> {
     const id = await fonte().enviarComunicacao(d).catch((e: unknown) => {
-      throw traduzirErroBanco(e);
+      throw traduzirErroComunicacao(e);
     });
     await carregar();
     // Comunicar um alerta o encerra: o Monitoramento precisa ler os alertas de novo.
@@ -57,7 +57,7 @@ export const useComunicacoesStore = defineStore('comunicacoes', () => {
 
   async function registrarCiencia(id: string, observacao?: string): Promise<void> {
     await fonte().registrarCiencia(id, observacao).catch((e: unknown) => {
-      throw traduzirErroBanco(e);
+      throw traduzirErroComunicacao(e);
     });
     await carregar();
   }

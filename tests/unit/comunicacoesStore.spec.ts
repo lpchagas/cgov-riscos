@@ -6,6 +6,7 @@ import { useComunicacoesStore } from '../../src/stores/comunicacoesStore';
 import { criarFonteDemonstracao } from '../../src/services/dados';
 import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
 import type { NovaComunicacao } from '../../src/services/dados/tipos';
+import { ErroRadar } from '../../src/services/dados/errosBanco';
 import type { PapelGovernanca } from '../../src/types/radar.types';
 
 const usar = (papel: PapelGovernanca) =>
@@ -59,7 +60,10 @@ describe('comunicacoesStore', () => {
     await s.registrarCiencia(s.novas[0].id, 'Ciente.');
     expect(s.novas.length).toBe(antes - 1);
     const ciente = s.comunicacoes.find((c) => c.observacaoCgov === 'Ciente.')!;
-    await expect(s.registrarCiencia(ciente.id)).rejects.toThrow('já foi registrada');
+    const falha = await s.registrarCiencia(ciente.id).catch((e: unknown) => e);
+    expect(falha).toBeInstanceOf(ErroRadar);
+    expect((falha as ErroRadar).message).toContain('já foi registrada');
+    expect((falha as ErroRadar).tipo).toBe('estado');
   });
 
   it('limpar esvazia a lista', async () => {

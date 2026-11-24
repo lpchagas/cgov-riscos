@@ -803,7 +803,10 @@ export function criarFonteDemonstracao(
       return alertas.filter((a) => kris.some((k) => k.id === a.kriId)).map((a) => montarAlertaKri(a, hoje));
     },
 
-    /** Comunicações à CGOV, com prazo e situação calculados agora (como a visão do banco). */
+    /**
+     * Comunicações à CGOV, com prazo e situação calculados agora. ATENÇÃO: a demonstração NÃO filtra
+     * por alcance de unidade/subunidade (o banco filtra, pela RLS).
+     * Comunicações à CGOV, com prazo e situação calculados agora (como a visão do banco). */
     async listarComunicacoes() {
       if (estado === 'erro') throw new ErroRadar(MENSAGEM_REDE, 'rede');
       return comunicacoes.map((c) => montarComunicacao(copiar(c))).sort((a, b) => b.comunicadaEm.localeCompare(a.comunicadaEm));
