@@ -51,7 +51,7 @@ passos dela (CTGRIC, CIG e portaria só para leitura, com link para P-05 e P-10)
 [ Vigente ] [ Proposta e rito ]
 
 (1) Minuta ── (2) CTGRIC ── (3) CIG ── (4) Portaria ── (5) Vigente
- ● atual: Minuta da CGOV · prazo: dia 6 de 10 dias úteis · início 16/11/2026
+ ● atual: Minuta da CGOV (sem contador de prazo nesta etapa; ver §6)
 
 Categoria                  Vigente    Proposto        Efeito na criticidade   Texto
 Operacional                Moderado   [Baixo|Moderado]  +2 riscos críticos     [Editar]
@@ -99,9 +99,16 @@ Risco Crítico é o residual fora do apetite da DAR, nunca o nível Extremo (> 1
 sem arredondar; inerente pelo Quadro 7, nunca P × I; "Plano de Gestão de Riscos" por extenso; apetite só Baixo
 ou Moderado, ou pendente de DAR (RN-055, RN-010).
 
-## 6. Em aberto (para a CGOV, sem travar o desenho)
+## 6. Decisões do responsável sobre os pontos em aberto (2026-11-23)
 
-- Quando começa a contar o prazo de 10 dias úteis da minuta (decisão não aplicada F5-11): o quadro mostra uma
-  data de início de demonstração.
-- O que vale enquanto não há DAR publicada (F1-02, F2-02): fora deste desenho.
-- Perfis que abrem a aba (P-01 está fora da matriz §7).
+- **Prazo (RF-195): sem prazo na etapa da minuta.** O contador de 10 dias úteis aparece só em "incorporar as
+  ressalvas", contado da data da manifestação do CTGRIC (registrada na P-05). O passo "encaminhar ao CTGRIC"
+  fica sem contador no desenho, porque sem data de início da minuta não há de onde contar; o RF-195 fica
+  cumprido só em parte, e isso vai anotado no quadro.
+- **Sem DAR publicada: mantém a regra atual.** Categoria "pendente de DAR"; residual Alto ou Extremo é Risco
+  Crítico (fora de qualquer apetite); residual Médio fica pendente (RN-010; [[matriz-regras-regime-b]] §8). A
+  aba Vigente mostra o selo "sem DAR publicada".
+- **Perfis: a CGOV edita e todos leem.** Os 10 perfis veem a aba e o andamento do rito; só a CGOV monta, salva
+  e encaminha.
+- **Encaminhar ao CTGRIC: a DAR sozinha, com aviso.** O `Dialog` de confirmação traz o aviso "O Plano de Gestão
+  de Riscos segue por fora até a tela P-04" (Metodologia 4.6.4 manda os dois juntos).
