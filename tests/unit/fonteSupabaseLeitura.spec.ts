@@ -102,6 +102,26 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
     expect(por('r1').kris[0].periodicidade).toBeUndefined();
   });
 
+  it('KRI sem nenhuma ligação visível vem em krisSemRisco, com as medições (LAC-03, P-02)', async () => {
+    const { cliente } = clienteFalso({
+      categorias_risco: [{ id: 2, nome: 'Operacional' }],
+      unidades: [{ id: 'u1', sigla: 'UC', nome: 'UC', tipo: 'uc' }],
+      objetos_contexto: [{ id: 'o1', nome_objeto: 'Obj', unidade_id: 'u1' }],
+      riscos: [{ id: 'r1', codigo_radar: 'RADAR-X-1', objeto_id: 'o1', categoria_id: 2 }],
+      indicadores_kri: [
+        { id: 'k1', objeto_id: 'o1', nome_indicador: 'Ligado' },
+        { id: 'k2', objeto_id: 'o1', nome_indicador: 'Órfão', limite_operador: '<', limite_valor: 80 },
+      ],
+      kri_riscos: [{ kri_id: 'k1', risco_id: 'r1' }],
+      medicoes_kri: [{ id: 'm2', kri_id: 'k2', data_medicao: '2026-11-01', valor_apurado: '70%', em_alerta: true }],
+    });
+    const carteira = await criarFonteSupabase(cliente).carregarCarteira();
+    expect(carteira.krisSemRisco?.map((k) => k.id)).toEqual(['k2']);
+    expect(carteira.krisSemRisco?.[0].riscoIds).toEqual([]);
+    expect(carteira.krisSemRisco?.[0].limiteValor).toBe(80);
+    expect(carteira.krisSemRisco?.[0].medicoes.map((m) => m.id)).toEqual(['m2']);
+  });
+
   it('KRI ligado a riscos fora da visão: totalRiscos vem de kri_total_riscos (carteira e releitura)', async () => {
     // A RLS só deixa ler a ligação k1 → r1; o banco diz que k1 serve a 3 riscos.
     const { cliente, chamadasRpc } = clienteFalso(

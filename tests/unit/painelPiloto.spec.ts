@@ -21,7 +21,9 @@ import { ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
 import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import type { AcoesFluxo, FichaRisco } from '../../src/types/radar.types';
-import { RISCOS_SEMENTE_ANEXO_II } from '../../src/services/dadosSementeAnexoII';
+import { ALERTAS_KRI_SEMENTE, RISCOS_SEMENTE_ANEXO_II } from '../../src/services/dadosSementeAnexoII';
+import { montarAlertaKri } from '../../src/utils/situacaoKri';
+import type { AlertaKri } from '../../src/types/radar.types';
 import {
   contarRiscosPorCelula,
   descreverEventoFluxo,
@@ -36,6 +38,12 @@ import { useAuthStore } from '../../src/stores/authStore';
 /** Cópia limpa dos riscos de demonstração (cada teste pode alterar a sua). */
 const semente = (): FichaRisco[] => JSON.parse(JSON.stringify(RISCOS_SEMENTE_ANEXO_II));
 const HOJE = new Date(2026, 10, 14); // 14/11/2026 (mês começa em 0)
+/** Alertas da semente (vencido, dia 3 e comunicado), com o prazo calculado como a visão do banco. */
+const alertasSemente = (): AlertaKri[] => ALERTAS_KRI_SEMENTE.map((a) => montarAlertaKri(a));
+/** Um alerta aberto, no prazo, para o KRI informado (dia 3 de 10). */
+const alertaAberto = (kriId: string): AlertaKri => ({
+  id: `alerta-${kriId}`, kriId, cienciaEm: '2026-11-10', venceEm: '2026-11-24', diaAtual: 3, vencido: false, diasUteisVencido: 0,
+});
 
 // ---------------------------------------------------------------------------
 // 1. FUNÇÕES DE RESUMO
@@ -76,19 +84,44 @@ describe('painelResumo', () => {
   it('"Precisa da sua atenção" muda conforme o perfil', async () => {
     const lista = semente();
     const tipos = async (papel: Parameters<typeof itensDeAtencao>[1]) =>
-      itensDeAtencao(lista, papel, HOJE, await acoesDoPerfil(papel as keyof typeof PERFIS_DEMO_ICMBIO, lista)).map(
-        (i) => i.tipo
-      );
+      itensDeAtencao(
+        lista,
+        papel,
+        HOJE,
+        await acoesDoPerfil(papel as keyof typeof PERFIS_DEMO_ICMBIO, lista),
+        alertasSemente()
+      ).map((i) => i.tipo);
 
     // CGOV supervisiona o que está parado no fluxo (itens neutros), sem decidir.
-    // (3 'kri': a semente tem 3 KRIs com a última leitura em alerta — vencido, dia 3 e comunicado.)
-    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'kri', 'kri', 'prazo', 'prazo']);
+    // (2 'kri': os alertas ABERTOS da semente — vencido e dia 3; o comunicado não pede mais nada.)
+    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'kri', 'prazo', 'prazo']);
     // A Coordenação-Geral vê a SUA fila de validação, não a da Diretoria.
-    expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'kri', 'kri', 'prazo', 'prazo']);
+    expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'kri', 'prazo', 'prazo']);
     // A Diretoria vê a SUA homologação (e também valida, spec B1 7.1) e não recebe alertas de KRI.
     expect(await tipos('diretor')).toEqual(['validacao', 'homologacao', 'prazo', 'prazo']);
     // O gestor (1ª Linha) não vê filas de aprovação dos degraus de cima.
-    expect(await tipos('gestor')).toEqual(['kri', 'kri', 'kri', 'prazo', 'prazo']);
+    expect(await tipos('gestor')).toEqual(['kri', 'kri', 'prazo', 'prazo']);
+  });
+
+  it('KRI: só alerta ABERTO (no prazo ou vencido) entra; comunicado e leitura sem alerta, não', () => {
+    const lista = semente();
+    const kris = itensDeAtencao(lista, 'cgov', HOJE, {}, alertasSemente()).filter((i) => i.tipo === 'kri');
+    expect(kris.map((i) => i.id).sort()).toEqual(['kri-kri-anexo-ii-1', 'kri-kri-integra-1']);
+    // O comunicado (kri-socio-1) tem a última leitura em alerta, mas já foi comunicado à CGOV.
+    expect(kris.some((i) => i.id === 'kri-kri-socio-1')).toBe(false);
+    // Sem a lista de alertas, a marca "em alerta" da leitura sozinha não gera item.
+    expect(itensDeAtencao(lista, 'cgov', HOJE).filter((i) => i.tipo === 'kri')).toEqual([]);
+  });
+
+  it('KRI: o item traz o prazo (dia N de 10 ou vencido) e o limite por extenso', () => {
+    const lista = semente();
+    const alertas = alertasSemente();
+    const itens = itensDeAtencao(lista, 'cgov', HOJE, {}, alertas);
+    const vencido = itens.find((i) => i.id === 'kri-kri-anexo-ii-1')!;
+    const diasVencido = alertas.find((a) => a.kriId === 'kri-anexo-ii-1')!.diasUteisVencido;
+    expect(vencido.detalhe).toContain(`prazo vencido há ${diasVencido} dias úteis`);
+    expect(vencido.detalhe).toContain('(alerta: menor que 70 %)');
+    expect(itens.find((i) => i.id === 'kri-kri-integra-1')!.detalhe).toContain('dia 3 de 10 dias úteis');
   });
 
   it('fala com a pessoa: "aguardando a sua validação" para a Coordenação-Geral', async () => {
@@ -128,7 +161,7 @@ describe('painelResumo', () => {
     const alerta = { id: 'm-alerta', dataMedicao: '2026-11-10', valorApurado: '70%', emAlerta: true };
     // O mesmo KRI (kri-anexo-ii-2) está nos riscos 001 e 004: a medição aparece nos dois.
     for (const r of lista) for (const k of r.kris) if (k.id === 'kri-anexo-ii-2') k.medicoes = [alerta];
-    const kris = itensDeAtencao(lista, 'cgov', HOJE).filter((i) => i.tipo === 'kri');
+    const kris = itensDeAtencao(lista, 'cgov', HOJE, {}, [alertaAberto('kri-anexo-ii-2')]).filter((i) => i.tipo === 'kri');
     const doCompartilhado = kris.filter((i) => i.id === 'kri-kri-anexo-ii-2');
     expect(doCompartilhado).toHaveLength(1);
     expect(doCompartilhado[0].detalhe).toContain('RADAR-2026-001, RADAR-2026-004');
@@ -142,12 +175,28 @@ describe('painelResumo', () => {
       for (const k of r.kris) {
         if (k.id !== 'kri-anexo-ii-2') continue;
         k.limiteAlerta = undefined;
+        k.limiteOperador = undefined;
+        k.limiteValor = undefined;
         k.medicoes = [{ id: 'm-alerta', dataMedicao: '2026-11-10', valorApurado: '70%', emAlerta: true }];
       }
     }
-    const item = itensDeAtencao(lista, 'cgov', HOJE).find((i) => i.id === 'kri-kri-anexo-ii-2')!;
+    const item = itensDeAtencao(lista, 'cgov', HOJE, {}, [alertaAberto('kri-anexo-ii-2')]).find((i) => i.id === 'kri-kri-anexo-ii-2')!;
     expect(item.detalhe).toContain('(alerta: limite não definido)');
     expect(item.detalhe).not.toContain('(alerta: )');
+  });
+
+  it('KRI com o limite antigo só em texto mostra o texto marcado "limite a converter"', () => {
+    const lista = semente();
+    for (const r of lista) {
+      for (const k of r.kris) {
+        if (k.id !== 'kri-anexo-ii-2') continue;
+        k.limiteAlerta = 'Abaixo de 80%';
+        k.limiteOperador = undefined;
+        k.limiteValor = undefined;
+      }
+    }
+    const item = itensDeAtencao(lista, 'cgov', HOJE, {}, [alertaAberto('kri-anexo-ii-2')]).find((i) => i.id === 'kri-kri-anexo-ii-2')!;
+    expect(item.detalhe).toContain('(alerta: Abaixo de 80% — limite a converter)');
   });
 
   it('descreve eventos do histórico em linguagem simples', () => {

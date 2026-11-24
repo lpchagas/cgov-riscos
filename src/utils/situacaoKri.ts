@@ -72,3 +72,16 @@ export function ordenarPorUrgencia<T>(itens: T[], situacao: (t: T) => SituacaoKr
     .sort((x, y) => x.peso - y.peso || x.posicao - y.posicao)
     .map((x) => x.item);
 }
+
+/**
+ * O alerta que vale para a tela: o ABERTO, se houver (há no máximo um por KRI);
+ * senão o encerrado mais recente (pela ciência). `undefined` = KRI sem alerta.
+ * Ex.: KRI com um alerta comunicado em outubro e um aberto hoje -> o aberto.
+ */
+export function alertaAtualDoKri(alertas: AlertaKri[], kriId: string): AlertaKri | undefined {
+  const doKri = alertas.filter((a) => a.kriId === kriId);
+  return (
+    doKri.find((a) => !a.encerradoEm) ??
+    [...doKri].sort((a, b) => b.cienciaEm.localeCompare(a.cienciaEm))[0]
+  );
+}

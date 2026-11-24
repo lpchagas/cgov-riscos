@@ -35,6 +35,7 @@ import {
   eventoAuditoriaDoBanco,
   eventoFluxoDoBanco,
   fichaParaJson,
+  kriSemRiscoDoBanco,
   objetoDoBanco,
   processoDoBanco,
   riscoDoBanco,
@@ -257,7 +258,12 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
         historico: agruparPor(hisL, 'risco_id'),
       };
       const riscos = risL.map((l) => montarRisco(l, apoio));
-      return { riscos, objetos, categorias, unidades, processos };
+      // KRIs sem nenhuma ligação à vista (P-02): o Monitoramento mostra os que têm alerta.
+      const ligados = new Set(kriRiscosL.map((x) => String(x.kri_id)));
+      const krisSemRisco = kriL
+        .filter((k) => !ligados.has(String(k.id)))
+        .map((k) => kriSemRiscoDoBanco(k, medL, totaisKri.get(String(k.id))));
+      return { riscos, objetos, categorias, unidades, processos, krisSemRisco };
     },
 
     async relerRisco(id: string): Promise<FichaRisco | null> {

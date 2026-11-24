@@ -137,7 +137,7 @@ const resumoCelula = computed(() => {
 // 3. PRECISA DA SUA ATENÇÃO
 // ---------------------------------------------------------------------------
 const LIMITE_ATENCAO = 6;
-const atencao = computed(() => itensDeAtencao(riscos.value, perfil.value, new Date(), riscosStore.acoes));
+const atencao = computed(() => itensDeAtencao(riscos.value, perfil.value, new Date(), riscosStore.acoes, riscosStore.alertasKri));
 const atencaoVisivel = computed(() => atencao.value.slice(0, LIMITE_ATENCAO));
 
 /**

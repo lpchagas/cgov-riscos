@@ -257,6 +257,15 @@ export function alertaKriDoBanco(l: LinhaBanco): AlertaKri {
   };
 }
 
+/**
+ * KRI sem nenhum risco ligado à vista da pessoa (P-02: o Monitoramento ainda
+ * mostra o alerta dele). Mesma conversão do KRI ligado, com `riscoIds` vazio.
+ * Ex.: kriSemRiscoDoBanco({ id: 'k2', ... }, medicoes, 0) -> { id: 'k2', riscoIds: [], totalRiscos: 0, ... }
+ */
+export function kriSemRiscoDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], totalRiscos?: number): IndicadorKri {
+  return kriDoBanco(l, medicoes, [], totalRiscos);
+}
+
 /** Linha de `historico_fluxo` -> `HistoricoFluxoItem`. */
 export function historicoDoBanco(l: LinhaBanco): HistoricoFluxoItem {
   return {

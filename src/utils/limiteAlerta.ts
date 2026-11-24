@@ -108,3 +108,24 @@ export function numeroDaLeitura(t: string): number | undefined {
   const valor = Number(m[1].replace(',', '.'));
   return Number.isFinite(valor) ? valor : undefined;
 }
+
+/**
+ * O limite do KRI escrito para a pessoa ler (Monitoramento, Ficha e Painel):
+ *   - limite numérico -> por extenso: "menor que 80 %";
+ *   - só o texto antigo -> o texto marcado: "Abaixo de 80% — limite a converter"
+ *     (até alguém informar operador e número, o sistema não verifica o alerta);
+ *   - nada -> "limite não definido".
+ */
+export function descreverLimiteKri(kri: {
+  limiteOperador?: OperadorLimite;
+  limiteValor?: number;
+  limiteUnidade?: string;
+  limiteAlerta?: string;
+}): string {
+  // Valor 0 é limite válido: por isso conferimos o TIPO, e não "if (valor)".
+  if (kri.limiteOperador && typeof kri.limiteValor === 'number' && Number.isFinite(kri.limiteValor)) {
+    return textoLimite(kri.limiteOperador, kri.limiteValor, kri.limiteUnidade);
+  }
+  if (kri.limiteAlerta?.trim()) return `${kri.limiteAlerta.trim()} — limite a converter`;
+  return 'limite não definido';
+}

@@ -499,7 +499,9 @@ export function criarFonteDemonstracao(
     async carregarCarteira(): Promise<Carteira> {
       if (estado === 'carregando') return new Promise<Carteira>(() => {}); // nunca termina
       if (estado === 'erro') throw new ErroRadar(MENSAGEM_REDE, 'rede');
-      return copiar({ riscos, objetos, categorias, unidades, processos: [] });
+      // KRIs sem risco ligado (só sobram os que têm alerta: `apagarOrfaos` apaga os demais).
+      const krisSemRisco = kris.filter((k) => k.riscoIds.length === 0);
+      return copiar({ riscos, objetos, categorias, unidades, processos: [], krisSemRisco });
     },
 
     async relerRisco(id) {

@@ -24,6 +24,7 @@ import { useRiscosStore } from '../stores/riscosStore';
 import type { FichaRisco } from '../types/radar.types';
 import { ROTULOS_CRITICIDADE, ROTULOS_STATUS_FLUXO, formatarDataHora } from '../utils/rotulosInterface';
 import { dataCurta, descreverEventoFluxo } from '../utils/painelResumo';
+import { descreverLimiteKri } from '../utils/limiteAlerta';
 import RiskBadge from '../components/ui/RiskBadge.vue';
 import Chip from '../components/ui/Chip.vue';
 import EmptyState from '../components/ui/EmptyState.vue';
@@ -179,7 +180,7 @@ const ultimaLeitura = (kri: FichaRisco['kris'][number]) =>
               <li v-for="k in risco.kris" :key="k.id" class="item-cartao">
                 <p class="item-cartao__titulo">{{ k.nomeIndicador }}</p>
                 <!-- Campo opcional em branco: o mesmo texto do Monitoramento (o sistema não inventa valor). -->
-                <p class="texto-apoio">Meta {{ k.metaAlvo ?? 'não definida' }} · alerta {{ k.limiteAlerta ?? 'limite não definido' }} · {{ k.periodicidade ?? 'periodicidade não definida' }}</p>
+                <p class="texto-apoio">Meta {{ k.metaAlvo ?? 'não definida' }} · alerta {{ descreverLimiteKri(k) }} · {{ k.periodicidade ?? 'periodicidade não definida' }}</p>
                 <p v-if="ultimaLeitura(k)" class="texto-apoio">
                   Última leitura: <strong>{{ ultimaLeitura(k).valorApurado }}</strong> em {{ dataCurta(ultimaLeitura(k).dataMedicao) }}
                   <Chip v-if="ultimaLeitura(k).emAlerta" tom="perigo" icone="fa-solid fa-triangle-exclamation">Em alerta</Chip>

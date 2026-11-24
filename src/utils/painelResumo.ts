@@ -17,6 +17,7 @@
 import type { RouteLocationRaw } from 'vue-router';
 import type {
   AcoesFluxo,
+  AlertaKri,
   CategoriaRisco,
   ClasseRisco,
   FichaRisco,
@@ -26,6 +27,8 @@ import type {
   PapelGovernanca,
 } from '../types/radar.types';
 import type { TomVisual } from './rotulosInterface';
+import { alertaAtualDoKri, situacaoKri } from './situacaoKri';
+import { descreverLimiteKri } from './limiteAlerta';
 
 // ---------------------------------------------------------------------------
 // 1. MATRIZ: quantos riscos há em cada célula (P × I)
@@ -167,12 +170,16 @@ function listaCodigos(riscos: FichaRisco[]): string {
  *
  * `hoje` é um parâmetro (e não `new Date()` lá dentro) para que o teste
  * consiga fixar a data e o resultado seja sempre o mesmo.
+ *
+ * `alertas` são os alertas dos KRIs (LAC-03, visão `alertas_kri_situacao`): só o
+ * alerta ABERTO (no prazo ou vencido) vira item; o já comunicado à CGOV, não.
  */
 export function itensDeAtencao(
   riscos: FichaRisco[],
   papel: PapelGovernanca,
   hoje: Date,
-  acoes: Record<string, AcoesFluxo> = {}
+  acoes: Record<string, AcoesFluxo> = {},
+  alertas: AlertaKri[] = []
 ): ItemAtencao[] {
   const itens: ItemAtencao[] = [];
 
@@ -254,8 +261,11 @@ export function itensDeAtencao(
     });
   }
 
-  // (b) Indicadores (KRI) cuja ÚLTIMA leitura está em alerta
-  // LAC-03: o KRI compartilhado aparece em CADA risco ligado (mesmo id). Aqui ele
+  // (b) Indicadores (KRI) com alerta ABERTO (LAC-03): no prazo ("dia N de 10 dias
+  // úteis") ou vencido. Quem decide é a situação do KRI (`situacaoKri`), e não a
+  // marca "em alerta" da última leitura: o alerta já comunicado à CGOV não pede
+  // mais nada da pessoa e por isso não aparece.
+  // O KRI compartilhado aparece em CADA risco ligado (mesmo id). Aqui ele
   // entra UMA vez só, com os códigos de todos os riscos. Ex.: o KRI k1 dos riscos
   // 001 e 004 em alerta → um item "RADAR-2026-001, RADAR-2026-004 · 70% em ...".
   if (papel !== 'diretor') {
@@ -268,16 +278,23 @@ export function itensDeAtencao(
       }
     }
     for (const { kri, codigos } of porKri.values()) {
+      const alerta = alertaAtualDoKri(alertas, kri.id);
+      const situacao = situacaoKri(kri, alerta);
+      if (!alerta || (situacao !== 'vencido' && situacao !== 'alerta')) continue;
       const ultima = [...kri.medicoes].sort((a, b) => b.dataMedicao.localeCompare(a.dataMedicao))[0];
-      if (!ultima?.emAlerta) continue;
-      // Limite em branco: o mesmo texto do Monitoramento, nunca "(alerta: )".
-      const limite = kri.limiteAlerta ? kri.limiteAlerta.toLowerCase() : 'limite não definido';
+      // Prazo de 10 dias úteis com o número do banco (sem somar 1: no dia da ciência, "dia 0").
+      const prazo =
+        situacao === 'vencido'
+          ? `prazo vencido há ${plural(alerta.diasUteisVencido, 'dia útil', 'dias úteis')}`
+          : `dia ${alerta.diaAtual} de 10 dias úteis`;
+      const leitura = ultima ? ` · ${ultima.valorApurado} em ${dataCurta(ultima.dataMedicao)}` : '';
+      // Limite: o mesmo texto do Monitoramento (por extenso, "a converter" ou "limite não definido").
       itens.push({
         id: `kri-${kri.id}`,
         tipo: 'kri',
         tom: 'perigo',
         titulo: `Indicador em alerta: ${kri.nomeIndicador}`,
-        detalhe: `${codigos.join(', ')} · ${ultima.valorApurado} em ${dataCurta(ultima.dataMedicao)} (alerta: ${limite})`,
+        detalhe: `${codigos.join(', ')}${leitura} (alerta: ${descreverLimiteKri(kri)}) · ${prazo}`,
         acao: papel === 'gestor' ? 'Registrar nova leitura' : 'Ver indicador',
         destino: { name: 'monitoramento-kris' },
       });

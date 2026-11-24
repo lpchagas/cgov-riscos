@@ -214,6 +214,11 @@ export const useRiscosStore = defineStore('riscos', () => {
   const acoes = ref<Record<string, AcoesFluxo>>({});
   /** Alertas dos KRIs (LAC-03): abertos e encerrados, com o prazo já calculado pela fonte. */
   const alertasKri = ref<AlertaKri[]>([]);
+  /**
+   * KRIs sem nenhum risco ligado à vista (P-02). Ex.: o risco do KRI foi
+   * excluído, mas o alerta ainda não foi comunicado. Atualiza a cada `carregar()`.
+   */
+  const krisSemRisco = ref<IndicadorKri[]>([]);
 
   const estado = ref<EstadoCarteira>('ocioso');
   const erro = ref<ErroRadar | null>(null);
@@ -268,6 +273,7 @@ export const useRiscosStore = defineStore('riscos', () => {
       processos.value = carteira.processos;
       acoes.value = porRisco(listaAcoes);
       alertasKri.value = listaAlertas;
+      krisSemRisco.value = carteira.krisSemRisco ?? [];
       avisoAtualizacao.value = null;
       estado.value = 'pronto';
     } catch (e) {
@@ -292,6 +298,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     processos.value = [];
     acoes.value = {};
     alertasKri.value = [];
+    krisSemRisco.value = [];
     estado.value = 'ocioso';
     erro.value = null;
     avisoAtualizacao.value = null;
@@ -842,6 +849,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     processos,
     acoes,
     alertasKri,
+    krisSemRisco,
     estado,
     erro,
     avisoAtualizacao,

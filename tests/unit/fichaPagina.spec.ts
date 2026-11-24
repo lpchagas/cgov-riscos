@@ -50,6 +50,8 @@ describe('Ficha do risco', () => {
     const k = r.kris[0];
     k.metaAlvo = undefined;
     k.limiteAlerta = undefined;
+    k.limiteOperador = undefined;
+    k.limiteValor = undefined;
     k.periodicidade = undefined;
     const { w } = await montar(`/riscos/${r.id}?aba=monitoramento`);
     const linha = w.findAll('.item-cartao').find((li) => li.text().includes(k.nomeIndicador))!;
@@ -57,6 +59,18 @@ describe('Ficha do risco', () => {
     expect(linha.text()).toContain('limite não definido');
     expect(linha.text()).toContain('periodicidade não definida');
     expect(linha.text()).not.toMatch(/Meta\s+·|alerta\s+·/);
+  });
+
+  it('aba Monitoramento: limite numérico por extenso; limite antigo em texto marcado "a converter"', async () => {
+    const store = useRiscosStore();
+    const r = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-001')!;
+    const { w } = await montar(`/riscos/${r.id}?aba=monitoramento`);
+    const linhaDe = (kriId: string) =>
+      w.findAll('.item-cartao').find((li) => li.text().includes(r.kris.find((k) => k.id === kriId)!.nomeIndicador))!;
+    // kri-anexo-ii-1: operador '<' e valor 70 com '%'.
+    expect(linhaDe('kri-anexo-ii-1').text()).toContain('alerta menor que 70 %');
+    // kri-anexo-ii-3: só o texto antigo "Acima de 5%".
+    expect(linhaDe('kri-anexo-ii-3').text()).toContain('alerta Acima de 5% — limite a converter');
   });
 
   it('endereço inexistente avisa "Risco não encontrado"', async () => {

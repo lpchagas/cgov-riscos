@@ -53,6 +53,14 @@ export interface Carteira {
   categorias: CategoriaRisco[];
   unidades: UnidadeOrganizacional[];
   processos: ProcessoCadeiaValor[];
+  /**
+   * KRIs que a pessoa lê mas que não têm NENHUM risco ligado à vista dela
+   * (LAC-03, P-02). Ex.: o único risco do KRI foi excluído, mas o alerta dele
+   * ainda não foi comunicado à CGOV (o banco não deixa apagar KRI com alerta).
+   * O Monitoramento mostra esses KRIs quando têm alerta, para o alerta não
+   * "sumir". Ausente = nenhum.
+   */
+  krisSemRisco?: IndicadorKri[];
 }
 
 /**
