@@ -74,7 +74,7 @@ kanban-plugin: basic
 
 ## Modelagem (WIP 3)
 
-- [ ] [figma] Modelagem — P-03 Comunicar fato de risco à CGOV (6 hipóteses do 4.7.2): desenhar no arquivo RADAR — Painel o par 📌 Original × ✏️ Trabalho (computador 1440 e celular 390) só com componentes da biblioteca, pelo [[manual-fluxo-figma-vscode]] (skills `figma:figma-use` e `figma:figma-generate-design`); a CGOV aprova antes do código · origem: [[mapa-telas]] §2 · IDs: UC-16, LAC-04, RF-107, RF-108, RF-110, RF-111 · #normativo · **puxado para Modelagem em 2026-11-23**, antes do código do alerta do KRI (o "Comunicar à CGOV" da P-02 leva a esta tela)
+- [ ] [figma] Modelagem — P-03 Comunicar fato de risco à CGOV (6 hipóteses do 4.7.2): desenhar no arquivo RADAR — Painel o par 📌 Original × ✏️ Trabalho (computador 1440 e celular 390) só com componentes da biblioteca, pelo [[manual-fluxo-figma-vscode]] (skills `figma:figma-use` e `figma:figma-generate-design`); a CGOV aprova antes do código · origem: [[mapa-telas]] §2 · IDs: UC-16, LAC-04, RF-107, RF-108, RF-110, RF-111 · #normativo · **puxado para Modelagem em 2026-11-23**, antes do código do alerta do KRI (o "Comunicar à CGOV" da P-02 leva a esta tela) · desenho e plano: `docs/superpowers/specs/2026-11-23-p03-comunicar-fato-cgov-design.md` e `docs/superpowers/plans/2026-11-23-p03-comunicar-fato-cgov-plan.md` (decisões do responsável: a CGOV registra ciência; página própria com lista e painel lateral) · **desenhado no Figma em 2026-11-23** (página nova ✏️ Trabalho — Comunicações, seção `119:1621`: lista do gestor 1440, nova comunicação vinda do alerta do KRI 1440, comunicação recebida com ciência da CGOV 1440, lista e painel 390); aguarda a aprovação da CGOV
 
 
 

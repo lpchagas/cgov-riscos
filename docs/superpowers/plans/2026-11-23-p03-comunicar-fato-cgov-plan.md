@@ -29,21 +29,21 @@
 
 ### Task 1: Página e moldura
 
-- [ ] **Step 1:** criar a página ✏️ Trabalho — Comunicações depois de ✏️ Trabalho — Monitoramento; clonar a moldura do computador e do celular do Monitoramento; trocar a trilha e o conteúdo; acrescentar o item de menu "Comunicações à CGOV".
+- [x] **Step 1:** criar a página ✏️ Trabalho — Comunicações depois de ✏️ Trabalho — Monitoramento; clonar a moldura do computador e do celular do Monitoramento; trocar a trilha e o conteúdo; acrescentar o item de menu "Comunicações à CGOV".
 
 ### Task 2: Lista do gestor (1440)
 
-- [ ] **Step 1:** `PageHeader`, `BrMessage` da regra, botão "Nova comunicação", filtro e `DataTable` com 5 linhas de demonstração (I, III, IV sem risco, V, alerta do KRI); `Chip` na situação e no prazo.
+- [x] **Step 1:** `PageHeader`, `BrMessage` da regra, botão "Nova comunicação", filtro e `DataTable` com 5 linhas de demonstração (I, III, IV sem risco, V, alerta do KRI); `Chip` na situação e no prazo.
 
 ### Task 3: Painéis (1440)
 
-- [ ] **Step 1:** cópia da lista com o `SideSheet` "Nova comunicação" vindo do alerta do KRI (Review Focus 2 e 4).
-- [ ] **Step 2:** cópia da lista da CGOV (com Unidade) e o `SideSheet` da comunicação recebida, com "Registrar ciência" (Review Focus 3).
+- [x] **Step 1:** cópia da lista com o `SideSheet` "Nova comunicação" vindo do alerta do KRI (Review Focus 2 e 4).
+- [x] **Step 2:** cópia da lista da CGOV (com Unidade) e o `SideSheet` da comunicação recebida, com "Registrar ciência" (Review Focus 3).
 
 ### Task 4: Celular (390)
 
-- [ ] **Step 1:** lista em cartões e o painel em tela cheia; medir transbordamento (Review Focus 5).
+- [x] **Step 1:** lista em cartões e o painel em tela cheia; medir transbordamento (Review Focus 5).
 
 ### Task 5: Fechamento
 
-- [ ] **Step 1:** nota da seção; linha P-03 do [[mapa-telas]] e cartão P-03 do [[quadro]] com os nós; commit.
+- [x] **Step 1:** nota da seção; linha P-03 do [[mapa-telas]] e cartão P-03 do [[quadro]] com os nós; commit.
