@@ -15,7 +15,7 @@
  *   - só a CGOV registra ciência; a AUDIT só lê.
  * Usamos a fonte de DEMONSTRAÇÃO (dados fictícios da semente), com o perfil escolhido.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory, type Router } from 'vue-router';
@@ -29,6 +29,8 @@ import { dataCurta } from '../../src/utils/painelResumo';
 import { hojeEmBrasilia, somarDiasUteis, subtrairDiasUteis } from '../../src/utils/diasUteis';
 import ComunicacoesView from '../../src/views/ComunicacoesView.vue';
 import type { PapelGovernanca } from '../../src/types/radar.types';
+import type { NovaComunicacao } from '../../src/services/dados/tipos';
+import router from '../../src/router/index';
 
 let montado: VueWrapper | null = null;
 
@@ -99,7 +101,7 @@ describe('Página Comunicações à CGOV — lista', () => {
     const { w } = await montar('cgov');
     expect(cabecalhos(w)).toEqual(['Hipótese', 'Unidade', 'Risco', 'Ciência', 'Comunicação', 'Prazo', 'Situação']);
     const texto = w.find('tbody').text();
-    expect(texto).toContain('fora do prazo'); // com-demo-2: 15 dias úteis
+    expect(texto).toContain('fora do prazo'); // com-demo-2: 13 dias úteis
     expect(texto).toContain('no prazo');
     expect(texto).toContain('RADAR-');
     w.unmount();
@@ -107,6 +109,9 @@ describe('Página Comunicações à CGOV — lista', () => {
 
     const g = await montar('gestor');
     expect(cabecalhos(g.w)).toEqual(['Hipótese', 'Risco', 'Ciência', 'Comunicação', 'Prazo', 'Situação']);
+    // I-3: a mais recente primeiro (a semente envia com-demo-3 por último).
+    const envios = useComunicacoesStore().comunicacoes.map((c) => c.comunicadaEm);
+    expect(envios).toEqual([...envios].sort().reverse());
   });
 
   it('mostra a regra do prazo (Metodologia 4.7.2) e que a comunicação gravada não se apaga', async () => {
@@ -187,7 +192,7 @@ describe('Página Comunicações à CGOV — nova comunicação', () => {
     const ligados = riscos.riscos.filter((r) => r.kris.some((k) => k.id === alerta.kriId)).map((r) => r.codigoRadar);
     expect(ligados.length).toBeGreaterThan(0);
     const p = painel()!;
-    expect(p.textContent).toContain('Alerta de indicador (KRI)');
+    expect(p.textContent).toContain('Resultado da reavaliação por alerta do KRI'); // m10: rótulo da P-03 §4.2
     expect(p.textContent).toContain(dataCurta(alerta.cienciaEm));
     expect(p.textContent).toContain('dia 3 de 10 dias úteis');
     for (const codigo of ligados) expect(p.textContent).toContain(codigo);
@@ -300,3 +305,201 @@ describe('Página Comunicações à CGOV — por perfil', () => {
     expect(botao(painel()!, 'Enviar à CGOV')).toBeUndefined();
   });
 });
+
+// ============================================================================
+// Pacote de correções do fim da Fase 3 (code-review + minors da Task 11)
+// ============================================================================
+describe('Página Comunicações à CGOV — correções do fim da Fase 3', () => {
+  async function abrirNovaComunicacao(w: VueWrapper): Promise<void> {
+    await w.findAll('button').find((b) => b.text().includes('Nova comunicação'))!.trigger('click');
+    await flushPromises();
+  }
+
+  // I-2 / R20: a unidade que comunica é a do OBJETO do KRI do alerta; sem alerta, a do 1º
+  // risco escolhido; só no fim a do perfil. (O perfil pode estar acima do risco.)
+  it('com alerta: unidadeId é a unidade do objeto do KRI, não a do perfil', async () => {
+    const enviados: NovaComunicacao[] = [];
+    const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.gestor });
+    const { w } = await montar('gestor', '/comunicacoes?alerta=alerta-integra-1', {
+      enviarComunicacao: async (d) => {
+        enviados.push(d);
+        return base.enviarComunicacao(d);
+      },
+    });
+    // Simula o modo real: perfil lotado em OUTRA unidade (ex.: a unidade-mãe).
+    useAuthStore().perfil = { ...perfilFalso(), unidadeId: 'uni-de-lotacao' };
+    const riscos = useRiscosStore();
+    const alerta = riscos.alertasKri.find((a) => a.id === 'alerta-integra-1')!;
+    const kri = riscos.riscos.flatMap((r) => r.kris).find((k) => k.id === alerta.kriId)!;
+    const esperada = riscos.objetosContexto.find((o) => o.id === kri.objetoId)!.unidadeId;
+    preencher('Descrição do fato', 'Reavaliamos o risco.');
+    await flushPromises();
+    botao(painel()!, 'Enviar à CGOV')!.click();
+    await flushPromises();
+    expect(enviados[0].unidadeId).toBe(esperada);
+    w.unmount();
+    montado = null;
+  });
+
+  it('sem alerta: unidadeId é a unidade do risco escolhido, não a do perfil', async () => {
+    const enviados: NovaComunicacao[] = [];
+    const { w } = await montar('gestor', '/comunicacoes', {
+      enviarComunicacao: async (d) => {
+        enviados.push(d);
+        return 'com-x';
+      },
+    });
+    useAuthStore().perfil = { ...perfilFalso(), unidadeId: 'uni-de-lotacao' };
+    await abrirNovaComunicacao(w);
+    preencher('Hipótese', 'V');
+    preencher('Data da ciência do fato', hojeEmBrasilia());
+    const opcao = campo<HTMLSelectElement>('Risco ligado').querySelectorAll('option')[1];
+    preencher('Risco ligado', opcao.value);
+    preencher('Descrição do fato', 'Tratamento atrasado.');
+    await flushPromises();
+    botao(painel()!, 'Enviar à CGOV')!.click();
+    await flushPromises();
+    expect(enviados[0].unidadeId).toBe(useRiscosStore().obterRiscoPorId(opcao.value)!.unidadeId);
+  });
+
+  // I-4 / R21: alerta de KRI sem risco no alcance não pode ser comunicado (o banco exige risco).
+  it('alerta de KRI órfão: "Enviar à CGOV" desabilitado, com a orientação ligada ao botão', async () => {
+    const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.gestor });
+    await montar('gestor', '/comunicacoes?alerta=alerta-integra-1', {
+      carregarCarteira: async () => {
+        const c = await base.carregarCarteira();
+        const orfao = c.riscos.flatMap((r) => r.kris).find((k) => k.id === 'kri-integra-1')!;
+        for (const r of c.riscos) r.kris = r.kris.filter((k) => k.id !== 'kri-integra-1');
+        return { ...c, krisSemRisco: [{ ...orfao, riscoIds: [], totalRiscos: 0 }] };
+      },
+    });
+    const enviar = botao(painel()!, 'Enviar à CGOV')!;
+    expect(enviar.disabled).toBe(true);
+    const orientacao = document.getElementById(enviar.getAttribute('aria-describedby')!)!;
+    expect(orientacao.textContent).toContain('Ligue o indicador a um risco para comunicar à CGOV');
+  });
+
+  it('alerta com riscos fora do alcance: "Enviar à CGOV" desabilitado e explicado', async () => {
+    await montar('gestor', '/comunicacoes?alerta=alerta-integra-1', { objetosOndeGravo: async () => [] });
+    const enviar = botao(painel()!, 'Enviar à CGOV')!;
+    expect(enviar.disabled).toBe(true);
+    expect(document.getElementById(enviar.getAttribute('aria-describedby')!)!.textContent).toContain('fora do seu alcance');
+  });
+
+  // m1: enquanto lê os objetos onde a pessoa grava, nada de oferecer riscos de fora nem enviar.
+  it('enquanto lê os riscos onde a pessoa grava: sem opções de risco e "Enviar" desabilitado', async () => {
+    let liberar: (ids: string[]) => void = () => undefined;
+    const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.gestor });
+    const { w } = await montar('gestor', '/comunicacoes', {
+      objetosOndeGravo: () => new Promise<string[]>((r) => (liberar = r)),
+    });
+    await abrirNovaComunicacao(w);
+    preencher('Hipótese', 'V');
+    await flushPromises();
+    expect(campo<HTMLSelectElement>('Risco ligado').querySelectorAll('option')).toHaveLength(1);
+    expect(botao(painel()!, 'Enviar à CGOV')!.disabled).toBe(true);
+    expect(painel()!.textContent).toContain('Carregando os riscos');
+    liberar(await base.objetosOndeGravo());
+    await flushPromises();
+    expect(campo<HTMLSelectElement>('Risco ligado').querySelectorAll('option').length).toBeGreaterThan(1);
+    expect(botao(painel()!, 'Enviar à CGOV')!.disabled).toBe(false);
+  });
+
+  // N-1 (m2): "hoje" é relido a cada abertura do painel (a aba pode ficar aberta de um dia para o outro).
+  it('"hoje" é recalculado a cada abertura do painel', async () => {
+    // O relógio volta 3 dias úteis ANTES de montar (o Vue compara a hora dos eventos com a
+    // hora em que o ouvinte foi ligado; montar no "passado" mantém essa conta coerente).
+    const ciencia = subtrairDiasUteis(hojeEmBrasilia(), 3);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(`${ciencia}T15:00:00.000Z`));
+      const { w } = await montar('gestor');
+      await abrirNovaComunicacao(w);
+      preencher('Data da ciência do fato', ciencia);
+      await flushPromises();
+      expect(painel()!.textContent).toContain('dia 0 de 10 dias úteis');
+      botao(painel()!, 'Cancelar')!.click();
+      await flushPromises();
+      vi.useRealTimers();
+      await abrirNovaComunicacao(w);
+      preencher('Data da ciência do fato', ciencia);
+      await flushPromises();
+      expect(painel()!.textContent).toContain('dia 3 de 10 dias úteis');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // N-5: "risco ainda sem ficha" só faz sentido na hipótese IV (risco emergente).
+  it.each([
+    ['IV', 'Nenhum (risco ainda sem ficha)'],
+    ['VI', 'Nenhum'],
+  ])('comunicação %s sem risco: "Riscos ligados" mostra "%s"', async (hipotese, texto) => {
+    const { w } = await montar('gestor');
+    await abrirNovaComunicacao(w);
+    preencher('Hipótese', hipotese);
+    preencher('Data da ciência do fato', hojeEmBrasilia());
+    preencher('Descrição do fato', 'Fato sem risco ligado.');
+    await flushPromises();
+    botao(painel()!, 'Enviar à CGOV')!.click();
+    await flushPromises();
+    const nova = useComunicacoesStore().comunicacoes.find((c) => c.descricao === 'Fato sem risco ligado.')!;
+    await linhas(w).find((l) => l.text().includes(dataCurta(nova.dataCiencia)) && l.text().startsWith(hipotese))!.trigger('click');
+    await flushPromises();
+    const dd = [...painel()!.querySelectorAll('dt')].find((dt) => dt.textContent === 'Riscos ligados')!.nextElementSibling!;
+    expect(dd.textContent!.trim()).toBe(texto);
+  });
+
+  // m4: 2º envio do mesmo alerta pelo caminho da tela. Outra pessoa comunicou o alerta
+  // enquanto o painel estava aberto; a recusa aparece clara e o painel fica aberto.
+  it('alerta comunicado por outra pessoa enquanto o painel estava aberto: mensagem clara', async () => {
+    const { base } = await montar('gestor', '/comunicacoes?alerta=alerta-integra-1');
+    const riscos = useRiscosStore();
+    const alerta = riscos.alertasKri.find((a) => a.id === 'alerta-integra-1')!;
+    const kri = riscos.riscos.flatMap((r) => r.kris).find((k) => k.id === alerta.kriId)!;
+    await base.enviarComunicacao({
+      unidadeId: riscos.obterRiscoPorId(kri.riscoIds[0])!.unidadeId,
+      hipotese: 'alerta_kri',
+      dataCiencia: alerta.cienciaEm,
+      descricao: 'Enviada em outra aba.',
+      alertaId: alerta.id,
+      riscoIds: [kri.riscoIds[0]],
+      supre: [],
+    });
+    preencher('Descrição do fato', 'Reavaliamos o risco.');
+    await flushPromises();
+    botao(painel()!, 'Enviar à CGOV')!.click();
+    await flushPromises();
+    expect(painel()!.querySelector('[role="alert"]')!.textContent).toContain('Este alerta já foi comunicado');
+  });
+
+  // m8: a linha do prazo descreve o campo de data (o leitor de tela lê o prazo junto).
+  it('a linha do prazo está ligada ao campo de data (aria-describedby)', async () => {
+    const { w } = await montar('gestor');
+    await abrirNovaComunicacao(w);
+    preencher('Data da ciência do fato', subtrairDiasUteis(hojeEmBrasilia(), 2));
+    await flushPromises();
+    const ids = campo<HTMLInputElement>('Data da ciência do fato').getAttribute('aria-describedby')!.split(' ');
+    const textos = ids.map((id) => document.getElementById(id)?.textContent ?? '');
+    expect(textos.some((t) => t.includes('dia 2 de 10 dias úteis'))).toBe(true);
+  });
+
+  // N-4: o item 4.7.2 é da Metodologia (Minuta SEI 024421455); a Política entra pelo art. 17, IV.
+  it('cita a Metodologia, item 4.7.2 (no painel e no fundamento da rota)', async () => {
+    const { w } = await montar('gestor');
+    await abrirNovaComunicacao(w);
+    expect(painel()!.textContent).toContain('Metodologia, item 4.7.2');
+    expect(painel()!.textContent).not.toContain('Política, item 4.7.2');
+    const fundamento = String(router.getRoutes().find((r) => r.name === 'comunicacoes')!.meta.fundamento);
+    expect(fundamento).toBe('Item 4.7.2 da Metodologia (Minuta SEI 024421455) e art. 17, IV, da Política RADAR (Minuta SEI 024241420).');
+  });
+});
+
+/** Perfil do modo real (só os campos; no modo demonstração ele só pesa na unidade que comunica). */
+function perfilFalso() {
+  return {
+    id: 'p1', nome: 'Pessoa de teste', email: 'pessoa@radar.test', cargo: null, papel: 'gestor' as const,
+    unidadeId: 'uni-x', unidadeSigla: 'X', unidadeNome: 'Unidade X', titularChefia: false, ativo: true,
+  };
+}
+

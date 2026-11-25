@@ -2,13 +2,15 @@
  * Hipóteses de comunicação à CGOV (LAC-04, UC-16) e o cálculo do prazo.
  *
  * EXPLICAÇÃO DIDÁTICA:
- * A Política (item 4.7.2) lista 6 situações em que a unidade precisa avisar a CGOV.
+ * A Metodologia (item 4.7.2; Minuta SEI 024421455) lista 6 situações em que a unidade
+ * precisa avisar a CGOV (a Política RADAR entra pelo art. 17, IV; Minuta SEI 024241420).
  * Há ainda a "comunicação de alerta de KRI" ('alerta_kri'), que leva à CGOV um alerta
  * de indicador e pode SUPRIR as hipóteses I, II ou III quando coincidirem.
  * `exigeRisco` diz se o formulário obriga ligar pelo menos um risco (o banco confere igual).
  */
-import type { ComunicacaoCgov, HipoteseComunicacao } from '../types/radar.types';
+import type { ComunicacaoCgov, HipoteseComunicacao, UnidadeOrganizacional } from '../types/radar.types';
 import { diasUteisEntre, hojeEmBrasilia, somarDiasUteis } from './diasUteis';
+import { dataCurta } from './painelResumo';
 
 export const HIPOTESES: Record<HipoteseComunicacao, { rotulo: string; explicacao: string; exigeRisco: boolean }> = {
   I: {
@@ -42,7 +44,8 @@ export const HIPOTESES: Record<HipoteseComunicacao, { rotulo: string; explicacao
     exigeRisco: false,
   },
   alerta_kri: {
-    rotulo: 'Alerta de indicador (KRI)',
+    // Texto do desenho da P-03, §4.2 (o UC-16 não traz rótulo próprio para esta hipótese).
+    rotulo: 'Resultado da reavaliação por alerta do KRI',
     explicacao: 'Comunicação do resultado da reavaliação após um alerta de KRI; pode suprir as hipóteses I, II ou III.',
     exigeRisco: true,
   },
@@ -68,4 +71,21 @@ export function montarComunicacao(base: ComunicacaoBase): ComunicacaoCgov {
     venceEm: somarDiasUteis(base.dataCiencia, PRAZO_COMUNICACAO_DIAS_UTEIS),
     situacao: base.cienciaCgovEm ? 'ciencia_registrada' : 'nova',
   };
+}
+
+/**
+ * Momento ISO (com hora) → "24/11/2026" no calendário de BRASÍLIA. Usado na lista e no
+ * painel das comunicações (data do envio e da ciência da CGOV).
+ * Ex.: diaDoMomento('2026-11-25T01:30:00.000Z') -> '24/11/2026' (22h30 do dia 24 em Brasília).
+ */
+export function diaDoMomento(iso: string): string {
+  return dataCurta(hojeEmBrasilia(new Date(iso)));
+}
+
+/**
+ * Sigla da unidade pelo id; sem a unidade na lista (ex.: fora da visão), "—".
+ * Ex.: siglaDaUnidade([{ id: 'u1', sigla: 'CGOV', ... }], 'u1') -> 'CGOV'
+ */
+export function siglaDaUnidade(unidades: Pick<UnidadeOrganizacional, 'id' | 'sigla'>[], id: string): string {
+  return unidades.find((u) => u.id === id)?.sigla ?? '—';
 }

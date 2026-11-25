@@ -432,7 +432,9 @@ describe('Página Monitoramento', () => {
       w.unmount();
     });
 
-    it('KRI sem risco ligado (órfão) com alerta continua na lista, só com "Comunicar à CGOV"', async () => {
+    // I-4 / R21 (fim da Fase 3): o banco exige risco na comunicação de alerta (alerta_kri).
+    // KRI órfão nunca conseguiria comunicar: no lugar do botão, a orientação.
+    it('KRI sem risco ligado (órfão) com alerta continua na lista, com a orientação no lugar do "Comunicar à CGOV"', async () => {
       const base = criarFonteDemonstracao('normal');
       definirFonteParaTeste({
         ...base,
@@ -451,7 +453,8 @@ describe('Página Monitoramento', () => {
       expect(cartao.text()).toContain('Sem risco ligado');
       const faixa = cartao.find('.faixa-alerta');
       expect(faixa.text()).toContain('dia 3 de 10 dias úteis');
-      expect(faixa.findAll('a').map((a) => a.text())).toEqual(['Comunicar à CGOV']);
+      expect(faixa.findAll('a')).toHaveLength(0);
+      expect(faixa.text()).toContain('Ligue o indicador a um risco para comunicar à CGOV');
       // Sem risco ligado não há onde gravar a leitura: o botão some.
       expect(cartao.findAll('button').some((b) => b.text().includes('Registrar leitura'))).toBe(false);
       w.unmount();

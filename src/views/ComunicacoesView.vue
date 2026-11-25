@@ -5,7 +5,8 @@
  * ============================================================================
  *
  * EXPLICAÇÃO DIDÁTICA:
- * Pela Política RADAR (item 4.7.2), a unidade avisa a CGOV em até 10 dias úteis
+ * Pela Metodologia (item 4.7.2; Minuta SEI 024421455) e pela Política RADAR (art. 17, IV;
+ * Minuta SEI 024241420), a unidade avisa a CGOV em até 10 dias úteis
  * quando acontece uma das 6 situações (hipóteses I a VI) ou quando reavalia os
  * riscos depois do alerta de um KRI. Esta tela tem:
  *
@@ -22,15 +23,14 @@
  * Vindo do Monitoramento (`/comunicacoes?alerta=<id>`), o painel abre já com o
  * alerta do KRI. Alerta desconhecido ou já comunicado: fica a lista, com um aviso (R16).
  */
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useComunicacoesStore } from '../stores/comunicacoesStore';
 import { useRiscosStore } from '../stores/riscosStore';
 import { useAuthStore } from '../stores/authStore';
 import { useToast } from '../composables/useToast';
 import type { AlertaKri, ComunicacaoCgov } from '../types/radar.types';
-import { HIPOTESES } from '../utils/hipotesesComunicacao';
-import { hojeEmBrasilia } from '../utils/diasUteis';
+import { HIPOTESES, diaDoMomento, siglaDaUnidade } from '../utils/hipotesesComunicacao';
 import { dataCurta } from '../utils/painelResumo';
 import PageHeader from '../components/ui/PageHeader.vue';
 import SegmentedControl from '../components/ui/SegmentedControl.vue';
@@ -54,7 +54,10 @@ const podeEnviar = computed(() => authStore.capacidades.enviaComunicacao);
 const ehCgov = computed(() => authStore.capacidades.registraCienciaComunicacao);
 
 // A tela sempre relê ao abrir (para a CGOV a lista já pode estar na memória, pelo menu).
-onMounted(() => void comunicacoesStore.carregar());
+// `abrirTela` também avisa a store de que a tela está aberta: se a sessão mudar depois
+// (ex.: F5 no modo real), a ligação com a sessão relê a lista para qualquer perfil (I-1).
+onMounted(() => void comunicacoesStore.abrirTela());
+onUnmounted(() => comunicacoesStore.fecharTela());
 
 /** Carregando → esqueleto; erro (das comunicações ou da carteira) → mensagem e "Tentar de novo". */
 const estadoBloco = computed<'carregando' | 'erro' | 'pronto'>(() => {
@@ -84,12 +87,12 @@ const linhas = computed(() => {
   return todas;
 });
 
-const sigla = (id: string) => riscosStore.unidades.find((u) => u.id === id)?.sigla ?? '—';
+const sigla = (id: string) => siglaDaUnidade(riscosStore.unidades, id);
 /** Códigos dos riscos ligados. Ex.: "RADAR-2026-001, RADAR-2026-004"; sem risco: "—". */
 const codigos = (c: ComunicacaoCgov) =>
   c.riscoIds.map((id) => riscosStore.obterRiscoPorId(id)?.codigoRadar).filter(Boolean).join(', ') || '—';
 /** Momento ISO → "24/11/2026" (calendário de Brasília). */
-const diaDe = (iso: string) => dataCurta(hojeEmBrasilia(new Date(iso)));
+const diaDe = diaDoMomento;
 
 /** Colunas da P-03. A CGOV, que recebe de todas as unidades, vê também a Unidade. */
 const colunas = computed<ColunaTabela<ComunicacaoCgov>[]>(() => [

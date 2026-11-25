@@ -242,7 +242,7 @@ export interface AlertaKri {
 
 /**
  * Hipótese de uma comunicação à CGOV (LAC-04, UC-16): as 6 hipóteses do item 4.7.2
- * da Política (I a VI) ou 'alerta_kri' (a comunicação do alerta de um KRI).
+ * da Metodologia (I a VI; Minuta SEI 024421455) ou 'alerta_kri' (a comunicação do alerta de um KRI).
  */
 export type HipoteseComunicacao = 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI' | 'alerta_kri';
 

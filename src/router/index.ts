@@ -135,7 +135,7 @@ const router = createRouter({
       meta: {
         titulo: 'Comunicações à CGOV',
         descricao: 'Fatos comunicados à CGOV em até 10 dias úteis da ciência.',
-        fundamento: 'Item 4.7.2 da Política RADAR (Minuta SEI 024241420) e seção 4.7 da Metodologia (Minuta SEI 024421455).',
+        fundamento: 'Item 4.7.2 da Metodologia (Minuta SEI 024421455) e art. 17, IV, da Política RADAR (Minuta SEI 024241420).',
         cabecalhoProprio: true, // a view desenha o próprio PageHeader (com o botão "Nova comunicação")
       },
     },

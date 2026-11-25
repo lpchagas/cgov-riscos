@@ -20,6 +20,9 @@
  * Atalhos (só no alerta aberto e só para quem pode agir; AUDIT só lê):
  *   - um "Reavaliar" por risco ligado: a reavaliação é por risco (leva à ficha);
  *   - um "Comunicar à CGOV": leva à tela de Comunicações já com o alerta escolhido.
+ *     KRI sem risco ligado (órfão) NÃO tem o botão: o banco exige risco na comunicação
+ *     do alerta, então no lugar vai a orientação "Ligue o indicador a um risco para
+ *     comunicar à CGOV" (R21).
  *
  * Acessibilidade: o estado está no TEXTO e no ícone (nunca só na cor). A faixa
  * NÃO é região "ao vivo" (role="alert"): ela já está na página ao abrir, e trocar
@@ -85,8 +88,14 @@ const textos = computed<{ titulo: string; apoio?: string }>(() => {
 const orientacao = computed(() => {
   if (props.riscos.length) return 'Reavalie os riscos ligados e comunique o resultado à CGOV.';
   if (props.riscosForaDaVisao) return 'Os riscos deste indicador estão fora da sua visão: comunique o alerta à CGOV.';
-  return 'Este indicador não tem risco ligado: comunique o alerta à CGOV.';
+  return 'Este indicador não tem risco ligado. Ligue o indicador a um risco para comunicar à CGOV.';
 });
+
+/**
+ * KRI órfão (nenhum risco visível e nenhum fora da visão): a comunicação do alerta exige
+ * risco (no banco também), então o atalho "Comunicar à CGOV" não aparece (R21).
+ */
+const podeComunicar = computed(() => props.riscos.length > 0 || props.riscosForaDaVisao === true);
 
 /** Os atalhos aparecem só no alerta ABERTO (no prazo ou vencido) e para quem pode agir. */
 const mostrarAtalhos = computed(() => props.situacao !== 'comunicado' && !props.somenteLeitura);
@@ -113,8 +122,8 @@ const mostrarAtalhos = computed(() => props.situacao !== 'comunicado' && !props.
             >Reavaliar</RouterLink>
           </li>
         </ul>
-        <!-- A tela de Comunicações chega na Fase 3; até lá o endereço cai no "pega-tudo". -->
         <RouterLink
+          v-if="podeComunicar"
           :to="{ path: '/comunicacoes', query: { alerta: alerta.id } }"
           class="br-button primary small faixa-alerta__botao faixa-alerta__comunicar"
           :aria-label="`Comunicar à CGOV o alerta do indicador ${nomeKri}`"
