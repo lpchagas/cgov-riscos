@@ -194,7 +194,7 @@ test('menu do gestor não mostra ferramentas da CGOV', async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// As 315 combinações ((17 + 4) telas × 5 larguras × 3 temas).
+// As 360 combinações ((20 + 4) telas × 5 larguras × 3 temas).
 // ---------------------------------------------------------------------------------------------
 for (const tema of TEMAS) {
   test.describe(tema, () => {

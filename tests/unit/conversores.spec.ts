@@ -634,3 +634,20 @@ describe('LAC-03: limite numérico, leitura numérica e alerta do KRI', () => {
     expect(item.limite_unidade).toBeNull(); // só espaços = sem unidade
   });
 });
+
+describe('comunicacaoDoBanco (LAC-04)', () => {
+  it('converte a linha da visão e junta os riscos ligados', async () => {
+    const { comunicacaoDoBanco } = await import('../../src/services/dados/conversores');
+    const c = comunicacaoDoBanco(
+      {
+        id: 'c1', unidade_id: 'u1', hipotese: 'alerta_kri', supre: ['I', 'II'], data_ciencia: '2026-11-19',
+        comunicada_em: '2026-11-24T15:00:00Z', descricao: 'x', providencias: null, alerta_id: 'a1',
+        prazo_dias_uteis: 2, no_prazo: true, vence_em: '2026-12-04', situacao: 'nova', ciencia_cgov_em: null,
+      },
+      ['r1'],
+    );
+    expect(c).toMatchObject({ unidadeId: 'u1', supre: ['I', 'II'], alertaId: 'a1', riscoIds: ['r1'], prazoDiasUteis: 2, noPrazo: true, situacao: 'nova' });
+    expect(c.providencias).toBeUndefined();
+    expect(c.cienciaCgovEm).toBeUndefined();
+  });
+});

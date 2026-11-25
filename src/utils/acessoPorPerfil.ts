@@ -68,6 +68,10 @@ export interface Capacidades {
   importa: boolean; // Importar riscos
   gerenciaUsuarios: boolean; // Usuários e perfis
   somenteLeituraForaDaUnidade: boolean; // AUDIT enxerga tudo, mas não altera
+  /** Comunicações à CGOV (LAC-04): botão "Nova comunicação". Todos, menos a AUDIT (só lê). */
+  enviaComunicacao: boolean;
+  /** Botão "Registrar ciência" da comunicação recebida: só a CGOV. */
+  registraCienciaComunicacao: boolean;
 }
 
 // Spec B1 7.1: quem valida e quem homologa (o banco já aplica).
@@ -84,5 +88,8 @@ export function capacidades(papel: PapelGovernanca): Capacidades {
     importa: ehCgov,
     gerenciaUsuarios: ehCgov,
     somenteLeituraForaDaUnidade: papel === 'auditoria',
+    // O banco confere de novo (RLS e `enviar_comunicacao`): a unidade precisa estar no alcance.
+    enviaComunicacao: papel !== 'auditoria',
+    registraCienciaComunicacao: ehCgov,
   };
 }

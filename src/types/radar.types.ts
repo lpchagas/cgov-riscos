@@ -241,6 +241,47 @@ export interface AlertaKri {
 }
 
 /**
+ * Hipótese de uma comunicação à CGOV (LAC-04, UC-16): as 6 hipóteses do item 4.7.2
+ * da Metodologia (I a VI; Minuta SEI 024421455) ou 'alerta_kri' (a comunicação do alerta de um KRI).
+ */
+export type HipoteseComunicacao = 'I' | 'II' | 'III' | 'IV' | 'V' | 'VI' | 'alerta_kri';
+
+/**
+ * Comunicação de fato de risco à CGOV (visão `comunicacoes_cgov_situacao`).
+ * É IMUTÁVEL: depois de enviada só muda a ciência da CGOV, dada uma única vez.
+ * O prazo é de 10 dias úteis contados da ciência da unidade; fora do prazo AVISA, não bloqueia.
+ * Ex.: ciência 19/11, enviada 24/11 -> prazoDiasUteis 1, noPrazo true, venceEm 04/12.
+ */
+export interface ComunicacaoCgov {
+  id: string;
+  unidadeId: string;
+  hipotese: HipoteseComunicacao;
+  /** Hipóteses I, II ou III que esta comunicação de alerta de KRI também supre (vazio nas demais). */
+  supre: Array<'I' | 'II' | 'III'>;
+  /** Dia em que a unidade tomou ciência do fato (yyyy-mm-dd, Brasília). Inicia o prazo. */
+  dataCiencia: string;
+  /** Momento do envio (ISO). */
+  comunicadaEm: string;
+  descricao: string;
+  providencias?: string;
+  documentoSei?: string;
+  /** Alerta de KRI comunicado (só na hipótese 'alerta_kri'). */
+  alertaId?: string;
+  riscoIds: string[];
+  /** Dias úteis entre a ciência e o dia do envio. */
+  prazoDiasUteis: number;
+  /** prazoDiasUteis <= 10. */
+  noPrazo: boolean;
+  /** Ciência + 10 dias úteis. */
+  venceEm: string;
+  /** 'nova' = a CGOV ainda não deu ciência. */
+  situacao: 'nova' | 'ciencia_registrada';
+  /** Momento da ciência da CGOV (ISO). */
+  cienciaCgovEm?: string;
+  observacaoCgov?: string;
+}
+
+/**
  * Representa uma leitura periódica de um Indicador-Chave de Risco (KRI).
  */
 export interface MedicaoKri {

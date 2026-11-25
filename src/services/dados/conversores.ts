@@ -27,6 +27,7 @@ import type {
   FichaRisco,
   HistoricoFluxoItem,
   AlertaKri,
+  ComunicacaoCgov,
   IndicadorKri,
   MedicaoKri,
   ObjetoContexto,
@@ -256,6 +257,34 @@ export function alertaKriDoBanco(l: LinhaBanco): AlertaKri {
     diasUteisVencido: Number(l.dias_uteis_vencido),
     encerradoEm: textoOpcional(l.encerrado_em),
     comunicacaoId: textoOpcional(l.comunicacao_id),
+  };
+}
+
+/**
+ * Linha da visão `comunicacoes_cgov_situacao` (+ ids dos riscos de `comunicacoes_riscos`)
+ * -> `ComunicacaoCgov`. O prazo, o `vence_em` e a situação já vêm calculados pelo banco.
+ * Ex.: { hipotese: 'V', data_ciencia: '2026-11-19', prazo_dias_uteis: 1, situacao: 'nova' }
+ *      -> { hipotese: 'V', dataCiencia: '2026-11-19', prazoDiasUteis: 1, situacao: 'nova' }
+ */
+export function comunicacaoDoBanco(l: LinhaBanco, riscoIds: string[]): ComunicacaoCgov {
+  return {
+    id: texto(l.id),
+    unidadeId: texto(l.unidade_id),
+    hipotese: texto(l.hipotese) as ComunicacaoCgov['hipotese'],
+    supre: (Array.isArray(l.supre) ? l.supre.map(texto) : []) as ComunicacaoCgov['supre'],
+    dataCiencia: texto(l.data_ciencia),
+    comunicadaEm: texto(l.comunicada_em),
+    descricao: texto(l.descricao),
+    providencias: textoOpcional(l.providencias),
+    documentoSei: textoOpcional(l.documento_sei),
+    alertaId: textoOpcional(l.alerta_id),
+    riscoIds,
+    prazoDiasUteis: Number(l.prazo_dias_uteis),
+    noPrazo: booleano(l.no_prazo),
+    venceEm: texto(l.vence_em),
+    situacao: texto(l.situacao) === 'ciencia_registrada' ? 'ciencia_registrada' : 'nova',
+    cienciaCgovEm: textoOpcional(l.ciencia_cgov_em),
+    observacaoCgov: textoOpcional(l.observacao_cgov),
   };
 }
 

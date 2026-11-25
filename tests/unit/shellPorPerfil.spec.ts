@@ -126,6 +126,37 @@ describe('menu lateral por perfil', () => {
   });
 });
 
+describe('menu "Comunicações à CGOV" (LAC-04, P-03)', () => {
+  it('fica no grupo Gestão de riscos, logo depois de Monitoramento, para todos os perfis', async () => {
+    for (const papel of ['gestor', 'auditoria', 'cgov'] as const) {
+      novaLoja('real', papel);
+      const w = await montarApp();
+      const itens = itensDoMenu(w);
+      const i = itens.findIndex((t) => t.startsWith('Monitoramento'));
+      expect(itens[i + 1]).toMatch(/^Comunicações à CGOV/);
+      expect(w.find('a[href="/comunicacoes"] i').classes()).toContain('fa-paper-plane');
+      w.unmount();
+    }
+  });
+
+  it('a CGOV vê o número de comunicações novas; o gestor não vê número', async () => {
+    novaLoja('demonstracao', 'cgov');
+    const w = await montarApp();
+    await flushPromises();
+    // Semente da demonstração: 1 comunicação sem ciência da CGOV (com-demo-3).
+    const item = w.find('a[href="/comunicacoes"]');
+    // PR #21 (E1): uma só no singular ("1 comunicação nova"); duas ou mais, no plural.
+    expect(item.find('.menu-trilho__contador').text()).toBe('1 comunicação nova');
+    w.unmount();
+
+    novaLoja('demonstracao', 'gestor');
+    const w2 = await montarApp();
+    await flushPromises();
+    expect(w2.find('a[href="/comunicacoes"] .menu-trilho__contador').exists()).toBe(false);
+    w2.unmount();
+  });
+});
+
 describe('modo demonstração', () => {
   beforeEach(() => novaLoja('demonstracao', 'cgov'));
 

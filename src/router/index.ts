@@ -126,6 +126,19 @@ const router = createRouter({
         fundamento: 'Seções 4.5 e 4.6 da Metodologia (Minuta SEI 024421455).',
       },
     },
+    {
+      // LAC-04 (P-03): o gestor comunica fatos à CGOV; a CGOV registra a ciência.
+      // `?alerta=<id>` (vindo do Monitoramento) abre o painel já com o alerta do KRI.
+      path: '/comunicacoes',
+      name: 'comunicacoes',
+      component: () => import('../views/ComunicacoesView.vue'),
+      meta: {
+        titulo: 'Comunicações à CGOV',
+        descricao: 'Fatos comunicados à CGOV em até 10 dias úteis da ciência.',
+        fundamento: 'Item 4.7.2 da Metodologia (Minuta SEI 024421455) e art. 17, IV, da Política RADAR (Minuta SEI 024241420).',
+        cabecalhoProprio: true, // a view desenha o próprio PageHeader (com o botão "Nova comunicação")
+      },
+    },
 
     // ----------------------------------------------------------------------
     // DELIBERAÇÃO (2º e 3º degraus)

@@ -12,7 +12,8 @@
  * Ordem de decisão (da mais específica para a mais genérica):
  *  1. Falha de rede (sem internet / servidor fora do ar).
  *  2. Mensagem "RADAR: ..." (escrita por nós nas funções do banco): procura um
- *     TRECHO conhecido no dicionário abaixo.
+ *     TRECHO conhecido no dicionário abaixo. (2b: as travas de exclusão do alerta do
+ *     KRI e das comunicações, que vêm sem o prefixo, têm lista própria.)
  *  3. Código do erro (ex.: 42501 = sem permissão).
  *  4. Se a mensagem começa com "RADAR:" mas é nova, mostra o texto sem o prefixo.
  *  5. Frase genérica.
@@ -122,6 +123,23 @@ const DICIONARIO: Entrada[] = [
   ['não encontrado', 'Risco não encontrado.', 'nao_encontrado'], // "risco ... não encontrado"
 ];
 
+/**
+ * Travas de exclusão das migrações 20261123002 (LAC-03, alerta do KRI) e 20261123003
+ * (LAC-04, comunicações à CGOV). Diferente das mensagens acima, estas NÃO têm o prefixo
+ * "RADAR:" (vêm só com o código genérico P0001); por isso têm lista própria, conferida
+ * pelo INÍCIO da mensagem (cópia fiel do RAISE EXCEPTION). Qualquer outra mensagem P0001
+ * sem prefixo continua escondida atrás da frase genérica (pode ser texto técnico).
+ * Ex.: apagar um risco citado numa comunicação → "Este risco foi citado em uma
+ * comunicação à CGOV e não pode ser apagado: a comunicação é um registro permanente."
+ */
+const TRAVAS_SEM_PREFIXO: Entrada[] = [
+  ['Este risco foi citado em uma comunicação à CGOV e não pode ser apagado', 'Este risco foi citado em uma comunicação à CGOV e não pode ser apagado: a comunicação é um registro permanente.', 'estado'],
+  ['Esta leitura abriu um alerta do KRI e não pode ser apagada', 'Esta leitura abriu um alerta do KRI e não pode ser apagada: ela é a prova do prazo do alerta. Para corrigir, registre uma leitura nova.', 'estado'],
+  ['Esta leitura abriu um alerta do KRI e não pode mudar de KRI', 'Esta leitura abriu um alerta do KRI e não pode passar para outro KRI. Registre uma leitura nova no KRI certo.', 'estado'],
+  ['Este KRI tem alerta já comunicado à CGOV e não pode ser apagado', 'Este KRI tem alerta já comunicado à CGOV e não pode ser apagado: a comunicação é um registro permanente.', 'estado'],
+  ['Este KRI tem alerta em aberto: comunique à CGOV antes de apagar', 'Este KRI tem alerta em aberto: comunique o alerta à CGOV antes de apagar o KRI.', 'estado'],
+];
+
 /** Frases por código de erro do PostgreSQL / PostgREST (plano B). */
 const POR_CODIGO: Record<string, [string, TipoErroRadar]> = {
   '42501': ['Você não tem permissão para esta ação.', 'permissao'],
@@ -165,6 +183,11 @@ export function traduzirErroBanco(erro: unknown): ErroRadar {
     }
   }
 
+  // 2b) Travas de exclusão sem o prefixo "RADAR:" (alerta do KRI e comunicações à CGOV).
+  for (const [inicio, frase, tipo] of TRAVAS_SEM_PREFIXO) {
+    if (mensagem.startsWith(inicio)) return new ErroRadar(frase, tipo, codigo);
+  }
+
   // 3) Código do erro.
   if (codigo && POR_CODIGO[codigo]) {
     const [frase, tipo] = POR_CODIGO[codigo];
@@ -179,4 +202,51 @@ export function traduzirErroBanco(erro: unknown): ErroRadar {
 
   // 5) Qualquer outro texto técnico NUNCA é exibido.
   return new ErroRadar(GENERICA, 'desconhecido', codigo);
+}
+
+/**
+ * Comunicações à CGOV: as RPCs `enviar_comunicacao` e `registrar_ciencia_comunicacao` escrevem
+ * TODA mensagem de RAISE EXCEPTION em português claro, sem o prefixo "RADAR:" (código P0001;
+ * a falta de permissão vem como 42501). Essas mensagens são repassadas à pessoa como estão.
+ * O prefixo só escolhe o TIPO do erro; o padrão é 'desconhecido'.
+ * Erros técnicos (outros códigos) continuam no texto genérico.
+ * Ex.: { code: 'P0001', message: 'Este alerta já foi comunicado' } -> ErroRadar(mesma frase, 'estado')
+ */
+const TIPOS_COMUNICACAO: Array<[string, TipoErroRadar]> = [
+  ['A auditoria não envia', 'permissao'],
+  ['Sem permissão', 'permissao'],
+  ['Somente a CGOV', 'permissao'],
+  ['Comunicação não encontrada', 'nao_encontrado'],
+  ['Alerta não encontrado', 'nao_encontrado'],
+  ['Risco não encontrado', 'nao_encontrado'],
+  ['Este alerta já foi comunicado', 'estado'],
+  ['A ciência desta comunicação já foi registrada', 'estado'],
+  ['A comunicação é imutável', 'estado'],
+  ['Informe', 'validacao'],
+  ['Hipótese inválida', 'validacao'],
+  ['A data de ciência', 'validacao'],
+  ['A comunicação de', 'validacao'],
+];
+
+/** Os dois CHECK de `supre` (23514): a mesma frase que a demonstração dá. */
+const MENSAGEM_SUPRE = 'Só a comunicação de alerta de KRI pode suprir as hipóteses I, II e III';
+
+/** Como `traduzirErroBanco`, mas repassa as mensagens em português das RPCs de comunicação. */
+export function traduzirErroComunicacao(erro: unknown): ErroRadar {
+  if (erro instanceof ErroRadar) return erro;
+  const e = (erro ?? {}) as { message?: unknown; code?: unknown };
+  const mensagem = typeof e.message === 'string' ? e.message : '';
+  const codigo = typeof e.code === 'string' ? e.code : null;
+
+  if (codigo === 'P0001' && mensagem.trim()) {
+    const achada = TIPOS_COMUNICACAO.find(([prefixo]) => mensagem.startsWith(prefixo));
+    return new ErroRadar(mensagem, achada ? achada[1] : 'desconhecido', codigo);
+  }
+  if (codigo === '42501' && mensagem.startsWith('Sem permissão')) {
+    return new ErroRadar(mensagem, 'permissao', codigo);
+  }
+  if (codigo === '23514' && /comunicacoes_cgov_supre_(so_alerta|valores)/.test(mensagem)) {
+    return new ErroRadar(MENSAGEM_SUPRE, 'validacao', codigo);
+  }
+  return traduzirErroBanco(erro);
 }

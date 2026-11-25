@@ -76,6 +76,16 @@ describe('decidirNavegacao', () => {
     expect(r).toEqual({ tipo: 'seguir' });
   });
 
+  it.each(['gestor', 'auditoria', 'cgov'] as const)('%s abre /comunicacoes (LAC-04: tela aberta aos perfis; o banco filtra)', (papel) => {
+    const r = decidirNavegacao(com({ papel, nomeRota: 'comunicacoes', caminhoCompleto: '/comunicacoes?alerta=a1' }));
+    expect(r).toEqual({ tipo: 'seguir' });
+  });
+
+  it('anônimo em /comunicacoes?alerta=... vai a /entrar guardando o alerta na volta', () => {
+    const r = decidirNavegacao(com({ situacao: 'anonimo', papel: null, nomeRota: 'comunicacoes', caminhoCompleto: '/comunicacoes?alerta=a1' }));
+    expect(r).toEqual({ tipo: 'ir', para: { name: 'entrar', query: { volta: '/comunicacoes?alerta=a1' } } });
+  });
+
   it("situação 'erro' segue (a tela de erro é mostrada pelo shell)", () => {
     expect(decidirNavegacao(com({ situacao: 'erro', papel: null }))).toEqual({ tipo: 'seguir' });
   });

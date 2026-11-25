@@ -9,6 +9,7 @@ const TELAS_ABERTAS = [
   'ficha-bowtie-detalhe',
   'catalogo-objetos',
   'monitoramento-kris',
+  'comunicacoes',
   'validacao-um-clique',
   'trilha-auditoria',
   'sobre-radar',
@@ -69,6 +70,13 @@ describe('acessoPorPerfil — tabela única de acesso (spec B2, seção 8.4)', (
       expect(c.editaCatalogoObjetos).toBe(ehCgov);
       expect(c.importa).toBe(ehCgov);
       expect(c.gerenciaUsuarios).toBe(ehCgov);
+    }
+  });
+
+  it('Comunicações à CGOV (LAC-04): todos enviam menos a AUDIT; só a CGOV registra a ciência', () => {
+    for (const p of PAPEIS) {
+      expect(capacidades(p).enviaComunicacao).toBe(p !== 'auditoria');
+      expect(capacidades(p).registraCienciaComunicacao).toBe(p === 'cgov');
     }
   });
 

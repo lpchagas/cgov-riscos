@@ -14,7 +14,7 @@
  * Aqui, cada risco é recalculado pelo motor oficial
  * (`calcularRiscoCompletoRadar`) e o resultado tem de bater com o gravado.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   RISCOS_SEMENTE_ANEXO_II,
   CATEGORIAS_QUADRO_2_SEMENTE,
@@ -108,6 +108,35 @@ describe('Dados de demonstração coerentes com os Quadros 6, 7 e 8 e a DAR', ()
       for (const id of k.riscoIds) {
         expect(RISCOS_SEMENTE_ANEXO_II.find((r) => r.id === id)?.objetoId, `${k.id} ligado a ${id}`).toBe(k.objetoId);
       }
+    }
+  });
+});
+
+// N-2 e N-3 (fim da Fase 3): as comunicações da semente.
+describe('Comunicações à CGOV da demonstração', () => {
+  it('nenhum envio nem ciência da CGOV fica no futuro (antes do meio-dia também)', async () => {
+    // Relógio às 9h de Brasília (12h UTC) de hoje e a semente recarregada: as datas da
+    // semente são calculadas quando o arquivo é carregado.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(`${new Date().toISOString().slice(0, 10)}T12:00:00.000Z`));
+    vi.resetModules();
+    const { COMUNICACOES_SEMENTE } = await import('../../src/services/dadosSementeAnexoII');
+    const agora = Date.now();
+    vi.useRealTimers();
+    for (const c of COMUNICACOES_SEMENTE) {
+      expect(Date.parse(c.comunicadaEm), `${c.id} enviada no futuro`).toBeLessThanOrEqual(agora);
+      if (c.cienciaCgovEm) {
+        expect(Date.parse(c.cienciaCgovEm), `${c.id}: ciência no futuro`).toBeLessThanOrEqual(agora);
+        expect(Date.parse(c.cienciaCgovEm), `${c.id}: ciência antes do envio`).toBeGreaterThanOrEqual(Date.parse(c.comunicadaEm));
+      }
+    }
+  });
+
+  it('"Crítico" só como "Risco Crítico" (o nível 18 a 25 é "Extremo"; AGENTS.md, regra 3)', async () => {
+    const { COMUNICACOES_SEMENTE } = await import('../../src/services/dadosSementeAnexoII');
+    for (const c of COMUNICACOES_SEMENTE) {
+      const textos = [c.descricao, c.providencias ?? '', c.observacaoCgov ?? ''].join(' ');
+      expect(textos.replace(/Risco Crítico/g, ''), c.id).not.toMatch(/[Cc]rítico/);
     }
   });
 });
