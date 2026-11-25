@@ -233,3 +233,28 @@ Design: [[2026-11-16-etapa-c-painel-celular-design]] · Plano: [[2026-11-16-etap
   ainda "aberto" no FS-01, corrigido em `78d8c4a`. 3ª rodada (Codex), 2 achados: o cartão da LAC-08 também
   depende do desenho P-10 (procedente, `b955b77`); as specs antigas citam o `ESTADO-ATUAL` como base
   (improcedente: são registros do momento, e o retrato manda para o histórico).
+
+## Alerta do KRI e comunicações à CGOV (2026-11-23 a 2026-11-25)
+
+Fecha a LAC-03 (parte do alerta, RF-099 e RF-102) e a LAC-04 (RF-107, RF-108, RF-109, RF-111 e RF-192) no código e
+no banco local. Desenho em `docs/superpowers/specs/2026-11-23-alerta-kri-comunicacoes-design.md`, plano em
+`docs/superpowers/plans/2026-11-23-alerta-kri-comunicacoes-plan.md`; decisão registrada no
+[[0021-alerta-do-kri-e-comunicacoes-no-banco|ADR-0021]].
+
+- **Fase 1, banco (2026-11-24, PR #19):** migrações `20261123002` (feriados, dias úteis, limite numérico, alerta
+  calculado e aberto pelo banco, visão `alertas_kri_situacao`) e `20261123003` (comunicações imutáveis,
+  `enviar_comunicacao`, ciência da CGOV, visão `comunicacoes_cgov_situacao`); pgTAP `120` e `121`. Triagem do
+  CodeRabbit em três rodadas, todas as procedentes corrigidas; Postgres da nuvem atualizado para 17.12.
+- **Fase 2, Monitoramento (2026-11-24, PR #20):** utilitários do limite e dos dias úteis, etapa 4 com limite
+  numérico, Monitoramento como na P-02 (faixa de alerta, "dia N de 10", filtro por situação, atalhos). Decisões do
+  responsável: prazo mostrado como "dia 0 de 10" no dia da ciência; "comunicado" só até a próxima leitura.
+- **Fase 3, Comunicações (2026-11-25, PR #21):** tela `/comunicacoes` (P-03), painel de comunicação, ciência da
+  CGOV, número de novas no menu. Decisões do responsável: o alcance de riscos e alerta é a unidade e as
+  subunidades internas; a AUDIT só lê; o banco impede apagar o que foi comunicado.
+- **Decisões de 2026-11-25:** **D-6**, a CGOV mantém o botão "Nova comunicação"; **D-7**, alerta de KRI sem risco
+  ligado continua sem "Comunicar à CGOV" (a tela orienta; sem migração nova).
+- **Números:** Vitest 63 arquivos e 1212 testes; pgTAP 23 arquivos e 1381 testes; `test:a11y` 374 testes, 0
+  violações, em 360 combinações ((18 + 6) telas × 5 larguras × 3 temas).
+- **Fase 4, documentação (2026-11-25):** RF, RN, UC-15, UC-16, lacunas, DER e dicionário (18 tabelas, 175 colunas,
+  2 visões), mapa de telas, matriz de acesso, ADR-0021 e quadro. **Falta:** Figma (📌 Original), PR da Fase 4 e as
+  duas migrações na nuvem do piloto, **[AUTORIZAÇÃO]** a cada uma.

@@ -171,10 +171,10 @@ Nota 1 (RF-056): o risco `preliminar_cgov` nasce hoje no importador (`/importar`
 | Metodologia 4.7.1, alíneas c a f (texto saneado) | RN-083 | RF-096 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | `travaRiscoCritico.spec.ts`; pgTAP `110_lac03_kri_obrigatorio.test.sql` (implementado no código e no banco local, LAC-03) |
 | Metodologia 4.7.1, 1º parágrafo e alínea a (texto saneado) | RN-082 | RF-097 | UC-07 | `/riscos/novo` | Novo risco | `indicadores_kri` | `fonteDemonstracao.spec.ts`; `novoRiscoPagina.spec.ts`; `monitoramentoPagina.spec.ts`; pgTAP `110_lac03_kri_obrigatorio.test.sql` (implementado no código e no banco local, LAC-03) |
 | Metodologia 4.7.2, 1º parágrafo (texto saneado) | RN-115 | RF-098 | UC-15 | `/monitoramento` | Monitoramento | `medicoes_kri` | `monitoramentoPagina.spec.ts`; pgTAP `041` bl. 6 |
-| Metodologia 4.7.1, parágrafo do alerta (texto saneado) | RN-084 | RF-099 | UC-15 | `/monitoramento` | Monitoramento | `medicoes_kri` | `monitoramentoPagina.spec.ts` (parcial) |
+| Metodologia 4.7.1, parágrafo do alerta (texto saneado) | RN-084 | RF-099 | UC-15 | `/monitoramento` | Monitoramento | `medicoes_kri` | pgTAP `120_lac03_alerta_kri.test.sql`; `monitoramentoPagina.spec.ts`; `fonteDemonstracao.spec.ts` (implementado no código e no banco local, LAC-03) |
 | Metodologia 4.7.2, 1º parágrafo (texto saneado) | RN-115 | RF-100 | UC-07, UC-15 | `/monitoramento` | Monitoramento | `respostas_tratamento` | `monitoramentoPagina.spec.ts`; pgTAP `050` bl. 7 |
 | Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) | RN-086 | RF-101 | UC-15 | `/` | Painel | `respostas_tratamento` | `painelPiloto.spec.ts` |
-| Metodologia 4.7.1, parágrafo do alerta (texto saneado) | RN-084 | RF-102 | UC-15 | `/monitoramento` | Monitoramento | `medicoes_kri` | — (não iniciado, LAC-03) |
+| Metodologia 4.7.1, parágrafo do alerta (texto saneado) | RN-084 | RF-102 | UC-15 | `/monitoramento` | Monitoramento | `medicoes_kri`, `alertas_kri` | pgTAP `120_lac03_alerta_kri.test.sql`; `situacaoKri.spec.ts`; `diasUteis.spec.ts`; `monitoramentoPagina.spec.ts` (implementado no código e no banco local, LAC-03) |
 
 ### 8. Reavaliação
 
@@ -189,12 +189,12 @@ Nota 1 (RF-056): o risco `preliminar_cgov` nasce hoje no importador (`/importar`
 
 | Dispositivo normativo | RN | RF | UC | Tela (rota) | Tela | Tabela/função SQL | Teste |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) | RN-086 | RF-107 | UC-16 | a prototipar | P-03 (a prototipar) | — | — (não iniciado, LAC-04) |
-| Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) | RN-086 | RF-108 | UC-16 | a prototipar | P-03 (a prototipar) | — | — (não iniciado, LAC-04) |
-| Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) | RN-086 | RF-192 | UC-16 | a prototipar | P-03 (a prototipar) | — | — (não iniciado, LAC-04) |
-| Metodologia 4.7.1, parágrafo do alerta (texto saneado) | RN-084, RN-085 | RF-109 | UC-15, UC-16 | a prototipar | P-02, P-03 (a prototipar) | — | — (não iniciado, LAC-03, LAC-04) |
+| Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) | RN-086 | RF-107 | UC-16 | `/comunicacoes` | Comunicações à CGOV (P-03) | `comunicacoes_cgov`, `comunicacoes_riscos` | pgTAP `121_lac04_comunicacoes_cgov.test.sql`; `comunicacoesPagina.spec.ts` (implementado no código e no banco local, LAC-04) |
+| Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) | RN-086 | RF-108 | UC-16 | `/comunicacoes` | Comunicações à CGOV (P-03) | `comunicacoes_cgov`, `comunicacoes_riscos` | pgTAP `121_lac04_comunicacoes_cgov.test.sql`; `comunicacoesPagina.spec.ts` (implementado no código e no banco local, LAC-04) |
+| Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) | RN-086 | RF-192 | UC-16 | `/comunicacoes` | Comunicações à CGOV (P-03) | `comunicacoes_cgov`, `comunicacoes_riscos` | pgTAP `121_lac04_comunicacoes_cgov.test.sql`; `comunicacoesPagina.spec.ts` (implementado no código e no banco local, LAC-04) |
+| Metodologia 4.7.1, parágrafo do alerta (texto saneado) | RN-084, RN-085 | RF-109 | UC-15, UC-16 | `/comunicacoes` | Comunicações à CGOV (P-03), Monitoramento (P-02) | `comunicacoes_cgov`, `alertas_kri` | pgTAP `121_lac04_comunicacoes_cgov.test.sql`; `hipotesesComunicacao.spec.ts` (implementado no código e no banco local, LAC-03, LAC-04) |
 | Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) | RN-086 | RF-110 | UC-16 | a prototipar | P-03 (a prototipar) | — | — (não iniciado, LAC-04) |
-| Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) / Política art. 15, IX; Política art. 3º, I (texto saneado) | RN-086, RN-089 | RF-111 | UC-16, UC-22 | a prototipar | P-03, P-07 (a prototipar) | — | — (não iniciado, LAC-04) |
+| Metodologia 4.7.2, I a VI; Política art. 17, IV (texto saneado) / Política art. 15, IX; Política art. 3º, I (texto saneado) | RN-086, RN-089 | RF-111 | UC-16, UC-22 | `/comunicacoes` | Comunicações à CGOV (P-03); P-07 (a prototipar) | `comunicacoes_cgov` | pgTAP `121_lac04_comunicacoes_cgov.test.sql`; `comunicacoesPagina.spec.ts`; `comunicacoesStore.spec.ts` (implementado no código e no banco local, LAC-04) |
 
 ### 10. Plano de Gestão de Riscos (consolidação, colegiados, publicação, revisão)
 
@@ -388,10 +388,10 @@ Contagens feitas em 21/11/2026 sobre os catálogos e atualizadas em 22/11/2026 (
 | Medida | Quantidade | IDs |
 | --- | --- | --- |
 | Requisitos funcionais no catálogo | 195 | RF-001 a RF-195 |
-| RF implementados | 135 | — |
-| RF parciais | 5 | RF-035, RF-048, RF-063, RF-078, RF-099 |
-| RF não iniciados | 55 | ver as linhas "— (não iniciado, ...)" da matriz |
-| RF com teste citado (implementados e parciais com teste do trecho feito) | 139 | 135 implementados + 4 parciais (RF-035, RF-048, RF-063, RF-099) |
+| RF implementados | 142 | — (135 de antes, mais RF-099, RF-102, RF-107, RF-108, RF-109, RF-111 e RF-192, de 2026-11-25) |
+| RF parciais | 4 | RF-035, RF-048, RF-063, RF-078 |
+| RF não iniciados | 49 | ver as linhas "— (não iniciado, ...)" da matriz |
+| RF com teste citado (implementados e parciais com teste do trecho feito) | 145 | 142 implementados + 3 parciais (RF-035, RF-048, RF-063) |
 | RF implementados sem teste | 0 | nenhum |
 | RF parciais sem teste do trecho feito | 1 | RF-078 |
 | RF sem caso de uso | 4 | RF-014, RF-054, RF-060, RF-189 |

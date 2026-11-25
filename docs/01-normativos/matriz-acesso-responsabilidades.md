@@ -226,6 +226,7 @@ significa "vê tudo e edita só a própria unidade".
 | Novo risco (`/riscos/novo`) | E | E | E | E | E | E | E | E | E | E |
 | Objetos de gestão (`/objetos`) | V | V | V | V | V\* | V\* | V\* | **E** (catálogo) | V\* | V\* |
 | Monitoramento — KRIs e Plano de ação (`/monitoramento`) | E | E+ | E+ | E+ | E+ | E+ | V\* | E+ | E+ | E+ |
+| Comunicações à CGOV (`/comunicacoes`) | E | E+ | E+ | E+ | E+ | E+ | V\* | E+ (e registra a ciência) | E+ | E+ |
 | Aprovações (`/aprovacoes`) | V (as próprias) | **A** (valida) | **A** (valida e homologa) | **A** (valida) | **A** (valida e homologa) | **A** (homologa) | V\* | V\* | V\* | **A** (valida riscos da Presidência) |
 | Apetite a riscos — DAR (`/dar`) | V (vigente) | V | V | V | V | V | V | **E** (simular e propor) | V | V |
 | Auditoria — trilha (`/auditoria`) | V | V | V | V | V\* | V\* | V\* | V\* | V\* | V\* |

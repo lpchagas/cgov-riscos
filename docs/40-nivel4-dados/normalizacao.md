@@ -366,7 +366,7 @@ erDiagram
 5. **`respostas_tratamento.status_execucao = 'atrasada'` (conforme).** Dependeria do prazo e da **data de
    hoje**, que não é coluna da tabela. Hoje é marcado à mão. A comunicação do atraso é a LAC-04 (inciso V).
 6. **`medicoes_kri.em_alerta` (conforme).** Não é derivável: `valor_apurado` e `limite_alerta` são texto
-   livre, sem regra para comparar. Hoje é marcado à mão (LAC-03).
+   livre, sem regra para comparar. Desde a LAC-03 (`20261123002`, 2026-11-24) o banco passa a **calculá-lo**: o gatilho `fn_medicao_calcula_alerta` compara `valor_numerico` com o limite numérico do KRI (`limite_operador`, `limite_valor`). Continua sendo coluna gravada (e não visão) porque guarda o resultado **na data da leitura**: se o limite mudar depois, o histórico não é recalculado. Fica conforme.
 7. **`riscos.estrategia_principal` × `respostas_tratamento.estrategia` (conforme).** Uma é a resposta
    escolhida para o risco; a outra, a estratégia de cada ação. Podem ser diferentes, então não há
    dependência funcional. A regra "risco crítico não aceita Aceitar" é a LAC-13, resolvida no código em 2026-11-22: não é restrição de coluna, e sim a função `fn_trava_risco_critico` (migração `20261122002`), porque depende do `status_critico` do risco e da lista de ações.
