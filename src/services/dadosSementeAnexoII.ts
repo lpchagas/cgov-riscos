@@ -64,10 +64,22 @@ export const ALERTAS_KRI_SEMENTE: Array<
 const MEIO_DIA = (dia: string) => `${dia}T15:00:00.000Z`;
 
 /**
+ * Meio-dia de Brasília do dia dado, mas nunca DEPOIS de agora (N-2). Para HOJE, antes do
+ * meio-dia, o meio-dia ainda não chegou: usamos o instante atual (que já é hoje em Brasília).
+ * Ex.: hoje às 9h → o próprio instante das 9h; hoje às 16h → 12h de hoje.
+ */
+const JA_PASSADO = (dia: string) => {
+  const meioDia = MEIO_DIA(dia);
+  const agora = new Date().toISOString();
+  return meioDia <= agora ? meioDia : agora;
+};
+
+/**
  * Comunicações à CGOV da demonstração (LAC-04), com datas relativas a HOJE como os alertas:
  *  1. do alerta já comunicado (com-demo-1): no prazo, com ciência da CGOV;
- *  2. hipótese V enviada FORA do prazo (14 dias úteis), com ciência da CGOV;
- *  3. hipótese III enviada hoje, ainda "nova" (a CGOV não deu ciência).
+ *  2. hipótese V enviada FORA do prazo (13 dias úteis), com ciência da CGOV no dia útil seguinte;
+ *  3. hipótese III enviada hoje (antes de agora), ainda "nova" (a CGOV não deu ciência).
+ * Nenhum envio ou ciência fica no futuro (N-2), nem antes do meio-dia.
  * Dados fictícios, sem nome de pessoa. O prazo e a situação são calculados na hora.
  */
 export const COMUNICACOES_SEMENTE: ComunicacaoBase[] = [
@@ -78,7 +90,9 @@ export const COMUNICACOES_SEMENTE: ComunicacaoBase[] = [
     supre: ['I'],
     dataCiencia: CIENCIA_COMUNICADO,
     comunicadaEm: MEIO_DIA(somarDiasUteis(CIENCIA_COMUNICADO, 4)),
-    descricao: 'Indicador de autorizações acima do limite. Reavaliamos o risco e o nível residual passou a ser Crítico.',
+    // "Crítico" só como Risco Crítico (residual fora do apetite da DAR); o nível 18 a 25 é "Extremo".
+    descricao:
+      'Indicador de autorizações acima do limite. Reavaliamos o risco e ele passou a ser Risco Crítico (nível residual fora do apetite da DAR).',
     providencias: 'Reforço da conferência dos processos de autorização e reunião com a equipe.',
     alertaId: 'alerta-socio-1',
     riscoIds: ['risco-socio-03'],
@@ -91,11 +105,11 @@ export const COMUNICACOES_SEMENTE: ComunicacaoBase[] = [
     hipotese: 'V',
     supre: [],
     dataCiencia: subtrairDiasUteis(HOJE_SEMENTE, 15),
-    comunicadaEm: MEIO_DIA(subtrairDiasUteis(HOJE_SEMENTE, 1)),
+    comunicadaEm: MEIO_DIA(subtrairDiasUteis(HOJE_SEMENTE, 2)),
     descricao: 'A ação de capacitação dos fiscais está atrasada por falta de oferta do curso.',
     documentoSei: '00000.000000/2026-00',
     riscoIds: ['risco-integra-02'],
-    cienciaCgovEm: MEIO_DIA(HOJE_SEMENTE),
+    cienciaCgovEm: MEIO_DIA(subtrairDiasUteis(HOJE_SEMENTE, 1)),
     observacaoCgov: 'Ciente. Enviada fora do prazo de 10 dias úteis.',
   },
   {
@@ -104,7 +118,7 @@ export const COMUNICACOES_SEMENTE: ComunicacaoBase[] = [
     hipotese: 'III',
     supre: [],
     dataCiencia: subtrairDiasUteis(HOJE_SEMENTE, 2),
-    comunicadaEm: MEIO_DIA(HOJE_SEMENTE),
+    comunicadaEm: JA_PASSADO(HOJE_SEMENTE),
     descricao: 'O evento previsto no risco aconteceu: houve indisponibilidade do sistema de registro por um dia.',
     providencias: 'Registro do incidente e acionamento do plano de contingência.',
     riscoIds: ['risco-anexo-ii-01'],

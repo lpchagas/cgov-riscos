@@ -12,6 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { criarFonteSupabase } from '../../src/services/dados/fonteSupabase';
+import { ErroRadar } from '../../src/services/dados/errosBanco';
 
 type Linha = Record<string, unknown>;
 
@@ -239,4 +240,42 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
     await fonte.registrarMedicao('k1', { dataMedicao: '2026-12-03', valorApurado: '70', valorNumerico: 70 });
     expect(enviado).toHaveProperty('valor_numerico', 70);
   });
+
+  // I-3 (fim da Fase 3): a lista chega do banco em ordem CRESCENTE de envio; a tela (e a
+  // demonstração) mostram a mais recente primeiro. A fonte entrega já em ordem decrescente.
+  it('listarComunicacoes devolve da mais recente para a mais antiga (como a demonstração)', async () => {
+    const linha = (id: string, em: string) => ({
+      id, unidade_id: 'u1', hipotese: 'IV', supre: [], data_ciencia: '2026-11-10', comunicada_em: em,
+      descricao: 'Fato.', prazo_dias_uteis: 1, no_prazo: true, vence_em: '2026-11-24', situacao: 'nova',
+    });
+    const { cliente } = clienteFalso({
+      comunicacoes_cgov_situacao: [
+        linha('c1', '2026-11-11T12:00:00+00:00'),
+        linha('c2', '2026-11-12T09:00:00+00:00'),
+        linha('c3', '2026-11-12T18:30:00+00:00'),
+      ],
+      comunicacoes_riscos: [{ comunicacao_id: 'c2', risco_id: 'r1' }],
+    });
+    const lista = await criarFonteSupabase(cliente).listarComunicacoes();
+    expect(lista.map((c) => c.id)).toEqual(['c3', 'c2', 'c1']);
+    expect(lista.find((c) => c.id === 'c2')!.riscoIds).toEqual(['r1']);
+  });
+
+  // m4 (fim da Fase 3): o 2º envio do mesmo alerta pelo caminho REAL. O banco responde
+  // P0001 com a frase em português; a pessoa lê essa frase, não a genérica.
+  it('enviarComunicacao: recusa P0001 do banco chega como ErroRadar com a frase do banco', async () => {
+    const cliente = {
+      rpc: () => Promise.resolve({ data: null, error: { code: 'P0001', message: 'Este alerta já foi comunicado' } }),
+    } as unknown as SupabaseClient;
+    const falha = await criarFonteSupabase(cliente)
+      .enviarComunicacao({
+        unidadeId: 'u1', hipotese: 'alerta_kri', dataCiencia: '2026-11-18', descricao: 'Fato.',
+        alertaId: 'a1', riscoIds: ['r1'], supre: [],
+      })
+      .catch((e: unknown) => e);
+    expect(falha).toBeInstanceOf(ErroRadar);
+    expect((falha as ErroRadar).message).toBe('Este alerta já foi comunicado');
+    expect((falha as ErroRadar).tipo).toBe('estado');
+  });
 });
+

@@ -238,3 +238,25 @@ describe('traduzirErroComunicacao (LAC-04)', () => {
     expect(e.message).toBe('Já existe um registro com estes dados.');
   });
 });
+
+// P-1 (fim da Fase 3): as travas de exclusão das migrações 20261123002 (LAC-03) e
+// 20261123003 (LAC-04) escrevem a frase em português SEM o prefixo "RADAR:" (código
+// P0001). Antes, a pessoa via só a frase genérica. Cópias fiéis dos RAISE EXCEPTION.
+describe('travas de exclusão do alerta e da comunicação (P0001 sem "RADAR:")', () => {
+  it.each([
+    ['Este risco foi citado em uma comunicação à CGOV e não pode ser apagado', 'Este risco foi citado em uma comunicação à CGOV e não pode ser apagado: a comunicação é um registro permanente.'],
+    ['Esta leitura abriu um alerta do KRI e não pode ser apagada', 'Esta leitura abriu um alerta do KRI e não pode ser apagada: ela é a prova do prazo do alerta. Para corrigir, registre uma leitura nova.'],
+    ['Esta leitura abriu um alerta do KRI e não pode mudar de KRI', 'Esta leitura abriu um alerta do KRI e não pode passar para outro KRI. Registre uma leitura nova no KRI certo.'],
+    ['Este KRI tem alerta já comunicado à CGOV e não pode ser apagado', 'Este KRI tem alerta já comunicado à CGOV e não pode ser apagado: a comunicação é um registro permanente.'],
+    ['Este KRI tem alerta em aberto: comunique à CGOV antes de apagar', 'Este KRI tem alerta em aberto: comunique o alerta à CGOV antes de apagar o KRI.'],
+  ])('"%s" vira frase própria (tipo estado), não a genérica', (message, esperada) => {
+    const e = traduzirErroBanco({ code: 'P0001', message });
+    expect(e.message).toBe(esperada);
+    expect(e.tipo).toBe('estado');
+  });
+
+  it('outra mensagem P0001 sem prefixo continua escondida (frase genérica)', () => {
+    const e = traduzirErroBanco({ code: 'P0001', message: 'algo técnico em inglês' });
+    expect(e.message).toMatch(/^Não foi possível concluir a operação/);
+  });
+});

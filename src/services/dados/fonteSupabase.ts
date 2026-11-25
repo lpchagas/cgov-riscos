@@ -437,9 +437,15 @@ export function criarFonteSupabase(cliente: SupabaseClient): FonteDados {
         lerTabela('comunicacoes_riscos', ['comunicacao_id', 'risco_id']),
       ]);
       const riscosPorComunicacao = agruparPor(ligacoes, 'comunicacao_id');
-      return linhas.map((l) =>
-        comunicacaoDoBanco(l, (riscosPorComunicacao.get(String(l.id)) ?? []).map((x) => String(x.risco_id))),
-      );
+      // A leitura paginada vem em ordem CRESCENTE (estável entre páginas); a tela mostra a
+      // MAIS RECENTE primeiro, igual à demonstração (I-3). Comparamos o instante (Date.parse),
+      // não o texto: o banco pode escrever o fuso como "+00:00". Empate: o id decide.
+      // Ex.: envios em 11/11 e 12/11 → [12/11, 11/11].
+      return linhas
+        .map((l) =>
+          comunicacaoDoBanco(l, (riscosPorComunicacao.get(String(l.id)) ?? []).map((x) => String(x.risco_id))),
+        )
+        .sort((a, b) => Date.parse(b.comunicadaEm) - Date.parse(a.comunicadaEm) || b.id.localeCompare(a.id));
     },
 
     /** Envia a comunicação (RPC `enviar_comunicacao`; erros do banco já vêm em português). */

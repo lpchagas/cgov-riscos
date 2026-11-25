@@ -12,7 +12,8 @@
  * Ordem de decisão (da mais específica para a mais genérica):
  *  1. Falha de rede (sem internet / servidor fora do ar).
  *  2. Mensagem "RADAR: ..." (escrita por nós nas funções do banco): procura um
- *     TRECHO conhecido no dicionário abaixo.
+ *     TRECHO conhecido no dicionário abaixo. (2b: as travas de exclusão do alerta do
+ *     KRI e das comunicações, que vêm sem o prefixo, têm lista própria.)
  *  3. Código do erro (ex.: 42501 = sem permissão).
  *  4. Se a mensagem começa com "RADAR:" mas é nova, mostra o texto sem o prefixo.
  *  5. Frase genérica.
@@ -122,6 +123,23 @@ const DICIONARIO: Entrada[] = [
   ['não encontrado', 'Risco não encontrado.', 'nao_encontrado'], // "risco ... não encontrado"
 ];
 
+/**
+ * Travas de exclusão das migrações 20261123002 (LAC-03, alerta do KRI) e 20261123003
+ * (LAC-04, comunicações à CGOV). Diferente das mensagens acima, estas NÃO têm o prefixo
+ * "RADAR:" (vêm só com o código genérico P0001); por isso têm lista própria, conferida
+ * pelo INÍCIO da mensagem (cópia fiel do RAISE EXCEPTION). Qualquer outra mensagem P0001
+ * sem prefixo continua escondida atrás da frase genérica (pode ser texto técnico).
+ * Ex.: apagar um risco citado numa comunicação → "Este risco foi citado em uma
+ * comunicação à CGOV e não pode ser apagado: a comunicação é um registro permanente."
+ */
+const TRAVAS_SEM_PREFIXO: Entrada[] = [
+  ['Este risco foi citado em uma comunicação à CGOV e não pode ser apagado', 'Este risco foi citado em uma comunicação à CGOV e não pode ser apagado: a comunicação é um registro permanente.', 'estado'],
+  ['Esta leitura abriu um alerta do KRI e não pode ser apagada', 'Esta leitura abriu um alerta do KRI e não pode ser apagada: ela é a prova do prazo do alerta. Para corrigir, registre uma leitura nova.', 'estado'],
+  ['Esta leitura abriu um alerta do KRI e não pode mudar de KRI', 'Esta leitura abriu um alerta do KRI e não pode passar para outro KRI. Registre uma leitura nova no KRI certo.', 'estado'],
+  ['Este KRI tem alerta já comunicado à CGOV e não pode ser apagado', 'Este KRI tem alerta já comunicado à CGOV e não pode ser apagado: a comunicação é um registro permanente.', 'estado'],
+  ['Este KRI tem alerta em aberto: comunique à CGOV antes de apagar', 'Este KRI tem alerta em aberto: comunique o alerta à CGOV antes de apagar o KRI.', 'estado'],
+];
+
 /** Frases por código de erro do PostgreSQL / PostgREST (plano B). */
 const POR_CODIGO: Record<string, [string, TipoErroRadar]> = {
   '42501': ['Você não tem permissão para esta ação.', 'permissao'],
@@ -163,6 +181,11 @@ export function traduzirErroBanco(erro: unknown): ErroRadar {
     for (const [trecho, frase, tipo] of DICIONARIO) {
       if (mensagem.includes(trecho)) return new ErroRadar(frase, tipo, codigo);
     }
+  }
+
+  // 2b) Travas de exclusão sem o prefixo "RADAR:" (alerta do KRI e comunicações à CGOV).
+  for (const [inicio, frase, tipo] of TRAVAS_SEM_PREFIXO) {
+    if (mensagem.startsWith(inicio)) return new ErroRadar(frase, tipo, codigo);
   }
 
   // 3) Código do erro.
