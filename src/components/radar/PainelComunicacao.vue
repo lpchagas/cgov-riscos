@@ -230,6 +230,7 @@ function reiniciar(): void {
   abertura++;
   atualizarHoje();
   enviando.value = false; // o envio de uma abertura anterior não trava esta
+  registrando.value = false; // nem a ciência pedida numa abertura anterior
   hipotese.value = '';
   dataCiencia.value = '';
   riscoId.value = '';
@@ -346,13 +347,21 @@ async function registrarCiencia(): Promise<void> {
   if (!c || registrando.value) return;
   registrando.value = true;
   erroCiencia.value = null;
+  // Mesmo cuidado do envio (E6): o resultado pertence à abertura que pediu a ciência.
+  // Ex.: a CGOV pede a ciência de A e abre B antes de o banco responder → o resultado
+  // de A vira só um aviso rápido; o formulário de B não recebe o erro nem fica travado.
+  const minha = abertura;
+  const ehDestaAbertura = () => minha === abertura;
   try {
     await comunicacoesStore.registrarCiencia(c.id, observacao.value.trim() || undefined);
-    emit('ciencia-registrada');
+    if (ehDestaAbertura()) emit('ciencia-registrada');
+    else mostrar({ tom: 'sucesso', mensagem: 'A ciência da comunicação anterior foi registrada.' });
   } catch (e) {
-    erroCiencia.value = (e as Error).message;
+    const motivo = (e as Error).message;
+    if (ehDestaAbertura()) erroCiencia.value = motivo;
+    else mostrar({ tom: 'perigo', mensagem: `A ciência da comunicação anterior não foi registrada: ${motivo}` });
   } finally {
-    registrando.value = false;
+    if (ehDestaAbertura()) registrando.value = false;
   }
 }
 

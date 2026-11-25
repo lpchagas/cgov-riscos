@@ -673,6 +673,55 @@ describe('Página Comunicações à CGOV — achados da PR #21', () => {
     expect(useToast().toasts.value.some((t) => t.mensagem.includes(aviso))).toBe(true);
   });
 
+  // Rodada 2 (CodeRabbit 4692751985): a ciência pertence à abertura que a pediu, como o envio (E6).
+  it.each([
+    ['grava', 'A ciência da comunicação anterior foi registrada.'],
+    ['falha', 'A ciência da comunicação anterior não foi registrada'],
+  ])('Rodada 2: ciência de A (%s) depois de abrir B não mexe em B; um aviso global informa A', async (desfecho, aviso) => {
+    let liberar: () => void = () => undefined;
+    let recusar: (e: Error) => void = () => undefined;
+    let chamadas = 0;
+    // `base` é a MESMA fonte que a tela usa (devolvida por `montar`); a troca só pega a 1ª ciência.
+    let base!: FonteDados;
+    const montagem = await montar('cgov', '/comunicacoes', {
+      registrarCiencia: (id, obs) => {
+        chamadas += 1;
+        if (chamadas > 1) return base.registrarCiencia(id, obs);
+        return new Promise<void>((ok, nao) => {
+          liberar = () => void base.registrarCiencia(id, obs).then(ok);
+          recusar = nao;
+        });
+      },
+    });
+    const { w } = montagem;
+    base = montagem.base;
+    // Uma 2ª comunicação nova (B) para a CGOV abrir enquanto a ciência de A não termina.
+    const unidade = useRiscosStore().riscos[0].unidadeId;
+    await base.enviarComunicacao({ unidadeId: unidade, hipotese: 'IV', dataCiencia: hojeEmBrasilia(), descricao: 'Comunicação B.', riscoIds: [], supre: [] });
+    await useComunicacoesStore().carregar();
+    await flushPromises();
+    useToast().toasts.value = [];
+    const novas = () => linhas(w).filter((l) => l.text().includes('Nova'));
+    expect(novas()).toHaveLength(2);
+    await novas()[1].trigger('click'); // A
+    await flushPromises();
+    botao(painel()!, 'Registrar ciência')!.click();
+    await flushPromises();
+    await novas()[0].trigger('click'); // B (abre por cima, com A pendente)
+    await flushPromises();
+    expect(painel()!.textContent).toContain('Comunicação B.');
+    preencher('Observação da CGOV', 'Rascunho de B.');
+    expect(botao(painel()!, 'Registrar ciência')!.disabled).toBe(false); // B não herda o "registrando" de A
+    if (desfecho === 'grava') liberar();
+    else recusar(new ErroRadar('Recusa do banco para A.', 'estado'));
+    await flushPromises();
+    expect(painel()!.textContent).toContain('Comunicação B.');
+    expect(campo<HTMLTextAreaElement>('Observação da CGOV').value).toBe('Rascunho de B.');
+    expect(painel()!.textContent).not.toContain('Recusa do banco para A.');
+    expect(botao(painel()!, 'Registrar ciência')!.disabled).toBe(false);
+    expect(useToast().toasts.value.some((t) => t.mensagem.includes(aviso))).toBe(true);
+  });
+
   // E7: falha ao LER os alertas não é "alerta inexistente": oferece nova tentativa e guarda o ?alerta.
   it('E7: falha na leitura dos alertas → mensagem própria, "Tentar de novo" e o painel abre quando a leitura funciona', async () => {
     let falhar = true;
