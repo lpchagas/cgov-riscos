@@ -26,6 +26,7 @@ import { criarFonteDemonstracao } from '../../src/services/dados';
 import type { FonteDados } from '../../src/services/dados/tipos';
 import { ErroRadar } from '../../src/services/dados/errosBanco';
 import { dataCurta } from '../../src/utils/painelResumo';
+import { useToast } from '../../src/composables/useToast';
 import { hojeEmBrasilia, somarDiasUteis, subtrairDiasUteis } from '../../src/utils/diasUteis';
 import ComunicacoesView from '../../src/views/ComunicacoesView.vue';
 import type { PapelGovernanca } from '../../src/types/radar.types';
@@ -492,6 +493,187 @@ describe('Página Comunicações à CGOV — correções do fim da Fase 3', () =
     expect(painel()!.textContent).not.toContain('Política, item 4.7.2');
     const fundamento = String(router.getRoutes().find((r) => r.name === 'comunicacoes')!.meta.fundamento);
     expect(fundamento).toBe('Item 4.7.2 da Metodologia (Minuta SEI 024421455) e art. 17, IV, da Política RADAR (Minuta SEI 024241420).');
+  });
+});
+
+// ============================================================================
+// Achados do CodeRabbit na PR #21 (E3 a E8)
+// ============================================================================
+describe('Página Comunicações à CGOV — achados da PR #21', () => {
+  async function abrirNovaComunicacao(w: VueWrapper): Promise<void> {
+    await w.findAll('button').find((b) => b.text().includes('Nova comunicação'))!.trigger('click');
+    await flushPromises();
+  }
+  const caixasSupre = () => [...painel()!.querySelectorAll<HTMLInputElement>('fieldset input[type="checkbox"]')];
+
+  // E3: se a leitura dos objetos onde a pessoa grava falhar, NADA de liberar os riscos
+  // visíveis (podem estar fora do alcance de escrita): falha à vista + "Tentar de novo".
+  it('E3: leitura do alcance falhou → envio bloqueado, falha à vista e "Tentar de novo" que libera', async () => {
+    let falhar = true;
+    const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.gestor });
+    await montar('gestor', '/comunicacoes?alerta=alerta-integra-1', {
+      objetosOndeGravo: async () => {
+        if (falhar) throw new ErroRadar('A conexão caiu.', 'rede');
+        return base.objetosOndeGravo();
+      },
+    });
+    const enviar = botao(painel()!, 'Enviar à CGOV')!;
+    expect(enviar.disabled).toBe(true);
+    expect(painel()!.textContent).toContain('Não foi possível ler os riscos em que você pode gravar');
+    expect(painel()!.textContent).not.toContain('fora do seu alcance'); // não é falta de alcance
+    expect(painel()!.querySelector('.riscos-alerta')!.textContent).not.toContain('RADAR-');
+    falhar = false;
+    botao(painel()!, 'Tentar de novo')!.click();
+    await flushPromises();
+    expect(botao(painel()!, 'Enviar à CGOV')!.disabled).toBe(false);
+    expect(painel()!.querySelector('.riscos-alerta')!.textContent).toContain('RADAR-');
+  });
+
+  it('E3: sem alerta, a falha da leitura também não oferece riscos de fora do alcance', async () => {
+    const { w } = await montar('gestor', '/comunicacoes', {
+      objetosOndeGravo: async () => {
+        throw new ErroRadar('A conexão caiu.', 'rede');
+      },
+    });
+    await abrirNovaComunicacao(w);
+    preencher('Hipótese', 'V');
+    await flushPromises();
+    expect(campo<HTMLSelectElement>('Risco ligado').querySelectorAll('option')).toHaveLength(1);
+    expect(botao(painel()!, 'Enviar à CGOV')!.disabled).toBe(true);
+    expect(botao(painel()!, 'Tentar de novo')).toBeDefined();
+  });
+
+  // E4: o painel aberto atravessa a meia-noite de Brasília: "hoje" vira sozinho (sem apagar
+  // o rascunho) e a validação do envio usa a data do MOMENTO do envio.
+  it('E4: virada do dia com o painel aberto atualiza o limite da data e mantém o rascunho', async () => {
+    // 23:59 em Brasília (UTC-3) = 02:59 UTC do dia seguinte.
+    const ontem = '2026-12-01';
+    const amanha = '2026-12-02';
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    try {
+      vi.setSystemTime(new Date(`${amanha}T02:59:00.000Z`));
+      const { w } = await montar('gestor');
+      await abrirNovaComunicacao(w);
+      preencher('Descrição do fato', 'Rascunho que atravessa a meia-noite.');
+      expect(campo<HTMLInputElement>('Data da ciência do fato').max).toBe(ontem);
+      vi.setSystemTime(new Date(`${amanha}T03:01:00.000Z`)); // 00:01 em Brasília
+      vi.advanceTimersByTime(60_000);
+      await flushPromises();
+      expect(campo<HTMLInputElement>('Data da ciência do fato').max).toBe(amanha);
+      expect(campo<HTMLTextAreaElement>('Descrição do fato').value).toBe('Rascunho que atravessa a meia-noite.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('E4: depois da meia-noite, a data de "hoje" é aceita no envio mesmo antes do relógio do painel virar', async () => {
+    const amanha = '2026-12-02';
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+    try {
+      vi.setSystemTime(new Date(`${amanha}T02:59:30.000Z`));
+      const { w } = await montar('gestor');
+      await abrirNovaComunicacao(w);
+      vi.setSystemTime(new Date(`${amanha}T03:00:10.000Z`)); // virou, mas o intervalo ainda não rodou
+      preencher('Hipótese', 'IV');
+      preencher('Data da ciência do fato', amanha);
+      preencher('Descrição do fato', 'Risco novo logo depois da meia-noite.');
+      await flushPromises();
+      const antes = useComunicacoesStore().comunicacoes.length;
+      botao(painel()!, 'Enviar à CGOV')!.click();
+      await flushPromises();
+      expect(document.body.textContent).not.toContain('A data da ciência não pode ser futura');
+      expect(useComunicacoesStore().comunicacoes).toHaveLength(antes + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // E5: a URL troca de alerta com o painel aberto → formulário novo; mesmo alerta → rascunho fica.
+  it('E5: trocar o alerta na URL reinicia o formulário; o mesmo alerta mantém o rascunho', async () => {
+    const { router } = await montar('gestor', '/comunicacoes?alerta=alerta-integra-1');
+    preencher('Descrição do fato', 'Reavaliação do alerta A.');
+    caixasSupre()[0].click();
+    await flushPromises();
+    // Mesmo alerta (ex.: a carteira foi relida): nada se perde.
+    await useRiscosStore().carregar();
+    await flushPromises();
+    expect(campo<HTMLTextAreaElement>('Descrição do fato').value).toBe('Reavaliação do alerta A.');
+    expect(caixasSupre()[0].checked).toBe(true);
+    // Outro alerta: começa do zero.
+    await router.push('/comunicacoes?alerta=alerta-anexo-ii-1');
+    await flushPromises();
+    expect(painel()).not.toBeNull();
+    expect(campo<HTMLTextAreaElement>('Descrição do fato').value).toBe('');
+    expect(caixasSupre().some((c) => c.checked)).toBe(false);
+  });
+
+  // E6: o resultado de um envio pertence à abertura que o iniciou.
+  it.each([
+    ['grava', 'A comunicação anterior foi enviada à CGOV.'],
+    ['falha', 'A comunicação anterior não foi gravada'],
+  ])('E6: envio de A (%s) depois de cancelar e abrir B não mexe em B; um aviso global informa A', async (desfecho, aviso) => {
+    let liberar: (id: string) => void = () => undefined;
+    let recusar: (e: Error) => void = () => undefined;
+    const { w } = await montar('gestor', '/comunicacoes', {
+      enviarComunicacao: () =>
+        new Promise<string>((ok, nao) => {
+          liberar = ok;
+          recusar = nao;
+        }),
+    });
+    useToast().toasts.value = [];
+    await abrirNovaComunicacao(w);
+    preencher('Hipótese', 'IV');
+    preencher('Data da ciência do fato', hojeEmBrasilia());
+    preencher('Descrição do fato', 'Comunicação A.');
+    await flushPromises();
+    botao(painel()!, 'Enviar à CGOV')!.click();
+    await flushPromises();
+    botao(painel()!, 'Cancelar')!.click();
+    await flushPromises();
+    await abrirNovaComunicacao(w);
+    preencher('Descrição do fato', 'Rascunho B.');
+    await flushPromises();
+    expect(botao(painel()!, 'Enviar à CGOV')!.disabled).toBe(false); // B não herda o "gravando" de A
+    if (desfecho === 'grava') liberar('com-a');
+    else recusar(new ErroRadar('Recusa do banco para A.', 'validacao'));
+    await flushPromises();
+    expect(painel()).not.toBeNull(); // B continua aberto
+    expect(campo<HTMLTextAreaElement>('Descrição do fato').value).toBe('Rascunho B.');
+    expect(painel()!.textContent).not.toContain('A comunicação não foi gravada');
+    expect(painel()!.textContent).not.toContain('Recusa do banco para A.');
+    expect(useToast().toasts.value.some((t) => t.mensagem.includes(aviso))).toBe(true);
+  });
+
+  // E7: falha ao LER os alertas não é "alerta inexistente": oferece nova tentativa e guarda o ?alerta.
+  it('E7: falha na leitura dos alertas → mensagem própria, "Tentar de novo" e o painel abre quando a leitura funciona', async () => {
+    let falhar = true;
+    const base = criarFonteDemonstracao('normal', { quemSou: () => PERFIS_DEMO_ICMBIO.gestor });
+    const { w, router } = await montar('gestor', '/comunicacoes?alerta=alerta-integra-1', {
+      listarAlertasKri: async () => {
+        if (falhar) throw new ErroRadar('A conexão caiu.', 'rede');
+        return base.listarAlertasKri();
+      },
+    });
+    expect(painel()).toBeNull();
+    expect(w.text()).not.toContain('Este alerta já foi comunicado ou não foi encontrado.');
+    expect(w.text()).toContain('Não foi possível ler os alertas dos indicadores');
+    expect(router.currentRoute.value.query.alerta).toBe('alerta-integra-1');
+    falhar = false;
+    await w.findAll('button').find((b) => b.text().includes('Tentar de novo'))!.trigger('click');
+    await flushPromises();
+    expect(painel()!.textContent).toContain('Resultado da reavaliação por alerta do KRI');
+    expect(w.text()).not.toContain('Não foi possível ler os alertas dos indicadores');
+  });
+
+  // E8: com o painel de A aberto, a URL passa a um alerta inválido → fecha o painel e mostra o aviso.
+  it('E8: URL muda para alerta inválido com o painel aberto → fecha o painel e mostra o aviso (R16)', async () => {
+    const { w, router } = await montar('gestor', '/comunicacoes?alerta=alerta-integra-1');
+    expect(painel()).not.toBeNull();
+    await router.push('/comunicacoes?alerta=alerta-que-nao-existe');
+    await flushPromises();
+    expect(painel()).toBeNull();
+    expect(w.text()).toContain('Este alerta já foi comunicado ou não foi encontrado.');
   });
 });
 

@@ -1126,4 +1126,16 @@ describe('comunicações à CGOV (LAC-04)', () => {
     expect(c.observacaoCgov).toBe('Ciente.');
     expect((await erroDe(f.registrarCiencia(id))).message).toContain('já foi registrada');
   });
+
+  // PR #21 (E9): como o gatilho `trg_risco_protege_comunicacao` do banco, a demonstração não
+  // apaga risco citado numa comunicação (a comunicação é registro permanente).
+  it('risco citado em comunicação não pode ser excluído (mesma frase do banco)', async () => {
+    const f = fonteComo('gestor');
+    const { id } = await f.salvarFicha({ objetoId: 'obj-anexo-ii' }); // rascunho: excluível
+    await f.enviarComunicacao(nova({ riscoIds: [id] }));
+    const e = await erroDe(f.excluirRisco(id));
+    expect(e.tipo).toBe('estado');
+    expect(e.message).toContain('Este risco foi citado em uma comunicação à CGOV e não pode ser apagado');
+    expect(await f.relerRisco(id)).not.toBeNull();
+  });
 });

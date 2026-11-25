@@ -145,7 +145,8 @@ describe('menu "Comunicações à CGOV" (LAC-04, P-03)', () => {
     await flushPromises();
     // Semente da demonstração: 1 comunicação sem ciência da CGOV (com-demo-3).
     const item = w.find('a[href="/comunicacoes"]');
-    expect(item.find('.menu-trilho__contador').text()).toBe('1 comunicações novas');
+    // PR #21 (E1): uma só no singular ("1 comunicação nova"); duas ou mais, no plural.
+    expect(item.find('.menu-trilho__contador').text()).toBe('1 comunicação nova');
     w.unmount();
 
     novaLoja('demonstracao', 'gestor');

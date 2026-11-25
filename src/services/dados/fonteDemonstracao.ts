@@ -687,6 +687,12 @@ export function criarFonteDemonstracao(
       if (!EXCLUIVEIS.includes(r.statusFluxo)) {
         recusar('não é possível excluir o risco enquanto ele está em validação ou homologação');
       }
+      // LAC-04 (PR #21): como o gatilho `trg_risco_protege_comunicacao` do banco, o risco citado
+      // numa comunicação à CGOV não se apaga (a comunicação é registro permanente). A frase é a
+      // MESMA do RAISE EXCEPTION, sem o prefixo "RADAR:"; o tradutor a reconhece.
+      if (comunicacoes.some((c) => c.riscoIds.includes(r.id))) {
+        throw traduzirErroBanco({ message: 'Este risco foi citado em uma comunicação à CGOV e não pode ser apagado', code: 'P0001' });
+      }
       riscos.splice(riscos.indexOf(r), 1);
       // LAC-03: desliga os KRIs dele; o KRI que ficar sem nenhum risco some (com as medições).
       for (const k of kris) k.riscoIds = k.riscoIds.filter((rid) => rid !== r.id);

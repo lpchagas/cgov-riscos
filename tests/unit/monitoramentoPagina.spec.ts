@@ -483,7 +483,10 @@ describe('Página Monitoramento', () => {
       const faixa = cartao.find('.faixa-alerta');
       expect(faixa.text()).toContain('Os riscos deste indicador estão fora da sua visão');
       expect(faixa.text()).not.toContain('não tem risco ligado');
-      expect(faixa.findAll('a').map((a) => a.text())).toEqual(['Comunicar à CGOV']);
+      // PR #21 (E2): sem nenhum risco à vista, a pessoa não conseguiria comunicar (o painel
+      // não teria risco para ligar). No lugar do atalho, a orientação de quem pode comunicar.
+      expect(faixa.findAll('a')).toHaveLength(0);
+      expect(faixa.text()).toContain('procure a unidade que grava nesses riscos');
       w.unmount();
     });
 

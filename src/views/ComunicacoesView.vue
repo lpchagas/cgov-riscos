@@ -22,6 +22,8 @@
  *
  * Vindo do Monitoramento (`/comunicacoes?alerta=<id>`), o painel abre já com o
  * alerta do KRI. Alerta desconhecido ou já comunicado: fica a lista, com um aviso (R16).
+ * Se nem deu para LER os alertas, a tela diz isso e oferece "Tentar de novo" (o `?alerta=`
+ * fica no endereço e o painel abre quando a leitura funcionar).
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -147,16 +149,33 @@ function aoRegistrarCiencia(): void {
 // ?alerta=<id> — vindo da faixa do alerta no Monitoramento
 // ---------------------------------------------------------------------------
 const avisoAlerta = ref(false);
+/** true = havia `?alerta=`, mas a leitura dos alertas falhou (não dá para saber se ele existe). */
+const falhaLeituraAlerta = ref(false);
 /**
  * Espera a carteira (com os alertas) estar pronta e então:
+ *   - leitura dos alertas FALHOU → mensagem própria e "Tentar de novo" (não é o aviso R16:
+ *     não sabemos se o alerta existe). Quando a nova leitura der certo, este observador
+ *     roda de novo e segue para os casos abaixo;
  *   - alerta ABERTO → abre "Nova comunicação" já preenchida;
- *   - desconhecido ou já encerrado → só a lista, com o aviso (R16).
+ *   - desconhecido ou já encerrado → só a lista, com o aviso (R16). Se o painel de OUTRO
+ *     alerta estava aberto (a URL mudou de A para um ID inválido), ele fecha: nada de
+ *     deixar A pronto para envio.
  * Quem só lê (AUDIT) não recebe formulário. O `?alerta=` sai do endereço quando o painel fecha.
  */
 watch(
-  [() => route.query.alerta, () => riscosStore.estado],
-  ([idAlerta, estado]) => {
-    if (typeof idAlerta !== 'string' || estado !== 'pronto' || !podeEnviar.value) return;
+  [() => route.query.alerta, () => riscosStore.estado, () => riscosStore.alertasIndisponiveis],
+  ([idAlerta, estado, indisponiveis]) => {
+    if (typeof idAlerta !== 'string') {
+      falhaLeituraAlerta.value = false;
+      return;
+    }
+    if (estado !== 'pronto' || !podeEnviar.value) return;
+    if (indisponiveis) {
+      avisoAlerta.value = false;
+      falhaLeituraAlerta.value = true;
+      return;
+    }
+    falhaLeituraAlerta.value = false;
     const alerta = riscosStore.alertasKri.find((a) => a.id === idAlerta);
     const aberto = alerta && riscosStore.alertaAbertoDoKri(alerta.kriId)?.id === alerta.id;
     if (alerta && aberto) {
@@ -164,6 +183,11 @@ watch(
       abrirNova(alerta);
     } else {
       avisoAlerta.value = true;
+      // Fecha só o painel de alerta (sem mexer no endereço, para o aviso continuar valendo).
+      if (alertaDoPainel.value) {
+        painelNovoAberto.value = false;
+        alertaDoPainel.value = null;
+      }
     }
   },
   { immediate: true }
@@ -182,6 +206,10 @@ watch(
       Comunique à CGOV em até 10 dias úteis da ciência do fato (Metodologia 4.7.2). A comunicação gravada não se apaga.
     </BrMessage>
     <BrMessage v-if="avisoAlerta" state="warning">Este alerta já foi comunicado ou não foi encontrado.</BrMessage>
+    <BrMessage v-if="falhaLeituraAlerta" state="danger" titulo="Não foi possível abrir o alerta">
+      Não foi possível ler os alertas dos indicadores (KRI) agora.
+      <BrButton variant="secondary" icon="fa-solid fa-rotate-right" @click="riscosStore.tentarLerAlertasDeNovo()">Tentar de novo</BrButton>
+    </BrMessage>
 
     <EstadoCarregamento
       v-if="estadoBloco !== 'pronto'"

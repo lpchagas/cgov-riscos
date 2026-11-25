@@ -220,6 +220,12 @@ export const useRiscosStore = defineStore('riscos', () => {
    * excluído, mas o alerta ainda não foi comunicado. Atualiza a cada `carregar()`.
    */
   const krisSemRisco = ref<IndicadorKri[]>([]);
+  /**
+   * true = a última tentativa de ler os alertas dos KRIs FALHOU (a lista `alertasKri` está
+   * vazia por falha, e não porque não há alerta). Ex.: `/comunicacoes?alerta=<id>` não deve
+   * dizer "alerta não encontrado" quando nem conseguiu consultar (PR #21).
+   */
+  const alertasIndisponiveis = ref(false);
 
   const estado = ref<EstadoCarteira>('ocioso');
   const erro = ref<ErroRadar | null>(null);
@@ -288,6 +294,7 @@ export const useRiscosStore = defineStore('riscos', () => {
       // (Lido por uma variável à parte: o TypeScript não "vê" a troca feita dentro do catch acima.)
       const erroDosAlertas = falhaAlertas as ErroRadar | null;
       avisoAtualizacao.value = erroDosAlertas ? new ErroRadar(MENSAGEM_ALERTAS_INDISPONIVEIS, erroDosAlertas.tipo) : null;
+      alertasIndisponiveis.value = erroDosAlertas !== null;
       estado.value = 'pronto';
     } catch (e) {
       if (velha()) return;
@@ -311,6 +318,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     processos.value = [];
     acoes.value = {};
     alertasKri.value = [];
+    alertasIndisponiveis.value = false;
     krisSemRisco.value = [];
     estado.value = 'ocioso';
     erro.value = null;
@@ -407,8 +415,28 @@ export const useRiscosStore = defineStore('riscos', () => {
       const lidos = await fonte().listarAlertasKri();
       if (minha !== geracao) return;
       alertasKri.value = lidos;
+      alertasIndisponiveis.value = false;
     } catch (e) {
       avisoAtualizacao.value = new ErroRadar(MENSAGEM_TELA_DESATUALIZADA, comoErroRadar(e).tipo);
+    }
+  }
+
+  /**
+   * "Tentar de novo" de quando SÓ os alertas falharam (`alertasIndisponiveis`). Diferente de
+   * `relerAlertasDepoisDaAcao`, não houve ação gravada: se falhar de novo, a bandeira continua
+   * ligada (a tela continua oferecendo a nova tentativa). Se der certo, some também o aviso
+   * "não foi possível ler os alertas". Nunca lança.
+   */
+  async function tentarLerAlertasDeNovo(): Promise<void> {
+    const minha = geracao;
+    try {
+      const lidos = await fonte().listarAlertasKri();
+      if (minha !== geracao) return;
+      alertasKri.value = lidos;
+      alertasIndisponiveis.value = false;
+      if (avisoAtualizacao.value?.message === MENSAGEM_ALERTAS_INDISPONIVEIS) avisoAtualizacao.value = null;
+    } catch {
+      // Continua indisponível; a tela segue com a mensagem e o botão.
     }
   }
 
@@ -427,6 +455,7 @@ export const useRiscosStore = defineStore('riscos', () => {
       if (minha !== geracao) return;
       krisSemRisco.value = soltos;
       alertasKri.value = lidos;
+      alertasIndisponiveis.value = false;
     } catch (e) {
       avisoAtualizacao.value = new ErroRadar(MENSAGEM_TELA_DESATUALIZADA, comoErroRadar(e).tipo);
     }
@@ -890,6 +919,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     processos,
     acoes,
     alertasKri,
+    alertasIndisponiveis,
     krisSemRisco,
     estado,
     erro,
@@ -915,6 +945,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     limpar,
     relerRiscos,
     relerAlertas: relerAlertasDepoisDaAcao,
+    tentarLerAlertasDeNovo,
     /** A fonte em uso (a das comunicações precisa ser a MESMA, pois a demonstração guarda tudo nela). */
     fonteDeDados: fonte,
     // ações

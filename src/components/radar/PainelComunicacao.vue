@@ -18,9 +18,14 @@
  *        ligados ao KRI e aparecem as caixas "Esta comunicação supre as hipóteses I, II,
  *        III" (RF-109). Sem nenhum risco do KRI no alcance, "Enviar à CGOV" fica
  *        desabilitado com a orientação (o banco exige risco nesta comunicação; R21).
- *      - "Enviar à CGOV" fica desabilitado enquanto grava (clique duplo não duplica) e
- *        enquanto lê os riscos onde a pessoa grava; a recusa do banco aparece como
- *        mensagem e o painel continua aberto.
+ *      - "Enviar à CGOV" fica desabilitado enquanto grava (clique duplo não duplica),
+ *        enquanto lê os riscos onde a pessoa grava e se essa leitura FALHAR (aí aparece
+ *        "Tentar de novo"; nunca oferecemos riscos sem saber se a pessoa grava neles). A
+ *        recusa do banco aparece como mensagem e o painel continua aberto.
+ *      - Cada abertura é um formulário novo: trocar de alerta (a URL mudou) recomeça do
+ *        zero, e o resultado de um envio só mexe na abertura que o fez (se a pessoa já
+ *        cancelou e abriu outro, um aviso rápido conta o que houve com o anterior).
+ *      - "Hoje" vira sozinho à meia-noite de Brasília, sem apagar o rascunho.
  *      - A unidade que comunica (R20) é a do objeto do KRI do alerta; sem alerta, a do
  *        1º risco escolhido; só no fim a do perfil. Ex.: gestor lotado na FLONA comunica
  *        o alerta de um KRI da BAV (subunidade interna) → a comunicação é da BAV.
@@ -33,13 +38,15 @@
  * Quem barra de verdade é o banco (RLS e `enviar_comunicacao`); aqui é conforto.
  */
 import { computed, ref, useId, watch } from 'vue';
+import { useToast } from '../../composables/useToast';
+import { useHojeEmBrasilia } from '../../composables/useHojeEmBrasilia';
 import type { AlertaKri, ComunicacaoCgov, FichaRisco, HipoteseComunicacao } from '../../types/radar.types';
 import type { NovaComunicacao } from '../../services/dados/tipos';
 import { useRiscosStore } from '../../stores/riscosStore';
 import { useComunicacoesStore } from '../../stores/comunicacoesStore';
 import { useAuthStore } from '../../stores/authStore';
 import { HIPOTESES, PRAZO_COMUNICACAO_DIAS_UTEIS, diaDoMomento, siglaDaUnidade } from '../../utils/hipotesesComunicacao';
-import { diasUteisEntre, hojeEmBrasilia, somarDiasUteis } from '../../utils/diasUteis';
+import { diasUteisEntre, somarDiasUteis } from '../../utils/diasUteis';
 import { dataCurta } from '../../utils/painelResumo';
 import SideSheet from '../ui/SideSheet.vue';
 import FormField from '../ui/FormField.vue';
@@ -62,16 +69,18 @@ const emit = defineEmits<{ (e: 'fechar'): void; (e: 'enviada', id: string): void
 const riscosStore = useRiscosStore();
 const comunicacoesStore = useComunicacoesStore();
 const authStore = useAuthStore();
+const { mostrar } = useToast();
 
 /** As 6 hipóteses do item 4.7.2 da Metodologia (o 'alerta_kri' só vem pelo alerta). */
 const HIPOTESES_DO_FORMULARIO: HipoteseComunicacao[] = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 const SUPRIVEIS = ['I', 'II', 'III'] as const;
 
 /**
- * "Hoje" em Brasília, RELIDO a cada abertura do painel (em `reiniciar`): a aba pode ficar
+ * "Hoje" em Brasília: relido a cada abertura (em `reiniciar`), a cada minuto com o painel
+ * aberto (vira à meia-noite sem apagar o rascunho) e no momento do envio. A aba pode ficar
  * aberta de um dia para o outro, e o prazo ("dia N de 10") tem de contar o dia de verdade.
  */
-const hoje = ref(hojeEmBrasilia());
+const { hoje, atualizar: atualizarHoje } = useHojeEmBrasilia();
 const codigo = (id: string) => riscosStore.obterRiscoPorId(id)?.codigoRadar ?? 'risco fora da sua visão';
 const sigla = (id: string) => siglaDaUnidade(riscosStore.unidades, id);
 const diaDe = diaDoMomento;
@@ -80,6 +89,7 @@ const idBase = useId();
 const idPrazo = `${idBase}-prazo`;
 const idOrientacao = `${idBase}-orientacao`;
 const idCarregandoRiscos = `${idBase}-carregando`;
+const idFalhaRiscos = `${idBase}-falha`;
 
 // ---------------------------------------------------------------------------
 // FORMULÁRIO DA NOVA COMUNICAÇÃO
@@ -107,16 +117,38 @@ const registrando = ref(false);
  *   - 'carregando' → nenhuma opção de risco e "Enviar" desabilitado (nada de oferecer, por
  *     um instante, riscos de fora do alcance);
  *   - 'pronto'     → só os riscos dos objetos onde a pessoa grava;
- *   - 'falhou'     → os riscos visíveis (o banco recusa os de fora do alcance).
+ *   - 'falhou'     → NENHUM risco e "Enviar" desabilitado, com a falha à vista e "Tentar de
+ *     novo" (PR #21). Oferecer os riscos visíveis seria arriscado: a pessoa pode VER um risco
+ *     em que não grava, e o envio pareceria liberado sem nenhum risco confirmado.
  */
 const leituraObjetos = ref<'carregando' | 'pronto' | 'falhou'>('carregando');
 const objetosOndeGravo = ref<Set<string>>(new Set());
 const riscosDisponiveis = computed<FichaRisco[]>(() => {
-  if (leituraObjetos.value === 'carregando') return [];
-  if (leituraObjetos.value === 'falhou') return riscosStore.riscos;
+  if (leituraObjetos.value !== 'pronto') return [];
   return riscosStore.riscos.filter((r) => objetosOndeGravo.value.has(r.objetoId));
 });
 const carregandoRiscos = computed(() => !props.comunicacao && leituraObjetos.value === 'carregando');
+const falhaRiscos = computed(() => !props.comunicacao && leituraObjetos.value === 'falhou');
+
+/** Conta as leituras do alcance (descarta a resposta atrasada de uma leitura anterior). */
+let leituras = 0;
+/** Lê de novo os objetos onde a pessoa grava (na abertura e no "Tentar de novo"). */
+function lerObjetosOndeGravo(): void {
+  // Zera antes de ler (m1): o que valia antes (ou para outro perfil) não vale mais.
+  leituraObjetos.value = 'carregando';
+  objetosOndeGravo.value = new Set();
+  const minha = ++leituras;
+  riscosStore
+    .objetosOndeGravo()
+    .then((ids) => {
+      if (minha !== leituras) return;
+      objetosOndeGravo.value = new Set(ids);
+      leituraObjetos.value = 'pronto';
+    })
+    .catch(() => {
+      if (minha === leituras) leituraObjetos.value = 'falhou';
+    });
+}
 
 /** O KRI do alerta (ligado a riscos ou "solto", sem risco à vista). */
 const kriDoAlerta = computed(() => {
@@ -139,19 +171,25 @@ const nomeDoKri = computed(() => kriDoAlerta.value?.nomeIndicador ?? '');
  *   - KRI com riscos, mas fora do alcance de escrita da pessoa → quem pode comunicar.
  */
 const bloqueioDoAlerta = computed<string | null>(() => {
-  if (!props.alerta || carregandoRiscos.value || riscosDoAlerta.value.length > 0) return null;
+  // Lendo ou com a leitura falha, ainda não sabemos o alcance: quem explica é a outra mensagem.
+  if (!props.alerta || carregandoRiscos.value || falhaRiscos.value || riscosDoAlerta.value.length > 0) return null;
   const kri = kriDoAlerta.value;
   const orfao = kri !== undefined && kri.riscoIds.length === 0 && !((kri.totalRiscos ?? 0) > 0);
   return orfao
     ? 'Este indicador não tem risco ligado. Ligue o indicador a um risco para comunicar à CGOV.'
     : 'Os riscos deste indicador estão fora do seu alcance: só a unidade que grava nesses riscos pode comunicar este alerta à CGOV.';
 });
-/** "Enviar à CGOV" desabilitado: gravando, lendo os riscos ou alerta sem risco no alcance. */
-const envioBloqueado = computed(() => enviando.value || carregandoRiscos.value || bloqueioDoAlerta.value !== null);
-/** O botão desabilitado diz POR QUÊ (o leitor de tela lê o texto ligado). */
-const motivoDoBloqueio = computed(() =>
-  bloqueioDoAlerta.value ? idOrientacao : carregandoRiscos.value ? idCarregandoRiscos : undefined
+/** "Enviar à CGOV" desabilitado: gravando, lendo os riscos, leitura falha ou alerta sem risco no alcance. */
+const envioBloqueado = computed(
+  () => enviando.value || carregandoRiscos.value || falhaRiscos.value || bloqueioDoAlerta.value !== null
 );
+/** O botão desabilitado diz POR QUÊ (o leitor de tela lê o texto ligado). */
+const motivoDoBloqueio = computed(() => {
+  if (bloqueioDoAlerta.value) return idOrientacao;
+  if (carregandoRiscos.value) return idCarregandoRiscos;
+  if (falhaRiscos.value) return idFalhaRiscos;
+  return undefined;
+});
 
 /** Hipótese efetiva (com alerta, sempre 'alerta_kri'). */
 const hipoteseEfetiva = computed<HipoteseComunicacao | ''>(() => (props.alerta ? 'alerta_kri' : hipotese.value));
@@ -172,12 +210,18 @@ const prazo = computed(() => {
   };
 });
 
-/** Conta as aberturas do painel (descarta leituras atrasadas de uma abertura anterior). */
-let aberturas = 0;
+/**
+ * Número da abertura atual do painel. Sobe ao abrir (ou trocar de alerta/comunicação) e ao
+ * fechar. Um envio guarda o número de quando começou: se, ao terminar, o número mudou, o
+ * resultado é de OUTRA abertura e não pode fechar nem sujar o formulário de agora (PR #21).
+ */
+let abertura = 0;
 
 /** Volta o formulário ao começo, relê "hoje" e os riscos onde a pessoa grava, a cada abertura. */
 function reiniciar(): void {
-  hoje.value = hojeEmBrasilia();
+  abertura++;
+  atualizarHoje();
+  enviando.value = false; // o envio de uma abertura anterior não trava esta
   hipotese.value = '';
   dataCiencia.value = '';
   riscoId.value = '';
@@ -189,28 +233,25 @@ function reiniciar(): void {
   erroEnvio.value = null;
   observacao.value = '';
   erroCiencia.value = null;
-  if (!props.comunicacao) {
-    // Zera antes de ler (m1): o que valia na abertura anterior (ou para outro perfil) não vale mais.
-    // `minha` descarta a resposta de uma abertura anterior que chegue depois.
-    leituraObjetos.value = 'carregando';
-    objetosOndeGravo.value = new Set();
-    const minha = ++aberturas;
-    riscosStore
-      .objetosOndeGravo()
-      .then((ids) => {
-        if (minha !== aberturas) return;
-        objetosOndeGravo.value = new Set(ids);
-        leituraObjetos.value = 'pronto';
-      })
-      .catch(() => {
-        if (minha === aberturas) leituraObjetos.value = 'falhou';
-      });
-  }
+  if (!props.comunicacao) lerObjetosOndeGravo();
 }
+/**
+ * Quando recomeçar o formulário:
+ *   - ao abrir o painel;
+ *   - com o painel aberto, quando muda O QUE está nele (PR #21): outro alerta (a URL passou
+ *     de A para B) ou outra comunicação. Ex.: rascunho do alerta A + URL vai para o alerta B
+ *     → formulário vazio (nada de gravar o texto de A na comunicação de B). Mesmo ID → o
+ *     rascunho fica (ex.: a carteira foi relida e o objeto do alerta é outro, mas o ID não).
+ * Ao fechar, só encerra a abertura (o envio que ainda estiver em curso vira "de outra abertura").
+ */
 watch(
-  () => props.aberto,
-  (aberto) => {
-    if (aberto) reiniciar();
+  () => [props.aberto, props.alerta?.id, props.comunicacao?.id] as const,
+  ([aberto, alertaId, comunicacaoId], antes) => {
+    if (!aberto) {
+      if (antes?.[0]) abertura++;
+      return;
+    }
+    if (!antes?.[0] || alertaId !== antes[1] || comunicacaoId !== antes[2]) reiniciar();
   },
   { immediate: true }
 );
@@ -253,8 +294,9 @@ function validar(riscoIds: string[]): boolean {
 }
 
 async function enviar(): Promise<void> {
-  // Clique duplo (a 2ª chamada não faz nada), riscos ainda carregando ou alerta sem risco no alcance.
+  // Clique duplo (a 2ª chamada não faz nada), riscos carregando/sem leitura ou alerta sem risco no alcance.
   if (envioBloqueado.value) return;
+  atualizarHoje(); // valida com a data de Brasília do MOMENTO do envio (o dia pode ter virado)
   const riscoIds = props.alerta ? riscosDoAlerta.value.map((r) => r.id) : riscoId.value ? [riscoId.value] : [];
   if (!validar(riscoIds)) return;
   const dados: NovaComunicacao = {
@@ -270,14 +312,21 @@ async function enviar(): Promise<void> {
   };
   enviando.value = true;
   erroEnvio.value = null;
+  // O resultado pertence a ESTA abertura. Se a pessoa cancelou (e talvez abriu outra
+  // comunicação) antes de o banco responder, o resultado vira só um aviso rápido.
+  const minha = abertura;
+  const ehDestaAbertura = () => minha === abertura;
   try {
     const id = await comunicacoesStore.enviar(dados);
-    emit('enviada', id);
+    if (ehDestaAbertura()) emit('enviada', id);
+    else mostrar({ tom: 'sucesso', mensagem: 'A comunicação anterior foi enviada à CGOV.' });
   } catch (e) {
     // Recusa do banco (já em português): o painel fica aberto com o motivo.
-    erroEnvio.value = (e as Error).message;
+    const motivo = (e as Error).message;
+    if (ehDestaAbertura()) erroEnvio.value = motivo;
+    else mostrar({ tom: 'perigo', mensagem: `A comunicação anterior não foi gravada: ${motivo}` });
   } finally {
-    enviando.value = false;
+    if (ehDestaAbertura()) enviando.value = false;
   }
 }
 
@@ -443,6 +492,13 @@ const subtitulo = computed(() =>
         <p v-if="erros.risco" class="erro" role="alert">{{ erros.risco }}</p>
       </div>
       <p v-if="carregandoRiscos" :id="idCarregandoRiscos" class="texto-apoio" role="status">Carregando os riscos em que você pode gravar…</p>
+      <!-- Leitura do alcance falhou: o envio fica travado até a nova tentativa dar certo. -->
+      <div v-if="falhaRiscos" class="falha-riscos">
+        <p :id="idFalhaRiscos" class="erro" role="alert">
+          Não foi possível ler os riscos em que você pode gravar. O envio fica bloqueado até a leitura funcionar.
+        </p>
+        <BrButton variant="secondary" icon="fa-solid fa-rotate-right" @click="lerObjetosOndeGravo">Tentar de novo</BrButton>
+      </div>
       <FormField
         v-if="!alerta"
         rotulo="Risco ligado"
@@ -591,6 +647,13 @@ const subtitulo = computed(() =>
 .orientacao {
   margin: 0;
   font-size: var(--texto-sm);
+}
+
+.falha-riscos {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--esp-2);
 }
 
 .erro {

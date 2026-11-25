@@ -103,7 +103,8 @@ const todosOsGrupos = computed<{ titulo: string; itens: ItemMenu[] }[]>(() => [
         // Para os demais perfis o contador fica 0 e, por isso, não aparece.
         contador: authStore.usuarioAtual.papel === 'cgov' ? comunicacoesStore.novas.length : 0,
         tomContador: 'aviso',
-        descricaoContador: 'comunicações novas',
+        // O leitor de tela lê o número junto: "1 comunicação nova", "2 comunicações novas".
+        descricaoContador: comunicacoesStore.novas.length === 1 ? 'comunicação nova' : 'comunicações novas',
       },
     ],
   },

@@ -22,7 +22,9 @@
  *   - um "Comunicar à CGOV": leva à tela de Comunicações já com o alerta escolhido.
  *     KRI sem risco ligado (órfão) NÃO tem o botão: o banco exige risco na comunicação
  *     do alerta, então no lugar vai a orientação "Ligue o indicador a um risco para
- *     comunicar à CGOV" (R21).
+ *     comunicar à CGOV" (R21). O mesmo vale quando TODOS os riscos do KRI estão fora da
+ *     visão da pessoa (PR #21): ela não teria risco para ligar; a orientação manda
+ *     procurar a unidade que grava nesses riscos.
  *
  * Acessibilidade: o estado está no TEXTO e no ícone (nunca só na cor). A faixa
  * NÃO é região "ao vivo" (role="alert"): ela já está na página ao abrir, e trocar
@@ -45,7 +47,7 @@ const props = defineProps<{
   riscos: { id: string; codigoRadar: string; eventoRisco?: string }[];
   /**
    * true = nenhum risco visível, mas o KRI serve a riscos FORA da visão da pessoa
-   * (pela RLS, `totalRiscos` > 0). Muda só o texto: não há "Reavaliar" a mostrar.
+   * (pela RLS, `totalRiscos` > 0). Muda só o texto: não há "Reavaliar" nem "Comunicar" a mostrar.
    */
   riscosForaDaVisao?: boolean;
   /** true = só leitura (ex.: AUDIT): mostra a faixa e o prazo, sem os atalhos. */
@@ -87,15 +89,18 @@ const textos = computed<{ titulo: string; apoio?: string }>(() => {
  */
 const orientacao = computed(() => {
   if (props.riscos.length) return 'Reavalie os riscos ligados e comunique o resultado à CGOV.';
-  if (props.riscosForaDaVisao) return 'Os riscos deste indicador estão fora da sua visão: comunique o alerta à CGOV.';
+  if (props.riscosForaDaVisao) {
+    return 'Os riscos deste indicador estão fora da sua visão: procure a unidade que grava nesses riscos para comunicar o alerta à CGOV.';
+  }
   return 'Este indicador não tem risco ligado. Ligue o indicador a um risco para comunicar à CGOV.';
 });
 
 /**
- * KRI órfão (nenhum risco visível e nenhum fora da visão): a comunicação do alerta exige
- * risco (no banco também), então o atalho "Comunicar à CGOV" não aparece (R21).
+ * O atalho "Comunicar à CGOV" só aparece com pelo menos UM risco à vista: a comunicação do
+ * alerta exige risco (no banco também). Sem nenhum (KRI órfão ou todos os riscos fora da
+ * visão), o painel não teria o que ligar e o envio ficaria travado; fica só a orientação (R21).
  */
-const podeComunicar = computed(() => props.riscos.length > 0 || props.riscosForaDaVisao === true);
+const podeComunicar = computed(() => props.riscos.length > 0);
 
 /** Os atalhos aparecem só no alerta ABERTO (no prazo ou vencido) e para quem pode agir. */
 const mostrarAtalhos = computed(() => props.situacao !== 'comunicado' && !props.somenteLeitura);
