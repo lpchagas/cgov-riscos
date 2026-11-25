@@ -1,6 +1,6 @@
 # UC-15 — Registrar medição de KRI e tratar alerta
 
-> Origem: F4.02 e F4.04 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.1 (parágrafo do alerta) e 4.7.2 (1º parágrafo); decisão L-40 · RF: RF-098, RF-099, RF-100, RF-101, RF-102, RF-106, RF-109 · RN: RN-027, RN-095, RN-115, RN-052, RN-083, RN-084, RN-085, RN-086, RN-051 · Situação: implementado no código e no banco local (LAC-03: o KRI completo em 2026-11-22; o alerta, RF-102, e a comunicação, RF-109, em 2026-11-24 e 25; nuvem do piloto: a aplicar, com autorização). Desenho: [[0021-alerta-do-kri-e-comunicacoes-no-banco|ADR-0021]]
+> Origem: F4.02 e F4.04 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.1 (parágrafo do alerta) e 4.7.2 (1º parágrafo); decisão L-40 · RF: RF-098, RF-099, RF-100, RF-101, RF-102, RF-106, RF-109 · RN: RN-027, RN-095, RN-115, RN-052, RN-083, RN-084, RN-085, RN-086, RN-051 · Situação: implementado no código e no banco local, **exceto o RF-106** (registro da reavaliação com motivo, não iniciado, LAC-10) (LAC-03: o KRI completo em 2026-11-22; o alerta, RF-102, e a comunicação, RF-109, em 2026-11-24 e 25; nuvem do piloto: a aplicar, com autorização). Desenho: [[0021-alerta-do-kri-e-comunicacoes-no-banco|ADR-0021]]
 
 ## Título
 
@@ -23,7 +23,7 @@ Gestor de riscos (1ª linha), responsável pelo monitoramento do KRI.
 ## Fluxo principal de sucesso
 
 1. O gestor registra a medição do KRI, com a data e o valor apurado (RN-115).
-2. O gestor informa o valor como número. O **banco** compara com o limite numérico do KRI (operador, valor e unidade) e marca a leitura em alerta; o gestor não marca o alerta à mão (RN-084).
+2. O gestor informa o valor como número, na mesma unidade do limite do KRI (o sistema mostra a unidade ao lado; ela é só para exibição e o banco não a confere). O **banco** compara esse número com o operador e o valor do limite e marca a leitura em alerta; o gestor não marca o alerta à mão (RN-084).
 3. O sistema grava a medição sem reabrir o risco aprovado (RN-052).
 4. O gestor atualiza a situação de execução das ações de tratamento (RN-115).
 5. O sistema mostra as ações com prazo próximo ou vencido, a mais urgente primeiro.

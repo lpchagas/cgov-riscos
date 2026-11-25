@@ -207,7 +207,7 @@ e o **Diretor** para as unidades da Sede (P4).
 ## 7. Tabela de acesso: telas × perfis
 
 **Legenda:**
-- **E** = vê e edita, **só a própria unidade**
+- **E** = vê e edita, **só a própria unidade** (no gestor, com as subunidades internas, P8)
 - **E+** = vê tudo do seu alcance e edita a própria unidade
 - **V** = só vê, dentro do seu alcance
 - **V\*** = vê tudo, sem limite de unidade
