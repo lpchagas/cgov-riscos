@@ -45,8 +45,10 @@ homologação, e LAC-04). A pergunta era **onde** a regra mora: se fosse só no 
    Fora do prazo **grava** (o prazo é informação, não trava). Uma comunicação por alerta (`alerta_id` único); o envio
    **encerra** o alerta (gatilho). A hipótese `alerta_kri` pode suprir as hipóteses I a III.
 6. **Alcance.** Riscos e alerta da comunicação são os da **unidade e das subunidades internas** (o mesmo alcance de
-   `pode_escrever_unidade`); a AUDIT só lê; a CGOV vê tudo. A unidade que comunica é a do objeto do KRI; na falta,
-   a do primeiro risco; na falta, a do perfil.
+   `pode_escrever_unidade`); a AUDIT só lê; a CGOV vê tudo. **Quem escolhe** a unidade que comunica é o **front**
+   (`unidadeQueComunica`, em `PainelComunicacao.vue`): a do objeto do KRI do alerta; na falta, a do primeiro risco;
+   na falta, a do perfil. O **banco** (`enviar_comunicacao`) não escolhe: só confere que essa unidade está no alcance
+   de escrita de quem envia e que os riscos e o alerta pertencem a ela ou às subunidades.
 7. **Proteção do registro.** O banco recusa, com aviso em português, apagar risco já comunicado, a leitura que
    abriu um alerta e KRI com alerta (aberto ou comunicado). "Comunicado" vale na tela só até a próxima leitura em
    alerta. O vínculo de risco só entra na transação que criou a comunicação (`criada_na_transacao`, `xid8`).

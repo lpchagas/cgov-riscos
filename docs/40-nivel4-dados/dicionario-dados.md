@@ -226,7 +226,7 @@ Criada pela migração `20261122001` ([[0019-categorias-e-subcategorias-literais
 | `medicoes_kri` | `kri_id` | `uuid` | não | chave estrangeira para `indicadores_kri` | KRI medido; apagado o KRI, apaga a medição. | — | não |
 | `medicoes_kri` | `data_medicao` | `date` | não | — | Data da leitura; padrão: hoje. | — | não |
 | `medicoes_kri` | `valor_apurado` | `text` | não | texto livre | Valor medido, como a pessoa o escreveu. | — | não |
-| `medicoes_kri` | `em_alerta` | `boolean` | não | verdadeiro ou falso | Se a leitura passou do limite de alerta. **Calculado pelo banco** (gatilho `fn_medicao_calcula_alerta`) com `valor_numerico` e o limite numérico do KRI; o que o cliente mandar é ignorado. Sem limite numérico ou sem número, fica falso. As leituras antigas não são recalculadas. | RN-084 | não |
+| `medicoes_kri` | `em_alerta` | `boolean` | não | verdadeiro ou falso | Se a leitura passou do limite de alerta. **Calculado pelo banco** (gatilho `fn_medicao_calcula_alerta`) com `valor_numerico` e o limite numérico do KRI; o que o cliente mandar é ignorado. Sem limite numérico ou sem número, fica falso. As leituras antigas não são recalculadas. Corrigir uma leitura (`UPDATE` de `valor_numerico`, `em_alerta` ou `kri_id`, gatilho `trg_medicao_calcula_alerta`) **recalcula** `em_alerta` pelo limite atual; se a leitura passa a estar em alerta (valor novo além do limite e valor anterior dentro dele, ou troca de KRI), o gatilho `trg_medicao_abre_alerta_update` pode **abrir alerta** com ciência no dia da correção (`fn_hoje()`), e não no da medição; corrigir para dentro do limite não encerra alerta (só a comunicação encerra). | RN-084 | não |
 | `medicoes_kri` | `valor_numerico` | `numeric` | sim | número | A leitura como número, usada na comparação com o limite. As leituras antigas ganharam o número quando o texto era só número, com `%` opcional. | RN-084 | não |
 | `medicoes_kri` | `observacao` | `text` | sim | — | Comentário sobre a leitura. | — | pode conter (texto livre) |
 | `medicoes_kri` | `criado_em` | `timestamptz` | não | — | Data e hora do lançamento; lançar medição não reabre o risco aprovado. | RN-052 | não |
@@ -246,7 +246,7 @@ Leitura: qualquer pessoa autenticada. Escrita: só a CGOV. Os dias úteis dos pr
 | Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `alertas_kri` | `id` | `uuid` | não | chave primária | Identificador do alerta. | — | não |
-| `alertas_kri` | `kri_id` | `uuid` | não | chave estrangeira para `indicadores_kri` | KRI em alerta; apagado o KRI, apaga o alerta (o banco recusa apagar KRI com alerta aberto ou comunicado: gatilho de proteção). | RN-084 | não |
+| `alertas_kri` | `kri_id` | `uuid` | não | chave estrangeira para `indicadores_kri` | KRI em alerta. O banco **recusa apagar KRI que tenha qualquer alerta**, aberto ("comunique à CGOV antes de apagar") ou comunicado (gatilho `fn_kri_protege_alerta_comunicado`); a cascata só vale para o KRI sem alerta. | RN-084 | não |
 | `alertas_kri` | `medicao_id` | `uuid` | não | chave estrangeira para `medicoes_kri` | A leitura que abriu o alerta; essa leitura não pode ser apagada. | RN-084 | não |
 | `alertas_kri` | `ciencia_em` | `date` | não | — | Dia do registro da leitura em alerta (não o da medição): início dos 10 dias úteis. | RN-084 | não |
 | `alertas_kri` | `encerrado_em` | `date` | sim | — | Nulo enquanto o alerta está aberto; preenchido pelo banco quando a comunicação é enviada. | RN-084 | não |

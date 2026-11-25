@@ -250,11 +250,11 @@ no banco local. Desenho em `docs/superpowers/specs/2026-11-23-alerta-kri-comunic
   responsável: prazo mostrado como "dia 0 de 10" no dia da ciência; "comunicado" só até a próxima leitura.
 - **Fase 3, Comunicações (2026-11-25, PR #21):** tela `/comunicacoes` (P-03), painel de comunicação, ciência da
   CGOV, número de novas no menu. Decisões do responsável: o alcance de riscos e alerta é a unidade e as
-  subunidades internas; a AUDIT só lê; o banco impede apagar o que foi comunicado.
+  subunidades internas; a AUDIT só lê; o banco impede apagar o que foi comunicado e o KRI com alerta aberto ou comunicado.
 - **Decisões de 2026-11-25:** **D-6**, a CGOV mantém o botão "Nova comunicação"; **D-7**, alerta de KRI sem risco
   ligado continua sem "Comunicar à CGOV" (a tela orienta; sem migração nova).
 - **Números:** Vitest 63 arquivos e 1212 testes; pgTAP 23 arquivos e 1381 testes; `test:a11y` 374 testes, 0
-  violações, em 360 combinações ((18 + 6) telas × 5 larguras × 3 temas).
+  violações, em 360 combinações ((20 + 4) telas × 5 larguras × 3 temas).
 - **Fase 4, documentação (2026-11-25):** RF, RN, UC-15, UC-16, lacunas, DER e dicionário (18 tabelas, 175 colunas,
   2 visões), mapa de telas, matriz de acesso, ADR-0021 e quadro. **Figma feito em 2026-11-25:** P-02 copiada para "📌 Original — Monitoramento", etapa 4 para "📌 Original — Novo risco", nova "📌 Original — Comunicações (não editar)" com a P-03, tudo travado; biblioteca inalterada. **Falta:** PR da Fase 4 e as
   duas migrações na nuvem do piloto, **[AUTORIZAÇÃO]** a cada uma.

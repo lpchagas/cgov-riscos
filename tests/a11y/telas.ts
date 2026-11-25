@@ -6,8 +6,8 @@
  *   - Nova largura de tela ou novo tema? Acrescente em `LARGURAS` ou `TEMAS`.
  *
  * O total de testes é a multiplicação das três listas:
- *   (18 + 6) telas × 5 larguras × 3 temas = 360 combinações (24 telas).
- *   Entre elas, 4 são os estados "carregando" e "erro" do Painel e de Riscos (Etapa B3).
+ *   (20 + 4) telas × 5 larguras × 3 temas = 360 combinações.
+ *   As 4 telas a mais são os estados "carregando" e "erro" do Painel e de Riscos (Etapa B3).
  */
 
 /** Os 3 temas do menu "Aparência". Precisam ser iguais a `TemaInterface` (usePreferenciasInterface.ts). */
