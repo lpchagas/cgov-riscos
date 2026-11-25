@@ -19,8 +19,9 @@
  *        III" (RF-109). Sem nenhum risco do KRI no alcance, "Enviar à CGOV" fica
  *        desabilitado com a orientação (o banco exige risco nesta comunicação; R21).
  *      - "Enviar à CGOV" fica desabilitado enquanto grava (clique duplo não duplica),
- *        enquanto lê os riscos onde a pessoa grava e se essa leitura FALHAR (aí aparece
- *        "Tentar de novo"; nunca oferecemos riscos sem saber se a pessoa grava neles). A
+ *        enquanto lê os riscos onde a pessoa grava e se essa leitura FALHAR numa hipótese
+ *        que exige risco (aí aparece "Tentar de novo"; nunca oferecemos riscos sem saber
+ *        se a pessoa grava neles; IV e VI, sem risco, seguem liberadas). A
  *        recusa do banco aparece como mensagem e o painel continua aberto.
  *      - Cada abertura é um formulário novo: trocar de alerta (a URL mudou) recomeça do
  *        zero, e o resultado de um envio só mexe na abertura que o fez (se a pessoa já
@@ -117,9 +118,10 @@ const registrando = ref(false);
  *   - 'carregando' → nenhuma opção de risco e "Enviar" desabilitado (nada de oferecer, por
  *     um instante, riscos de fora do alcance);
  *   - 'pronto'     → só os riscos dos objetos onde a pessoa grava;
- *   - 'falhou'     → NENHUM risco e "Enviar" desabilitado, com a falha à vista e "Tentar de
- *     novo" (PR #21). Oferecer os riscos visíveis seria arriscado: a pessoa pode VER um risco
- *     em que não grava, e o envio pareceria liberado sem nenhum risco confirmado.
+ *   - 'falhou'     → NENHUM risco, com a falha à vista e "Tentar de novo" (PR #21). Oferecer
+ *     os riscos visíveis seria arriscado: a pessoa pode VER um risco em que não grava. O envio
+ *     só trava nas hipóteses que EXIGEM risco (I, II, III, V e o alerta do KRI); em IV e VI,
+ *     que não precisam de risco, a comunicação segue (decisão do controlador).
  */
 const leituraObjetos = ref<'carregando' | 'pronto' | 'falhou'>('carregando');
 const objetosOndeGravo = ref<Set<string>>(new Set());
@@ -129,6 +131,12 @@ const riscosDisponiveis = computed<FichaRisco[]>(() => {
 });
 const carregandoRiscos = computed(() => !props.comunicacao && leituraObjetos.value === 'carregando');
 const falhaRiscos = computed(() => !props.comunicacao && leituraObjetos.value === 'falhou');
+/**
+ * A falha da leitura só TRAVA o envio quando a comunicação precisa de risco.
+ * Ex.: leitura falhou + hipótese IV (risco emergente) → envia; + hipótese I → travado.
+ * (`exigeRisco` já é true com alerta, pois a hipótese efetiva é 'alerta_kri'.)
+ */
+const falhaTravaEnvio = computed(() => falhaRiscos.value && exigeRisco.value);
 
 /** Conta as leituras do alcance (descarta a resposta atrasada de uma leitura anterior). */
 let leituras = 0;
@@ -179,15 +187,15 @@ const bloqueioDoAlerta = computed<string | null>(() => {
     ? 'Este indicador não tem risco ligado. Ligue o indicador a um risco para comunicar à CGOV.'
     : 'Os riscos deste indicador estão fora do seu alcance: só a unidade que grava nesses riscos pode comunicar este alerta à CGOV.';
 });
-/** "Enviar à CGOV" desabilitado: gravando, lendo os riscos, leitura falha ou alerta sem risco no alcance. */
+/** "Enviar à CGOV" desabilitado: gravando, lendo os riscos, leitura falha (hipótese com risco) ou alerta sem risco no alcance. */
 const envioBloqueado = computed(
-  () => enviando.value || carregandoRiscos.value || falhaRiscos.value || bloqueioDoAlerta.value !== null
+  () => enviando.value || carregandoRiscos.value || falhaTravaEnvio.value || bloqueioDoAlerta.value !== null
 );
 /** O botão desabilitado diz POR QUÊ (o leitor de tela lê o texto ligado). */
 const motivoDoBloqueio = computed(() => {
   if (bloqueioDoAlerta.value) return idOrientacao;
   if (carregandoRiscos.value) return idCarregandoRiscos;
-  if (falhaRiscos.value) return idFalhaRiscos;
+  if (falhaTravaEnvio.value) return idFalhaRiscos;
   return undefined;
 });
 
@@ -495,7 +503,8 @@ const subtitulo = computed(() =>
       <!-- Leitura do alcance falhou: o envio fica travado até a nova tentativa dar certo. -->
       <div v-if="falhaRiscos" class="falha-riscos">
         <p :id="idFalhaRiscos" class="erro" role="alert">
-          Não foi possível ler os riscos em que você pode gravar. O envio fica bloqueado até a leitura funcionar.
+          Não foi possível ler os riscos em que você pode gravar.
+          <template v-if="falhaTravaEnvio">O envio fica bloqueado até a leitura funcionar.</template>
         </p>
         <BrButton variant="secondary" icon="fa-solid fa-rotate-right" @click="lerObjetosOndeGravo">Tentar de novo</BrButton>
       </div>

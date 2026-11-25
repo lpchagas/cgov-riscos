@@ -543,6 +543,34 @@ describe('Página Comunicações à CGOV — achados da PR #21', () => {
     expect(botao(painel()!, 'Tentar de novo')).toBeDefined();
   });
 
+  // Ajuste E3 (decisão do controlador): a falha só trava as hipóteses que EXIGEM risco.
+  it.each([
+    ['IV', false],
+    ['I', true],
+  ])('Ajuste E3: leitura do alcance falhou, hipótese %s → envio travado = %s; aviso e "Tentar de novo" à vista', async (h, travado) => {
+    const { w } = await montar('gestor', '/comunicacoes', {
+      objetosOndeGravo: async () => {
+        throw new ErroRadar('A conexão caiu.', 'rede');
+      },
+    });
+    // Modo real: o perfil traz a unidade de lotação (sem risco, IV e VI comunicam por ela).
+    useAuthStore().perfil = { ...perfilFalso(), unidadeId: useRiscosStore().riscos[0].unidadeId };
+    await abrirNovaComunicacao(w);
+    preencher('Hipótese', h);
+    preencher('Data da ciência do fato', hojeEmBrasilia());
+    preencher('Descrição do fato', 'Fato com a leitura do alcance falha.');
+    await flushPromises();
+    expect(painel()!.textContent).toContain('Não foi possível ler os riscos em que você pode gravar');
+    expect(botao(painel()!, 'Tentar de novo')).toBeDefined();
+    expect(botao(painel()!, 'Enviar à CGOV')!.disabled).toBe(travado);
+    if (!travado) {
+      const antes = useComunicacoesStore().comunicacoes.length;
+      botao(painel()!, 'Enviar à CGOV')!.click();
+      await flushPromises();
+      expect(useComunicacoesStore().comunicacoes).toHaveLength(antes + 1);
+    }
+  });
+
   // E4: o painel aberto atravessa a meia-noite de Brasília: "hoje" vira sozinho (sem apagar
   // o rascunho) e a validação do envio usa a data do MOMENTO do envio.
   it('E4: virada do dia com o painel aberto atualiza o limite da data e mantém o rascunho', async () => {
