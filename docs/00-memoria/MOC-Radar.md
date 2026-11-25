@@ -85,6 +85,7 @@ Pasta `docs/50-nivel5-software/` (ver o `README.md` dela): diagramas UML em Merm
 - [[0018-manter-fluxo-interno-como-etapa-anterior-ao-4-6-1]] — O fluxo interno de 3 degraus fica como etapa anterior ao item 4.6.1 (LAC-11 resolvida).
 - [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica]] — Categorias do Quadro 2 e subcategorias do Quadro 3 literais; a migração recusa o que precisa de reclassificação (LAC-14 e LAC-15 resolvidas).
 - [[0020-tabela-da-skill-com-18-colunas]] — Tabela da skill com 18 colunas (Teste de Integridade e evidência com marcador); o importador aceita 16 e 18 e avisa em vez de adivinhar.
+- [[0021-alerta-do-kri-e-comunicacoes-no-banco]] — Alerta do KRI e comunicações à CGOV calculados e guardados no banco (limite numérico, prazo em dias úteis, comunicação imutável).
 
 ## Kanban
 

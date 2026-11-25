@@ -4,10 +4,10 @@ O **DER lógico** (Diagrama Entidade-Relacionamento) é o desenho **do banco que
 tabela do PostgreSQL/Supabase, cada linha dentro da caixa é uma coluna com o seu tipo, e cada traço entre
 caixas é uma chave estrangeira. Ele traduz o [[mer-conceitual]] para tabelas.
 
-**De onde vem:** do **estado final das 14 migrações que mudam a estrutura** de `supabase/migrations/` (de `20261109001` até
-`20261122004`; a `20261122002` só troca funções, a `20261122003` só acrescenta um gatilho e a `20261123001` só põe travas de linha nos gatilhos de `kri_riscos`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
+**De onde vem:** do **estado final das 16 migrações que mudam a estrutura** de `supabase/migrations/` (de `20261109001` até
+`20261123003`; a `20261122002` só troca funções, a `20261122003` só acrescenta um gatilho e a `20261123001` só põe travas de linha nos gatilhos de `kri_riscos`), e não do design v2.0. As colunas, os tipos e as chaves foram conferidos no banco local
 com as 12 primeiras migrações aplicadas (consulta ao `information_schema` e ao `pg_constraint`, só a estrutura, em
-2026-11-21); a 13ª (`20261122001`, tabela `subcategorias_risco`, chave estrangeira composta e fim da coluna `subcategorias_permitidas`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi acrescentada a partir do próprio arquivo da migração, e a 14ª (`20261122004`, LAC-03: `indicadores_kri.objeto_id`, tabela `kri_riscos`, fim de `indicadores_kri.risco_id`, campos do KRI que aceitam vazio) também. O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
+2026-11-21); a 13ª (`20261122001`, tabela `subcategorias_risco`, chave estrangeira composta e fim da coluna `subcategorias_permitidas`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]) foi acrescentada a partir do próprio arquivo da migração, e a 14ª (`20261122004`, LAC-03: `indicadores_kri.objeto_id`, tabela `kri_riscos`, fim de `indicadores_kri.risco_id`, campos do KRI que aceitam vazio) também; a 15ª e a 16ª (`20261123002` e `20261123003`, LAC-03 e LAC-04: as tabelas `feriados`, `alertas_kri`, `comunicacoes_cgov` e `comunicacoes_riscos`, o limite numérico do KRI, `medicoes_kri.valor_numerico` e as visões `alertas_kri_situacao` e `comunicacoes_cgov_situacao`, [[0021-alerta-do-kri-e-comunicacoes-no-banco|ADR-0021]]) vieram dos próprios arquivos em 2026-11-25. O teste `tests/unit/documentacao.spec.ts` ("DER contém exatamente as tabelas criadas nas
 migrações") reprova se uma tabela for criada numa migração e não aparecer aqui, ou o contrário.
 
 O documento anterior, [[modelo-dados-mer]], fica como histórico das migrações.

@@ -21,7 +21,7 @@ Cada forma normal recebe um destes três resultados:
   O cartão está no [[quadro]], com a classe `#divida`.
 
 O ponto de partida foi o achado **E2** do diagnóstico [[2026-11-20-diagnostico-documentacao-radar]]. A
-estrutura analisada é a do [[der-logico]] (14 tabelas, estado final das migrações até `20261122004`).
+estrutura analisada é a do [[der-logico]] (18 tabelas, estado final das migrações até `20261123003`).
 As propostas abaixo continuam como foram escritas em 2026-11-21, **exceto a do § 2.1**, aplicada em 2026-11-22
 (migração `20261122001`, [[0019-categorias-e-subcategorias-literais-sem-conversao-automatica|ADR-0019]]); mudar o banco depende de plano autorizado e de nova migração.
 
@@ -44,6 +44,10 @@ naturais (`codigo_radar`, `email`, `proc_id`, `icmbio_id`, `nome` da categoria) 
 | `respostas_tratamento` | `id` | conforme | conforme | dívida (§ 2.6); `status_execucao` conforme (§ 3.5) |
 | `indicadores_kri` | `id` | conforme | conforme | dívida (§ 2.6) |
 | `medicoes_kri` | `id` | conforme | conforme | conforme (§ 3.6) |
+| `feriados` | `data` | conforme | conforme | conforme (§ 3.11) |
+| `alertas_kri` | `id` | conforme | conforme | conforme; ligação guardada nos dois sentidos aceita (§ 3.11) |
+| `comunicacoes_cgov` | `id`; `alerta_id` (único) | conforme (`supre` é lista de valores fixos, § 3.11) | conforme | conforme; ligação nos dois sentidos aceita (§ 3.11) |
+| `comunicacoes_riscos` | `(comunicacao_id, risco_id)` | conforme | conforme | conforme (§ 3.11) |
 | `historico_fluxo` | `id`; `sequencia` | conforme | conforme | conforme (§ 3.3) |
 | `auditoria_log` | `id` | conforme (§ 3.4) | conforme | conforme |
 
@@ -366,7 +370,7 @@ erDiagram
 5. **`respostas_tratamento.status_execucao = 'atrasada'` (conforme).** Dependeria do prazo e da **data de
    hoje**, que não é coluna da tabela. Hoje é marcado à mão. A comunicação do atraso é a LAC-04 (inciso V).
 6. **`medicoes_kri.em_alerta` (conforme).** Não é derivável: `valor_apurado` e `limite_alerta` são texto
-   livre, sem regra para comparar. Hoje é marcado à mão (LAC-03).
+   livre, sem regra para comparar. Desde a LAC-03 (`20261123002`, 2026-11-24) o banco passa a **calculá-lo**: o gatilho `fn_medicao_calcula_alerta` compara `valor_numerico` com o limite numérico do KRI (`limite_operador`, `limite_valor`). Continua sendo coluna gravada (e não visão) porque guarda o resultado **na data da leitura**: se o limite mudar depois, o histórico não é recalculado. Exceção: corrigir a leitura (`UPDATE` de `valor_numerico`, `em_alerta` ou `kri_id`) recalcula com o limite vigente naquele dia e pode abrir alerta com ciência no dia da correção (como diz o dicionário). Fica conforme.
 7. **`riscos.estrategia_principal` × `respostas_tratamento.estrategia` (conforme).** Uma é a resposta
    escolhida para o risco; a outra, a estratégia de cada ação. Podem ser diferentes, então não há
    dependência funcional. A regra "risco crítico não aceita Aceitar" é a LAC-13, resolvida no código em 2026-11-22: não é restrição de coluna, e sim a função `fn_trava_risco_critico` (migração `20261122002`), porque depende do `status_critico` do risco e da lista de ações.
@@ -380,6 +384,29 @@ erDiagram
 10. **`perfis_usuarios.email` (3FN: dívida).** O e-mail também está na conta de login (`auth.users`). Se a
     pessoa trocar o e-mail da conta, o perfil fica com o antigo. Cartão: sincronizar os dois ou ler o
     e-mail só da conta.
+11. **Alerta do KRI e comunicações (LAC-03 e LAC-04, migrações `20261123002` e `20261123003`; conforme).**
+    - `feriados`: chave `data`; `nome` depende só dela. Conforme nas três formas.
+    - `alertas_kri`: `id → todas`. `ciencia_em` é o dia do registro da leitura, gravado (não derivado de
+      `medicoes_kri.criado_em`), porque a correção da leitura pode abrir alerta em outra data e o prazo tem de
+      ficar fixo. `encerrado_em` e `vence_em`/`dia_atual` não se confundem: os dois últimos **não são colunas**,
+      saem da visão `alertas_kri_situacao`, então não há dependência transitiva gravada.
+    - `comunicacoes_cgov`: `id → todas`; `alerta_id` é chave candidata (único). `supre` é uma lista (`text[]`)
+      de no máximo três valores fixos (I, II, III) que a própria linha comunica, não uma coleção de entidades;
+      o `CHECK` limita os valores. Vale como atributo atômico para o que a tabela faz (a 1FN está conforme, como
+      o `periodicidade`), e uma tabela filha só repetiria a chave. `prazo_dias_uteis`, `no_prazo` e `situacao`
+      saem da visão `comunicacoes_cgov_situacao`, não são gravadas.
+    - `comunicacoes_riscos`: chave `(comunicacao_id, risco_id)`; não tem coluna fora da chave, então não há
+      dependência parcial nem transitiva (2FN e 3FN conformes).
+    - **Ligação guardada nos dois sentidos:** `alertas_kri.comunicacao_id` e `comunicacoes_cgov.alerta_id` dizem a
+      mesma coisa (qual comunicação encerrou qual alerta). É redundância, mas não viola a 3FN (nenhuma das duas é
+      atributo não-chave que determina a outra dentro da mesma tabela) e foi **aceita** porque: (a) as duas
+      pontas se leem sem junção (o Monitoramento olha o alerta; a CGOV olha a comunicação); (b) a coerência é
+      garantida pelo banco, não pela tela: `alerta_id` é `UNIQUE` (uma comunicação por alerta), a FK de
+      `alertas_kri.comunicacao_id` é criada na migração `20261123003`, e a única escrita de `comunicacao_id` é o
+      gatilho `fn_comunicacao_encerra_alerta` (`SECURITY DEFINER`), na mesma transação do `INSERT` da comunicação,
+      que desfaz tudo se o alerta não puder ser encerrado; (c) ninguém escreve em `alertas_kri` direto
+      (sem política de escrita). Custo: se alguém mexesse nas duas colunas à mão, poderiam divergir; por isso
+      a escrita fica só no gatilho.
 
 ## 4. Cartões criados no Kanban
 

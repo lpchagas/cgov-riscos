@@ -8,8 +8,8 @@ entre as tabelas, e a [[normalizacao]], que analisa as repetições.
 **De onde vem:** do banco local com as 12 primeiras migrações aplicadas (até `20261117001`), lido em 2026-11-21 no
 `information_schema` (colunas, tipos e nulos) e no `pg_constraint` (os valores dos `CHECK`), e da 13ª e da 14ª migrações
 (`20261122001` e `20261122004`), acrescentadas em 2026-11-22 a partir dos próprios arquivos (a tabela `subcategorias_risco`, a
-saída de `categorias_risco.subcategorias_permitidas`, a tabela `kri_riscos` e a troca de `indicadores_kri.risco_id` por `objeto_id`, LAC-03). São **14 tabelas e 145 colunas** (138, mais as 5 da
-tabela `subcategorias_risco`, menos a coluna JSONB que saiu, mais as 3 de `kri_riscos`; a troca de `risco_id` por `objeto_id` não muda a conta); o 145 foi conferido contando as linhas de colunas deste dicionário, não por nova leitura do banco. Os significados foram escritos a partir dos comentários das migrações e das regras
+saída de `categorias_risco.subcategorias_permitidas`, a tabela `kri_riscos` e a troca de `indicadores_kri.risco_id` por `objeto_id`, LAC-03). Em 2026-11-25, as duas migrações do alerta do KRI e das comunicações (`20261123002` e `20261123003`, LAC-03 e LAC-04) entraram a partir dos próprios arquivos: 4 tabelas novas (`feriados`, `alertas_kri`, `comunicacoes_cgov` e `comunicacoes_riscos`), 4 colunas novas em tabelas antigas (`limite_operador`, `limite_valor` e `limite_unidade` em `indicadores_kri`; `valor_numerico` em `medicoes_kri`) e 2 visões. São, agora, **18 tabelas e 175 colunas** (a conta anterior, de **14 tabelas e 145 colunas**, era: 138, mais as 5 da
+tabela `subcategorias_risco`, menos a coluna JSONB que saiu, mais as 3 de `kri_riscos`; a troca de `risco_id` por `objeto_id` não muda a conta); o 175 foi conferido contando as linhas de colunas deste dicionário, não por nova leitura do banco. Os significados foram escritos a partir dos comentários das migrações e das regras
 de [[regras-negocio]].
 
 ## Como ler
@@ -203,7 +203,10 @@ Criada pela migração `20261122001` ([[0019-categorias-e-subcategorias-literais
 | `indicadores_kri` | `fonte_dados` | `text` | sim | — | De onde vêm os dados. | RN-083 | não |
 | `indicadores_kri` | `periodicidade` | `text` | sim | `Mensal`, `Trimestral`, `Semestral`, `Anual` | Frequência da medição; aceita vazio (RF-183: o importador não inventa a periodicidade). | RN-083 | não |
 | `indicadores_kri` | `meta_alvo` | `text` | sim | texto livre | Valor desejado; continua opcional mesmo no KRI completo (LAC-03). | — | não |
-| `indicadores_kri` | `limite_alerta` | `text` | sim | texto livre | Valor que, ultrapassado, dispara a reavaliação do risco. | RN-083, RN-084 | não |
+| `indicadores_kri` | `limite_alerta` | `text` | sim | texto livre | **Limite antigo, só para leitura**: o texto de antes da LAC-03. A migração `20261123002` converte para os três campos abaixo só o que não deixa dúvida (ex.: `> 10%`); o resto fica como "limite a converter". KRI novo grava o limite numérico. | RN-083, RN-084 | não |
+| `indicadores_kri` | `limite_operador` | `text` | sim | `>`, `>=`, `<`, `<=` | Operador do limite de alerta numérico; sempre junto com `limite_valor` (os dois ou nenhum). | RN-083, RN-084 | não |
+| `indicadores_kri` | `limite_valor` | `numeric` | sim | número | Valor do limite de alerta; o banco compara a leitura com ele (`limite_operador`). | RN-083, RN-084 | não |
+| `indicadores_kri` | `limite_unidade` | `text` | sim | texto livre | Unidade do limite, só para mostrar (ex.: `%`); não entra na comparação. | RN-083 | não |
 | `indicadores_kri` | `responsavel_medicao` | `text` | sim | — | Nome de quem mede, em texto livre; pode ficar vazio. | RN-083 | sim |
 | `indicadores_kri` | `criado_em` | `timestamptz` | não | — | Data e hora da criação. | — | não |
 
@@ -222,10 +225,77 @@ Criada pela migração `20261122001` ([[0019-categorias-e-subcategorias-literais
 | `medicoes_kri` | `id` | `uuid` | não | chave primária | Identificador da medição. | — | não |
 | `medicoes_kri` | `kri_id` | `uuid` | não | chave estrangeira para `indicadores_kri` | KRI medido; apagado o KRI, apaga a medição. | — | não |
 | `medicoes_kri` | `data_medicao` | `date` | não | — | Data da leitura; padrão: hoje. | — | não |
-| `medicoes_kri` | `valor_apurado` | `text` | não | texto livre | Valor medido. | — | não |
-| `medicoes_kri` | `em_alerta` | `boolean` | não | verdadeiro ou falso | Se a leitura passou do limite de alerta (marcado à mão). | RN-084 | não |
+| `medicoes_kri` | `valor_apurado` | `text` | não | texto livre | Valor medido, como a pessoa o escreveu. | — | não |
+| `medicoes_kri` | `em_alerta` | `boolean` | não | verdadeiro ou falso | Se a leitura passou do limite de alerta. **Calculado pelo banco** (gatilho `fn_medicao_calcula_alerta`) com `valor_numerico` e o limite numérico do KRI; o que o cliente mandar é ignorado. Sem limite numérico ou sem número, fica falso. As leituras antigas não são recalculadas. Corrigir uma leitura (`UPDATE` de `valor_numerico`, `em_alerta` ou `kri_id`, gatilho `trg_medicao_calcula_alerta`) **recalcula** `em_alerta` pelo limite atual; se a leitura passa a estar em alerta (valor novo além do limite e valor anterior dentro dele, ou troca de KRI), o gatilho `trg_medicao_abre_alerta_update` pode **abrir alerta** com ciência no dia da correção (`fn_hoje()`), e não no da medição; corrigir para dentro do limite não encerra alerta (só a comunicação encerra). | RN-084 | não |
+| `medicoes_kri` | `valor_numerico` | `numeric` | sim | número | A leitura como número, usada na comparação com o limite. As leituras antigas ganharam o número quando o texto era só número, com `%` opcional. | RN-084 | não |
 | `medicoes_kri` | `observacao` | `text` | sim | — | Comentário sobre a leitura. | — | pode conter (texto livre) |
 | `medicoes_kri` | `criado_em` | `timestamptz` | não | — | Data e hora do lançamento; lançar medição não reabre o risco aprovado. | RN-052 | não |
+
+### `feriados`
+
+| Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `feriados` | `data` | `date` | não | chave primária | O dia do feriado nacional (ou ponto facultativo federal) que não conta como dia útil. Semente de 2026 e 2027; a CGOV acrescenta novos com `INSERT`, sem migração. | RN-084, RN-086 | não |
+| `feriados` | `nome` | `text` | não | texto livre | Nome do feriado (ex.: "Confraternização Universal"). | — | não |
+
+Leitura: qualquer pessoa autenticada. Escrita: só a CGOV. Os dias úteis dos prazos (`fn_somar_dias_uteis`,
+`fn_dias_uteis_entre`) são segunda a sexta sem estes feriados.
+
+### `alertas_kri`
+
+| Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `alertas_kri` | `id` | `uuid` | não | chave primária | Identificador do alerta. | — | não |
+| `alertas_kri` | `kri_id` | `uuid` | não | chave estrangeira para `indicadores_kri` | KRI em alerta. O banco **recusa apagar KRI que tenha qualquer alerta**, aberto ("comunique à CGOV antes de apagar") ou comunicado (gatilho `fn_kri_protege_alerta_comunicado`); a cascata só vale para o KRI sem alerta. | RN-084 | não |
+| `alertas_kri` | `medicao_id` | `uuid` | não | chave estrangeira para `medicoes_kri` | A leitura que abriu o alerta; essa leitura não pode ser apagada. | RN-084 | não |
+| `alertas_kri` | `ciencia_em` | `date` | não | — | Dia do registro da leitura em alerta (não o da medição): início dos 10 dias úteis. | RN-084 | não |
+| `alertas_kri` | `encerrado_em` | `date` | sim | — | Nulo enquanto o alerta está aberto; preenchido pelo banco quando a comunicação é enviada. | RN-084 | não |
+| `alertas_kri` | `comunicacao_id` | `uuid` | sim | chave estrangeira para `comunicacoes_cgov` | A comunicação que encerrou o alerta; preenchida pelo banco. | RN-084, RN-085 | não |
+| `alertas_kri` | `criado_em` | `timestamptz` | não | — | Data e hora da abertura. | — | não |
+
+Quem abre o alerta é o gatilho da leitura (`fn_medicao_abre_alerta`); há no máximo **um alerta aberto por KRI**
+(índice único parcial) e ninguém grava na tabela diretamente. Leitura posterior dentro do limite não encerra o
+alerta, e nova leitura em alerta não reinicia o prazo.
+
+### `comunicacoes_cgov`
+
+| Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `comunicacoes_cgov` | `id` | `uuid` | não | chave primária | Identificador da comunicação. | — | não |
+| `comunicacoes_cgov` | `unidade_id` | `uuid` | não | chave estrangeira para `unidades` | Unidade que comunica. | RN-086 | não |
+| `comunicacoes_cgov` | `hipotese` | `text` | não | `I`, `II`, `III`, `IV`, `V`, `VI`, `alerta_kri` | Hipótese do item 4.7.2 da Metodologia ou resultado da reavaliação por alerta do KRI. | RN-086 | não |
+| `comunicacoes_cgov` | `supre` | `text[]` | não | só `I`, `II`, `III`; só com `alerta_kri`; padrão vazio | Hipóteses que a comunicação do alerta supre, quando coincidirem e forem feitas no mesmo prazo. | RN-085 | não |
+| `comunicacoes_cgov` | `data_ciencia` | `date` | não | não pode ser futura; com alerta, é a do alerta | Dia em que a unidade tomou ciência do fato: início dos 10 dias úteis. | RN-086 | não |
+| `comunicacoes_cgov` | `comunicada_em` | `timestamptz` | não | — | Data e hora do envio. Fora do prazo também grava: o prazo é informação, não trava. | RN-086 | não |
+| `comunicacoes_cgov` | `descricao` | `text` | não | texto livre | O fato comunicado. | RN-086 | pode conter (texto livre) |
+| `comunicacoes_cgov` | `providencias` | `text` | sim | texto livre | Providências tomadas ou previstas. | — | pode conter (texto livre) |
+| `comunicacoes_cgov` | `documento_sei` | `text` | sim | texto livre | Número do documento no SEI, quando houver. | — | não |
+| `comunicacoes_cgov` | `alerta_id` | `uuid` | sim | chave estrangeira para `alertas_kri`; único | Alerta do KRI comunicado: uma comunicação por alerta. | RN-084, RN-085 | não |
+| `comunicacoes_cgov` | `autor_id` | `uuid` | sim | padrão `auth.uid()` | Quem enviou a comunicação. | — | sim |
+| `comunicacoes_cgov` | `ciencia_cgov_em` | `timestamptz` | sim | — | Quando a CGOV registrou a ciência (dada uma vez). | RN-086 | não |
+| `comunicacoes_cgov` | `ciencia_cgov_por` | `uuid` | sim | — | Quem da CGOV registrou a ciência. | — | sim |
+| `comunicacoes_cgov` | `observacao_cgov` | `text` | sim | texto livre | Observação da CGOV ao registrar a ciência. | — | pode conter (texto livre) |
+| `comunicacoes_cgov` | `criada_na_transacao` | `xid8` | não | preenchido pelo banco | Número da transação que criou a linha; só serve ao gatilho do vínculo com os riscos. | — | não |
+
+A comunicação é **imutável** depois de enviada: não há política nem privilégio de `UPDATE` ou `DELETE` e um
+gatilho recusa mudar qualquer coluna além das três da ciência da CGOV, que também só se grava uma vez.
+
+### `comunicacoes_riscos`
+
+| Tabela | Coluna | Tipo | Nulo? | Domínio | Significado | Regra | Dado pessoal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `comunicacoes_riscos` | `comunicacao_id` | `uuid` | não | chave primária (com `risco_id`); chave estrangeira para `comunicacoes_cgov` | Comunicação a que o risco foi ligado. | RN-086 | não |
+| `comunicacoes_riscos` | `risco_id` | `uuid` | não | chave primária (com `comunicacao_id`); chave estrangeira para `riscos` | Risco comunicado; a chave é restritiva (sem cascata): o banco recusa apagar risco comunicado. Obrigatório nas hipóteses I, II, III, V e no alerta do KRI. | RN-086 | não |
+
+### Visões
+
+As visões abaixo não são tabelas (não entram na contagem de tabelas nem de colunas): são consultas fixas, com
+`security_invoker`, isto é, obedecem à RLS de quem consulta.
+
+| Visão | Migração | O que acrescenta às colunas da tabela |
+| --- | --- | --- |
+| `alertas_kri_situacao` | `20261123002` | `vence_em` (10º dia útil depois da ciência), `dia_atual` (dias úteis desde a ciência, no máximo 99; no alerta encerrado conta até o encerramento), `vencido` (aberto e passou de 10) e `dias_uteis_vencido`. |
+| `comunicacoes_cgov_situacao` | `20261123003` | `prazo_dias_uteis` (da ciência ao envio), `no_prazo` (até 10), `vence_em` e `situacao` (`nova` ou `ciencia_registrada`). |
 
 ### `historico_fluxo`
 
