@@ -1,6 +1,6 @@
 # UC-15 — Registrar medição de KRI e tratar alerta
 
-> Origem: F4.02 e F4.04 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.1 (parágrafo do alerta) e 4.7.2 (1º parágrafo); decisão L-40 · RF: RF-098, RF-099, RF-100, RF-101, RF-102, RF-106, RF-109 · RN: RN-027, RN-095, RN-115, RN-052, RN-083, RN-084, RN-085, RN-086, RN-051 · Situação: implementado no código e no banco local, **exceto o RF-106** (registro da reavaliação com motivo, não iniciado, LAC-10) (LAC-03: o KRI completo em 2026-11-22; o alerta, RF-102, e a comunicação, RF-109, em 2026-11-24 e 25; nuvem do piloto: o KRI completo, `20261122004`, já aplicado em 2026-11-23; faltam `20261123002` e `20261123003`, a aplicar com autorização). Desenho: [[0021-alerta-do-kri-e-comunicacoes-no-banco|ADR-0021]]
+> Origem: F4.02 e F4.04 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.1 (parágrafo do alerta) e 4.7.2 (1º parágrafo); decisão L-40 · RF: RF-098, RF-099, RF-100, RF-101, RF-102, RF-106, RF-109 · RN: RN-027, RN-095, RN-115, RN-052, RN-083, RN-084, RN-085, RN-086, RN-051 · Situação: implementado no código e no banco local, **exceto o RF-106** (registro da reavaliação com motivo, não iniciado, LAC-10) (LAC-03: o KRI completo em 2026-11-22; o alerta, RF-102, e a comunicação, RF-109, em 2026-11-24 e 25; nuvem do piloto: o KRI completo, `20261122004`, aplicado em 2026-11-23; `20261123002` e `20261123003`, aplicadas em 2026-11-25). Desenho: [[0021-alerta-do-kri-e-comunicacoes-no-banco|ADR-0021]]
 
 ## Título
 

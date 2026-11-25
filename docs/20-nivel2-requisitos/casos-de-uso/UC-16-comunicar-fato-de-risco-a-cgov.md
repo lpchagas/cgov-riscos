@@ -2,7 +2,7 @@
 
 > Origem: F4.05 ([[F4-monitoramento-relato-avaliacao]]); Metodologia 4.7.2, caput e incisos I a VI; Política art. 17, IV; decisão L-40 · RF: RF-107, RF-108, RF-192, RF-109, RF-110, RF-111 · RN: RN-086, RN-085, RN-084, RN-090
 >
-> Situação: implementado no código e no banco local em 2026-11-25 (LAC-04; nuvem do piloto: a aplicar, com autorização), exceto o RF-110 (propor a comunicação da hipótese I). Desenho: [[0021-alerta-do-kri-e-comunicacoes-no-banco|ADR-0021]]. Decisões do responsável de 2026-11-25: **D-6** a CGOV também mantém o botão "Nova comunicação" (o banco permite); **D-7** alerta de KRI sem risco ligado continua sem "Comunicar à CGOV" (a tela orienta), sem migração nova
+> Situação: implementado no código e no banco local em 2026-11-25 (LAC-04; nuvem do piloto: aplicada em 2026-11-25), exceto o RF-110 (propor a comunicação da hipótese I). Desenho: [[0021-alerta-do-kri-e-comunicacoes-no-banco|ADR-0021]]. Decisões do responsável de 2026-11-25: **D-6** a CGOV também mantém o botão "Nova comunicação" (o banco permite); **D-7** alerta de KRI sem risco ligado continua sem "Comunicar à CGOV" (a tela orienta), sem migração nova
 
 ## Título
 

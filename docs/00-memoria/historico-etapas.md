@@ -256,5 +256,7 @@ no banco local. Desenho em `docs/superpowers/specs/2026-11-23-alerta-kri-comunic
 - **Números:** Vitest 63 arquivos e 1212 testes; pgTAP 23 arquivos e 1381 testes; `test:a11y` 374 testes, 0
   violações, em 360 combinações ((20 + 4) telas × 5 larguras × 3 temas).
 - **Fase 4, documentação (2026-11-25):** RF, RN, UC-15, UC-16, lacunas, DER e dicionário (18 tabelas, 175 colunas,
-  2 visões), mapa de telas, matriz de acesso, ADR-0021 e quadro. **Figma feito em 2026-11-25:** P-02 copiada para "📌 Original — Monitoramento", etapa 4 para "📌 Original — Novo risco", nova "📌 Original — Comunicações (não editar)" com a P-03, tudo travado; biblioteca inalterada. **Falta:** PR da Fase 4 e as
-  duas migrações na nuvem do piloto, **[AUTORIZAÇÃO]** a cada uma.
+  2 visões), mapa de telas, matriz de acesso, ADR-0021 e quadro. **Figma feito em 2026-11-25:** P-02 copiada para "📌 Original — Monitoramento", etapa 4 para "📌 Original — Novo risco", nova "📌 Original — Comunicações (não editar)" com a P-03, tudo travado; biblioteca inalterada. **PR #22 mesclada na `main` em 2026-11-25 (merge `0fc6653`);** as
+  duas migrações foram aplicadas na nuvem do piloto em 2026-11-25, uma por vez, com autorização. **Falta:** publicar o front (Task 7 da D1, **[AUTORIZAÇÃO]**).
+
+- **2026-11-25 (fechamento):** PR #21 (Fase 3) e PR #22 (Fase 4) mescladas na `main`; migrações `20261123002` e `20261123003` aplicadas na nuvem do piloto, uma por vez, e conferidas.
