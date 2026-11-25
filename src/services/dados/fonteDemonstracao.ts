@@ -46,6 +46,7 @@ import type {
   UnidadeOrganizacional,
 } from '../../types/radar.types';
 import {
+  ALERTAS_KRI_SEMENTE,
   CATEGORIAS_QUADRO_2_SEMENTE,
   OBJETOS_CONTEXTO_SEMENTE,
   RISCOS_SEMENTE_ANEXO_II,
@@ -53,6 +54,9 @@ import {
 } from '../dadosSementeAnexoII';
 import { calcularRiscoCompletoRadar, gerarSintaxePadraoRisco } from '../../utils/calculadoraRiscoRadar';
 import { verificarTravaRiscoCritico, type MotivoTrava, type ResultadoTrava } from '../../utils/travaRiscoCritico';
+import { hojeEmBrasilia } from '../../utils/diasUteis';
+import { converterLimiteTexto, numeroDaLeitura, passaDoLimite } from '../../utils/limiteAlerta';
+import { montarAlertaKri, type AlertaKriBase } from '../../utils/situacaoKri';
 import { capacidades, PAPEIS } from '../../utils/acessoPorPerfil';
 import { CHAVE_PERFIL_DEMO, PERFIS_DEMO_ICMBIO, type PerfilUsuarioDemo } from '../../stores/authStore';
 import { ErroRadar, MENSAGEM_REDE, traduzirErroBanco } from './errosBanco';
@@ -178,6 +182,10 @@ export function criarFonteDemonstracao(
   }
   sincronizarKris();
 
+  // LAC-03: o que a tabela `alertas_kri` guardaria (ciência, encerramento e comunicação).
+  // Os prazos são calculados na hora por `listarAlertasKri`, como a visão do banco faz.
+  const alertas: AlertaKriBase[] = copiar(ALERTAS_KRI_SEMENTE);
+
   /**
    * Refaz `risco.kris` a partir da lista central (mesmos objetos: sem cópia solta).
    * Na demonstração a pessoa vê todos os riscos, então o total real de riscos do
@@ -190,7 +198,10 @@ export function criarFonteDemonstracao(
 
   /** Apaga KRI órfão (sem nenhum risco ligado) junto com as medições, como o banco. */
   function apagarOrfaos(): void {
-    for (let i = kris.length - 1; i >= 0; i--) if (kris[i].riscoIds.length === 0) kris.splice(i, 1);
+    // KRI com alerta não é apagado (o banco recusa: o alerta precisa ser comunicado antes).
+    for (let i = kris.length - 1; i >= 0; i--) {
+      if (kris[i].riscoIds.length === 0 && !alertas.some((a) => a.kriId === kris[i].id)) kris.splice(i, 1);
+    }
   }
 
   /** Foto do estado que a gravação pode mexer, para desfazer tudo numa recusa. */
@@ -228,6 +239,30 @@ export function criarFonteDemonstracao(
     'limiteAlerta',
     'responsavelMedicao',
   ] as const;
+
+  /**
+   * Os 3 campos do limite numérico de um KRI que chega na ficha. Imita o banco:
+   * se a ficha traz operador + valor, eles valem; se traz só o texto antigo, a
+   * conversão inequívoca do gatilho `fn_kri_reconverte_limite` é aplicada.
+   * Ex.: { limiteAlerta: 'Abaixo de 70%' } -> { limiteOperador: '<', limiteValor: 70, limiteUnidade: '%' }
+   *      { limiteAlerta: 'Entre 5 e 10' }  -> tudo undefined ("a converter")
+   */
+  function limiteNumericoDaFicha(
+    item: Pick<IndicadorKri, 'limiteAlerta' | 'limiteOperador' | 'limiteValor' | 'limiteUnidade'>
+  ): Pick<IndicadorKri, 'limiteOperador' | 'limiteValor' | 'limiteUnidade'> {
+    if (item.limiteOperador !== undefined && Number.isFinite(item.limiteValor)) {
+      // (Number.isFinite: NaN e infinito violariam o CHECK do banco.)
+      return {
+        limiteOperador: item.limiteOperador,
+        limiteValor: item.limiteValor,
+        limiteUnidade: item.limiteUnidade?.trim() || undefined,
+      };
+    }
+    const c = item.limiteAlerta ? converterLimiteTexto(item.limiteAlerta) : null;
+    return c
+      ? { limiteOperador: c.operador, limiteValor: c.valor, limiteUnidade: item.limiteUnidade?.trim() || c.unidade }
+      : { limiteOperador: undefined, limiteValor: undefined, limiteUnidade: undefined };
+  }
 
   // --- buscas que falham com a frase do banco ------------------------------
   function acharRisco(id: string): FichaRisco {
@@ -390,6 +425,7 @@ export function criarFonteDemonstracao(
           periodicidade: item.periodicidade,
           metaAlvo: item.metaAlvo,
           limiteAlerta: item.limiteAlerta,
+          ...limiteNumericoDaFicha(item),
           responsavelMedicao: item.responsavelMedicao,
           id: novoId('kri'),
           objetoId: r.objetoId,
@@ -409,7 +445,26 @@ export function criarFonteDemonstracao(
       if (!existente.riscoIds.includes(r.id)) existente.riscoIds.push(r.id);
       if (item.apenasLigar) continue;
 
-      const mudou = DEFINICAO_KRI.some((campo) => (item[campo] ?? '') !== (existente[campo] ?? ''));
+      const textoMudou = DEFINICAO_KRI.some((campo) => (item[campo] ?? '') !== (existente[campo] ?? ''));
+      // Como o gatilho do banco: operador/valor "mudaram" só se vieram DIFERENTES dos gravados
+      // (a tela reenvia os antigos junto com o KRI base; isso não conta como mudança).
+      const numeroEnviado = item.limiteOperador !== undefined || item.limiteValor !== undefined;
+      const operadorValorMudaram =
+        numeroEnviado && (item.limiteOperador !== existente.limiteOperador || item.limiteValor !== existente.limiteValor);
+      // Unidade: imita o `fichaParaJson` + banco (I-2 da revisão da Fase 2).
+      //   - ficha COM operador + valor: a unidade sempre vai (ausente = limite_unidade null),
+      //     então unidade ausente quer dizer APAGADA. Ex.: '<' 80 '%' → '<' 80 → sem unidade.
+      //   - ficha SEM operador + valor: nenhum campo do limite vai; unidade ausente = não
+      //     enviada (o banco mantém a gravada).
+      const limiteCompletoNaFicha = item.limiteOperador !== undefined && Number.isFinite(item.limiteValor);
+      const unidadeDaFicha = item.limiteUnidade?.trim() || undefined;
+      const unidadeEnviada =
+        (limiteCompletoNaFicha || item.limiteUnidade !== undefined) && unidadeDaFicha !== existente.limiteUnidade;
+      // O PRÓPRIO texto do limite mudou? (calculado ANTES de copiar a ficha para o KRI.)
+      // Só isso, como o gatilho do banco (`NEW.limite_alerta IS DISTINCT FROM OLD.limite_alerta`),
+      // refaz o número: mudar só nome/fonte/responsável não pode apagar o limite numérico.
+      const limiteTextoMudou = (item.limiteAlerta ?? '') !== (existente.limiteAlerta ?? '');
+      const mudou = textoMudou || operadorValorMudaram || unidadeEnviada;
       if (!mudou) continue;
       const ligados = riscos.filter((x) => x.id !== r.id && existente.riscoIds.includes(x.id));
       const travado = ligados.find((x) => TRAVADOS.includes(estadoAntes.get(x.id) ?? x.statusFluxo));
@@ -417,6 +472,18 @@ export function criarFonteDemonstracao(
       for (const campo of DEFINICAO_KRI) {
         // Campo ausente ou vazio na ficha vira "não definido" (o sistema não inventa valor).
         (existente as unknown as Record<string, unknown>)[campo] = item[campo] || undefined;
+      }
+      // Limite numérico: o que a ficha enviou vale; se só o texto mudou, o gatilho do banco
+      // refaz o número pelo texto (e deixa "a converter" se for ambíguo).
+      // Espelha `fn_kri_reconverte_limite`: se o texto mudou e operador/valor NÃO mudaram, refaz tudo
+      // pelo texto novo (a unidade enviada só vale se for diferente da gravada).
+      if (operadorValorMudaram) {
+        Object.assign(existente, limiteNumericoDaFicha(item));
+      } else if (limiteTextoMudou) {
+        const refeito = limiteNumericoDaFicha({ limiteAlerta: item.limiteAlerta });
+        Object.assign(existente, refeito, unidadeEnviada ? { limiteUnidade: item.limiteUnidade?.trim() || undefined } : {});
+      } else if (unidadeEnviada) {
+        existente.limiteUnidade = item.limiteUnidade?.trim() || undefined;
       }
       for (const x of ligados) {
         // Só o aprovado reabre; o já reaberto por um KRI anterior desta
@@ -443,7 +510,9 @@ export function criarFonteDemonstracao(
     async carregarCarteira(): Promise<Carteira> {
       if (estado === 'carregando') return new Promise<Carteira>(() => {}); // nunca termina
       if (estado === 'erro') throw new ErroRadar(MENSAGEM_REDE, 'rede');
-      return copiar({ riscos, objetos, categorias, unidades, processos: [] });
+      // KRIs sem risco ligado (só sobram os que têm alerta: `apagarOrfaos` apaga os demais).
+      const krisSemRisco = kris.filter((k) => k.riscoIds.length === 0);
+      return copiar({ riscos, objetos, categorias, unidades, processos: [], krisSemRisco });
     },
 
     async relerRisco(id) {
@@ -700,7 +769,40 @@ export function criarFonteDemonstracao(
     async registrarMedicao(kriId, m) {
       const kri = kris.find((k) => k.id === kriId);
       if (!kri) naoEncontrado('Indicador (KRI) não encontrado');
-      kri.medicoes.unshift({ id: novoId('med'), ...m });
+      // Como o gatilho do banco: o número da leitura vem de `valorNumerico` (ou do texto digitado,
+      // com vírgula decimal), e `emAlerta` é calculado pelo limite do KRI. O `emAlerta` enviado é ignorado.
+      const valorNumerico = m.valorNumerico ?? numeroDaLeitura(m.valorApurado);
+      const emAlerta =
+        kri.limiteOperador !== undefined && typeof kri.limiteValor === 'number' && valorNumerico !== undefined
+          ? passaDoLimite(valorNumerico, kri.limiteOperador, kri.limiteValor)
+          : false;
+      const { emAlerta: _ignorado, valorNumerico: _numero, ...resto } = m;
+      // `registradoEm` imita o `criado_em` do banco (agora, com hora).
+      const nova = {
+        id: novoId('med'),
+        ...resto,
+        ...(valorNumerico !== undefined ? { valorNumerico } : {}),
+        emAlerta,
+        registradoEm: new Date().toISOString(),
+      };
+      kri.medicoes.unshift(nova);
+      // 1ª leitura em alerta sem alerta aberto: abre um (ciência = hoje, em Brasília). Um só por KRI.
+      // Leitura dentro do limite NUNCA encerra o alerta (só a comunicação à CGOV encerra).
+      if (emAlerta && !alertas.some((a) => a.kriId === kriId && !a.encerradoEm)) {
+        alertas.push({ id: novoId('alerta'), kriId, cienciaEm: hojeEmBrasilia() });
+      }
+    },
+
+    /** Alertas dos KRIs, com os prazos calculados agora (como a visão `alertas_kri_situacao`). */
+    async listarAlertasKri() {
+      const hoje = hojeEmBrasilia();
+      return alertas.filter((a) => kris.some((k) => k.id === a.kriId)).map((a) => montarAlertaKri(a, hoje));
+    },
+
+    /** KRIs sem risco ligado (como em `carregarCarteira`), em cópia. */
+    async listarKrisSemRisco() {
+      if (estado === 'erro') throw new ErroRadar(MENSAGEM_REDE, 'rede');
+      return copiar(kris.filter((k) => k.riscoIds.length === 0));
     },
 
     /** Monitoramento: andamento da ação 5W2H também mantém o risco aprovado. */

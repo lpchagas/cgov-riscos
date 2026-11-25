@@ -17,6 +17,10 @@ import { useRiscosStore, definirFonteParaTeste } from '../../src/stores/riscosSt
 import { criarFonteDemonstracao } from '../../src/services/dados';
 import { ErroRadar } from '../../src/services/dados/errosBanco';
 import MonitoramentoKriPlanoAcaoView from '../../src/views/MonitoramentoKriPlanoAcaoView.vue';
+import { useAuthStore } from '../../src/stores/authStore';
+import { dataCurta } from '../../src/utils/painelResumo';
+import type { DOMWrapper, VueWrapper } from '@vue/test-utils';
+import type { IndicadorKri } from '../../src/types/radar.types';
 
 async function montar(caminho = '/monitoramento') {
   const router = createRouter({
@@ -24,6 +28,8 @@ async function montar(caminho = '/monitoramento') {
     routes: [
       { path: '/monitoramento', name: 'monitoramento-kris', component: MonitoramentoKriPlanoAcaoView },
       { path: '/riscos/:id', name: 'ficha-bowtie-detalhe', component: { template: '<div />' } },
+      // Como no app: endereço sem rota (ex.: /comunicacoes, que chega na Fase 3) cai no "pega-tudo".
+      { path: '/:qualquer(.*)*', component: { template: '<div />' } },
     ],
   });
   router.push(caminho);
@@ -167,6 +173,8 @@ describe('Página Monitoramento', () => {
       const kri = store.riscos.flatMap((r) => r.kris).find((k) => k.id === 'kri-anexo-ii-2')!;
       for (const r of store.riscos) for (const k of r.kris) if (k.id === kri.id) {
         k.limiteAlerta = undefined;
+        k.limiteOperador = undefined;
+        k.limiteValor = undefined;
         k.metaAlvo = undefined;
         k.periodicidade = undefined;
       }
@@ -234,6 +242,310 @@ describe('Página Monitoramento', () => {
       // O seletor volta ao valor anterior (a tela não fica mostrando uma situação que não foi gravada).
       expect((w.find('select.situacao').element as HTMLSelectElement).value).toBe(antes);
       w.unmount();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // P-02: alerta do KRI, prazo, filtro, ordem, páginas e atalhos (LAC-03)
+  // Semente: kri-anexo-ii-1 vencido · kri-integra-1 dia 3 · kri-socio-1 comunicado
+  //          · kri-anexo-ii-3 sem limite numérico · kri-anexo-ii-2 dentro do limite.
+  // -------------------------------------------------------------------------
+  describe('P-02: tratar alerta do KRI', () => {
+    afterEach(() => {
+      definirFonteParaTeste(null);
+      useAuthStore().alternarPerfilDemo('cgov');
+    });
+
+    const nomeDe = (kriId: string) =>
+      useRiscosStore().riscos.flatMap((r) => r.kris).find((k) => k.id === kriId)!.nomeIndicador;
+    const cartaoDe = (w: VueWrapper, kriId: string): DOMWrapper<Element> =>
+      w.findAll('.kri').find((c) => c.text().includes(nomeDe(kriId)))!;
+    const alertaDe = (kriId: string) => useRiscosStore().alertasKri.find((a) => a.kriId === kriId)!;
+    const opcaoFiltro = (w: VueWrapper, rotulo: string) =>
+      w.findAll('[role="radiogroup"] [role="radio"]').find((b) => b.text().startsWith(rotulo))!;
+
+    it('"Alertas abertos" conta só os alertas abertos e leva ao filtro "Em alerta"', async () => {
+      const { w } = await montar();
+      const card = w.findAll('.stat-card').find((c) => c.text().includes('Alertas abertos'))!;
+      // Vencido + dia 3 = 2 (o comunicado já foi encerrado e não conta).
+      expect(card.find('.stat-card__valor').text()).toBe('2');
+      expect(card.attributes('href')).toBe('/monitoramento?situacao=alerta');
+      w.unmount();
+    });
+
+    it('filtro Todos · Em alerta · Sem limite · Dentro do limite, com contagens', async () => {
+      const { w } = await montar();
+      const rotulos = w.findAll('[role="radiogroup"] [role="radio"]').map((b) => b.text());
+      expect(rotulos).toEqual(['Todos (5)', 'Em alerta (2)', 'Sem limite (1)', 'Dentro do limite (1)']);
+      await opcaoFiltro(w, 'Em alerta').trigger('click');
+      await flushPromises();
+      expect(w.findAll('.kri')).toHaveLength(2);
+      await opcaoFiltro(w, 'Sem limite').trigger('click');
+      await flushPromises();
+      expect(w.findAll('.kri').map((c) => c.text().includes(nomeDe('kri-anexo-ii-3')))).toEqual([true]);
+      w.unmount();
+    });
+
+    it('?situacao=alerta abre já filtrado (destino do "Alertas abertos")', async () => {
+      const { w } = await montar('/monitoramento?situacao=alerta');
+      expect(w.findAll('.kri')).toHaveLength(2);
+      expect(opcaoFiltro(w, 'Em alerta').attributes('aria-checked')).toBe('true');
+      w.unmount();
+    });
+
+    it('ordem por urgência: vencido → alerta → comunicado → sem limite → dentro', async () => {
+      const { w } = await montar();
+      const ordem = ['kri-anexo-ii-1', 'kri-integra-1', 'kri-socio-1', 'kri-anexo-ii-3', 'kri-anexo-ii-2'];
+      const textos = w.findAll('.kri').map((c) => c.text());
+      expect(textos.map((t) => ordem.findIndex((id) => t.includes(nomeDe(id))))).toEqual([0, 1, 2, 3, 4]);
+      w.unmount();
+    });
+
+    it('faixa "Em alerta desde ... · dia N de 10 dias úteis (vence em ...)" em tom de aviso', async () => {
+      const { w } = await montar();
+      const a = alertaDe('kri-integra-1');
+      const faixa = cartaoDe(w, 'kri-integra-1').find('.faixa-alerta');
+      expect(faixa.classes()).toContain('faixa-alerta--aviso');
+      expect(faixa.text()).toContain(
+        `Em alerta desde ${dataCurta(a.cienciaEm)} · dia 3 de 10 dias úteis (vence em ${dataCurta(a.venceEm)})`
+      );
+      w.unmount();
+    });
+
+    it('no dia da ciência a faixa diz "dia 0 de 10" (número do banco, sem somar 1)', async () => {
+      const { w } = await montar();
+      useRiscosStore().alertasKri.find((a) => a.kriId === 'kri-integra-1')!.diaAtual = 0;
+      await flushPromises();
+      expect(cartaoDe(w, 'kri-integra-1').find('.faixa-alerta').text()).toContain('dia 0 de 10 dias úteis');
+      w.unmount();
+    });
+
+    it('prazo vencido: faixa em tom de perigo, "Prazo vencido há N dias úteis"', async () => {
+      const { w } = await montar();
+      const faixa = cartaoDe(w, 'kri-anexo-ii-1').find('.faixa-alerta');
+      expect(faixa.classes()).toContain('faixa-alerta--perigo');
+      expect(faixa.text()).toContain(`Prazo vencido há ${alertaDe('kri-anexo-ii-1').diasUteisVencido} dias úteis`);
+      w.unmount();
+    });
+
+    it('alerta comunicado: faixa em tom de sucesso, sem atalhos', async () => {
+      const { w } = await montar();
+      const faixa = cartaoDe(w, 'kri-socio-1').find('.faixa-alerta');
+      expect(faixa.classes()).toContain('faixa-alerta--sucesso');
+      expect(faixa.text()).toContain(`Alerta comunicado à CGOV em ${dataCurta(alertaDe('kri-socio-1').encerradoEm!)}`);
+      expect(faixa.findAll('a')).toHaveLength(0);
+      w.unmount();
+    });
+
+    it('alerta comunicado vale até a próxima leitura: leitura nova dentro do limite volta a "Dentro do limite" (D-5)', async () => {
+      const { w } = await montar();
+      expect(cartaoDe(w, 'kri-socio-1').find('.faixa-alerta').exists()).toBe(true);
+      await cartaoDe(w, 'kri-socio-1').findAll('button').find((b) => b.text().includes('Registrar leitura'))!.trigger('click');
+      await flushPromises();
+      const dialogo = document.body.querySelector('[role="dialog"]') as HTMLElement;
+      const campo = dialogo.querySelector('input[type="text"]') as HTMLInputElement;
+      campo.value = '95%'; // limite: alerta quando menor que 90 %
+      campo.dispatchEvent(new Event('input'));
+      [...dialogo.querySelectorAll('button')].find((b) => b.textContent?.includes('Salvar leitura'))!.click();
+      await flushPromises();
+      const cartao = cartaoDe(w, 'kri-socio-1');
+      expect(cartao.find('.faixa-alerta').exists()).toBe(false);
+      expect(cartao.text()).toContain('Dentro do limite');
+      w.unmount();
+    });
+
+    it('um "Reavaliar" por risco ligado (vai à ficha) e um "Comunicar à CGOV" (vai à P-03)', async () => {
+      const { w } = await montar();
+      const faixa = cartaoDe(w, 'kri-anexo-ii-1').find('.faixa-alerta');
+      const reavaliar = faixa.findAll('a').filter((a) => a.text() === 'Reavaliar');
+      expect(reavaliar).toHaveLength(1);
+      expect(reavaliar[0].attributes('aria-label')).toBe('Reavaliar RADAR-2026-001');
+      expect(reavaliar[0].attributes('href')).toBe('/riscos/risco-anexo-ii-01');
+      const comunicar = faixa.findAll('a').find((a) => a.text() === 'Comunicar à CGOV')!;
+      expect(comunicar.attributes('href')).toBe('/comunicacoes?alerta=alerta-anexo-ii-1');
+      expect(comunicar.attributes('aria-label')).toContain(nomeDe('kri-anexo-ii-1'));
+      w.unmount();
+    });
+
+    it('AUDIT vê a faixa e o prazo, sem os botões', async () => {
+      useAuthStore().alternarPerfilDemo('auditoria');
+      const { w } = await montar();
+      const faixa = cartaoDe(w, 'kri-integra-1').find('.faixa-alerta');
+      expect(faixa.text()).toContain('dia 3 de 10 dias úteis');
+      expect(faixa.findAll('a')).toHaveLength(0);
+      expect(faixa.text()).not.toContain('Reavaliar');
+      expect(faixa.text()).not.toContain('Comunicar à CGOV');
+      w.unmount();
+    });
+
+    it('"Ver detalhes" abre e fecha meta, responsável e histórico', async () => {
+      const { w } = await montar();
+      const detalhes = cartaoDe(w, 'kri-anexo-ii-1').find('details.kri__detalhes');
+      expect(detalhes.find('summary').text()).toContain('Ver detalhes');
+      expect(detalhes.text()).toContain('Meta');
+      expect(detalhes.text()).toContain('Responsável');
+      expect(detalhes.text()).toContain('Histórico');
+      w.unmount();
+    });
+
+    it('o cartão mostra o limite por extenso ("menor que 70 %") e o caso "a converter"', async () => {
+      const { w } = await montar();
+      expect(cartaoDe(w, 'kri-anexo-ii-1').text()).toContain('Alerta quando menor que 70 %');
+      const aConverter = cartaoDe(w, 'kri-anexo-ii-3');
+      expect(aConverter.text()).toContain('Acima de 5%');
+      expect(aConverter.text()).toContain('Limite a converter');
+      w.unmount();
+    });
+
+    it('10 cartões por página, com números de página; o que pede ação fica na página 1', async () => {
+      const store = useRiscosStore();
+      const r = store.riscos.find((x) => x.codigoRadar === 'RADAR-2026-004')!;
+      const extras: IndicadorKri[] = Array.from({ length: 12 }, (_, i) => ({
+        id: `kri-extra-${i}`,
+        objetoId: r.objetoId,
+        riscoIds: [r.id],
+        nomeIndicador: `Indicador extra ${String(i).padStart(2, '0')}`,
+        limiteOperador: '<',
+        limiteValor: 10,
+        medicoes: [],
+      }));
+      r.kris.push(...extras);
+      const { w } = await montar();
+      expect(w.findAll('.kri')).toHaveLength(10);
+      const nav = w.find('nav.paginacao');
+      expect(nav.attributes('aria-label')).toBe('Páginas dos indicadores');
+      const paginas = nav.findAll('button').filter((b) => /^\d+$/.test(b.text()));
+      expect(paginas.map((b) => b.text())).toEqual(['1', '2']);
+      expect(paginas[0].attributes('aria-current')).toBe('page');
+      // Os dois alertas abertos estão na página 1.
+      expect(w.text()).toContain(nomeDe('kri-anexo-ii-1'));
+      expect(w.text()).toContain(nomeDe('kri-integra-1'));
+      await paginas[1].trigger('click');
+      await flushPromises();
+      expect(w.findAll('.kri')).toHaveLength(7);
+      expect(w.find('nav.paginacao button[aria-current="page"]').text()).toBe('2');
+      // Trocar o filtro volta para a página 1.
+      await opcaoFiltro(w, 'Em alerta').trigger('click');
+      await flushPromises();
+      expect(w.findAll('.kri')).toHaveLength(2);
+      expect(w.find('nav.paginacao').exists()).toBe(false);
+      w.unmount();
+    });
+
+    it('KRI sem risco ligado (órfão) com alerta continua na lista, só com "Comunicar à CGOV"', async () => {
+      const base = criarFonteDemonstracao('normal');
+      definirFonteParaTeste({
+        ...base,
+        // Simula o banco: o KRI do alerta "dia 3" perdeu o seu único risco.
+        carregarCarteira: async () => {
+          const c = await base.carregarCarteira();
+          const orfao = c.riscos.flatMap((r) => r.kris).find((k) => k.id === 'kri-integra-1')!;
+          for (const r of c.riscos) r.kris = r.kris.filter((k) => k.id !== 'kri-integra-1');
+          return { ...c, krisSemRisco: [{ ...orfao, riscoIds: [], totalRiscos: 0 }] };
+        },
+      });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      const { w } = await montar();
+      const cartao = w.findAll('.kri').find((c) => c.text().includes('Percentual de processos sancionadores revisados'))!;
+      expect(cartao.text()).toContain('Sem risco ligado');
+      const faixa = cartao.find('.faixa-alerta');
+      expect(faixa.text()).toContain('dia 3 de 10 dias úteis');
+      expect(faixa.findAll('a').map((a) => a.text())).toEqual(['Comunicar à CGOV']);
+      // Sem risco ligado não há onde gravar a leitura: o botão some.
+      expect(cartao.findAll('button').some((b) => b.text().includes('Registrar leitura'))).toBe(false);
+      w.unmount();
+    });
+
+    // I-4 (revisão de fim da Fase 2): pela RLS, o KRI é lido pelo OBJETO e a ligação,
+    // pelo risco. Um KRI cujos riscos estão fora da visão da pessoa chega sem riscos
+    // visíveis, mas com `totalRiscos` > 0: não é "sem risco ligado".
+    it('KRI com os riscos fora da visão: a faixa diz isso (sem "Reavaliar") e o cartão não diz "Sem risco ligado"', async () => {
+      const base = criarFonteDemonstracao('normal');
+      definirFonteParaTeste({
+        ...base,
+        carregarCarteira: async () => {
+          const c = await base.carregarCarteira();
+          const oculto = c.riscos.flatMap((r) => r.kris).find((k) => k.id === 'kri-integra-1')!;
+          for (const r of c.riscos) r.kris = r.kris.filter((k) => k.id !== 'kri-integra-1');
+          return { ...c, krisSemRisco: [{ ...oculto, riscoIds: [], totalRiscos: 2 }] };
+        },
+      });
+      setActivePinia(createPinia());
+      await useRiscosStore().carregar();
+      const { w } = await montar();
+      const cartao = w.findAll('.kri').find((c) => c.text().includes('Percentual de processos sancionadores revisados'))!;
+      expect(cartao.text()).not.toContain('Sem risco ligado');
+      expect(cartao.text()).toContain('Riscos fora da sua visão');
+      const faixa = cartao.find('.faixa-alerta');
+      expect(faixa.text()).toContain('Os riscos deste indicador estão fora da sua visão');
+      expect(faixa.text()).not.toContain('não tem risco ligado');
+      expect(faixa.findAll('a').map((a) => a.text())).toEqual(['Comunicar à CGOV']);
+      w.unmount();
+    });
+
+    describe('janela "Registrar leitura"', () => {
+      async function abrirJanela(w: VueWrapper, kriId: string): Promise<HTMLElement> {
+        await cartaoDe(w, kriId).findAll('button').find((b) => b.text().includes('Registrar leitura'))!.trigger('click');
+        await flushPromises();
+        return document.body.querySelector('[role="dialog"]') as HTMLElement;
+      }
+      async function digitar(dialogo: HTMLElement, valor: string): Promise<void> {
+        const campo = dialogo.querySelector('input[type="text"]') as HTMLInputElement;
+        campo.value = valor;
+        campo.dispatchEvent(new Event('input'));
+        await flushPromises();
+      }
+
+      it('não tem mais a caixa "passou do limite" (quem decide é o banco)', async () => {
+        const { w } = await montar();
+        const dialogo = await abrirJanela(w, 'kri-integra-1');
+        expect(dialogo.querySelector('input[type="checkbox"]')).toBeNull();
+        expect(dialogo.textContent).not.toContain('A leitura passou do limite');
+        w.unmount();
+      });
+
+      it('mensagem automática: passa do limite / dentro do limite', async () => {
+        const { w } = await montar();
+        const dialogo = await abrirJanela(w, 'kri-anexo-ii-2'); // alerta quando menor que 80 %
+        await digitar(dialogo, '72%');
+        expect(dialogo.querySelector('.leitura-aviso')!.textContent).toContain('Esta leitura passa do limite');
+        await digitar(dialogo, '85');
+        expect(dialogo.querySelector('.leitura-aviso')!.textContent).toContain('Dentro do limite (alerta quando menor que 80 %)');
+        w.unmount();
+      });
+
+      it('mensagem automática: KRI com limite a converter não é verificado', async () => {
+        const { w } = await montar();
+        const dialogo = await abrirJanela(w, 'kri-anexo-ii-3');
+        await digitar(dialogo, '7%');
+        expect(dialogo.querySelector('.leitura-aviso')!.textContent).toContain(
+          'Sem limite numérico: o sistema não verifica o alerta'
+        );
+        w.unmount();
+      });
+
+      it('grava sem mandar "emAlerta" (o banco calcula)', async () => {
+        const base = criarFonteDemonstracao('normal');
+        const enviados: unknown[] = [];
+        definirFonteParaTeste({
+          ...base,
+          registrarMedicao: async (kriId, m) => { enviados.push(m); return base.registrarMedicao(kriId, m); },
+        });
+        setActivePinia(createPinia());
+        await useRiscosStore().carregar();
+        const { w } = await montar();
+        const dialogo = await abrirJanela(w, 'kri-anexo-ii-2');
+        await digitar(dialogo, '72%');
+        [...dialogo.querySelectorAll('button')].find((b) => b.textContent?.includes('Salvar leitura'))!.click();
+        await flushPromises();
+        expect(enviados).toHaveLength(1);
+        expect(enviados[0]).not.toHaveProperty('emAlerta');
+        // A leitura abriu um alerta: agora são 3 alertas abertos.
+        const card = w.findAll('.stat-card').find((c) => c.text().includes('Alertas abertos'))!;
+        expect(card.find('.stat-card__valor').text()).toBe('3');
+        w.unmount();
+      });
     });
   });
 });

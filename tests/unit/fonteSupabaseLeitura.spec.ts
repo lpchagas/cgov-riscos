@@ -102,6 +102,61 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
     expect(por('r1').kris[0].periodicidade).toBeUndefined();
   });
 
+  it('KRI sem nenhuma ligação visível vem em krisSemRisco, com as medições (LAC-03, P-02)', async () => {
+    const { cliente } = clienteFalso({
+      categorias_risco: [{ id: 2, nome: 'Operacional' }],
+      unidades: [{ id: 'u1', sigla: 'UC', nome: 'UC', tipo: 'uc' }],
+      objetos_contexto: [{ id: 'o1', nome_objeto: 'Obj', unidade_id: 'u1' }],
+      riscos: [{ id: 'r1', codigo_radar: 'RADAR-X-1', objeto_id: 'o1', categoria_id: 2 }],
+      indicadores_kri: [
+        { id: 'k1', objeto_id: 'o1', nome_indicador: 'Ligado' },
+        { id: 'k2', objeto_id: 'o1', nome_indicador: 'Órfão', limite_operador: '<', limite_valor: 80 },
+      ],
+      kri_riscos: [{ kri_id: 'k1', risco_id: 'r1' }],
+      medicoes_kri: [{ id: 'm2', kri_id: 'k2', data_medicao: '2026-11-01', valor_apurado: '70%', em_alerta: true }],
+    });
+    const carteira = await criarFonteSupabase(cliente).carregarCarteira();
+    expect(carteira.krisSemRisco?.map((k) => k.id)).toEqual(['k2']);
+    expect(carteira.krisSemRisco?.[0].riscoIds).toEqual([]);
+    expect(carteira.krisSemRisco?.[0].limiteValor).toBe(80);
+    expect(carteira.krisSemRisco?.[0].medicoes.map((m) => m.id)).toEqual(['m2']);
+  });
+
+  it('KRI sem ligação visível mas com riscos fora da visão: krisSemRisco traz totalRiscos > 0 (I-4)', async () => {
+    const { cliente } = clienteFalso(
+      {
+        objetos_contexto: [{ id: 'o1', nome_objeto: 'Obj', unidade_id: 'u1' }],
+        indicadores_kri: [{ id: 'k9', objeto_id: 'o1', nome_indicador: 'Riscos ocultos' }],
+        kri_riscos: [],
+      },
+      { kri_total_riscos: [{ kri_id: 'k9', total: 2 }] },
+    );
+    const carteira = await criarFonteSupabase(cliente).carregarCarteira();
+    expect(carteira.krisSemRisco?.[0]).toMatchObject({ id: 'k9', riscoIds: [], totalRiscos: 2 });
+  });
+
+  it('listarKrisSemRisco relê só os KRIs sem ligação visível, com medições e total real (I-1)', async () => {
+    const { cliente, chamadasRpc } = clienteFalso(
+      {
+        indicadores_kri: [
+          { id: 'k1', objeto_id: 'o1', nome_indicador: 'Ligado' },
+          { id: 'k2', objeto_id: 'o1', nome_indicador: 'Órfão', limite_operador: '<', limite_valor: 80 },
+        ],
+        kri_riscos: [{ kri_id: 'k1', risco_id: 'r1' }],
+        medicoes_kri: [
+          { id: 'm1', kri_id: 'k1', data_medicao: '2026-11-01', valor_apurado: '90' },
+          { id: 'm2', kri_id: 'k2', data_medicao: '2026-11-01', valor_apurado: '70' },
+        ],
+      },
+      { kri_total_riscos: [{ kri_id: 'k2', total: 0 }] },
+    );
+    const soltos = await criarFonteSupabase(cliente).listarKrisSemRisco();
+    expect(soltos.map((k) => k.id)).toEqual(['k2']);
+    expect(soltos[0].medicoes.map((m) => m.id)).toEqual(['m2']);
+    expect(soltos[0].totalRiscos).toBe(0);
+    expect(chamadasRpc.find((c) => c.nome === 'kri_total_riscos')?.args).toEqual({ p_kris: ['k2'] });
+  });
+
   it('KRI ligado a riscos fora da visão: totalRiscos vem de kri_total_riscos (carteira e releitura)', async () => {
     // A RLS só deixa ler a ligação k1 → r1; o banco diz que k1 serve a 3 riscos.
     const { cliente, chamadasRpc } = clienteFalso(
@@ -151,5 +206,37 @@ describe('fonte Supabase — leituras (cliente falso)', () => {
       { nome: 'devolver_risco', args: { risco: 'r1', motivo: 'Ajustar.' } },
       { nome: 'reatribuir_objeto', args: { objeto: 'o1', nova_unidade: 'u2' } },
     ]);
+  });
+
+  it('listarAlertasKri lê a visão alertas_kri_situacao e converte para camelCase (LAC-03)', async () => {
+    const tabelasLidas: string[] = [];
+    const { cliente } = clienteFalso({
+      alertas_kri_situacao: [
+        { id: 'a1', kri_id: 'k1', ciencia_em: '2026-11-19', encerrado_em: null, comunicacao_id: null,
+          vence_em: '2026-12-04', dia_atual: 3, vencido: false, dias_uteis_vencido: 0 },
+      ],
+    });
+    const fromOriginal = cliente.from.bind(cliente);
+    cliente.from = ((t: string) => { tabelasLidas.push(t); return fromOriginal(t); }) as typeof cliente.from;
+    const alertas = await criarFonteSupabase(cliente).listarAlertasKri();
+    expect(tabelasLidas).toEqual(['alertas_kri_situacao']);
+    expect(alertas).toHaveLength(1);
+    expect(alertas[0]).toMatchObject({ id: 'a1', kriId: 'k1', cienciaEm: '2026-11-19', venceEm: '2026-12-04', diaAtual: 3, vencido: false });
+  });
+
+  it('registrarMedicao manda valor_numerico (aceita vírgula) e NÃO manda em_alerta (LAC-03)', async () => {
+    let enviado: Record<string, unknown> | undefined;
+    const cliente = {
+      from: () => ({ insert: (linha: Record<string, unknown>) => { enviado = linha; return Promise.resolve({ data: null, error: null }); } }),
+    } as unknown as SupabaseClient;
+    const fonte = criarFonteSupabase(cliente);
+    await fonte.registrarMedicao('k1', { dataMedicao: '2026-12-01', valorApurado: '65,5%' });
+    expect(enviado).toEqual({ kri_id: 'k1', data_medicao: '2026-12-01', valor_apurado: '65,5%', valor_numerico: 65.5, observacao: null });
+    expect(enviado).not.toHaveProperty('em_alerta');
+    await fonte.registrarMedicao('k1', { dataMedicao: '2026-12-02', valorApurado: 'sem número', emAlerta: true });
+    expect(enviado).toHaveProperty('valor_numerico', null);
+    expect(enviado).not.toHaveProperty('em_alerta');
+    await fonte.registrarMedicao('k1', { dataMedicao: '2026-12-03', valorApurado: '70', valorNumerico: 70 });
+    expect(enviado).toHaveProperty('valor_numerico', 70);
   });
 });

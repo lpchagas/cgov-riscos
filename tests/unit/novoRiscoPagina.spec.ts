@@ -197,7 +197,7 @@ describe('Página Novo risco', () => {
     // a pessoa preenche os campos do KRI pela tela (esvaziamos os do exemplo antes).
     for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
     const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
-    for (const r of ['Fórmula de cálculo', 'Fonte dos dados', 'Limite de alerta', 'Responsável pelo monitoramento']) await w.find(`#${campo(r)}`).setValue('');
+    for (const r of ['Fórmula de cálculo', 'Fonte dos dados', 'Valor do limite', 'Responsável pelo monitoramento']) await w.find(`#${campo(r)}`).setValue('');
     await w.find(`#${campo('Periodicidade de monitoramento')}`).setValue('');
     await w.find('form').trigger('submit'); // tenta enviar com o KRI incompleto
     await flushPromises();
@@ -206,7 +206,7 @@ describe('Página Novo risco', () => {
     await w.find(`#${campo('Fórmula de cálculo')}`).setValue('itens conformes / total');
     await w.find(`#${campo('Fonte dos dados')}`).setValue('Processos SEI');
     await w.find(`#${campo('Periodicidade de monitoramento')}`).setValue('Mensal');
-    await w.find(`#${campo('Limite de alerta')}`).setValue('Abaixo de 90%');
+    await w.find(`#${campo('Valor do limite')}`).setValue('90');
     await w.find(`#${campo('Responsável pelo monitoramento')}`).setValue('Chefe da unidade');
     await w.find('form').trigger('submit');
     await flushPromises();
@@ -298,6 +298,77 @@ describe('Página Novo risco', () => {
       w.unmount();
     });
 
+    it('limite numérico: operador + número + unidade mostram a frase e gravam os três campos', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
+      const operador = w.find(`#${campo('Alerta quando o valor for')}`);
+      expect(operador.findAll('option').map((o) => o.text())).toEqual(expect.arrayContaining(['maior que', 'maior ou igual a', 'menor que', 'menor ou igual a']));
+      await operador.setValue('<');
+      await w.find(`#${campo('Valor do limite')}`).setValue('80');
+      await w.find(`#${campo('Unidade do limite')}`).setValue('%');
+      expect(w.text()).toContain('Alerta quando o valor for menor que 80 %');
+      const store = useRiscosStore();
+      const salvar = vi.spyOn(store, 'salvarOuAtualizarRisco');
+      await botao(w, 'Salvar rascunho').trigger('click');
+      await flushPromises();
+      expect(salvar.mock.calls[0][0].kris![0]).toMatchObject({ limiteOperador: '<', limiteValor: 80, limiteUnidade: '%' });
+      w.unmount();
+    });
+
+    it('KRI antigo (só texto): mostra "Limite a converter" com o texto antigo; com operador + número, some', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const vm = w.vm as unknown as { d: { kriLimite: string; kriLimiteOperador: string; kriLimiteValor: string } };
+      Object.assign(vm.d, { kriLimite: 'Até 10%', kriLimiteOperador: '', kriLimiteValor: '' });
+      await flushPromises();
+      expect(w.text()).toContain('Limite a converter: informe o operador e o número');
+      expect(w.text()).toContain('Até 10%');
+      Object.assign(vm.d, { kriLimiteOperador: '<=', kriLimiteValor: '10' });
+      await flushPromises();
+      expect(w.text()).not.toContain('Limite a converter');
+      w.unmount();
+    });
+
+    it('editar KRI que já tem limite numérico: apagar o número é recusado e o campo é apontado', async () => {
+      const store = useRiscosStore();
+      // Ficha já fora do rascunho: o salvar confere TODAS as etapas (rascunho só confere a 1ª).
+      const risco = store.riscos.find((r) => r.kris[0]?.limiteValor !== undefined && !['rascunho', 'devolvido', 'preliminar_cgov'].includes(r.statusFluxo) && store.acoes[r.id]?.podeEditar === true)!;
+      expect(risco).toBeDefined();
+      const { w } = await montar(`/riscos/novo?editar=${risco.id}`);
+      await w.find('form').trigger('submit'); await flushPromises();
+      for (let i = 0; i < 3 && !w.text().includes('Valor do limite'); i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      const campo = w.findAll('label').find((l) => l.text().startsWith('Valor do limite'))!.attributes('for')!;
+      await w.find(`#${campo}`).setValue('');
+      await w.find('form').trigger('submit'); await flushPromises();
+      expect(w.find(`#${campo}`).attributes('aria-invalid')).toBe('true');
+      w.unmount();
+    });
+
+    it('KRI da lista só ligado: a etapa 4 não exige o limite (campos só leitura)', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const lista = w.findAll('select').find((s) => s.find('option[value="kri-anexo-ii-2"]').exists())!;
+      await lista.setValue('kri-anexo-ii-2');
+      // KRI sem nenhum limite (nem número, nem texto): a pessoa não consegue preenchê-lo sem liberar a edição.
+      const kri = useRiscosStore().krisDoObjeto('obj-anexo-ii').find((k) => k.id === 'kri-anexo-ii-2')!;
+      Object.assign(kri, { limiteOperador: undefined, limiteValor: undefined, limiteAlerta: undefined });
+      await flushPromises();
+      expect((w.vm as unknown as { exigeLimiteNumerico: boolean }).exigeLimiteNumerico).toBe(false);
+      w.unmount();
+    });
+
+    it('risco crítico com KRI novo sem o número é travado e aponta o campo', async () => {
+      const { w } = await ateEtapa4NoObjeto();
+      const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
+      await w.find(`#${campo('Valor do limite')}`).setValue('');
+      const store = useRiscosStore();
+      const antes = store.riscos.length;
+      await w.find('form').trigger('submit');
+      await flushPromises();
+      expect(store.riscos.length).toBe(antes);
+      expect(w.text()).toContain('precisa de um KRI completo');
+      expect(w.find(`#${campo('Valor do limite')}`).attributes('aria-invalid')).toBe('true');
+      w.unmount();
+    });
+
     it('rascunho continua livre: risco crítico com KRI incompleto grava como rascunho', async () => {
       const { w } = await ateEtapa4NoObjeto();
       const rotulo = w.findAll('label').find((l) => l.text().startsWith('Fonte dos dados'))!;
@@ -309,6 +380,123 @@ describe('Página Novo risco', () => {
       expect(store.riscos.length).toBe(antes + 1);
       w.unmount();
     });
+  });
+
+  // I-3 (revisão de fim da Fase 2; decisão do controlador, revoga o R14): mesmo no
+  // rascunho, NÃO deixa apagar operador/número de um KRI que JÁ TEM limite numérico
+  // (o banco manteria o valor antigo, calado). Só esses dois campos são conferidos.
+  describe('Rascunho com KRI que já tem limite numérico (I-3)', () => {
+    async function rascunhoNaEtapa4(kriLimite: Record<string, unknown> = { limiteOperador: '<', limiteValor: 80, limiteUnidade: '%' }) {
+      const base = criarFonteDemonstracao('normal');
+      const salvarFicha = vi.fn((f: Parameters<FonteDados['salvarFicha']>[0]) => base.salvarFicha(f));
+      definirFonteParaTeste({ ...base, salvarFicha });
+      setActivePinia(createPinia());
+      const store = useRiscosStore();
+      await store.carregar();
+      const novo = await store.salvarOuAtualizarRisco({
+        objetoId: 'obj-anexo-ii', causas: 'causa', eventoRisco: 'evento', consequencias: 'consequência', objetivoAfetado: 'objetivo',
+        categoriaId: 2, probabilidade: 1, impacto: 1, estrategiaPrincipal: 'Aceitar', statusFluxo: 'rascunho',
+        kris: [{ id: '', nomeIndicador: 'KRI do rascunho', ...kriLimite, medicoes: [], riscoIds: [], objetoId: '' }],
+      });
+      salvarFicha.mockClear();
+      const { w } = await montar(`/riscos/novo?editar=${novo.id}`);
+      for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+      expect(w.find('[aria-current="step"]').text()).toContain('Tratamento');
+      const campo = (rotulo: string) => w.findAll('label').find((l) => l.text().startsWith(rotulo))!.attributes('for')!;
+      return { w, salvarFicha, campo };
+    }
+
+    it('apagar o número e "Salvar alterações": não grava e aponta o campo', async () => {
+      const { w, salvarFicha, campo } = await rascunhoNaEtapa4();
+      await w.find(`#${campo('Valor do limite')}`).setValue('');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).not.toHaveBeenCalled();
+      expect(w.find(`#${campo('Valor do limite')}`).attributes('aria-invalid')).toBe('true');
+      expect(w.text()).toContain('Informe o número do limite de alerta');
+      w.unmount();
+    });
+
+    it('apagar o operador também é recusado', async () => {
+      const { w, salvarFicha, campo } = await rascunhoNaEtapa4();
+      await w.find(`#${campo('Alerta quando o valor for')}`).setValue('');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).not.toHaveBeenCalled();
+      expect(w.find(`#${campo('Alerta quando o valor for')}`).attributes('aria-invalid')).toBe('true');
+      w.unmount();
+    });
+
+    // D2 (CodeRabbit, 2ª rodada, PR #20): KRI antigo (só texto) no rascunho. Par incompleto
+    // (só o operador, ou só o número) nunca é omitido calado; vazio total continua livre.
+    it('KRI antigo (só texto): operador sem número é recusado e o campo do número é apontado', async () => {
+      const { w, salvarFicha, campo } = await rascunhoNaEtapa4({ limiteAlerta: 'Até 10%' });
+      await w.find(`#${campo('Alerta quando o valor for')}`).setValue('<');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).not.toHaveBeenCalled();
+      expect(w.find(`#${campo('Valor do limite')}`).attributes('aria-invalid')).toBe('true');
+      expect(w.text()).toContain('Informe o número do limite de alerta');
+      w.unmount();
+    });
+
+    it('KRI antigo (só texto): número sem operador também é recusado', async () => {
+      const { w, salvarFicha, campo } = await rascunhoNaEtapa4({ limiteAlerta: 'Até 10%' });
+      await w.find(`#${campo('Valor do limite')}`).setValue('10');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).not.toHaveBeenCalled();
+      expect(w.find(`#${campo('Alerta quando o valor for')}`).attributes('aria-invalid')).toBe('true');
+      w.unmount();
+    });
+
+    it('KRI antigo (só texto): operador e número vazios continuam livres no rascunho', async () => {
+      const { w, salvarFicha } = await rascunhoNaEtapa4({ limiteAlerta: 'Até 10%' });
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalled();
+      w.unmount();
+    });
+
+    it('o resto da etapa 4 continua livre no rascunho (ex.: fonte dos dados em branco grava)', async () => {
+      const { w, salvarFicha, campo } = await rascunhoNaEtapa4();
+      await w.find(`#${campo('Fonte dos dados')}`).setValue('');
+      await botao(w, 'Salvar alterações').trigger('click');
+      await flushPromises();
+      expect(salvarFicha).toHaveBeenCalledTimes(1);
+      w.unmount();
+    });
+  });
+
+  // KRI novo no rascunho: vazio total é livre; par incompleto (D2, 2ª rodada) é recusado.
+  it('rascunho com KRI NOVO continua livre: operador e número vazios, grava', async () => {
+    const { w } = await montar();
+    await botao(w, 'Preencher com exemplo').trigger('click');
+    for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+    const campo = (r: string) => w.findAll('label').find((l) => l.text().startsWith(r))!.attributes('for')!;
+    await w.find(`#${campo('Valor do limite')}`).setValue('');
+    await w.find(`#${campo('Alerta quando o valor for')}`).setValue('');
+    const store = useRiscosStore();
+    const antes = store.riscos.length;
+    await botao(w, 'Salvar rascunho').trigger('click');
+    await flushPromises();
+    expect(store.riscos.length).toBe(antes + 1);
+    w.unmount();
+  });
+
+  it('rascunho com KRI NOVO: operador sem número é recusado (par incompleto não é omitido)', async () => {
+    const { w } = await montar();
+    await botao(w, 'Preencher com exemplo').trigger('click');
+    for (let i = 0; i < 3; i++) { await w.find('form').trigger('submit'); await flushPromises(); }
+    const campo = w.findAll('label').find((l) => l.text().startsWith('Valor do limite'))!.attributes('for')!;
+    await w.find(`#${campo}`).setValue('');
+    const store = useRiscosStore();
+    const antes = store.riscos.length;
+    await botao(w, 'Salvar rascunho').trigger('click');
+    await flushPromises();
+    expect(store.riscos.length).toBe(antes);
+    expect(w.text()).toContain('Informe o número do limite de alerta');
+    w.unmount();
   });
 
   describe('"Salvar e enviar" com envio recusado', () => {

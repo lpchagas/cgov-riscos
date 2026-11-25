@@ -53,17 +53,27 @@ export function textoPreenchido(t: string | null | undefined): boolean {
   return limpo !== '' && !MARCADORES_KRI_VAZIO.includes(limpo);
 }
 
-/** Os 6 campos que a trava confere em cada KRI (a meta fica de fora). */
+/**
+ * Os campos que a trava confere em cada KRI (a meta fica de fora). O limite pode
+ * vir como número (operador + valor) OU como o texto antigo (`limiteAlerta`).
+ */
 export type KriParaTrava = Pick<
   IndicadorKri,
   'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'limiteAlerta' | 'responsavelMedicao'
->;
+> &
+  Partial<Pick<IndicadorKri, 'limiteOperador' | 'limiteValor'>>;
 
-/** Verdadeiro quando os 6 campos obrigatórios do KRI estão preenchidos. */
+/**
+ * Verdadeiro quando os campos obrigatórios do KRI estão preenchidos.
+ * Espelho de `fn_kri_completo` (banco): o limite conta como preenchido com
+ * (operador E número) OU com o texto antigo. Assim, nenhum KRI antigo que estava
+ * completo "reabre". A exigência do número para KRI NOVO é da validação da
+ * etapa 4 (`validarEtapa`), não desta função.
+ * Ex.: limiteOperador '<' + limiteValor 80 (sem texto) -> completo; só o operador -> incompleto.
+ */
 export function kriCompleto(k: KriParaTrava): boolean {
-  return [k.nomeIndicador, k.formulaCalculo, k.fonteDados, k.periodicidade, k.limiteAlerta, k.responsavelMedicao].every(
-    textoPreenchido,
-  );
+  const limiteOk = (k.limiteOperador != null && Number.isFinite(k.limiteValor)) || textoPreenchido(k.limiteAlerta);
+  return limiteOk && [k.nomeIndicador, k.formulaCalculo, k.fonteDados, k.periodicidade, k.responsavelMedicao].every(textoPreenchido);
 }
 
 /**
@@ -81,6 +91,10 @@ export function mesmaDefinicaoKri(a: KriDefinicao, b: KriDefinicao): boolean {
     (a.periodicidade ?? '') === (b.periodicidade ?? '') &&
     norm(a.metaAlvo) === norm(b.metaAlvo) &&
     norm(a.limiteAlerta) === norm(b.limiteAlerta) &&
+    // LAC-03: o limite numérico também é parte da definição (mudar só o número é editar o KRI).
+    (a.limiteOperador ?? '') === (b.limiteOperador ?? '') &&
+    (a.limiteValor ?? null) === (b.limiteValor ?? null) &&
+    (a.limiteUnidade ?? '') === (b.limiteUnidade ?? '') &&
     norm(a.responsavelMedicao) === norm(b.responsavelMedicao)
   );
 }
@@ -89,7 +103,8 @@ export function mesmaDefinicaoKri(a: KriDefinicao, b: KriDefinicao): boolean {
 export type KriDefinicao = Pick<
   IndicadorKri,
   'nomeIndicador' | 'formulaCalculo' | 'fonteDados' | 'periodicidade' | 'metaAlvo' | 'limiteAlerta' | 'responsavelMedicao'
->;
+> &
+  Partial<Pick<IndicadorKri, 'limiteOperador' | 'limiteValor' | 'limiteUnidade'>>;
 
 /** Por que a ficha foi recusada. */
 export type MotivoTrava = 'aceitar_em_critico' | 'sem_acao_em_critico' | 'sem_kri_em_critico';

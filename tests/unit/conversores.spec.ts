@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import fixture from './fixtures/banco/riscoCofis.json';
 import {
   acoesDoBanco,
+  alertaKriDoBanco,
   categoriaDoBanco,
   eventoAuditoriaDoBanco,
   eventoFluxoDoBanco,
@@ -534,5 +535,102 @@ describe('KRI ligado a riscos (LAC-03)', () => {
         responsavel_medicao: null,
       },
     ]);
+  });
+});
+
+describe('LAC-03: limite numérico, leitura numérica e alerta do KRI', () => {
+  const KRI = fixture.kris[0];
+
+  it('kriDoBanco: lê limite_operador, limite_valor (numeric pode vir como texto) e limite_unidade', () => {
+    const kri = { ...KRI, limite_operador: '<', limite_valor: '70', limite_unidade: '%' };
+    const k = riscoDoBanco(fixture.risco, { kris: [kri], kriRiscos: fixture.kri_riscos, medicoes: [] }).kris[0];
+    expect(k.limiteOperador).toBe('<');
+    expect(k.limiteValor).toBe(70);
+    expect(k.limiteUnidade).toBe('%');
+  });
+
+  it('kriDoBanco: limite numérico nulo vira undefined e o texto antigo continua em limiteAlerta', () => {
+    const kri = { ...KRI, limite_alerta: 'Entre 5 e 10', limite_operador: null, limite_valor: null, limite_unidade: null };
+    const k = riscoDoBanco(fixture.risco, { kris: [kri], kriRiscos: fixture.kri_riscos, medicoes: [] }).kris[0];
+    expect(k.limiteOperador).toBeUndefined();
+    expect(k.limiteValor).toBeUndefined();
+    expect(k.limiteUnidade).toBeUndefined();
+    expect(k.limiteAlerta).toBe('Entre 5 e 10');
+  });
+
+  it('limite_valor 0 é um limite válido (não vira undefined)', () => {
+    const kri = { ...KRI, limite_operador: '>', limite_valor: 0, limite_unidade: null };
+    const k = riscoDoBanco(fixture.risco, { kris: [kri], kriRiscos: fixture.kri_riscos, medicoes: [] }).kris[0];
+    expect(k.limiteValor).toBe(0);
+  });
+
+  it('medicaoDoBanco: valor_numerico entra como número; nulo vira undefined', () => {
+    const med = [
+      { id: 'm1', kri_id: KRI.id, data_medicao: '2026-11-01', valor_apurado: '60%', valor_numerico: '60', em_alerta: true },
+      { id: 'm2', kri_id: KRI.id, data_medicao: '2026-11-02', valor_apurado: 'ok', valor_numerico: null, em_alerta: false },
+    ];
+    const k = riscoDoBanco(fixture.risco, { kris: [KRI], kriRiscos: fixture.kri_riscos, medicoes: med }).kris[0];
+    expect(k.medicoes.find((m) => m.id === 'm1')?.valorNumerico).toBe(60);
+    expect(k.medicoes.find((m) => m.id === 'm2')?.valorNumerico).toBeUndefined();
+  });
+
+  it('alertaKriDoBanco: linha da visão alertas_kri_situacao -> AlertaKri', () => {
+    const a = alertaKriDoBanco({
+      id: 'a1', kri_id: 'k1', medicao_id: 'm1', ciencia_em: '2026-11-19', encerrado_em: null, comunicacao_id: null,
+      vence_em: '2026-12-04', dia_atual: 3, vencido: false, dias_uteis_vencido: 0,
+    });
+    expect(a).toEqual({
+      id: 'a1', kriId: 'k1', cienciaEm: '2026-11-19', venceEm: '2026-12-04',
+      diaAtual: 3, vencido: false, diasUteisVencido: 0, encerradoEm: undefined, comunicacaoId: undefined,
+    });
+    const b = alertaKriDoBanco({
+      id: 'a2', kri_id: 'k1', ciencia_em: '2026-10-01', encerrado_em: '2026-10-09', comunicacao_id: 'c1',
+      vence_em: '2026-10-15', dia_atual: '5', vencido: false, dias_uteis_vencido: 0,
+    });
+    expect(b.diaAtual).toBe(5);
+    expect(b.encerradoEm).toBe('2026-10-09');
+    expect(b.comunicacaoId).toBe('c1');
+  });
+
+  it('fichaParaJson: KRI com limite numérico manda limite_operador/valor/unidade (número, nunca "")', () => {
+    const json = fichaParaJson({
+      objetoId: 'o1',
+      kris: [{ id: KRI.id, nomeIndicador: 'X', limiteAlerta: 'Abaixo de 70%', limiteOperador: '<', limiteValor: 70, limiteUnidade: '%' }],
+    });
+    const item = (json.kris as Array<Record<string, unknown>>)[0];
+    expect(item.limite_operador).toBe('<');
+    expect(item.limite_valor).toBe(70);
+    expect(item.limite_unidade).toBe('%');
+    expect(item.limite_alerta).toBe('Abaixo de 70%'); // KRI existente continua mandando o texto antigo
+  });
+
+  it('fichaParaJson: KRI sem limite numérico (só o texto antigo) não manda as chaves numéricas (o banco mantém)', () => {
+    const json = fichaParaJson({ objetoId: 'o1', kris: [{ id: KRI.id, nomeIndicador: 'X', limiteAlerta: 'Entre 5 e 10' }] });
+    const item = (json.kris as Array<Record<string, unknown>>)[0];
+    expect(item).not.toHaveProperty('limite_operador');
+    expect(item).not.toHaveProperty('limite_valor');
+    expect(item).not.toHaveProperty('limite_unidade');
+    expect(item.limite_alerta).toBe('Entre 5 e 10');
+  });
+
+  it('fichaParaJson: limiteValor NaN/infinito não vai ao banco (viola o CHECK)', () => {
+    for (const v of [NaN, Infinity]) {
+      const json = fichaParaJson({ objetoId: 'o1', kris: [{ id: KRI.id, nomeIndicador: 'X', limiteAlerta: 'texto', limiteOperador: '<', limiteValor: v }] });
+      const item = (json.kris as Array<Record<string, unknown>>)[0];
+      expect(item).not.toHaveProperty('limite_valor');
+      expect(item).not.toHaveProperty('limite_operador');
+    }
+  });
+
+  it('fichaParaJson: KRI NOVO com limite numérico omite limite_alerta', () => {
+    const json = fichaParaJson({
+      objetoId: 'o1',
+      kris: [{ nomeIndicador: 'X', limiteAlerta: 'texto', limiteOperador: '>=', limiteValor: 2.5, limiteUnidade: ' ' }],
+    });
+    const item = (json.kris as Array<Record<string, unknown>>)[0];
+    expect(item).not.toHaveProperty('limite_alerta');
+    expect(item.limite_operador).toBe('>=');
+    expect(item.limite_valor).toBe(2.5);
+    expect(item.limite_unidade).toBeNull(); // só espaços = sem unidade
   });
 });

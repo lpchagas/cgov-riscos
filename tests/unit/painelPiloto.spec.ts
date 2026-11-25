@@ -21,7 +21,9 @@ import { ErroRadar, MENSAGEM_REDE } from '../../src/services/dados/errosBanco';
 import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import type { AcoesFluxo, FichaRisco } from '../../src/types/radar.types';
-import { RISCOS_SEMENTE_ANEXO_II } from '../../src/services/dadosSementeAnexoII';
+import { ALERTAS_KRI_SEMENTE, RISCOS_SEMENTE_ANEXO_II } from '../../src/services/dadosSementeAnexoII';
+import { montarAlertaKri } from '../../src/utils/situacaoKri';
+import type { AlertaKri } from '../../src/types/radar.types';
 import {
   contarRiscosPorCelula,
   descreverEventoFluxo,
@@ -36,6 +38,12 @@ import { useAuthStore } from '../../src/stores/authStore';
 /** Cópia limpa dos riscos de demonstração (cada teste pode alterar a sua). */
 const semente = (): FichaRisco[] => JSON.parse(JSON.stringify(RISCOS_SEMENTE_ANEXO_II));
 const HOJE = new Date(2026, 10, 14); // 14/11/2026 (mês começa em 0)
+/** Alertas da semente (vencido, dia 3 e comunicado), com o prazo calculado como a visão do banco. */
+const alertasSemente = (): AlertaKri[] => ALERTAS_KRI_SEMENTE.map((a) => montarAlertaKri(a));
+/** Um alerta aberto, no prazo, para o KRI informado (dia 3 de 10). */
+const alertaAberto = (kriId: string): AlertaKri => ({
+  id: `alerta-${kriId}`, kriId, cienciaEm: '2026-11-10', venceEm: '2026-11-24', diaAtual: 3, vencido: false, diasUteisVencido: 0,
+});
 
 // ---------------------------------------------------------------------------
 // 1. FUNÇÕES DE RESUMO
@@ -76,18 +84,44 @@ describe('painelResumo', () => {
   it('"Precisa da sua atenção" muda conforme o perfil', async () => {
     const lista = semente();
     const tipos = async (papel: Parameters<typeof itensDeAtencao>[1]) =>
-      itensDeAtencao(lista, papel, HOJE, await acoesDoPerfil(papel as keyof typeof PERFIS_DEMO_ICMBIO, lista)).map(
-        (i) => i.tipo
-      );
+      itensDeAtencao(
+        lista,
+        papel,
+        HOJE,
+        await acoesDoPerfil(papel as keyof typeof PERFIS_DEMO_ICMBIO, lista),
+        alertasSemente()
+      ).map((i) => i.tipo);
 
     // CGOV supervisiona o que está parado no fluxo (itens neutros), sem decidir.
-    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'prazo', 'prazo']);
+    // (2 'kri': os alertas ABERTOS da semente — vencido e dia 3; o comunicado não pede mais nada.)
+    expect(await tipos('cgov')).toEqual(['validacao', 'homologacao', 'kri', 'kri', 'prazo', 'prazo']);
     // A Coordenação-Geral vê a SUA fila de validação, não a da Diretoria.
-    expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'prazo', 'prazo']);
+    expect(await tipos('coordenador_geral')).toEqual(['validacao', 'kri', 'kri', 'prazo', 'prazo']);
     // A Diretoria vê a SUA homologação (e também valida, spec B1 7.1) e não recebe alertas de KRI.
     expect(await tipos('diretor')).toEqual(['validacao', 'homologacao', 'prazo', 'prazo']);
     // O gestor (1ª Linha) não vê filas de aprovação dos degraus de cima.
-    expect(await tipos('gestor')).toEqual(['kri', 'prazo', 'prazo']);
+    expect(await tipos('gestor')).toEqual(['kri', 'kri', 'prazo', 'prazo']);
+  });
+
+  it('KRI: só alerta ABERTO (no prazo ou vencido) entra; comunicado e leitura sem alerta, não', () => {
+    const lista = semente();
+    const kris = itensDeAtencao(lista, 'cgov', HOJE, {}, alertasSemente()).filter((i) => i.tipo === 'kri');
+    expect(kris.map((i) => i.id).sort()).toEqual(['kri-kri-anexo-ii-1', 'kri-kri-integra-1']);
+    // O comunicado (kri-socio-1) tem a última leitura em alerta, mas já foi comunicado à CGOV.
+    expect(kris.some((i) => i.id === 'kri-kri-socio-1')).toBe(false);
+    // Sem a lista de alertas, a marca "em alerta" da leitura sozinha não gera item.
+    expect(itensDeAtencao(lista, 'cgov', HOJE).filter((i) => i.tipo === 'kri')).toEqual([]);
+  });
+
+  it('KRI: o item traz o prazo (dia N de 10 ou vencido) e o limite por extenso', () => {
+    const lista = semente();
+    const alertas = alertasSemente();
+    const itens = itensDeAtencao(lista, 'cgov', HOJE, {}, alertas);
+    const vencido = itens.find((i) => i.id === 'kri-kri-anexo-ii-1')!;
+    const diasVencido = alertas.find((a) => a.kriId === 'kri-anexo-ii-1')!.diasUteisVencido;
+    expect(vencido.detalhe).toContain(`prazo vencido há ${diasVencido} dias úteis`);
+    expect(vencido.detalhe).toContain('(alerta: menor que 70 %)');
+    expect(itens.find((i) => i.id === 'kri-kri-integra-1')!.detalhe).toContain('dia 3 de 10 dias úteis');
   });
 
   it('fala com a pessoa: "aguardando a sua validação" para a Coordenação-Geral', async () => {
@@ -122,12 +156,28 @@ describe('painelResumo', () => {
     expect(atrasada?.tom).toBe('perigo');
   });
 
+  // N-8 (revisão de fim da Fase 2): o alerta aberto de um KRI SEM risco ligado (ex.: o
+  // único risco foi excluído) também pede atenção: o item entra, sem códigos de risco.
+  it('KRI sem risco ligado com alerta aberto entra em "Precisa da sua atenção"', () => {
+    const lista = semente();
+    const orfao = lista.flatMap((r) => r.kris).find((k) => k.id === 'kri-integra-1')!;
+    for (const r of lista) r.kris = r.kris.filter((k) => k.id !== 'kri-integra-1');
+    const krisSemRisco = [{ ...orfao, riscoIds: [], totalRiscos: 0 }];
+    const itens = itensDeAtencao(lista, 'cgov', HOJE, {}, alertasSemente(), krisSemRisco);
+    const item = itens.find((i) => i.id === 'kri-kri-integra-1')!;
+    expect(item).toBeDefined();
+    expect(item.detalhe.startsWith('Sem risco ligado')).toBe(true);
+    expect(item.detalhe).toContain('dia 3 de 10 dias úteis');
+    // Sem alerta, o KRI sem risco ligado não gera item.
+    expect(itensDeAtencao(lista, 'cgov', HOJE, {}, [], krisSemRisco).some((i) => i.tipo === 'kri')).toBe(false);
+  });
+
   it('KRI compartilhado em alerta aparece UMA vez, com os códigos de todos os riscos ligados', () => {
     const lista = semente();
     const alerta = { id: 'm-alerta', dataMedicao: '2026-11-10', valorApurado: '70%', emAlerta: true };
     // O mesmo KRI (kri-anexo-ii-2) está nos riscos 001 e 004: a medição aparece nos dois.
     for (const r of lista) for (const k of r.kris) if (k.id === 'kri-anexo-ii-2') k.medicoes = [alerta];
-    const kris = itensDeAtencao(lista, 'cgov', HOJE).filter((i) => i.tipo === 'kri');
+    const kris = itensDeAtencao(lista, 'cgov', HOJE, {}, [alertaAberto('kri-anexo-ii-2')]).filter((i) => i.tipo === 'kri');
     const doCompartilhado = kris.filter((i) => i.id === 'kri-kri-anexo-ii-2');
     expect(doCompartilhado).toHaveLength(1);
     expect(doCompartilhado[0].detalhe).toContain('RADAR-2026-001, RADAR-2026-004');
@@ -141,12 +191,28 @@ describe('painelResumo', () => {
       for (const k of r.kris) {
         if (k.id !== 'kri-anexo-ii-2') continue;
         k.limiteAlerta = undefined;
+        k.limiteOperador = undefined;
+        k.limiteValor = undefined;
         k.medicoes = [{ id: 'm-alerta', dataMedicao: '2026-11-10', valorApurado: '70%', emAlerta: true }];
       }
     }
-    const item = itensDeAtencao(lista, 'cgov', HOJE).find((i) => i.id === 'kri-kri-anexo-ii-2')!;
+    const item = itensDeAtencao(lista, 'cgov', HOJE, {}, [alertaAberto('kri-anexo-ii-2')]).find((i) => i.id === 'kri-kri-anexo-ii-2')!;
     expect(item.detalhe).toContain('(alerta: limite não definido)');
     expect(item.detalhe).not.toContain('(alerta: )');
+  });
+
+  it('KRI com o limite antigo só em texto mostra o texto marcado "limite a converter"', () => {
+    const lista = semente();
+    for (const r of lista) {
+      for (const k of r.kris) {
+        if (k.id !== 'kri-anexo-ii-2') continue;
+        k.limiteAlerta = 'Abaixo de 80%';
+        k.limiteOperador = undefined;
+        k.limiteValor = undefined;
+      }
+    }
+    const item = itensDeAtencao(lista, 'cgov', HOJE, {}, [alertaAberto('kri-anexo-ii-2')]).find((i) => i.id === 'kri-kri-anexo-ii-2')!;
+    expect(item.detalhe).toContain('(alerta: Abaixo de 80% — limite a converter)');
   });
 
   it('descreve eventos do histórico em linguagem simples', () => {
@@ -202,6 +268,8 @@ describe('MatrizCalorAssimetrica', () => {
 // 3. A PÁGINA DO PAINEL
 // ---------------------------------------------------------------------------
 describe('Painel (página)', () => {
+  // Uma fonte falsa de um teste nunca vaza para o próximo, mesmo se ele falhar.
+  afterEach(() => definirFonteParaTeste(null));
   beforeEach(async () => {
     setActivePinia(createPinia());
     // A store agora lê da fonte de dados (assíncrona): carregamos antes de cada teste.
@@ -225,6 +293,24 @@ describe('Painel (página)', () => {
     await flushPromises();
     return w;
   }
+
+  it('o Painel passa os KRIs sem risco ligado: o alerta aberto do órfão aparece (N-8)', async () => {
+    const base = criarFonteDemonstracao('normal');
+    definirFonteParaTeste({
+      ...base,
+      carregarCarteira: async () => {
+        const c = await base.carregarCarteira();
+        const orfao = c.riscos.flatMap((r) => r.kris).find((k) => k.id === 'kri-integra-1')!;
+        for (const r of c.riscos) r.kris = r.kris.filter((k) => k.id !== 'kri-integra-1');
+        return { ...c, krisSemRisco: [{ ...orfao, riscoIds: [], totalRiscos: 0 }] };
+      },
+    });
+    setActivePinia(createPinia());
+    await useRiscosStore().carregar();
+    const w = await montarPainel();
+    expect(w.text()).toContain('Indicador em alerta: Percentual de processos sancionadores revisados');
+    w.unmount();
+  });
 
   it('tem um único h1 e os 4 indicadores com links para a lista filtrada', async () => {
     const w = await montarPainel();
@@ -345,6 +431,44 @@ describe('Painel (estados da carteira)', () => {
     });
     expect(w.text()).toContain('Nenhum risco no seu alcance');
     expect(w.findAll('button.matriz__celula')).toHaveLength(0);
+  });
+
+  // C7 (CodeRabbit, PR #20): carteira vazia + KRI sem risco com alerta: a pendência continua visível.
+  it('carteira vazia com KRI sem risco em alerta: mostra o estado vazio E "Precisa da sua atenção"', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const carteira = await base.carregarCarteira();
+    const alertas = await base.listarAlertasKri();
+    const aberto = alertas.find((a) => !a.encerradoEm && !a.comunicacaoId)!;
+    const kri = carteira.riscos.flatMap((r) => r.kris).find((k) => k.id === aberto.kriId)!;
+    const { w } = await montarComFonte({
+      ...base,
+      carregarCarteira: async () => ({ ...carteira, riscos: [], krisSemRisco: [{ ...kri, riscoIds: [] }] }),
+    });
+    expect(w.text()).toContain('Nenhum risco no seu alcance');
+    expect(w.text()).toContain('Precisa da sua atenção');
+    expect(w.text()).toContain(kri.nomeIndicador);
+  });
+
+  // D1 (CodeRabbit, 2ª rodada, PR #20): no ramo "carteira vazia" o cartão também corta em
+  // LIMITE_ATENCAO itens e precisa avisar "E mais N em Monitoramento" (como o ramo normal).
+  it('carteira vazia com 7 KRIs sem risco em alerta: mostra "E mais 1" com link ao Monitoramento', async () => {
+    const base = criarFonteDemonstracao('normal');
+    const carteira = await base.carregarCarteira();
+    const alertas = await base.listarAlertasKri();
+    const aberto = alertas.find((a) => !a.encerradoEm && !a.comunicacaoId)!;
+    const kri = carteira.riscos.flatMap((r) => r.kris).find((k) => k.id === aberto.kriId)!;
+    // 7 cópias do KRI (ids próprios), cada uma com o seu alerta aberto.
+    const copias = Array.from({ length: 7 }, (_, i) => ({ ...kri, id: `kri-copia-${i}`, nomeIndicador: `KRI cópia ${i}`, riscoIds: [] }));
+    const { w } = await montarComFonte({
+      ...base,
+      carregarCarteira: async () => ({ ...carteira, riscos: [], krisSemRisco: copias }),
+      listarKrisSemRisco: async () => copias,
+      listarAlertasKri: async () => copias.map((k, i) => ({ ...aberto, id: `alerta-copia-${i}`, kriId: k.id })),
+    });
+    expect(w.text()).toContain('Nenhum risco no seu alcance');
+    expect(w.text()).toContain('E mais 1 em');
+    const link = w.findAll('a').find((a) => a.text() === 'Monitoramento');
+    expect(link).toBeTruthy();
   });
 
   it('"Precisa da sua atenção" segue as ações liberadas (acoes), não o perfil', async () => {

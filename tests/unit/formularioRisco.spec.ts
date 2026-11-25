@@ -14,11 +14,15 @@ import { describe, it, expect } from 'vitest';
 import { CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import {
   avisoKriCompartilhado,
+  camposKriDe,
+  dadosDeRisco,
   dadosExemplo,
   dadosParaFicha,
   dadosVazios,
   demaisKrisQueFicam,
+  errosDoLimiteNumerico,
   kriFicaOrfao,
+  numeroDoLimite,
   totalRiscosDoKri,
   validarEtapa,
   type DadosNovoRisco,
@@ -183,9 +187,148 @@ describe('dadosParaFicha: KRI (LAC-03)', () => {
     expect(editado.kris![0]).toMatchObject({ id: 'k1', limiteAlerta: 'Novo' });
     expect(editado.kris![0].apenasLigar).toBeUndefined();
   });
+  it('risco EXISTENTE escolhe KRI com limite numérico sem mudar nada: mantém apenasLigar (LAC-03)', () => {
+    const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'Abaixo de 70%', limiteOperador: '<' as const, limiteValor: 70, limiteUnidade: '%', responsavelMedicao: 'R', medicoes: [] };
+    const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'Abaixo de 70%', kriLimiteOperador: '<', kriLimiteValor: '70', kriLimiteUnidade: '%', kriResponsavel: 'R' };
+    const existente = { id: 'r1', objetoId: 'o1', controlesExistentes: [], respostasTratamento: [], kris: [] } as unknown as FichaRisco;
+    const f = dadosParaFicha(d, { ehIntegridade: false, existente, krisDoObjeto: [escolhido] });
+    expect(f.kris![0]).toMatchObject({ id: 'k1', apenasLigar: true, limiteOperador: '<', limiteValor: 70 });
+  });
   it('risco NOVO com KRI da lista: sempre só liga, mesmo com campos alterados', () => {
     const escolhido = { id: 'k1', objetoId: 'o1', riscoIds: ['r9'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'L', responsavelMedicao: 'R', medicoes: [] };
     const d: DadosNovoRisco = { ...dadosVazios(), objetoId: 'o1', kriExistenteId: 'k1', nomeKri: 'N', kriFormula: 'F', kriFonte: 'S', kriPeriodicidade: 'Mensal', kriLimite: 'Outro', kriResponsavel: 'R' };
     expect(dadosParaFicha(d, { ehIntegridade: false, krisDoObjeto: [escolhido] }).kris![0]).toMatchObject({ id: 'k1', apenasLigar: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Limite de alerta NUMÉRICO do KRI (LAC-03, Tarefa 8)
+// ---------------------------------------------------------------------------
+describe('etapa 4: limite numérico do KRI (operador + número + unidade)', () => {
+  const comLimite: DadosNovoRisco = { ...dadosExemplo('o1'), kriLimite: '', kriLimiteOperador: '<', kriLimiteValor: '80', kriLimiteUnidade: '%' };
+
+  it('operador, número e unidade gravam os três campos (número de verdade, não texto)', () => {
+    const f = dadosParaFicha(comLimite, { ehIntegridade: false });
+    expect(f.kris![0]).toMatchObject({ limiteOperador: '<', limiteValor: 80, limiteUnidade: '%' });
+  });
+  it('aceita a vírgula decimal: "2,5" vira 2.5', () => {
+    const f = dadosParaFicha({ ...comLimite, kriLimiteValor: '2,5', kriLimiteUnidade: '' }, { ehIntegridade: false });
+    expect(f.kris![0].limiteValor).toBe(2.5);
+    expect(f.kris![0].limiteUnidade).toBeUndefined();
+  });
+  it('sem número, não grava operador nem valor (nunca "")', () => {
+    const f = dadosParaFicha({ ...comLimite, kriLimiteValor: '' }, { ehIntegridade: false });
+    expect(f.kris![0].limiteOperador).toBeUndefined();
+    expect(f.kris![0].limiteValor).toBeUndefined();
+  });
+  it('KRI novo sem operador ou sem número: a etapa 4 recusa (mesmo não crítico)', () => {
+    const semNumero = { ...comLimite, kriLimiteValor: '' };
+    const semOperador = { ...comLimite, kriLimiteOperador: '' as const };
+    expect(validarEtapa(4, semNumero, CATEGORIAS, 'nao', undefined, [], true).kriLimiteValor).toBeDefined();
+    expect(validarEtapa(4, semOperador, CATEGORIAS, 'nao', undefined, [], true).kriLimiteOperador).toBeDefined();
+    expect(validarEtapa(4, comLimite, CATEGORIAS, 'nao', undefined, [], true)).toEqual({});
+  });
+  it('número inválido ("abc", "1,000,5") é recusado', () => {
+    expect(validarEtapa(4, { ...comLimite, kriLimiteValor: 'abc' }, CATEGORIAS, 'nao', undefined, [], true).kriLimiteValor).toBeDefined();
+    expect(validarEtapa(4, { ...comLimite, kriLimiteValor: '1,000,5' }, CATEGORIAS, 'nao', undefined, [], true).kriLimiteValor).toBeDefined();
+  });
+  it('risco crítico com KRI novo sem número é travado (trava do KRI completo)', () => {
+    const semNumero = { ...comLimite, kriLimiteValor: '' };
+    const e = validarEtapa(4, semNumero, CATEGORIAS, 'sim', undefined, [], true);
+    expect(e.nomeKri).toBe(MENSAGEM_TRAVA_KRI);
+    expect(e.kriLimiteValor).toBeDefined();
+    expect(validarEtapa(4, comLimite, CATEGORIAS, 'sim', undefined, [], true)).toEqual({});
+  });
+  it('KRI existente com limite numérico: apagar o número é recusado (exigeLimiteNumerico)', () => {
+    const apagado = { ...comLimite, kriLimite: 'Abaixo de 80%', kriLimiteValor: '' };
+    expect(validarEtapa(4, apagado, CATEGORIAS, 'nao', undefined, [], true).kriLimiteValor).toBeDefined();
+  });
+  it('mostra o número sem notação exponencial (1e-7) e ele volta a ser lido', () => {
+    const c = camposKriDe({ id: 'k', objetoId: 'o', riscoIds: [], nomeIndicador: 'N', limiteOperador: '<', limiteValor: 1e-7, medicoes: [] });
+    expect(c.kriLimiteValor).toBe('0,0000001');
+    expect(numeroDoLimite(c.kriLimiteValor)).toBe(1e-7);
+  });
+  it('KRI da lista só ligado (sem limite): não crítico passa; crítico é travado pelo kriCompleto', () => {
+    const ligadoSemLimite = { nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, responsavelMedicao: 'R' };
+    const d = { ...dadosVazios(), ...camposKriDe(undefined), nomeKri: 'N', kriExistenteId: 'k1' } as DadosNovoRisco;
+    const base = { ...dadosExemplo('o1'), estrategia: 'Evitar' as const };
+    // a tela passa exigeLimiteNumerico = false para KRI só ligado
+    expect(validarEtapa(4, { ...base, ...d, acaoOQue: 'x x x', acaoQuem: 'Chefe', acaoPrazo: '2027-01-01' }, CATEGORIAS, 'nao', ligadoSemLimite, [], false)).toEqual({});
+    expect(validarEtapa(4, { ...base, ...d, acaoOQue: 'x x x', acaoQuem: 'Chefe', acaoPrazo: '2027-01-01' }, CATEGORIAS, 'sim', ligadoSemLimite, [], false).nomeKri).toBe(MENSAGEM_TRAVA_KRI);
+  });
+  it('KRI antigo (só texto, com id): não exige o número e continua completo para a trava', () => {
+    const antigo = { ...comLimite, kriLimite: 'Abaixo de 90%', kriLimiteOperador: '' as const, kriLimiteValor: '', kriLimiteUnidade: '' };
+    expect(validarEtapa(4, antigo, CATEGORIAS, 'sim', undefined, [], false)).toEqual({});
+  });
+  it('KRI antigo: com operador + número preenchidos, eles são enviados', () => {
+    const k = { id: 'k1', objetoId: 'o1', riscoIds: ['r1'], nomeIndicador: 'N', formulaCalculo: 'F', fonteDados: 'S', periodicidade: 'Mensal' as const, limiteAlerta: 'Até 10%', responsavelMedicao: 'R', medicoes: [] };
+    const existente = { id: 'r1', objetoId: 'o1', controlesExistentes: [], respostasTratamento: [], kris: [k] } as unknown as FichaRisco;
+    const d = dadosDeRisco(existente);
+    expect(d.kriLimite).toBe('Até 10%');
+    expect(d.kriLimiteOperador).toBe('');
+    const f = dadosParaFicha({ ...d, kriLimiteOperador: '<=', kriLimiteValor: '10', kriLimiteUnidade: '%' }, { ehIntegridade: false, existente });
+    expect(f.kris![0]).toMatchObject({ id: 'k1', limiteOperador: '<=', limiteValor: 10, limiteUnidade: '%' });
+  });
+  // N-6 (revisão de fim da Fase 2): o mesmo critério de `numeroDaLeitura` e de
+  // `converterLimiteTexto`: 3 dígitos depois do ponto/vírgula é ambíguo (mil ou um?).
+  // C5 (CodeRabbit, PR #20): KRI antigo (só texto) pode deixar o limite numérico vazio,
+  // mas se a pessoa preencher operador OU número, o par precisa estar completo.
+  it('etapa 4, KRI antigo (exigeLimiteNumerico=false): operador sem número é erro; vazio passa', () => {
+    const base = { ...dadosExemplo('o1'), kriLimiteOperador: '' as const, kriLimiteValor: '' };
+    expect(validarEtapa(4, base, CATEGORIAS, undefined, undefined, [], false)).toEqual({});
+    const soOperador = { ...base, kriLimiteOperador: '<' as const };
+    expect(validarEtapa(4, soOperador, CATEGORIAS, undefined, undefined, [], false).kriLimiteValor).toBeDefined();
+    const soNumero = { ...base, kriLimiteValor: '80' };
+    expect(validarEtapa(4, soNumero, CATEGORIAS, undefined, undefined, [], false).kriLimiteOperador).toBeDefined();
+  });
+
+  // C2 (CodeRabbit, PR #20): número gigante vira Infinity; não é um limite válido.
+  it('numeroDoLimite recusa número que estoura (Infinity)', () => {
+    expect(numeroDoLimite('9'.repeat(400))).toBeUndefined();
+  });
+
+  // C3: o campo não pode arredondar um limite minúsculo para 0.
+  it('camposKriDe preserva 1e-21 e 2.125 ao voltar para o campo', () => {
+    const campo = (v: number) =>
+      camposKriDe({ id: 'k', objetoId: 'o', riscoIds: [], nomeIndicador: 'N', limiteOperador: '<', limiteValor: v, medicoes: [] }).kriLimiteValor;
+    expect(campo(1e-21)).toBe('0,000000000000000000001');
+    expect(numeroDoLimite(campo(1e-21))).toBe(1e-21);
+    expect(numeroDoLimite(campo(2.125))).toBe(2.125);
+    expect(campo(2.5)).toBe('2,5');
+  });
+
+  it('"1.000" e "2,500" são ambíguos: numeroDoLimite recusa, com mensagem clara', () => {
+    expect(numeroDoLimite('1.000')).toBeUndefined();
+    expect(numeroDoLimite('2,500')).toBeUndefined();
+    expect(numeroDoLimite('1000')).toBe(1000);
+    expect(numeroDoLimite('1,0')).toBe(1);
+    expect(numeroDoLimite('2,5')).toBe(2.5);
+    const e = validarEtapa(4, { ...comLimite, kriLimiteValor: '1.000' }, CATEGORIAS, 'nao', undefined, [], true);
+    expect(e.kriLimiteValor).toBe('Número ambíguo: 1.000 é mil ou um? Escreva 1000 (mil) ou 1,0 (um).');
+  });
+  it('número inválido: a mensagem fala em vírgula OU ponto decimal (o que de fato é aceito)', () => {
+    const e = validarEtapa(4, { ...comLimite, kriLimiteValor: 'abc' }, CATEGORIAS, 'nao', undefined, [], true);
+    expect(e.kriLimiteValor).toBe('Número inválido: escreva só o número, com vírgula ou ponto decimal (ex.: 80 ou 2,5).');
+  });
+  it('valor gravado com 3 casas decimais (2,125) é mostrado sem ficar ambíguo e volta a ser lido', () => {
+    const c = camposKriDe({ id: 'k', objetoId: 'o', riscoIds: [], nomeIndicador: 'N', limiteOperador: '<', limiteValor: 2.125, medicoes: [] });
+    expect(numeroDoLimite(c.kriLimiteValor)).toBe(2.125);
+  });
+
+  // I-3: o salvar do rascunho confere SÓ operador e número de um KRI que já tem limite.
+  it('errosDoLimiteNumerico: só operador e número (o resto da etapa 4 fica de fora)', () => {
+    const semNada = { ...dadosVazios(), nomeKri: 'N', kriLimiteOperador: '' as const, kriLimiteValor: '' };
+    expect(errosDoLimiteNumerico(semNada)).toEqual({
+      kriLimiteOperador: 'Escolha quando o alerta acende (maior que, menor que…).',
+      kriLimiteValor: 'Informe o número do limite de alerta (ex.: 80).',
+    });
+    expect(errosDoLimiteNumerico({ ...semNada, kriLimiteOperador: '<', kriLimiteValor: '80' })).toEqual({});
+    // Sem nome, o KRI está sendo retirado da ficha: nada a conferir no limite.
+    expect(errosDoLimiteNumerico({ ...semNada, nomeKri: '  ' })).toEqual({});
+  });
+
+  it('KRI que já tem limite numérico: o formulário mostra os valores', () => {
+    const k = { id: 'k1', objetoId: 'o1', riscoIds: ['r1'], nomeIndicador: 'N', limiteOperador: '>=' as const, limiteValor: 2.5, limiteUnidade: 'dias', medicoes: [] };
+    expect(camposKriDe(k)).toMatchObject({ kriLimiteOperador: '>=', kriLimiteValor: '2,5', kriLimiteUnidade: 'dias' });
   });
 });

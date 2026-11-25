@@ -44,6 +44,12 @@ export interface Tela {
    * etapa do assistente. Ex.: 2 cliques no "Editar risco" levam à etapa 3 (Análise).
    */
   avancarEtapas?: number;
+  /**
+   * Elemento que PROVA que a etapa de destino abriu (obrigatório junto com `avancarEtapas`).
+   * Sem isso, um clique que não avançasse deixaria a varredura medir a etapa errada
+   * (falso verde). Ex.: na etapa 4, o campo "Alerta quando o valor for".
+   */
+  provaEtapa?: { papel: 'group' | 'combobox' | 'textbox'; nome: RegExp };
 }
 
 /**
@@ -85,7 +91,9 @@ export const TELAS: Tela[] = [
   { nome: 'ficha', rota: '/riscos/risco-anexo-ii-01', titulo: RISCO_DEMONSTRACAO },
   { nome: 'ficha-bowtie', rota: '/riscos/risco-anexo-ii-01?aba=bowtie', titulo: RISCO_DEMONSTRACAO, aba: 'Bow Tie' },
   // Etapa 3 (Análise) do formulário, com os botões de opção dos Quadros 4 e 5. Abre a ficha da semente.
-  { nome: 'novo-etapa3', rota: '/riscos/novo?editar=risco-anexo-ii-01', titulo: 'Editar risco RADAR-2026-001', avancarEtapas: 2 },
+  { nome: 'novo-etapa3', rota: '/riscos/novo?editar=risco-anexo-ii-01', titulo: 'Editar risco RADAR-2026-001', avancarEtapas: 2, provaEtapa: { papel: 'group', nome: /Probabilidade/ } },
+  // Etapa 4 (Tratamento e KRI), com os campos do limite numérico de alerta do KRI (LAC-03).
+  { nome: 'novo-etapa4', rota: '/riscos/novo?editar=risco-anexo-ii-01', titulo: 'Editar risco RADAR-2026-001', avancarEtapas: 3, provaEtapa: { papel: 'combobox', nome: /Alerta quando o valor for/ } },
   { nome: 'novo', rota: '/riscos/novo', titulo: 'Novo risco' },
   { nome: 'objetos', rota: '/objetos', titulo: 'Objetos de gestão' },
   // Monitoramento tem duas abas com conteúdos bem diferentes (KRIs e Plano de ação).

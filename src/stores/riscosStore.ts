@@ -41,12 +41,12 @@ import { defineStore } from 'pinia';
 import { computed, ref, watch, type WatchStopHandle } from 'vue';
 import type {
   AcoesFluxo,
+  AlertaKri,
   ApetiteDeclarado,
   CategoriaRisco,
   ClasseRisco,
   FichaRisco,
   IndicadorKri,
-  MedicaoKri,
   NivelEficaciaControle,
   NivelImpacto,
   NivelProbabilidade,
@@ -62,11 +62,13 @@ import type {
   FichaParaSalvar,
   FiltrosAuditoria,
   FonteDados,
+  NovaMedicaoKri,
 } from '../services/dados/tipos';
 import { fichaDaSkillParaSalvar, fichaParaSalvarDeRisco } from '../services/dados/conversores';
 import { ErroRadar, traduzirErroBanco } from '../services/dados/errosBanco';
 import { apetitesDaDAR, importarTabelaMarkdownSkill } from '../utils/importadorSkillMarkdown';
 import { riscoCorrespondeAoTermo } from '../utils/filtrosRiscos';
+import { alertaEncerrado } from '../utils/situacaoKri';
 import { useAuthStore } from './authStore';
 
 export type EstadoCarteira = 'ocioso' | 'carregando' | 'pronto' | 'erro';
@@ -211,6 +213,13 @@ export const useRiscosStore = defineStore('riscos', () => {
   const processos = ref<ProcessoCadeiaValor[]>([]);
   /** O que a pessoa logada pode fazer com cada risco. Ex.: acoes.value['risco-1'].podeValidar */
   const acoes = ref<Record<string, AcoesFluxo>>({});
+  /** Alertas dos KRIs (LAC-03): abertos e encerrados, com o prazo já calculado pela fonte. */
+  const alertasKri = ref<AlertaKri[]>([]);
+  /**
+   * KRIs sem nenhum risco ligado à vista (P-02). Ex.: o risco do KRI foi
+   * excluído, mas o alerta ainda não foi comunicado. Atualiza a cada `carregar()`.
+   */
+  const krisSemRisco = ref<IndicadorKri[]>([]);
 
   const estado = ref<EstadoCarteira>('ocioso');
   const erro = ref<ErroRadar | null>(null);
@@ -222,6 +231,9 @@ export const useRiscosStore = defineStore('riscos', () => {
    */
   const avisoAtualizacao = ref<ErroRadar | null>(null);
   const MENSAGEM_TELA_DESATUALIZADA = 'A ação foi concluída, mas não foi possível atualizar a tela. Use Atualizar.';
+  /** Aviso da carga em que só os alertas dos KRIs falharam (a carteira abriu sem eles). */
+  const MENSAGEM_ALERTAS_INDISPONIVEIS =
+    'A carteira foi carregada, mas não foi possível ler os alertas dos indicadores (KRI). Use Atualizar.';
 
   // Estado reativo de busca global (br-header #main-searchbox) e filtros da Matriz 5x5:
   const termoBuscaGlobal = ref<string>('');
@@ -253,7 +265,17 @@ export const useRiscosStore = defineStore('riscos', () => {
     try {
       const carteira = await fonte().carregarCarteira();
       if (velha()) return;
-      const listaAcoes = await fonte().acoesNoFluxo(carteira.riscos.map((r) => r.id));
+      // Os alertas dos KRIs são dado SECUNDÁRIO (N-7 da revisão da Fase 2): se só a
+      // leitura deles falhar (ex.: a visão `alertas_kri_situacao` ainda não existe na
+      // nuvem), a carteira abre mesmo assim, sem alertas, com o aviso para "Atualizar".
+      let falhaAlertas: ErroRadar | null = null;
+      const [listaAcoes, listaAlertas] = await Promise.all([
+        fonte().acoesNoFluxo(carteira.riscos.map((r) => r.id)),
+        fonte().listarAlertasKri().catch((e: unknown): AlertaKri[] => {
+          falhaAlertas = comoErroRadar(e);
+          return [];
+        }),
+      ]);
       if (velha()) return;
       riscos.value = carteira.riscos;
       objetosContexto.value = carteira.objetos;
@@ -261,7 +283,11 @@ export const useRiscosStore = defineStore('riscos', () => {
       unidades.value = carteira.unidades;
       processos.value = carteira.processos;
       acoes.value = porRisco(listaAcoes);
-      avisoAtualizacao.value = null;
+      alertasKri.value = listaAlertas;
+      krisSemRisco.value = carteira.krisSemRisco ?? [];
+      // (Lido por uma variável à parte: o TypeScript não "vê" a troca feita dentro do catch acima.)
+      const erroDosAlertas = falhaAlertas as ErroRadar | null;
+      avisoAtualizacao.value = erroDosAlertas ? new ErroRadar(MENSAGEM_ALERTAS_INDISPONIVEIS, erroDosAlertas.tipo) : null;
       estado.value = 'pronto';
     } catch (e) {
       if (velha()) return;
@@ -284,6 +310,8 @@ export const useRiscosStore = defineStore('riscos', () => {
     unidades.value = [];
     processos.value = [];
     acoes.value = {};
+    alertasKri.value = [];
+    krisSemRisco.value = [];
     estado.value = 'ocioso';
     erro.value = null;
     avisoAtualizacao.value = null;
@@ -333,7 +361,9 @@ export const useRiscosStore = defineStore('riscos', () => {
       }
     });
     for (const a of listaAcoes) acoes.value[a.riscoId] = a;
-    avisoAtualizacao.value = null;
+    // Esta releitura NÃO lê os alertas dos KRIs. Então só limpa o aviso se ele não for o de
+    // "alertas indisponíveis": esse só some quando os alertas forem lidos de verdade (carregar).
+    if (avisoAtualizacao.value?.message !== MENSAGEM_ALERTAS_INDISPONIVEIS) avisoAtualizacao.value = null;
   }
 
   /**
@@ -364,6 +394,52 @@ export const useRiscosStore = defineStore('riscos', () => {
       throw comoErroRadar(e);
     }
     await relerDepoisDaAcao(idsParaReler());
+  }
+
+  /**
+   * Relê os alertas dos KRIs (uma leitura nova pode ter aberto um). Como `relerDepoisDaAcao`:
+   * não lança; se falhar, guarda o aviso "tela desatualizada". Descarta o resultado se a
+   * pessoa saiu no meio (mesma "geração" dos dados).
+   */
+  async function relerAlertasDepoisDaAcao(): Promise<void> {
+    const minha = geracao;
+    try {
+      const lidos = await fonte().listarAlertasKri();
+      if (minha !== geracao) return;
+      alertasKri.value = lidos;
+    } catch (e) {
+      avisoAtualizacao.value = new ErroRadar(MENSAGEM_TELA_DESATUALIZADA, comoErroRadar(e).tipo);
+    }
+  }
+
+  /**
+   * Relê os KRIs SEM risco ligado e os alertas (I-1 da revisão da Fase 2). Usada depois
+   * de excluir um risco ou de salvar uma ficha que mexeu nos KRIs: um KRI pode ter
+   * perdido o seu último risco e, se tiver alerta, continua no Monitoramento.
+   * Ex.: o KRI k1 (alerta aberto) só servia ao risco X; X é excluído → k1 entra em
+   *      `krisSemRisco` na hora, sem esperar a página recarregar.
+   * Como `relerAlertasDepoisDaAcao`: não lança; se falhar, fica o aviso "tela desatualizada".
+   */
+  async function relerKrisSemRiscoDepoisDaAcao(): Promise<void> {
+    const minha = geracao;
+    try {
+      const [soltos, lidos] = await Promise.all([fonte().listarKrisSemRisco(), fonte().listarAlertasKri()]);
+      if (minha !== geracao) return;
+      krisSemRisco.value = soltos;
+      alertasKri.value = lidos;
+    } catch (e) {
+      avisoAtualizacao.value = new ErroRadar(MENSAGEM_TELA_DESATUALIZADA, comoErroRadar(e).tipo);
+    }
+  }
+
+  /**
+   * O alerta ABERTO de um KRI, ou `undefined`. Há no máximo um por KRI.
+   * "Encerrado" segue a MESMA regra de `situacaoKri` (`alertaEncerrado`): tem data de
+   * encerramento OU já tem comunicação à CGOV ligada.
+   * Ex.: alertaAbertoDoKri('kri-integra-1')?.diaAtual -> 3
+   */
+  function alertaAbertoDoKri(kriId: string): AlertaKri | undefined {
+    return alertasKri.value.find((a) => a.kriId === kriId && !alertaEncerrado(a));
   }
 
   // ---------------------------------------------------------------------------
@@ -536,6 +612,8 @@ export const useRiscosStore = defineStore('riscos', () => {
       },
       () => [...new Set([gravado.id, ...riscosLigadosAosKris(krisMexidos)])]
     );
+    // Algum KRI mexido pode ter ficado sem risco ligado (ex.: desligado da ficha).
+    if (krisMexidos.size) await relerKrisSemRiscoDepoisDaAcao();
     const salvo = riscos.value.find((r) => r.id === gravado.id);
     if (salvo) return salvo;
     // A ficha FOI gravada, mas a releitura falhou (há `avisoAtualizacao`):
@@ -571,6 +649,8 @@ export const useRiscosStore = defineStore('riscos', () => {
       () => fonte().excluirRisco(id),
       () => [...new Set([id, ...riscosLigadosAosKris(krisDoExcluido)])]
     );
+    // O KRI que só servia ao excluído (e tem alerta) vira "sem risco ligado".
+    if (krisDoExcluido.size) await relerKrisSemRiscoDepoisDaAcao();
   }
 
   // ---------------------------------------------------------------------------
@@ -612,7 +692,7 @@ export const useRiscosStore = defineStore('riscos', () => {
   async function registrarMedicaoKri(
     riscoId: string,
     kriId: string,
-    medicao: Omit<MedicaoKri, 'id'>
+    medicao: NovaMedicaoKri
   ): Promise<void> {
     // Um KRI pode servir a vários riscos: relemos todos os ligados a ele, não só o informado.
     await executar(
@@ -622,6 +702,8 @@ export const useRiscosStore = defineStore('riscos', () => {
         return [...new Set([riscoId, ...ligados])];
       }
     );
+    // A leitura pode ter aberto um alerta (quem decide é o banco): atualiza a lista.
+    await relerAlertasDepoisDaAcao();
   }
 
   async function atualizarStatusTratamento(
@@ -807,6 +889,8 @@ export const useRiscosStore = defineStore('riscos', () => {
     objetosContexto,
     processos,
     acoes,
+    alertasKri,
+    krisSemRisco,
     estado,
     erro,
     avisoAtualizacao,
@@ -824,6 +908,7 @@ export const useRiscosStore = defineStore('riscos', () => {
     resumoPorClasse,
     obterRiscoPorId,
     obterApetitePorCategoria,
+    alertaAbertoDoKri,
     // ciclo de vida
     carregar,
     tentarDeNovo,

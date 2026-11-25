@@ -26,6 +26,7 @@ import type {
   ControleExistente,
   FichaRisco,
   HistoricoFluxoItem,
+  AlertaKri,
   IndicadorKri,
   MedicaoKri,
   ObjetoContexto,
@@ -176,13 +177,27 @@ function respostaDoBanco(l: LinhaBanco): RespostaTratamento5W2H {
   };
 }
 
+/**
+ * Coluna `numeric` -> número, ou undefined quando é NULL. O PostgREST pode mandar
+ * `numeric` como texto ('70'); o zero é um número válido (não vira undefined).
+ * Ex.: '70' -> 70; 0 -> 0; null -> undefined
+ */
+const numeroOpcional = (v: unknown): number | undefined => {
+  if (v === null || v === undefined || v === '') return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 function medicaoDoBanco(l: LinhaBanco): MedicaoKri {
   return {
     id: texto(l.id),
     dataMedicao: texto(l.data_medicao),
     valorApurado: texto(l.valor_apurado),
+    valorNumerico: numeroOpcional(l.valor_numerico),
     emAlerta: booleano(l.em_alerta),
     observacao: textoOpcional(l.observacao),
+    // Carimbo de quando a leitura entrou no sistema (D-5: "comunicado" vale até a próxima leitura).
+    registradoEm: textoOpcional(l.criado_em),
   };
 }
 
@@ -212,6 +227,10 @@ function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], riscoIds: string[], t
     periodicidade: opcional(l.periodicidade) as IndicadorKri['periodicidade'],
     metaAlvo: opcional(l.meta_alvo),
     limiteAlerta: opcional(l.limite_alerta),
+    // LAC-03: limite numérico (operador + valor + unidade). NULL no banco = "a converter".
+    limiteOperador: opcional(l.limite_operador) as IndicadorKri['limiteOperador'],
+    limiteValor: numeroOpcional(l.limite_valor),
+    limiteUnidade: opcional(l.limite_unidade),
     responsavelMedicao: opcional(l.responsavel_medicao),
     // Só as medições DESTE KRI, da mais recente para a mais antiga.
     medicoes: medicoes
@@ -219,6 +238,34 @@ function kriDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], riscoIds: string[], t
       .map(medicaoDoBanco)
       .sort((a, b) => b.dataMedicao.localeCompare(a.dataMedicao)),
   };
+}
+
+/**
+ * Linha da visão `alertas_kri_situacao` -> `AlertaKri`. Os prazos (vence_em,
+ * dia_atual, vencido, dias_uteis_vencido) já vêm calculados pelo banco.
+ * Ex.: { ciencia_em: '2026-11-19', vence_em: '2026-12-04', dia_atual: 3 } -> diaAtual: 3
+ */
+export function alertaKriDoBanco(l: LinhaBanco): AlertaKri {
+  return {
+    id: texto(l.id),
+    kriId: texto(l.kri_id),
+    cienciaEm: texto(l.ciencia_em),
+    venceEm: texto(l.vence_em),
+    diaAtual: Number(l.dia_atual),
+    vencido: booleano(l.vencido),
+    diasUteisVencido: Number(l.dias_uteis_vencido),
+    encerradoEm: textoOpcional(l.encerrado_em),
+    comunicacaoId: textoOpcional(l.comunicacao_id),
+  };
+}
+
+/**
+ * KRI sem nenhum risco ligado à vista da pessoa (P-02: o Monitoramento ainda
+ * mostra o alerta dele). Mesma conversão do KRI ligado, com `riscoIds` vazio.
+ * Ex.: kriSemRiscoDoBanco({ id: 'k2', ... }, medicoes, 0) -> { id: 'k2', riscoIds: [], totalRiscos: 0, ... }
+ */
+export function kriSemRiscoDoBanco(l: LinhaBanco, medicoes: LinhaBanco[], totalRiscos?: number): IndicadorKri {
+  return kriDoBanco(l, medicoes, [], totalRiscos);
 }
 
 /** Linha de `historico_fluxo` -> `HistoricoFluxoItem`. */
@@ -541,7 +588,16 @@ export function fichaParaJson(f: FichaParaSalvar): Record<string, unknown> {
       item.fonte_dados = ouNulo(k.fonteDados);
       item.periodicidade = ouNulo(k.periodicidade);
       item.meta_alvo = ouNulo(k.metaAlvo);
-      item.limite_alerta = ouNulo(k.limiteAlerta);
+      // LAC-03: limite numérico. Só vai quando a ficha o traz (número, nunca ""):
+      // sem ele, o banco mantém o que já tem. KRI NOVO com limite numérico omite
+      // o texto antigo `limite_alerta` (ele só existe para os KRIs antigos).
+      const temLimiteNumerico = k.limiteOperador !== undefined && Number.isFinite(k.limiteValor);
+      if (temLimiteNumerico) {
+        item.limite_operador = k.limiteOperador;
+        item.limite_valor = k.limiteValor;
+        item.limite_unidade = ouNulo(k.limiteUnidade);
+      }
+      if (!(temLimiteNumerico && !k.id)) item.limite_alerta = ouNulo(k.limiteAlerta);
       item.responsavel_medicao = ouNulo(k.responsavelMedicao);
       return item; // medições ficam de fora (são do Monitoramento)
     });

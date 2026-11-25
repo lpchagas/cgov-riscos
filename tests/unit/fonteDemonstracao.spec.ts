@@ -16,6 +16,8 @@ import { MENSAGEM_TRAVA_CRITICO, MENSAGEM_TRAVA_KRI } from '../../src/utils/trav
 import { PERFIS_DEMO_ICMBIO } from '../../src/stores/authStore';
 import { RISCOS_SEMENTE_ANEXO_II, CATEGORIAS_QUADRO_2_SEMENTE } from '../../src/services/dadosSementeAnexoII';
 import type { PapelGovernanca } from '../../src/types/radar.types';
+import { hojeEmBrasilia, diasUteisEntre, somarDiasUteis } from '../../src/utils/diasUteis';
+import { situacaoKri } from '../../src/utils/situacaoKri';
 
 /** Fonte com um perfil fixo (sem depender do localStorage). */
 const fonteComo = (papel: PapelGovernanca) =>
@@ -871,5 +873,188 @@ describe('KRI obrigatório e grupo (LAC-03)', () => {
     expect(r?.historicoFluxo.at(-1)?.despachoTexto).toContain(
       'não passa na trava do risco crítico: falta um KRI completo (nome, fórmula, fonte, periodicidade, limite de alerta e responsável). Voltou para a unidade ajustar.'
     );
+  });
+});
+
+describe('LAC-03: alerta do KRI na demonstração (imita o banco)', () => {
+  /** Cria um risco em rascunho com um KRI novo "menor que 70" e devolve o id do KRI. */
+  async function criarKriMenorQue70(fonte: ReturnType<typeof fonteComo>) {
+    const kri = { ...KRI_OK, nomeIndicador: 'KRI de teste do alerta', limiteAlerta: undefined, limiteOperador: '<' as const, limiteValor: 70, limiteUnidade: '%' };
+    const { id } = await fonte.salvarFicha({ objetoId: 'obj-anexo-ii', probabilidade: 1, impacto: 5, kris: [kri] });
+    return (await fonte.relerRisco(id))!.kris[0].id;
+  }
+
+  it('leitura 60 em "menor que 70" abre alerta com ciência = hoje; a 2ª não abre outro; leitura dentro do limite não encerra', async () => {
+    const fonte = fonteComo('cgov');
+    const kriId = await criarKriMenorQue70(fonte);
+    expect(await fonte.listarAlertasKri()).not.toContainEqual(expect.objectContaining({ kriId }));
+
+    await fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-01', valorApurado: '60', valorNumerico: 60 });
+    const abertos = (await fonte.listarAlertasKri()).filter((a) => a.kriId === kriId);
+    expect(abertos).toHaveLength(1);
+    expect(abertos[0].cienciaEm).toBe(hojeEmBrasilia());
+    expect(abertos[0].diaAtual).toBe(0);
+    expect(abertos[0].vencido).toBe(false);
+    expect(abertos[0].venceEm).toBe(somarDiasUteis(hojeEmBrasilia(), 10));
+
+    await fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-02', valorApurado: '50', valorNumerico: 50 });
+    expect((await fonte.listarAlertasKri()).filter((a) => a.kriId === kriId)).toHaveLength(1);
+
+    await fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-03', valorApurado: '90', valorNumerico: 90 });
+    const depois = (await fonte.listarAlertasKri()).filter((a) => a.kriId === kriId);
+    expect(depois).toHaveLength(1);
+    expect(depois[0].encerradoEm).toBeUndefined();
+  });
+
+  it('em_alerta vem do cálculo (o valor enviado é ignorado): 70 não é alerta; texto digitado com vírgula vira número', async () => {
+    const fonte = fonteComo('cgov');
+    const kriId = await criarKriMenorQue70(fonte);
+    await fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-01', valorApurado: '70', valorNumerico: 70, emAlerta: true });
+    await fonte.registrarMedicao(kriId, { dataMedicao: '2026-12-02', valorApurado: '65,5%' });
+    const kri = (await fonte.carregarCarteira()).riscos.flatMap((r) => r.kris).find((k) => k.id === kriId)!;
+    const m70 = kri.medicoes.find((m) => m.dataMedicao === '2026-12-01')!;
+    const m65 = kri.medicoes.find((m) => m.dataMedicao === '2026-12-02')!;
+    expect(m70.emAlerta).toBe(false);
+    expect(m65.valorNumerico).toBe(65.5);
+    expect(m65.emAlerta).toBe(true);
+  });
+
+  it('KRI só com texto antigo (sem limite numérico) nunca abre alerta', async () => {
+    const fonte = fonteComo('cgov');
+    const antes = (await fonte.listarAlertasKri()).length;
+    await fonte.registrarMedicao('kri-anexo-ii-3', { dataMedicao: '2026-12-01', valorApurado: '99', valorNumerico: 99 });
+    expect((await fonte.listarAlertasKri()).length).toBe(antes);
+  });
+
+  it('listarKrisSemRisco devolve só os KRIs sem risco ligado (I-1), em cópia', async () => {
+    const fonte = fonteComo('cgov');
+    expect(await fonte.listarKrisSemRisco()).toEqual([]);
+  });
+
+  it('listarAlertasKri devolve cópias', async () => {
+    const fonte = fonteComo('cgov');
+    const lista = await fonte.listarAlertasKri();
+    lista.length = 0;
+    expect((await fonte.listarAlertasKri()).length).toBeGreaterThan(0);
+  });
+
+  it('a semente cobre os 4 estados da tela P-02 e um "limite a converter" (em qualquer data)', async () => {
+    const fonte = fonteComo('cgov');
+    const { riscos } = await fonte.carregarCarteira();
+    const alertas = await fonte.listarAlertasKri();
+    const todos = new Map(riscos.flatMap((r) => r.kris).map((k) => [k.id, k]));
+    const estado = (kriId: string) => {
+      const k = todos.get(kriId)!;
+      const abertoOuUltimo = alertas.filter((a) => a.kriId === kriId).at(-1);
+      return situacaoKri(k, abertoOuUltimo);
+    };
+    const situacoes = [...todos.keys()].map(estado);
+    expect(situacoes).toEqual(expect.arrayContaining(['dentro', 'alerta', 'vencido', 'comunicado', 'sem_limite']));
+
+    const dia3 = alertas.find((a) => !a.encerradoEm && !a.vencido)!;
+    expect(dia3.diaAtual).toBe(3);
+    const hoje = hojeEmBrasilia();
+    expect(diasUteisEntre(dia3.cienciaEm, hoje)).toBe(3);
+    const vencido = alertas.find((a) => a.vencido)!;
+    expect(vencido.diaAtual).toBeGreaterThan(10);
+    expect(vencido.diasUteisVencido).toBe(vencido.diaAtual - 10);
+    const comunicado = alertas.find((a) => a.encerradoEm)!;
+    expect(comunicado.comunicacaoId).toBeTruthy();
+
+    // "Limite a converter": só o texto antigo, sem operador nem valor.
+    const aConverter = [...todos.values()].filter((k) => k.limiteAlerta && k.limiteOperador === undefined);
+    expect(aConverter.length).toBeGreaterThanOrEqual(1);
+    // Os demais KRIs têm limite numérico completo.
+    expect([...todos.values()].some((k) => k.limiteOperador && typeof k.limiteValor === 'number')).toBe(true);
+  });
+
+  it('salvarFicha: KRI novo só com o texto "Abaixo de 70%" é convertido (como o gatilho do banco)', async () => {
+    const fonte = fonteComo('cgov');
+    const { id } = await fonte.salvarFicha({
+      objetoId: 'obj-anexo-ii', probabilidade: 1, impacto: 5,
+      kris: [{ ...KRI_OK, nomeIndicador: 'Novo por texto', limiteAlerta: 'Abaixo de 70%' }],
+    });
+    const k = (await fonte.relerRisco(id))!.kris[0];
+    expect(k.limiteOperador).toBe('<');
+    expect(k.limiteValor).toBe(70);
+    expect(k.limiteUnidade).toBe('%');
+  });
+
+  describe('edição do texto do limite (espelha fn_kri_reconverte_limite)', () => {
+    /** Cria um KRI "Abaixo de 70%" (já convertido) e devolve a ficha e o KRI como a tela os veria. */
+    async function kriConvertido(fonte: ReturnType<typeof fonteComo>) {
+      const { id } = await fonte.salvarFicha({
+        objetoId: 'obj-anexo-ii', probabilidade: 1, impacto: 5,
+        kris: [{ ...KRI_OK, nomeIndicador: 'KRI do texto', limiteAlerta: 'Abaixo de 70%' }],
+      });
+      return { id, kri: (await fonte.relerRisco(id))!.kris[0] };
+    }
+    const reenviar = async (fonte: ReturnType<typeof fonteComo>, id: string, kri: Awaited<ReturnType<typeof kriConvertido>>['kri']) => {
+      const { medicoes: _m, objetoId: _o, riscoIds: _r, totalRiscos: _t, ...def } = kri;
+      await fonte.salvarFicha({ id, objetoId: 'obj-anexo-ii', kris: [def] });
+      return (await fonte.relerRisco(id))!.kris[0];
+    };
+
+    it('só o texto muda (operador e valor antigos reenviados): reconverte pelo texto novo', async () => {
+      const fonte = fonteComo('cgov');
+      const { id, kri } = await kriConvertido(fonte);
+      expect(kri.limiteValor).toBe(70);
+      const depois = await reenviar(fonte, id, { ...kri, limiteAlerta: 'Abaixo de 50%' });
+      expect(depois).toMatchObject({ limiteAlerta: 'Abaixo de 50%', limiteOperador: '<', limiteValor: 50, limiteUnidade: '%' });
+    });
+
+    // C1 (CodeRabbit, PR #20): o gatilho só refaz o limite quando o PRÓPRIO limite_alerta muda.
+    // Mudar só a fonte de dados (ou o nome) não pode apagar o limite numérico.
+    it('mudar só a fonte de dados NÃO reconverte nem apaga o limite numérico', async () => {
+      const fonte = fonteComo('cgov');
+      // KRI novo só com limite numérico (sem texto antigo), como a tela cria hoje.
+      const { id } = await fonte.salvarFicha({
+        objetoId: 'obj-anexo-ii', probabilidade: 1, impacto: 5,
+        kris: [{ ...KRI_OK, nomeIndicador: 'KRI numérico', limiteAlerta: undefined, limiteOperador: '<', limiteValor: 70, limiteUnidade: '%' }],
+      });
+      const base = (await fonte.relerRisco(id))!.kris[0];
+      expect(base).toMatchObject({ limiteOperador: '<', limiteValor: 70 });
+      const depois = await reenviar(fonte, id, { ...base, fonteDados: 'Outra fonte' });
+      expect(depois.fonteDados).toBe('Outra fonte');
+      expect(depois).toMatchObject({ limiteOperador: '<', limiteValor: 70, limiteUnidade: '%' });
+    });
+
+    it('texto novo ambíguo deixa o limite "a converter" (numéricos nulos)', async () => {
+      const fonte = fonteComo('cgov');
+      const { id, kri } = await kriConvertido(fonte);
+      const depois = await reenviar(fonte, id, { ...kri, limiteAlerta: 'Entre 5 e 10' });
+      expect(depois.limiteAlerta).toBe('Entre 5 e 10');
+      expect(depois.limiteOperador).toBeUndefined();
+      expect(depois.limiteValor).toBeUndefined();
+    });
+
+    // I-2 (revisão de fim da Fase 2): com operador + valor na ficha, a unidade ausente
+    // quer dizer APAGADA — o `fichaParaJson` manda limite_unidade: null e o banco grava NULL.
+    it('apagar só a unidade ("<" 80 "%" → "<" 80) grava sem unidade, como o banco', async () => {
+      const fonte = fonteComo('cgov');
+      const { id } = await fonte.salvarFicha({
+        objetoId: 'obj-anexo-ii', probabilidade: 1, impacto: 5,
+        kris: [{ ...KRI_OK, nomeIndicador: 'KRI da unidade', limiteAlerta: undefined, limiteOperador: '<', limiteValor: 80, limiteUnidade: '%' }],
+      });
+      const kri = (await fonte.relerRisco(id))!.kris[0];
+      expect(kri.limiteUnidade).toBe('%');
+      const depois = await reenviar(fonte, id, { ...kri, limiteUnidade: undefined });
+      expect(depois).toMatchObject({ limiteOperador: '<', limiteValor: 80 });
+      expect(depois.limiteUnidade).toBeUndefined();
+    });
+
+    it('sem operador/valor na ficha, unidade ausente continua "não enviada" (mantém a gravada)', async () => {
+      const fonte = fonteComo('cgov');
+      const { id, kri } = await kriConvertido(fonte);
+      const depois = await reenviar(fonte, id, { ...kri, limiteOperador: undefined, limiteValor: undefined, limiteUnidade: undefined });
+      expect(depois).toMatchObject({ limiteOperador: '<', limiteValor: 70, limiteUnidade: '%' });
+    });
+
+    it('operador/valor NOVOS enviados junto com o texto valem', async () => {
+      const fonte = fonteComo('cgov');
+      const { id, kri } = await kriConvertido(fonte);
+      const depois = await reenviar(fonte, id, { ...kri, limiteAlerta: 'Abaixo de 50%', limiteOperador: '<=', limiteValor: 40 });
+      expect(depois).toMatchObject({ limiteOperador: '<=', limiteValor: 40 });
+    });
   });
 });

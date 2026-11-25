@@ -217,13 +217,46 @@ export interface RespostaTratamento5W2H {
 }
 
 /**
+ * Alerta de um KRI (LAC-03), como vem da visão `alertas_kri_situacao` do banco.
+ * Abre na 1ª leitura que passa do limite; a ciência é o início do prazo de
+ * 10 dias úteis. Ex.: ciência 19/11 -> venceEm 04/12.
+ */
+export interface AlertaKri {
+  id: string;
+  kriId: string;
+  /** Data da ciência (yyyy-mm-dd, calendário de Brasília). */
+  cienciaEm: string;
+  /** Ciência + 10 dias úteis. */
+  venceEm: string;
+  /** Dias úteis entre a ciência e hoje (0 no dia da ciência). */
+  diaAtual: number;
+  /** true quando diaAtual passou de 10. */
+  vencido: boolean;
+  /** Dias úteis além do prazo (0 se no prazo). */
+  diasUteisVencido: number;
+  /** Preenchido quando o alerta foi encerrado. */
+  encerradoEm?: string;
+  /** Comunicação à CGOV que tratou o alerta. */
+  comunicacaoId?: string;
+}
+
+/**
  * Representa uma leitura periódica de um Indicador-Chave de Risco (KRI).
  */
 export interface MedicaoKri {
   id: string;
   dataMedicao: string;
   valorApurado: string;
+  /** Leitura como número (LAC-03), comparada com o limite do KRI. Ausente = texto sem número. */
+  valorNumerico?: number;
+  /** Quem decide é o banco (gatilho); na demonstração, a fonte imita a mesma regra. */
   emAlerta: boolean;
+  /**
+   * Quando a leitura foi REGISTRADA no sistema (`criado_em` do banco, com hora).
+   * Não é a data da medição (que pode ser antiga). Serve para saber se houve
+   * leitura nova depois da comunicação do alerta (D-5). Ausente em dado antigo.
+   */
+  registradoEm?: string;
   observacao?: string;
 }
 
@@ -249,7 +282,12 @@ export interface IndicadorKri {
   fonteDados?: string;
   periodicidade?: 'Mensal' | 'Trimestral' | 'Semestral' | 'Anual';
   metaAlvo?: string;
+  /** Texto antigo do limite (só leitura; KRI novo usa operador + valor + unidade). */
   limiteAlerta?: string;
+  /** Limite numérico do alerta (LAC-03): operador, valor e unidade, ex.: '<', 80, '%'. */
+  limiteOperador?: '>' | '>=' | '<' | '<=';
+  limiteValor?: number;
+  limiteUnidade?: string;
   responsavelMedicao?: string;
   medicoes: MedicaoKri[];
   /**

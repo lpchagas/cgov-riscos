@@ -49,11 +49,14 @@ import {
   camposKriDe,
   avisoKriCompartilhado as montarAvisoKriCompartilhado,
   kriFicaOrfao,
+  numeroDoLimite,
+  errosDoLimiteNumerico,
   validarEtapa,
   type ErrosEtapa,
 } from '../utils/formularioRisco';
+import { textoLimite, type OperadorLimite } from '../utils/limiteAlerta';
 import { ROTULOS_APETITE } from '../utils/darImpacto';
-import { ajudaTravaCritico, exigeTratamento } from '../utils/travaRiscoCritico';
+import { ajudaTravaCritico, exigeTratamento, textoPreenchido } from '../utils/travaRiscoCritico';
 import FormField from '../components/ui/FormField.vue';
 import GrupoOpcoesDescritas from '../components/ui/GrupoOpcoesDescritas.vue';
 import type { OpcaoDescrita } from '../components/ui/tipos';
@@ -211,6 +214,38 @@ const demaisKris = computed(() => demaisKrisQueFicam(d.value, riscoEditado.value
 /** O KRI que está sendo EDITADO (o escolhido e liberado, ou o próprio da ficha). */
 const kriEmEdicao = computed(() => kriEscolhido.value && liberouEdicaoKri.value ? kriEscolhido.value : !d.value.kriExistenteId ? kriProprio.value : undefined);
 /**
+ * O limite numérico é obrigatório? Sim para KRI novo e para KRI existente que já tem
+ * limite numérico ou não tem texto antigo (senão apagar o número passaria calado e o
+ * banco manteria o valor antigo). Só o KRI antigo "a converter" (apenas texto) é dispensado.
+ */
+const exigeLimiteNumerico = computed(() => {
+  // KRI da lista só LIGADO: campos só leitura, a pessoa não pode preenchê-los. A trava do risco crítico (kriCompleto) continua valendo.
+  if (camposKriSoLeitura.value) return false;
+  const base = kriEscolhido.value ?? kriProprio.value;
+  if (!base) return true;
+  const temNumero = base.limiteOperador !== undefined && Number.isFinite(base.limiteValor);
+  return temNumero || !textoPreenchido(base.limiteAlerta);
+});
+/**
+ * O KRI em edição JÁ TEM limite numérico gravado (operador + número)? (I-3 da revisão
+ * da Fase 2.) Nesse caso, mesmo no "Salvar rascunho", operador e número não podem ser
+ * apagados: o banco manteria o valor antigo e a pessoa acharia que apagou.
+ * KRI da lista só ligado (campos só leitura) e KRI novo ficam de fora.
+ */
+const kriJaTemLimiteNumerico = computed(() => {
+  if (camposKriSoLeitura.value) return false;
+  const base = kriEscolhido.value ?? kriProprio.value;
+  return !!base && base.limiteOperador !== undefined && Number.isFinite(base.limiteValor);
+});
+/** Frase do limite conforme a pessoa digita. Ex.: "Alerta quando o valor for menor que 80 %". */
+const fraseDoLimite = computed(() => {
+  const valor = numeroDoLimite(d.value.kriLimiteValor);
+  if (d.value.kriLimiteOperador === '' || valor === undefined) return '';
+  return `Alerta quando o valor for ${textoLimite(d.value.kriLimiteOperador, valor, d.value.kriLimiteUnidade.trim() || undefined)}`;
+});
+/** KRI antigo: só o texto do limite, sem operador e número ainda. */
+const limiteAConverter = computed(() => !!d.value.kriLimite.trim() && (d.value.kriLimiteOperador === '' || numeroDoLimite(d.value.kriLimiteValor) === undefined));
+/**
  * Aviso fixo: alterar um KRI que serve a outros riscos muda o indicador de todos.
  * Conta também os riscos que a pessoa não vê (`totalRiscos`, vindo do banco).
  */
@@ -316,6 +351,13 @@ const EFICACIAS: { valor: NivelEficaciaControle; rotulo: string }[] = [
   { valor: 'Satisfatório', rotulo: 'Satisfatório (fator 0,6)' },
   { valor: 'Forte', rotulo: 'Forte (fator 0,5)' },
 ];
+/** Os 4 operadores do limite de alerta, com o texto que a pessoa lê. */
+const OPERADORES_LIMITE: { valor: OperadorLimite; rotulo: string }[] = [
+  { valor: '>', rotulo: 'maior que' },
+  { valor: '>=', rotulo: 'maior ou igual a' },
+  { valor: '<', rotulo: 'menor que' },
+  { valor: '<=', rotulo: 'menor ou igual a' },
+];
 const PERIODICIDADES_KRI = ['Mensal', 'Trimestral', 'Semestral', 'Anual'] as const;
 const ESTRATEGIAS: { valor: EstrategiaTratamento; rotulo: string }[] = [
   { valor: 'Mitigar', rotulo: 'Mitigar — reduzir a probabilidade ou o impacto' },
@@ -387,7 +429,7 @@ async function focarPrimeiroErro(): Promise<void> {
 }
 
 function validar(): boolean {
-  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value);
+  erros.value = validarEtapa(etapa.value, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value, exigeLimiteNumerico.value);
   if (Object.keys(erros.value).length) {
     focarPrimeiroErro();
     return false;
@@ -433,17 +475,33 @@ async function salvar(enviar: boolean): Promise<void> {
 
   // Ao enviar — ou ao editar um risco que já passou do rascunho (ex.: aprovado,
   // que volta para validação) — TODAS as etapas precisam estar válidas.
-  // Um rascunho só precisa da 1ª.
+  // Um rascunho só precisa da 1ª (e, se o KRI já tem limite numérico, do operador e
+  // do número dele: ver `kriJaTemLimiteNumerico`).
   const status = riscoEditado.value?.statusFluxo;
   const fichaCompleta = enviar || (modoEdicao.value && !!status && !['rascunho', 'devolvido', 'preliminar_cgov'].includes(status));
   const etapasParaValidar = fichaCompleta ? [1, 2, 3, 4] : [1];
   for (const n of etapasParaValidar) {
-    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value);
+    const e = validarEtapa(n, d.value, riscosStore.categorias, calculo.value?.statusCritico, kriSoLigado.value, demaisKris.value, exigeLimiteNumerico.value);
     if (Object.keys(e).length) {
       etapa.value = n;
       erros.value = e;
       focarPrimeiroErro();
       mostrar({ tom: 'perigo', mensagem: `Corrija a etapa ${n} (${ETAPAS_NOVO_RISCO[n - 1].titulo}) antes de ${enviar ? 'enviar' : 'salvar'}.` });
+      return;
+    }
+  }
+  // Rascunho: o limite numérico do KRI que já o tem e o par incompleto (a ficha completa já conferiu a etapa 4).
+  // Ex.: KRI "menor que 80 %" com o número apagado → mensagem no campo, nada é gravado.
+  // Também confere o PAR incompleto (só o operador ou só o número), que `kriDosCampos` omitiria
+  // calado (KRI antigo, só texto, ou KRI novo). Vazio total continua livre; KRI só ligado fica fora.
+  const tentouLimite = !camposKriSoLeitura.value && (d.value.kriLimiteOperador !== '' || d.value.kriLimiteValor.trim() !== '');
+  if (!fichaCompleta && (kriJaTemLimiteNumerico.value || tentouLimite)) {
+    const e = errosDoLimiteNumerico(d.value);
+    if (Object.keys(e).length) {
+      etapa.value = 4;
+      erros.value = e;
+      focarPrimeiroErro();
+      mostrar({ tom: 'perigo', mensagem: `Corrija o limite de alerta do KRI (etapa 4) antes de salvar.` });
       return;
     }
   }
@@ -700,10 +758,28 @@ async function salvar(enviar: boolean): Promise<void> {
                 <FormField rotulo="Meta (opcional)" v-slot="{ attrs }">
                   <input v-bind="attrs" v-model="d.kriMeta" type="text" :readonly="camposKriSoLeitura" />
                 </FormField>
-                <FormField rotulo="Limite de alerta" :obrigatorio="exigeTratamentoCritico" ajuda="Valor a partir do qual o indicador acende o alerta." v-slot="{ attrs }">
-                  <input v-bind="attrs" v-model="d.kriLimite" type="text" :readonly="camposKriSoLeitura" />
+                <!-- Limite de alerta (LAC-03): operador + número + unidade. O banco é que decide se uma leitura passa do limite. -->
+                <FormField rotulo="Alerta quando o valor for" :obrigatorio="exigeTratamentoCritico || exigeLimiteNumerico" :erro="erros.kriLimiteOperador" ajuda="Quando a leitura do indicador acende o alerta." v-slot="{ attrs }">
+                  <select v-bind="attrs" v-model="d.kriLimiteOperador" :disabled="camposKriSoLeitura">
+                    <option value="">Escolha…</option>
+                    <option v-for="o in OPERADORES_LIMITE" :key="o.valor" :value="o.valor">{{ o.rotulo }}</option>
+                  </select>
                 </FormField>
               </div>
+              <div class="duas-colunas">
+                <FormField rotulo="Valor do limite" :obrigatorio="exigeTratamentoCritico || exigeLimiteNumerico" :erro="erros.kriLimiteValor" ajuda="Só o número. Pode usar vírgula (ex.: 80 ou 2,5)." v-slot="{ attrs }">
+                  <input v-bind="attrs" v-model="d.kriLimiteValor" type="text" inputmode="decimal" :readonly="camposKriSoLeitura" />
+                </FormField>
+                <FormField rotulo="Unidade do limite (opcional)" ajuda="Ex.: %, dias." v-slot="{ attrs }">
+                  <input v-bind="attrs" v-model="d.kriLimiteUnidade" type="text" :readonly="camposKriSoLeitura" />
+                </FormField>
+              </div>
+              <!-- A frase aparece conforme a pessoa digita; o leitor de tela a anuncia (aria-live). -->
+              <p class="campo__ajuda" aria-live="polite">{{ fraseDoLimite }}</p>
+              <!-- KRI antigo (só texto): mostra o texto e pede a conversão. -->
+              <p v-if="limiteAConverter" class="campo__ajuda">
+                <strong>Limite a converter: informe o operador e o número.</strong> Texto antigo: “{{ d.kriLimite }}”.
+              </p>
               <FormField rotulo="Responsável pelo monitoramento" :obrigatorio="exigeTratamentoCritico" v-slot="{ attrs }">
                 <input v-bind="attrs" v-model="d.kriResponsavel" type="text" :readonly="camposKriSoLeitura" />
               </FormField>

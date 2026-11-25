@@ -137,7 +137,9 @@ const resumoCelula = computed(() => {
 // 3. PRECISA DA SUA ATENÇÃO
 // ---------------------------------------------------------------------------
 const LIMITE_ATENCAO = 6;
-const atencao = computed(() => itensDeAtencao(riscos.value, perfil.value, new Date(), riscosStore.acoes));
+const atencao = computed(() =>
+  itensDeAtencao(riscos.value, perfil.value, new Date(), riscosStore.acoes, riscosStore.alertasKri, riscosStore.krisSemRisco)
+);
 const atencaoVisivel = computed(() => atencao.value.slice(0, LIMITE_ATENCAO));
 
 /**
@@ -244,12 +246,41 @@ watch(
     </template>
 
     <!-- Carteira vazia: nada de Matriz com zeros, que pareceria "tudo certo" -->
-    <section v-else-if="carteiraVazia" class="cartao">
+    <template v-else-if="carteiraVazia">
+    <section class="cartao">
       <EmptyState
         titulo="Nenhum risco no seu alcance"
         descricao="Quando houver riscos da sua unidade (ou das unidades que você acompanha), o Painel os mostra aqui."
       />
     </section>
+    <!-- Carteira vazia NÃO esconde pendências que não dependem de risco: um KRI sem risco ligado
+         pode ter alerta aberto (ex.: o único risco foi excluído). Mostra só essas pendências. -->
+    <section v-if="atencao.length" class="cartao painel__atencao" aria-labelledby="titulo-atencao-vazia">
+      <div class="cartao__cabecalho">
+        <h2 id="titulo-atencao-vazia" class="cartao__titulo">Precisa da sua atenção</h2>
+        <Chip tom="info">{{ atencao.length }} {{ atencao.length === 1 ? 'item' : 'itens' }}</Chip>
+      </div>
+      <ul class="atencao atencao--aberta">
+        <li v-for="item in atencaoVisivel" :key="item.id" class="atencao__item">
+          <span class="atencao__icone" :class="`atencao__icone--${item.tom}`" aria-hidden="true">
+            <i :class="ICONE_ATENCAO[item.tipo]"></i>
+          </span>
+          <div class="atencao__texto">
+            <p class="atencao__titulo">{{ item.titulo }}</p>
+            <p class="atencao__detalhe">{{ item.detalhe }}</p>
+            <RouterLink :to="item.destino" class="link-acao">
+              {{ item.acao }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </RouterLink>
+          </div>
+        </li>
+      </ul>
+      <!-- Mesmo aviso do ramo normal: o cartão mostra só LIMITE_ATENCAO itens; o resto fica no Monitoramento. -->
+      <p v-if="atencao.length > LIMITE_ATENCAO" class="painel__dica">
+        E mais {{ atencao.length - LIMITE_ATENCAO }} em
+        <RouterLink :to="{ name: 'monitoramento-kris' }">Monitoramento</RouterLink>.
+      </p>
+    </section>
+    </template>
 
     <template v-else>
     <!-- 1. INDICADORES -->
