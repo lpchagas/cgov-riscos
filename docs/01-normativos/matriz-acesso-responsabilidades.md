@@ -251,7 +251,7 @@ significa "vê tudo e edita só a própria unidade".
 
 | Pessoa | O que vê | O que edita ou decide |
 |---|---|---|
-| Chefe de um PARNA vinculado à CT Y (GR 4) | o PARNA e as Bases Avançadas dele | os riscos do PARNA |
+| Chefe de um PARNA vinculado à CT Y (GR 4) | o PARNA e as Bases Avançadas dele | os riscos do PARNA e das Bases Avançadas dele (subunidades internas, P8) |
 | Coordenador da CT Y | CT Y + todos os NGIs e UCs da CT Y | os riscos da CT Y; **valida** as fichas do PARNA |
 | Gerente da GR 4 | GR 4, COAGR, CTs, NGIs e UCs da GR 4 | os riscos da GR 4; **valida** as fichas de UCs sem CT; **homologa** os riscos críticos de toda a GR 4 |
 | Coordenador-Geral da CGPRO | CGPRO, COPRO, COFIS, CIAM, CEMIF e divisões **+** riscos de qualquer UC ou GR ligados aos processos de Proteção (2.02.x da Cadeia de Valor) | os riscos da CGPRO; **valida** as fichas das Coordenações da CGPRO |
