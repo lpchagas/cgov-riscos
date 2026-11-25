@@ -23,7 +23,7 @@ homologação, e LAC-04). A pergunta era **onde** a regra mora: se fosse só no 
 
 ## Decisão
 
-1. **A regra mora no banco** (abordagem escolhida entre três; a norma vale na fronteira de dados, como na
+1. **A regra mora no banco** (abordagem escolhida entre três; a D-7 é tratada à parte, na decisão 8; a norma vale na fronteira de dados, como na
    [[0005-usar-postgresql-supabase-com-rls|ADR-0005]]). Duas migrações, uma por lacuna, para a revisão e a
    aplicação na nuvem serem por partes: `20261123002_lac03_alerta_kri.sql` e `20261123003_lac04_comunicacoes_cgov.sql`.
 2. **Limite numérico.** `indicadores_kri` ganha `limite_operador` (`>`, `>=`, `<`, `<=`), `limite_valor` e
