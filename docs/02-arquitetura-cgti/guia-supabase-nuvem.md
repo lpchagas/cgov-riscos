@@ -123,7 +123,8 @@
 | 2026-11-25 | Conferência antes da migração `20261123003` (só leitura, LAC-04) | Ok, pelo Claude via MCP, com autorização: 18 migrações, a última `20261123002`; 0 riscos, 0 alertas; `comunicacoes_cgov` e `comunicacoes_riscos` ausentes; 16 tabelas; `auditoria_log` = 45. |
 | 2026-11-25 | `db push --remote` (LAC-04) | Ok, pelo Claude, com autorização: prévia listou só a `20261123003`; aplicada (`Finished supabase db push.`). |
 | 2026-11-25 | Conferência depois da migração (só leitura) | Ok: 19 migrações, a última `20261123003`; 18 tabelas; `comunicacoes_cgov` e `comunicacoes_riscos` com RLS ligada; visões `alertas_kri_situacao` e `comunicacoes_cgov_situacao`; `enviar_comunicacao` e `registrar_ciencia_comunicacao` executáveis por `authenticated` e não por `anon`; as funções dos gatilhos não são executáveis por ninguém; 0 comunicações, 0 riscos; `auditoria_log` = 45 (igual). *Advisors* de segurança: **1 aviso novo, esperado** — `registrar_ciencia_comunicacao` é `SECURITY DEFINER` executável por `authenticated` (mesmo caso de `validar_risco` e `homologar_risco`): tem `search_path` vazio e recusa quem não é CGOV ("Somente a CGOV registra a ciência da comunicação"). |
-| *(próximo)* | Site URL e URLs de retorno | Task 7 (publicação do front). |
+| 2026-11-27 | Site URL e URL de retorno (seção 7.3, Task 7) | Ok, feito pelo responsável no painel, com autorização, depois da publicação do front no Cloudflare Pages ([[guia-ambiente-piloto]]): Site URL `https://radar-icmbio.pages.dev`; URL de retorno `https://radar-icmbio.pages.dev/entrar/retorno`. |
+| *(próximo)* | Contas e Edge Function `gerenciar-acesso` | D2. |
 
 > [!note] Proteção da própria Supabase
 > O projeto tem um gatilho da plataforma chamado `ensure_rls` (função `rls_auto_enable`) que **liga a RLS
@@ -316,7 +317,7 @@ de contas pelo servidor na D2.
 
 ### 7.3 Site URL e URLs de retorno
 
-Ficam para a Task 7, quando o front tiver endereço (*Authentication → URL Configuration*).
+Configuradas em 2026-11-27, na Task 7 (*Authentication → URL Configuration*): **Site URL** `https://radar-icmbio.pages.dev` e, em **Redirect URLs**, só `https://radar-icmbio.pages.dev/entrar/retorno` (o caminho para onde o RADAR manda o link de acesso, em `src/stores/authStore.ts`). A documentação da Supabase recomenda o caminho exato em produção, sem `**`. Se o endereço do front mudar, troque os dois aqui. Detalhes do front: [[guia-ambiente-piloto]].
 
 ### 7.4 Como conferir o Auth sem entrar no painel (só leitura)
 
