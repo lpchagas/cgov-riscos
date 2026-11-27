@@ -261,7 +261,7 @@ select is((select status_critico || '/' || status_fluxo from public.riscos where
           '8. D: ponto de partida, aprovado antigo crítico com "Aceitar"');
 
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 9$$,
+select lives_ok($$select pg_temp.publicar_dar_teste(9, 'baixo')$$,
                 '8. a mudança da DAR (moderado → baixo) termina, mesmo com riscos que não passam na trava');
 select pg_temp.sair();
 
@@ -292,7 +292,7 @@ select pg_temp.inserir_risco('RADAR-T100-PEN-D', 2, 3, 10, 'Aceitar', false, 'ap
        pg_temp.inserir_risco('RADAR-T100-PEN-E', 2, 3, 10, 'Mitigar', true,  'aprovado') as r9e
 \gset
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 10$$,
+select lives_ok($$select pg_temp.publicar_dar_teste(10, 'pendente_dar')$$,
                 '9. a CGOV põe a categoria Ocupacionais em pendente_dar');
 select pg_temp.sair();
 select is((select status_fluxo || '/' || status_critico from public.riscos where id = :'r9d'), 'devolvido/pendente_dar',

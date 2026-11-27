@@ -162,3 +162,30 @@ language sql
 as $$
   select pg_temp.dar_tratamento(r.id) from public.riscos r;
 $$;
+
+-- ----------------------------------------------------------------------------
+-- publicar_dar_teste(categoria, apetite): LAC-08 — grava o apetite da DAR
+-- como DONO do banco, só nos testes.
+-- ----------------------------------------------------------------------------
+-- Desde a LAC-08, ninguém logado (nem a CGOV) faz UPDATE em categorias_risco:
+-- o apetite só muda pela RPC registrar_portaria_dar, no fim do rito
+-- (minuta → CTGRIC → CIG → portaria). Muitos testes só precisam de "um
+-- apetite qualquer" para conferir o cálculo e o gatilho de reavaliação; para
+-- eles, este ajudante faz o UPDATE como dono e volta ao papel de antes.
+-- O crachá (request.jwt.claims) NÃO muda: auth.uid() continua sendo quem
+-- "entrou", então o histórico e a trilha guardam o mesmo autor de antes.
+-- Exemplo:
+--   select pg_temp.entrar_como('cgov@radar.test');
+--   select pg_temp.publicar_dar_teste(2, 'baixo');   -- o gatilho reavalia
+create or replace function pg_temp.publicar_dar_teste(p_categoria int, p_apetite text)
+returns void
+language plpgsql
+as $$
+declare
+  v_papel text := coalesce(nullif(current_setting('role', true), ''), 'none');
+begin
+  perform set_config('role', 'none', true);
+  update public.categorias_risco set apetite_declarado = p_apetite where id = p_categoria;
+  perform set_config('role', v_papel, true);
+end;
+$$;

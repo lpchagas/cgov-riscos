@@ -61,3 +61,35 @@ VALUES
   (5, 'Pressão interna ou externa ilegal para influenciar agente público', 'Pressões explícitas ou implícitas de natureza hierárquica (interna), de colegas de trabalho (organizacional), política ou social (externa), que podem influenciar indevidamente atuação do agente público', 4),
   (5, 'Solicitação ou recebimento de vantagem indevida', 'Caracteriza-se por qualquer tipo de enriquecimento ilícito, seja dinheiro ou outra utilidade, dado que ao agente público não se permite colher vantagens em virtude do exercício de suas atividades', 5),
   (5, 'Utilização de recursos públicos em favor de interesses privados', 'Apropriação indevida, irregularidades em contratações públicas e outras formas de utilização de recursos públicos para uso privado (exemplos: veículos oficiais, utilização imprópria de tempo de trabalho, de equipamentos do escritório, entre outros).', 6);
+
+-- 4. LAC-08: a DAR de EXEMPLO, já publicada (dados fictícios).
+-- EXPLICAÇÃO DIDÁTICA: desde a migração 20261127001, o apetite só vale com
+-- portaria. Para os testes e a demonstração continuarem com apetite (e esse
+-- apetite ter portaria), a semente grava uma rodada completa do rito:
+--   minuta nº 1 → CTGRIC favorável → CIG aprovou → Portaria nº 000/2025 (exemplo).
+-- Os apetites da minuta são os mesmos das categorias acima. Esta parte roda
+-- ANTES de existir qualquer risco: o gatilho de reavaliação não tem o que mudar.
+-- (Nenhum número, data ou link é real: é só demonstração.)
+WITH m AS (
+  INSERT INTO public.dar_minutas (etapa, criada_em, criada_por)
+  VALUES ('publicada', timestamptz '2025-03-03 10:00-03', NULL)
+  RETURNING id
+), cats AS (
+  INSERT INTO public.dar_minuta_categorias (minuta_id, categoria_id, apetite_proposto, justificativa)
+  SELECT m.id, c.id, c.apetite_declarado, c.justificativa_dar
+    FROM m CROSS JOIN public.categorias_risco AS c
+  RETURNING minuta_id
+), ev AS (
+  INSERT INTO public.dar_rito_eventos (minuta_id, tipo, data_evento, resultado, observacao, registrado_por, registrado_em)
+  SELECT m.id, e.tipo, e.data_evento, e.resultado, e.observacao, NULL, e.registrado_em
+    FROM m CROSS JOIN (VALUES
+      ('encaminhada_ctgric',  date '2025-03-03', NULL,        'Encaminhamento de exemplo.',        timestamptz '2025-03-03 10:00-03'),
+      ('manifestacao_ctgric', date '2025-03-17', 'favoravel', 'Manifestação de exemplo.',          timestamptz '2025-03-17 10:00-03'),
+      ('deliberacao_cig',     date '2025-04-08', 'aprovada',  'Deliberação de exemplo.',           timestamptz '2025-04-08 10:00-03'),
+      ('portaria_registrada', date '2025-04-15', NULL,        'Portaria de exemplo (fictícia).',   timestamptz '2025-04-15 10:00-03')
+    ) AS e(tipo, data_evento, resultado, observacao, registrado_em)
+  RETURNING minuta_id
+)
+INSERT INTO public.dar_portarias (minuta_id, numero, data_publicacao, link, registrada_em, registrada_por)
+SELECT m.id, '000/2025 (exemplo)', date '2025-04-15', NULL, timestamptz '2025-04-15 10:00-03', NULL
+  FROM m;
