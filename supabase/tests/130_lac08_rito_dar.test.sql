@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(122);
+select plan(133);
 
 -- ============================================================================
 -- 1. Tabelas, visão, RLS e o fim do UPDATE direto (Task 1)
@@ -369,6 +369,69 @@ select is((select p.numero || '|' || p.data_publicacao from public.dar_portarias
 select isnt(public.salvar_minuta_dar('{"categorias": []}'), :'m1'::uuid,
             'depois da portaria, salvar abre uma minuta nova');
 select pg_temp.sair();
+
+-- ============================================================================
+-- 4. Conversão dos apetites gravados sem portaria (Task 4)
+-- ============================================================================
+-- Decisão do responsável (2026-11-27): onde houver apetite e NENHUMA portaria
+-- (a nuvem do piloto hoje), o apetite volta a "Pendente de DAR" e os valores
+-- de antes viram a 1ª minuta, para a CGOV não perder o trabalho.
+
+-- 4.1 Com portaria (a semente local), a função não faz nada.
+select results_eq($$select * from public.fn_dar_converter_sem_portaria()$$,
+                  $$values (0, 0)$$, 'com portaria: (0, 0), nada muda');
+-- (São 6: as 5 da semente e a 9, que o bloco 1.6 pôs em "moderado".)
+select is((select count(*)::int from public.categorias_risco where apetite_declarado <> 'pendente_dar'), 6,
+          'com portaria: as 6 categorias com apetite continuam com apetite');
+
+-- 4.2 Só o dono do banco a executa.
+select pg_temp.entrar_como('cgov@radar.test');
+select throws_ok($$select * from public.fn_dar_converter_sem_portaria()$$, '42501', null,
+                 'a CGOV não executa a conversão');
+select pg_temp.sair();
+
+-- 4.3 Sem portaria (como na nuvem): apagamos o rito inteiro, como dono e só
+-- dentro do teste, com os gatilhos de imutabilidade desligados por um instante.
+alter table public.dar_rito_eventos      disable trigger trg_dar_evento_imutavel;
+alter table public.dar_portarias         disable trigger trg_dar_portarias_sem_apagar;
+alter table public.dar_minuta_categorias disable trigger trg_dar_minuta_categorias_sem_apagar;
+alter table public.dar_minutas           disable trigger trg_dar_minutas_sem_apagar;
+delete from public.dar_rito_eventos;
+delete from public.dar_portarias;
+delete from public.dar_minuta_categorias;
+delete from public.dar_minutas;
+alter table public.dar_rito_eventos      enable trigger trg_dar_evento_imutavel;
+alter table public.dar_portarias         enable trigger trg_dar_portarias_sem_apagar;
+alter table public.dar_minuta_categorias enable trigger trg_dar_minuta_categorias_sem_apagar;
+alter table public.dar_minutas           enable trigger trg_dar_minutas_sem_apagar;
+
+create temp table _cat_antes as select id, apetite_declarado, justificativa_dar from public.categorias_risco;
+create temp table _aprov_antes as
+  select id, status_critico from public.riscos where status_fluxo = 'aprovado';
+
+select * from public.fn_dar_converter_sem_portaria() as conv \gset conv_
+select is(:conv_categorias::int, 6, 'sem portaria: as 6 categorias com apetite voltaram a Pendente de DAR');
+select is(:conv_riscos_mudados::int,
+          (select count(*)::int from _aprov_antes a join public.riscos r on r.id = a.id
+            where r.status_critico is distinct from a.status_critico or r.status_fluxo <> 'aprovado'),
+          'sem portaria: a contagem de riscos mudados confere com o banco');
+select is((select string_agg(distinct apetite_declarado, ',') || '|' || count(justificativa_dar)
+             from public.categorias_risco), 'pendente_dar|0',
+          'as 8 categorias ficam em pendente_dar, sem justificativa');
+select is((select count(*)::int from public.dar_minutas where etapa = 'minuta'), 1,
+          'nasce uma minuta na etapa "minuta"');
+select results_eq(
+  $$ select categoria_id, apetite_proposto, justificativa from public.dar_minuta_categorias order by categoria_id $$,
+  $$ select id, apetite_declarado, justificativa_dar from _cat_antes order by id $$,
+  'a minuta guarda os apetites e as justificativas de antes');
+select is((select count(*)::int from _aprov_antes a join public.riscos r on r.id = a.id
+            where r.status_fluxo = 'em_homologacao_dir'), 0,
+          'nenhum risco aprovado volta para homologação (ninguém ENTRA no Risco Crítico)');
+select is((select count(*)::int from public.dar_portarias), 0, 'nenhuma portaria é inventada');
+
+-- 4.4 Chamar de novo não faz nada (as categorias já estão pendentes).
+select results_eq($$select * from public.fn_dar_converter_sem_portaria()$$,
+                  $$values (0, 0)$$, '2ª chamada: (0, 0)');
 
 select * from finish();
 rollback;

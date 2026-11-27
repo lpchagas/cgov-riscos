@@ -806,3 +806,91 @@ REVOKE EXECUTE ON FUNCTION public.registrar_portaria_dar(text, date, text)      
 REVOKE EXECUTE ON FUNCTION public.retificar_portaria_dar(text, date, text, text) FROM public, anon;
 GRANT  EXECUTE ON FUNCTION public.registrar_portaria_dar(text, date, text)       TO authenticated;
 GRANT  EXECUTE ON FUNCTION public.retificar_portaria_dar(text, date, text, text) TO authenticated;
+
+
+-- ============================================================================
+-- SEÇÃO 6 — Os apetites gravados SEM portaria (decisão de 2026-11-27)
+-- ============================================================================
+-- Até esta migração, a CGOV gravava o apetite direto, sem portaria. Pela
+-- decisão do responsável, esses apetites voltam a "Pendente de DAR" (como no
+-- quadro "Vigente" da P-01), e os valores de antes viram a PRIMEIRA MINUTA,
+-- para a CGOV não perder o trabalho: ela segue o rito a partir dela.
+--
+-- fn_dar_converter_sem_portaria() só age se houver categoria com apetite
+-- (≠ pendente_dar) e NENHUMA portaria registrada:
+--   1. cria a minuta na etapa "minuta" com os apetites e as justificativas de hoje;
+--   2. põe as 8 categorias em "pendente_dar", sem justificativa. O gatilho de
+--      reavaliação recalcula os riscos aprovados. Efeito esperado: só o
+--      residual Médio muda (de crítico ou não crítico para pendente); Alto e
+--      Extremo já eram críticos e continuam; nenhum risco ENTRA no Risco
+--      Crítico, então ninguém volta à homologação. (Pela trava da LAC-13, o
+--      Médio aprovado com "Aceitar" e DAR pendente volta à unidade para ajuste.)
+--   3. devolve (categorias que tinham apetite, riscos aprovados que mudaram).
+--
+-- No `db:reset` local, esta migração roda ANTES da semente: as categorias
+-- ainda não existem e a função devolve (0, 0). A semente grava, depois, uma
+-- DAR de exemplo já com portaria. Na nuvem do piloto (só com [AUTORIZAÇÃO]),
+-- é aqui que os passos 1 a 3 têm efeito.
+CREATE FUNCTION public.fn_dar_converter_sem_portaria()
+RETURNS TABLE (categorias integer, riscos_mudados integer)
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+DECLARE
+  v_cats    integer;
+  v_minuta  uuid;
+  v_antes   jsonb;
+  v_mudados integer;
+BEGIN
+  SELECT count(*)::integer INTO v_cats
+    FROM public.categorias_risco AS c
+   WHERE c.apetite_declarado <> 'pendente_dar';
+
+  IF v_cats = 0 OR EXISTS (SELECT 1 FROM public.dar_portarias) THEN
+    RETURN QUERY SELECT 0, 0;
+    RETURN;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.dar_minutas WHERE etapa <> 'publicada') THEN
+    RAISE EXCEPTION 'LAC-08: há minuta da DAR em andamento sem portaria; confira antes de converter.';
+  END IF;
+
+  -- Fotografia dos aprovados ANTES (id → status_critico).
+  SELECT coalesce(jsonb_object_agg(r.id, r.status_critico), '{}'::jsonb) INTO v_antes
+    FROM public.riscos AS r WHERE r.status_fluxo = 'aprovado';
+
+  -- 1. A minuta nº 1 guarda os valores de hoje.
+  INSERT INTO public.dar_minutas (etapa) VALUES ('minuta') RETURNING id INTO v_minuta;
+  INSERT INTO public.dar_minuta_categorias (minuta_id, categoria_id, apetite_proposto, justificativa)
+  SELECT v_minuta, c.id, c.apetite_declarado, c.justificativa_dar
+    FROM public.categorias_risco AS c;
+
+  -- 2. O vigente volta a "Pendente de DAR" (o gatilho reavalia os aprovados).
+  UPDATE public.categorias_risco
+     SET apetite_declarado = 'pendente_dar', justificativa_dar = NULL
+   WHERE apetite_declarado <> 'pendente_dar' OR justificativa_dar IS NOT NULL;
+
+  -- 3. Quantos aprovados mudaram (de criticidade ou de estado).
+  SELECT count(*)::integer INTO v_mudados
+    FROM public.riscos AS r
+   WHERE v_antes ? r.id::text
+     AND (r.status_critico IS DISTINCT FROM v_antes ->> r.id::text
+          OR r.status_fluxo <> 'aprovado');
+
+  RETURN QUERY SELECT v_cats, v_mudados;
+END;
+$$;
+-- Só o dono do banco (a própria migração) executa.
+REVOKE EXECUTE ON FUNCTION public.fn_dar_converter_sem_portaria() FROM public, anon, authenticated, service_role;
+
+-- A chamada, uma vez, no fim da migração, com o aviso do que mudou.
+DO $$
+DECLARE
+  v_r      record;
+  v_numero integer;
+BEGIN
+  SELECT * INTO v_r FROM public.fn_dar_converter_sem_portaria();
+  SELECT m.numero INTO v_numero FROM public.dar_minutas AS m WHERE m.etapa = 'minuta';
+  RAISE NOTICE 'LAC-08: % categorias voltaram a Pendente de DAR; % riscos aprovados reavaliados; a minuta nº % guarda os valores anteriores.',
+    v_r.categorias, v_r.riscos_mudados, coalesce(v_numero::text, '(nenhuma)');
+END;
+$$;
