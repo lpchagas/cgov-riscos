@@ -339,6 +339,17 @@ BEGIN
 END;
 $$;
 
+-- fn_dar_travar_rito(): uma trava ÚNICA para todo o rito da DAR, até o fim
+-- da transação (pg_advisory_xact_lock). O FOR UPDATE trava só a linha da
+-- minuta; esta trava cobre os casos com DUAS minutas, como retificar a
+-- portaria nº 1 enquanto outra sessão registra a nº 2: a segunda chamada
+-- espera a primeira terminar e já vê o banco atualizado.
+CREATE FUNCTION public.fn_dar_travar_rito()
+RETURNS void
+LANGUAGE sql
+SET search_path = ''
+AS $$ SELECT pg_advisory_xact_lock(hashtextextended('radar.lac08.rito_dar', 0)) $$;
+
 -- fn_dar_etapa_legivel(etapa): o nome da etapa para as mensagens.
 -- Ex.: 'no_ctgric' → 'no CTGRIC'.
 CREATE FUNCTION public.fn_dar_etapa_legivel(p_etapa text)
@@ -393,6 +404,21 @@ BEGIN
       p_rotulo, to_char(v_anterior, 'DD/MM/YYYY')
       USING ERRCODE = 'invalid_parameter_value';
   END IF;
+  -- Nenhum passo de uma minuta nova vem antes da portaria que está em vigor
+  -- (a da última minuta publicada, que não é esta).
+  -- Ex.: DAR vigente publicada em 15/04/2025 → encaminhar a minuta nº 2 ao
+  --      CTGRIC em 01/03/2025 é recusado.
+  SELECT p.data_publicacao INTO v_anterior
+    FROM public.dar_portarias AS p
+    JOIN public.dar_minutas AS m ON m.id = p.minuta_id
+   WHERE p.minuta_id <> p_minuta
+   ORDER BY m.numero DESC
+   LIMIT 1;
+  IF v_anterior IS NOT NULL AND p_data < v_anterior THEN
+    RAISE EXCEPTION 'RADAR: a data % não pode ser anterior à portaria vigente (%).',
+      p_rotulo, to_char(v_anterior, 'DD/MM/YYYY')
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
 END;
 $$;
 
@@ -438,6 +464,7 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.fn_dar_exigir_cgov()                                FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_dar_travar_rito()                                FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.fn_dar_etapa_legivel(text)                          FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.fn_dar_conferir_data(uuid, date, text)              FROM public, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.fn_dar_minuta_em_andamento()                        FROM public, anon, authenticated;
@@ -465,6 +492,7 @@ DECLARE
   v_ap    text;
 BEGIN
   PERFORM public.fn_dar_exigir_cgov();
+  PERFORM public.fn_dar_travar_rito();
 
   IF p IS NULL OR jsonb_typeof(p -> 'categorias') IS DISTINCT FROM 'array' THEN
     RAISE EXCEPTION 'RADAR: envie a lista de categorias da minuta.'
@@ -515,7 +543,11 @@ BEGIN
     VALUES (v_m.id, v_cat, v_ap, nullif(btrim(coalesce(v_item ->> 'justificativa', '')), ''))
     ON CONFLICT (minuta_id, categoria_id) DO UPDATE
       SET apetite_proposto = EXCLUDED.apetite_proposto,
-          justificativa    = EXCLUDED.justificativa;
+          -- Sem a chave "justificativa" no item, a que já estava fica.
+          -- Ex.: {"categoria_id": 2, "apetite_proposto": "baixo"} só muda o apetite.
+          justificativa    = CASE WHEN v_item ? 'justificativa'
+                                  THEN EXCLUDED.justificativa
+                                  ELSE public.dar_minuta_categorias.justificativa END;
   END LOOP;
 
   RETURN v_m.id;
@@ -533,6 +565,7 @@ DECLARE
   v_m public.dar_minutas;
 BEGIN
   PERFORM public.fn_dar_exigir_cgov();
+  PERFORM public.fn_dar_travar_rito();
   v_m := public.fn_dar_minuta_em_andamento();
   PERFORM public.fn_dar_exigir_etapa(v_m, 'minuta', 'encaminhar ao CTGRIC');
   PERFORM public.fn_dar_conferir_data(v_m.id, p_data, 'do encaminhamento ao CTGRIC');
@@ -555,6 +588,7 @@ DECLARE
   v_m public.dar_minutas;
 BEGIN
   PERFORM public.fn_dar_exigir_cgov();
+  PERFORM public.fn_dar_travar_rito();
   v_m := public.fn_dar_minuta_em_andamento();
   PERFORM public.fn_dar_exigir_etapa(v_m, 'no_ctgric', 'registrar a manifestação do CTGRIC');
   IF p_resultado IS NULL OR p_resultado NOT IN ('favoravel', 'com_ressalvas', 'desfavoravel') THEN
@@ -582,6 +616,7 @@ DECLARE
   v_m public.dar_minutas;
 BEGIN
   PERFORM public.fn_dar_exigir_cgov();
+  PERFORM public.fn_dar_travar_rito();
   v_m := public.fn_dar_minuta_em_andamento();
   PERFORM public.fn_dar_exigir_etapa(v_m, 'ressalvas', 'encaminhar ao CIG');
   PERFORM public.fn_dar_conferir_data(v_m.id, p_data, 'do encaminhamento ao CIG');
@@ -604,6 +639,7 @@ DECLARE
   v_m public.dar_minutas;
 BEGIN
   PERFORM public.fn_dar_exigir_cgov();
+  PERFORM public.fn_dar_travar_rito();
   v_m := public.fn_dar_minuta_em_andamento();
   PERFORM public.fn_dar_exigir_etapa(v_m, 'no_cig', 'registrar a deliberação do CIG');
   IF p_resultado IS NULL OR p_resultado NOT IN ('aprovada', 'reprovada') THEN
@@ -675,6 +711,7 @@ DECLARE
   v_link   text;
 BEGIN
   PERFORM public.fn_dar_exigir_cgov();
+  PERFORM public.fn_dar_travar_rito();
 
   SELECT m.* INTO v_m
     FROM public.dar_minutas AS m
@@ -736,6 +773,7 @@ DECLARE
   v_depois   jsonb;
 BEGIN
   PERFORM public.fn_dar_exigir_cgov();
+  PERFORM public.fn_dar_travar_rito();
 
   IF v_motivo IS NULL THEN
     RAISE EXCEPTION 'RADAR: informe o motivo da retificação.'

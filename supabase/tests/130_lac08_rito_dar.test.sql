@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(133);
+select plan(136);
 
 -- ============================================================================
 -- 1. Tabelas, visão, RLS e o fim do UPDATE direto (Task 1)
@@ -168,6 +168,14 @@ select is((select count(*)::int from public.dar_minutas where etapa <> 'publicad
 select is((select string_agg(categoria_id || '=' || apetite_proposto, ',' order by categoria_id)
              from public.dar_minuta_categorias where minuta_id = :'m1' and categoria_id in (2, 3)),
           '2=baixo,3=moderado', 'a categoria 2 continua proposta e a 3 foi acrescentada');
+
+-- 2.3b Item sem a chave "justificativa": a justificativa que já estava na
+-- minuta (copiada do vigente) fica como está (revisão da Fase 1).
+select lives_ok($$select public.salvar_minuta_dar('{"categorias": [{"categoria_id": 4, "apetite_proposto": "baixo"}]}')$$,
+                'salvar um item só com o apetite');
+select is((select justificativa from public.dar_minuta_categorias where minuta_id = :'m1' and categoria_id = 4),
+          (select justificativa_dar from public.categorias_risco where id = 4),
+          'sem a chave "justificativa", a justificativa da categoria não é apagada');
 
 -- 2.4 Valores inválidos.
 select throws_ok($$select public.salvar_minuta_dar('{"categorias": [{"categoria_id": 2, "apetite_proposto": "alto"}]}')$$,
@@ -368,6 +376,11 @@ select is((select p.numero || '|' || p.data_publicacao from public.dar_portarias
 -- 3.7 Publicada a minuta, a CGOV pode abrir a próxima.
 select isnt(public.salvar_minuta_dar('{"categorias": []}'), :'m1'::uuid,
             'depois da portaria, salvar abre uma minuta nova');
+-- A minuta nova não pode ter passo com data anterior à portaria vigente
+-- (revisão da Fase 1). A vigente, retificada, é de :'d4'.
+select throws_like(format($$select public.encaminhar_minuta_dar_ctgric(%L)$$, :'d5'),
+                   'RADAR: a data do encaminhamento ao CTGRIC não pode ser anterior à portaria vigente%',
+                   'minuta nova: encaminhar antes da portaria vigente é recusado');
 select pg_temp.sair();
 
 -- ============================================================================
