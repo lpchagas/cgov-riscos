@@ -52,6 +52,7 @@ A análise das licenças Microsoft que sustenta a D0-8 está na spec, §3.1.
 | D1-7 | Semente na nuvem | Só o `supabase/seed.sql` (8 categorias + apetite padrão da DAR), aplicado via MCP numa transação; nunca `seed-demonstracao.sql`. |
 | D1-8 | Auth na nuvem | Cadastro avulso e login anônimo desligados; "Site URL" fica para a Task 7. |
 | D1-9 | `db push` com alvo escrito (substitui o D1-6) | Desde a CLI 3.3.0 (2026-11-24), `db push`, `db pull` e `db dump` são **locais por padrão**; para a nuvem, escreva `--remote` (`--linked` ainda funciona, mas saiu da ajuda). Na dúvida, escreva o alvo. |
+| D1-10 | Onde fica o front (resultado do teste da D0-8) | Teste do responsável em 2026-11-27 ([[guia-teste-power-pages]]): (1) **passou**, criou o site `teste-radar-icmbio` no ambiente `cgov-icmbio`; (2) **falhou**, porque esse ambiente é do tipo **Desenvolvedor** (os sites ficam sempre privados e não podem ser públicos) e o responsável não tem permissão para criar sites no ambiente de produção do Instituto (o ambiente "Padrão", que fica nos Estados Unidos); (3) **passou**, o upload de `.js` está liberado; (4) não precisou ser testada. Pela regra da D0-8, o front vai para o **Cloudflare Pages** (caminho B). |
 
 ### Pendências da Task 6 (banco na nuvem)
 
