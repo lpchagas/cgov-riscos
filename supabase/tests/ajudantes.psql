@@ -189,3 +189,29 @@ begin
   perform set_config('role', v_papel, true);
 end;
 $$;
+
+-- ----------------------------------------------------------------------------
+-- publicar_dar_pelo_rito(categorias): LAC-08 — percorre o rito INTEIRO da DAR
+-- pelas RPCs, como a CGOV faria pelas telas, com todas as datas = hoje.
+-- ----------------------------------------------------------------------------
+-- minuta → CTGRIC favorável → CIG aprova → portaria "T-<nº da minuta> (teste)".
+-- Quem chama precisa ter "entrado" como a CGOV (entrar_como('cgov@radar.test')).
+-- Exemplo:
+--   select pg_temp.publicar_dar_pelo_rito(
+--     '[{"categoria_id": 2, "apetite_proposto": "baixo", "justificativa": "Teste."}]');
+create or replace function pg_temp.publicar_dar_pelo_rito(p_categorias jsonb)
+returns void
+language plpgsql
+as $$
+declare
+  v_minuta uuid;
+  v_hoje   date := public.fn_hoje();
+begin
+  v_minuta := public.salvar_minuta_dar(jsonb_build_object('categorias', p_categorias));
+  perform public.encaminhar_minuta_dar_ctgric(v_hoje);
+  perform public.registrar_manifestacao_ctgric_dar('favoravel', v_hoje, null);
+  perform public.registrar_deliberacao_cig_dar('aprovada', v_hoje, null);
+  perform public.registrar_portaria_dar(
+    'T-' || (select m.numero from public.dar_minutas m where m.id = v_minuta) || ' (teste)', v_hoje, null);
+end;
+$$;

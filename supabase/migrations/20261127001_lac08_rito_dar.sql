@@ -629,3 +629,180 @@ GRANT  EXECUTE ON FUNCTION public.encaminhar_minuta_dar_ctgric(date)            
 GRANT  EXECUTE ON FUNCTION public.registrar_manifestacao_ctgric_dar(text, date, text)   TO authenticated;
 GRANT  EXECUTE ON FUNCTION public.encaminhar_minuta_dar_cig(date)                       TO authenticated;
 GRANT  EXECUTE ON FUNCTION public.registrar_deliberacao_cig_dar(text, date, text)       TO authenticated;
+
+
+-- ============================================================================
+-- SEÇÃO 5 — RPCs da portaria e da retificação
+-- ============================================================================
+
+-- fn_dar_conferir_link(link): vazio pode; preenchido, começa com http(s)://.
+CREATE FUNCTION public.fn_dar_conferir_link(p_link text)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v_link text := nullif(btrim(coalesce(p_link, '')), '');
+BEGIN
+  IF v_link IS NOT NULL AND v_link !~* '^https?://' THEN
+    RAISE EXCEPTION 'RADAR: o link da portaria deve começar com http:// ou https://.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  RETURN v_link;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION public.fn_dar_conferir_link(text) FROM public, anon, authenticated;
+
+-- 5.1 registrar_portaria_dar(número, data, link): aprovada_cig → publicada.
+-- É o ÚNICO lugar em que o apetite muda (RF-093). Para cada categoria em que
+-- a minuta difere do vigente, grava o apetite e a justificativa propostos.
+-- O gatilho trg_categorias_dar_reavalia_aprovados (migração 20261116004, sem
+-- mudança) reavalia os riscos aprovados daquela categoria.
+-- Ex.: minuta propõe Operacional "baixo"; um risco aprovado Médio de
+--      Operacional passa a Risco Crítico e volta para homologação.
+-- Clique duplo: o 2º chamado espera o 1º (FOR UPDATE); quando roda, a minuta
+-- já está "publicada" e ele é recusado, sem reavaliar ninguém de novo.
+CREATE FUNCTION public.registrar_portaria_dar(p_numero text, p_data date, p_link text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_m      public.dar_minutas;
+  v_numero text := nullif(btrim(coalesce(p_numero, '')), '');
+  v_link   text;
+BEGIN
+  PERFORM public.fn_dar_exigir_cgov();
+
+  SELECT m.* INTO v_m
+    FROM public.dar_minutas AS m
+   WHERE m.etapa <> 'publicada'
+     FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RADAR: não há minuta aprovada pelo CIG aguardando portaria (a última já foi publicada). Atualize a página.'
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  END IF;
+  PERFORM public.fn_dar_exigir_etapa(v_m, 'aprovada_cig', 'registrar a portaria');
+
+  IF v_numero IS NULL THEN
+    RAISE EXCEPTION 'RADAR: informe o número da portaria.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  PERFORM public.fn_dar_conferir_data(v_m.id, p_data, 'da portaria');
+  v_link := public.fn_dar_conferir_link(p_link);
+
+  INSERT INTO public.dar_portarias (minuta_id, numero, data_publicacao, link)
+  VALUES (v_m.id, v_numero, p_data, v_link);
+  INSERT INTO public.dar_rito_eventos (minuta_id, tipo, data_evento)
+  VALUES (v_m.id, 'portaria_registrada', p_data);
+
+  -- O apetite passa a valer. Só as categorias que mudam são tocadas (assim o
+  -- gatilho e a trilha de auditoria só registram o que mudou de fato).
+  UPDATE public.categorias_risco AS c
+     SET apetite_declarado = mc.apetite_proposto,
+         justificativa_dar = mc.justificativa
+    FROM public.dar_minuta_categorias AS mc
+   WHERE mc.minuta_id = v_m.id
+     AND mc.categoria_id = c.id
+     AND (c.apetite_declarado IS DISTINCT FROM mc.apetite_proposto
+          OR c.justificativa_dar IS DISTINCT FROM mc.justificativa);
+
+  UPDATE public.dar_minutas SET etapa = 'publicada' WHERE id = v_m.id;
+END;
+$$;
+
+-- 5.2 retificar_portaria_dar(número, data, link, motivo): corrige o registro
+-- da ÚLTIMA portaria publicada (a que está vigente). NÃO toca no apetite nem
+-- reavalia riscos: só corrige número, data ou link, com motivo obrigatório.
+-- Cada retificação vira um evento `portaria_retificada` com o antes e o depois.
+-- Ex.: a data foi digitada 15/04 em vez de 14/04 → retificar com o motivo
+--      "A data foi digitada errada."; o apetite e a criticidade não mudam.
+CREATE FUNCTION public.retificar_portaria_dar(p_numero text, p_data date, p_link text, p_motivo text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_m        public.dar_minutas;
+  v_p        public.dar_portarias;
+  v_numero   text := nullif(btrim(coalesce(p_numero, '')), '');
+  v_motivo   text := nullif(btrim(coalesce(p_motivo, '')), '');
+  v_link     text;
+  v_cig      date;
+  v_antes    jsonb;
+  v_depois   jsonb;
+BEGIN
+  PERFORM public.fn_dar_exigir_cgov();
+
+  IF v_motivo IS NULL THEN
+    RAISE EXCEPTION 'RADAR: informe o motivo da retificação.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  -- A última minuta publicada (a da portaria vigente), travada.
+  SELECT m.* INTO v_m
+    FROM public.dar_minutas AS m
+   WHERE m.etapa = 'publicada'
+   ORDER BY m.numero DESC
+   LIMIT 1
+     FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RADAR: não há portaria da DAR publicada para retificar.'
+      USING ERRCODE = 'no_data_found';
+  END IF;
+  SELECT p.* INTO v_p FROM public.dar_portarias AS p WHERE p.minuta_id = v_m.id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RADAR: não há portaria da DAR publicada para retificar.'
+      USING ERRCODE = 'no_data_found';
+  END IF;
+
+  IF v_numero IS NULL THEN
+    RAISE EXCEPTION 'RADAR: informe o número da portaria.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF p_data IS NULL THEN
+    RAISE EXCEPTION 'RADAR: informe a data da portaria.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF NOT isfinite(p_data) OR p_data < date '2000-01-01' THEN
+    RAISE EXCEPTION 'RADAR: a data da portaria é inválida.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF p_data > public.fn_hoje() THEN
+    RAISE EXCEPTION 'RADAR: a data da portaria não pode ser futura.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  -- A data corrigida pode ser ANTERIOR à registrada (é para isso que se
+  -- retifica), mas não anterior à deliberação do CIG que aprovou a minuta.
+  SELECT max(e.data_evento) INTO v_cig
+    FROM public.dar_rito_eventos AS e
+   WHERE e.minuta_id = v_m.id AND e.tipo = 'deliberacao_cig' AND e.resultado = 'aprovada';
+  IF v_cig IS NOT NULL AND p_data < v_cig THEN
+    RAISE EXCEPTION 'RADAR: a data da portaria não pode ser anterior à deliberação do CIG (%).',
+      to_char(v_cig, 'DD/MM/YYYY')
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  v_link := public.fn_dar_conferir_link(p_link);
+
+  v_antes  := jsonb_build_object('numero', v_p.numero, 'data_publicacao', v_p.data_publicacao, 'link', v_p.link);
+  v_depois := jsonb_build_object('numero', v_numero,   'data_publicacao', p_data,             'link', v_link);
+  IF v_antes = v_depois THEN
+    RAISE EXCEPTION 'RADAR: a retificação não muda nada: confira o número, a data e o link.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  UPDATE public.dar_portarias
+     SET numero = v_numero, data_publicacao = p_data, link = v_link
+   WHERE minuta_id = v_m.id;
+  INSERT INTO public.dar_rito_eventos (minuta_id, tipo, data_evento, antes, depois, motivo)
+  VALUES (v_m.id, 'portaria_retificada', public.fn_hoje(), v_antes, v_depois, v_motivo);
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.registrar_portaria_dar(text, date, text)       FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.retificar_portaria_dar(text, date, text, text) FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.registrar_portaria_dar(text, date, text)       TO authenticated;
+GRANT  EXECUTE ON FUNCTION public.retificar_portaria_dar(text, date, text, text) TO authenticated;

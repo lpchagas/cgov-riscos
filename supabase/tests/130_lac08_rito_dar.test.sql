@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(90);
+select plan(122);
 
 -- ============================================================================
 -- 1. Tabelas, visão, RLS e o fim do UPDATE direto (Task 1)
@@ -250,6 +250,124 @@ select is((select count(*)::int from public.dar_rito_eventos where minuta_id = :
           'todos os eventos têm a CGOV como autora (auth.uid())');
 select is((select apetite_declarado from public.categorias_risco where id = 2), 'moderado',
           'aprovada pelo CIG, mas sem portaria: o vigente continua moderado');
+select pg_temp.sair();
+
+-- ============================================================================
+-- 3. Portaria e retificação (Task 3)
+-- ============================================================================
+-- A minuta m1 está "aprovada_cig" (CIG em :'d5'), propondo Operacional (2)
+-- "baixo" e Financeiro/Orçamentário (3) "moderado".
+-- R: risco APROVADO, Operacional, P=2 e I=3 → residual 9,00 (Médio). Com o
+-- apetite "moderado" ele está dentro do apetite; com "baixo", vira Risco Crítico.
+select public.fn_hoje() - 4 as d4, public.fn_hoje() - 3 as d3 \gset
+insert into public.riscos
+  (codigo_radar, objeto_id, responsavel_risco_nome, causas, evento_risco, consequencias,
+   objetivo_afetado, descricao_padrao, categoria_id, probabilidade, impacto,
+   nivel_inerente, classificacao_inerente, nivel_residual, classificacao_residual, status_fluxo)
+values ('RADAR-T130-R', '00000000-0000-4000-b000-000000000001', 'Responsável de demonstração',
+        'causa de teste', 'evento de teste', 'consequência de teste', 'objetivo de teste', 'x',
+        2, 2, 3, 0, 'Baixo', 0, 'Baixo', 'aprovado');
+select id as r_r from public.riscos where codigo_radar = 'RADAR-T130-R' \gset
+select pg_temp.dar_tratamento(:'r_r');
+select is((select status_critico || '/' || status_fluxo from public.riscos where id = :'r_r'), 'nao/aprovado',
+          'R começa aprovado e dentro do apetite (Médio, Operacional moderado)');
+
+-- 3.1 Só a CGOV registra e retifica.
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok(format($$select public.registrar_portaria_dar('1/2026', %L, null)$$, :'d3'), '42501', null,
+                 'gestor.uc não registra a portaria');
+select throws_ok(format($$select public.retificar_portaria_dar('1/2026', %L, null, 'x')$$, :'d3'), '42501', null,
+                 'gestor.uc não retifica a portaria');
+
+-- 3.2 Valores recusados.
+select pg_temp.entrar_como('cgov@radar.test');
+select throws_ok(format($$select public.registrar_portaria_dar('   ', %L, null)$$, :'d3'), '22023',
+                 'RADAR: informe o número da portaria.', 'número vazio é recusado');
+select throws_ok(format($$select public.registrar_portaria_dar('1/2026', %L, null)$$, :'amanha'), '22023',
+                 'RADAR: a data da portaria não pode ser futura.', 'portaria com data futura é recusada');
+select throws_like(format($$select public.registrar_portaria_dar('1/2026', %L, null)$$, :'d10'),
+                   'RADAR: a data da portaria não pode ser anterior à do passo anterior%',
+                   'portaria com data anterior à deliberação do CIG é recusada');
+select throws_ok(format($$select public.registrar_portaria_dar('1/2026', %L, 'ftp://exemplo')$$, :'d3'), '22023', null,
+                 'link que não começa com http:// ou https:// é recusado');
+select is((select apetite_declarado from public.categorias_risco where id = 2), 'moderado',
+          'as tentativas recusadas não mudaram o apetite');
+
+-- 3.3 A CGOV registra a portaria: o apetite da minuta passa a valer, e o
+-- gatilho de hoje reavalia os riscos aprovados.
+create temp table _crit_antes as select id, is_critico, status_fluxo from public.riscos;
+select lives_ok(format($$select public.registrar_portaria_dar('001/2026 (teste)', %L, 'https://exemplo.invalid/portaria')$$, :'d3'),
+                'CGOV registra a portaria');
+select is((select etapa from public.dar_minutas where id = :'m1'), 'publicada', 'etapa: publicada');
+select is((select count(*)::int from public.dar_portarias where minuta_id = :'m1'), 1, 'a portaria da minuta foi gravada');
+select is((select apetite_declarado || '/' || justificativa_dar from public.categorias_risco where id = 2),
+          'baixo/Versão revista.', 'Operacional passa a "baixo", com a justificativa da minuta');
+select is((select apetite_declarado from public.categorias_risco where id = 3), 'moderado',
+          'Financeiro/Orçamentário passa a "moderado"');
+select is((select apetite_declarado || '/' || justificativa_dar from public.categorias_risco where id = 4),
+          (select apetite_proposto || '/' || justificativa from public.dar_minuta_categorias
+            where minuta_id = :'m1' and categoria_id = 4),
+          'Legal, que não mudou na minuta, continua igual');
+select is((select status_critico || '/' || status_fluxo from public.riscos where id = :'r_r'), 'sim/em_homologacao_dir',
+          'R passa a Risco Crítico e volta para homologação (o gatilho de hoje)');
+select is((select count(*)::int from public.historico_fluxo where risco_id = :'r_r' and acao = 'reaberto_mudanca_dar'), 1,
+          'R: uma linha reaberto_mudanca_dar no histórico');
+select is((select count(*)::int from public.dar_rito_eventos where minuta_id = :'m1' and tipo = 'portaria_registrada'), 1,
+          'o registro da portaria vira 1 evento');
+select is((select etapa || '|' || portaria_numero || '|' || portaria_vigente_numero || '|' || portaria_data
+             from public.dar_situacao),
+          'publicada|001/2026 (teste)|001/2026 (teste)|' || :'d3',
+          'dar_situacao: a minuta publicada e a portaria nova como vigente');
+
+-- 3.4 Clique duplo: o 2º registro acha a minuta já publicada e é recusado,
+-- sem reavaliar ninguém de novo.
+select throws_ok(format($$select public.registrar_portaria_dar('001/2026 (teste)', %L, null)$$, :'d3'), '55000',
+                 'RADAR: não há minuta aprovada pelo CIG aguardando portaria (a última já foi publicada). Atualize a página.',
+                 '2º registro da portaria é recusado com mensagem clara');
+select is((select count(*)::int from public.historico_fluxo where risco_id = :'r_r' and acao = 'reaberto_mudanca_dar'), 1,
+          'R não foi reavaliado duas vezes');
+select is((select count(*)::int from public.dar_portarias), 2, 'continua uma portaria por minuta publicada');
+
+-- 3.5 Retificação: corrige o registro, sem mexer no apetite nem na criticidade.
+create temp table _depois_portaria as
+  select r.id, r.is_critico, r.status_critico, r.status_fluxo from public.riscos r;
+create temp table _cat_depois as select id, apetite_declarado, justificativa_dar from public.categorias_risco;
+select throws_ok(format($$select public.retificar_portaria_dar('001/2026 (teste)', %L, null, '  ')$$, :'d4'), '22023',
+                 'RADAR: informe o motivo da retificação.', 'retificar sem motivo é recusado');
+select throws_ok(format($$select public.retificar_portaria_dar('001/2026 (teste)', %L, null, 'x')$$, :'amanha'), '22023', null,
+                 'retificar com data futura é recusado');
+select throws_like(format($$select public.retificar_portaria_dar('001/2026 (teste)', %L, null, 'x')$$, :'d10'),
+                   'RADAR: a data da portaria não pode ser anterior à deliberação do CIG%',
+                   'retificar com data anterior à deliberação do CIG é recusado');
+select throws_ok(format($$select public.retificar_portaria_dar('001/2026 (teste)', %L, 'https://exemplo.invalid/portaria', 'x')$$, :'d3'), '22023',
+                 'RADAR: a retificação não muda nada: confira o número, a data e o link.', 'retificar sem mudar nada é recusado');
+select lives_ok(format($$select public.retificar_portaria_dar('001/2026 (teste)', %L, 'https://exemplo.invalid/portaria', 'A data foi digitada errada.')$$, :'d4'),
+                'CGOV retifica a data da portaria');
+select is((select data_publicacao from public.dar_portarias where minuta_id = :'m1'), :'d4'::date,
+          'a portaria fica com a data corrigida');
+select is((select (antes ->> 'data_publicacao') || '→' || (depois ->> 'data_publicacao') || '|' || motivo
+             from public.dar_rito_eventos where minuta_id = :'m1' and tipo = 'portaria_retificada'),
+          :'d3' || '→' || :'d4' || '|A data foi digitada errada.',
+          'o evento portaria_retificada guarda o antes, o depois e o motivo');
+select is((select count(*)::int from _depois_portaria d join public.riscos r on r.id = d.id
+            where r.is_critico is distinct from d.is_critico
+               or r.status_critico is distinct from d.status_critico
+               or r.status_fluxo is distinct from d.status_fluxo), 0,
+          'a retificação não mudou a criticidade nem o estado de nenhum risco');
+select is((select count(*)::int from _cat_depois c join public.categorias_risco k on k.id = c.id
+            where k.apetite_declarado is distinct from c.apetite_declarado
+               or k.justificativa_dar is distinct from c.justificativa_dar), 0,
+          'a retificação não mudou o apetite nem a justificativa de nenhuma categoria');
+
+-- 3.6 Só a ÚLTIMA portaria publicada é retificada (a função não recebe id):
+-- a de exemplo, anterior, fica intacta.
+select is((select p.numero || '|' || p.data_publicacao from public.dar_portarias p
+             join public.dar_minutas m on m.id = p.minuta_id where m.id <> :'m1'),
+          '000/2025 (exemplo)|2025-04-15', 'a portaria de exemplo, anterior, não foi tocada');
+
+-- 3.7 Publicada a minuta, a CGOV pode abrir a próxima.
+select isnt(public.salvar_minuta_dar('{"categorias": []}'), :'m1'::uuid,
+            'depois da portaria, salvar abre uma minuta nova');
 select pg_temp.sair();
 
 select * from finish();
