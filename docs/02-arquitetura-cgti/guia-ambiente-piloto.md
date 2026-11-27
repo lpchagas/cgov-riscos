@@ -39,17 +39,23 @@
 Faça isso sempre que o código do front mudar e for preciso levar a mudança para o piloto.
 **[AUTORIZAÇÃO]** do responsável a cada publicação.
 
-1. Atualize a branch e as dependências:
+1. Vá para a `main` (o código já revisado e mesclado) e atualize-a com as dependências. O
+   `--branch main` do passo 5 só dá o nome à publicação: o que sobe é o que está na sua pasta, então
+   publique a partir da `main`, nunca de uma branch de trabalho.
    ```bash
+   git status           # deve dizer "nothing to commit, working tree clean"; se não, guarde ou descarte antes
+   git switch main      # troca para a branch principal
    git pull --ff-only   # traz a versão mais nova do código
    npm ci               # instala as dependências exatamente como no package-lock.json
    ```
 2. Gere o pacote em **modo real** (sem as duas variáveis, o build sai em modo demonstração):
    ```bash
    VITE_SUPABASE_URL=https://bekqcwaolpbhpxzcdyhx.supabase.co \
-   VITE_SUPABASE_ANON_KEY=<chave publicável sb_publishable_…> \
+   VITE_SUPABASE_ANON_KEY='sb_publishable_COLE_AQUI' \
    npm run build        # gera a pasta dist/ ligada ao banco do piloto
    ```
+   Troque `sb_publishable_COLE_AQUI` pela chave publicável inteira, mantendo as aspas simples. Não use
+   `<` nem `>` em volta da chave: o terminal os entende como redirecionamento e o build não roda.
 3. Confira que nenhum segredo entrou no pacote:
    ```bash
    npm run conferir:dist   # deve dizer "nenhum segredo encontrado"
