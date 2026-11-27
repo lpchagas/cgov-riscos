@@ -71,7 +71,7 @@ ficam para decidir com a CGOV (a tabela diz o ator principal do caso de uso). Ca
 | P-07 `/acompanhamento` (sugestão) | nova | UC-22 | fora da matriz; ator: CGOV | página nova (a criar) | a definir no protótipo | a prototipar (LAC-09) |
 | P-08 `/plano/revisao` (sugestão) | nova | UC-23 | fora da matriz; ator: CGOV | página nova (a criar) | a definir no protótipo | a prototipar (LAC-07) |
 | P-09 `/riscos/:id` (ação "Reavaliar") | `FichaDetalheBowTieView.vue` (ampliar) | UC-24 | fora da matriz; ator: gestor de riscos | ✏️ Trabalho — Ficha do risco (a desenhar) | a definir no protótipo | a prototipar (LAC-10) |
-| P-10 `/plano/publicacao` (sugestão) | nova | UC-25 | fora da matriz; ator: CGOV, como Secretaria-Executiva | página nova (a criar) | a definir no protótipo | a prototipar (LAC-02) |
+| P-10 `/plano/publicacao` | nova | UC-25 | fora da matriz; ator: CGOV, como Secretaria-Executiva (os 10 perfis leem; só a CGOV registra e retifica) | ✏️ Trabalho — Publicação (DAR e Plano), seção `130:1475` | PageHeader, BrMessage, Chip, FormField, BrButton, Dialog, ItemMenu | desenhada em 2026-11-27, aguardando a CGOV; bloco da DAR ativo (RF-130, LAC-08), blocos do Plano travados até a P-04 (LAC-02) |
 | P-11 `/relatorios/anual` (sugestão) | nova | UC-26 | fora da matriz; ator: CGOV | página nova (a criar) | a definir no protótipo | a prototipar (LAC-06) |
 
 Regras que todo protótipo segue (as mesmas do código): o Risco Inerente vem da tabela fixa do Quadro 7
