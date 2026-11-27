@@ -315,25 +315,26 @@ select is((select nivel_inerente from public.riscos where codigo_radar = 'RADAR-
           'o gatilho de cálculo continua valendo: P=1, I=5 → 15');
 
 -- ----------------------------------------------------------------------------
--- 8. DAR (categorias_risco): só a CGOV grava
+-- 8. DAR (categorias_risco): ninguém logado grava direto (LAC-08)
 -- ----------------------------------------------------------------------------
-select is(pg_temp.linhas_afetadas($$update public.categorias_risco set justificativa_dar = 'mudança indevida' where id = 2$$),
-          0, 'gestor.uc NÃO altera a DAR (categorias_risco)');
+-- Desde a migração 20261127001 (LAC-08), o apetite e a justificativa da DAR só
+-- mudam pela RPC registrar_portaria_dar, no fim do rito (minuta → CTGRIC →
+-- CIG → portaria). Nem a CGOV faz UPDATE, INSERT ou DELETE em categorias_risco
+-- pela API: o banco recusa com 42501 (sem permissão). O rito é testado no 130.
+select throws_ok($$update public.categorias_risco set justificativa_dar = 'mudança indevida' where id = 2$$,
+                 '42501', null, 'gestor.uc NÃO altera a DAR (categorias_risco)');
 select throws_ok($$insert into public.categorias_risco (nome, descricao_normativa) values ('Categoria indevida', 'x')$$,
                  '42501', null, 'gestor.uc NÃO cria categoria');
 select pg_temp.entrar_como('diretor.dibio@radar.test');
-select is(pg_temp.linhas_afetadas($$update public.categorias_risco set justificativa_dar = 'mudança indevida' where id = 2$$),
-          0, 'diretor NÃO altera a DAR direto (ela é aprovada no Comitê; a CGOV registra)');
+select throws_ok($$update public.categorias_risco set justificativa_dar = 'mudança indevida' where id = 2$$,
+                 '42501', null, 'diretor NÃO altera a DAR direto (ela é aprovada no CIG e publicada por portaria)');
 select pg_temp.entrar_como('cgov@radar.test');
-select is(pg_temp.linhas_afetadas($$update public.categorias_risco set justificativa_dar = 'Simulação da CGOV (teste 041)' where id = 2$$),
-          1, 'cgov altera a DAR (simular e propor)');
--- Desde a LAC-14 (migração 20261122001) o nome da categoria só pode ser um
--- dos 8 do Quadro 2 (CHECK categorias_risco_nome_quadro_2), e os 8 já estão
--- gravados. Então nem a CGOV cria categoria nova: a RLS deixa, o CHECK
--- recusa (23514). (O acerto do contador de ids, que este teste conferia,
--- agora é conferido no 090: o próximo id é 12.)
+select throws_ok($$update public.categorias_risco set justificativa_dar = 'Simulação da CGOV (teste 041)' where id = 2$$,
+                 '42501', null, 'cgov também NÃO altera a DAR direto (só pela portaria, LAC-08)');
+-- Nem a CGOV cria categoria: as 8 do Quadro 2 já estão gravadas (LAC-14) e,
+-- desde a LAC-08, INSERT em categorias_risco não é concedido a ninguém logado.
 select throws_ok($$insert into public.categorias_risco (nome, descricao_normativa) values ('Categoria de teste 041', 'x')$$,
-                 '23514', null, 'cgov não cria categoria fora do Quadro 2 (CHECK do nome)');
+                 '42501', null, 'cgov não cria categoria (sem permissão de INSERT)');
 
 -- ----------------------------------------------------------------------------
 -- 9. perfis_usuarios: cada um lê a própria linha; só a CGOV lê e grava todas

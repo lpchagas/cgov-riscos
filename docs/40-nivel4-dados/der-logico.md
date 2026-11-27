@@ -244,6 +244,41 @@ erDiagram
         uuid risco_id PK
     }
 
+    dar_minutas {
+        uuid id PK
+        int numero "nº da minuta (contador)"
+        text etapa "minuta, no_ctgric, ressalvas, no_cig, aprovada_cig ou publicada"
+        timestamptz criada_em
+        uuid criada_por
+    }
+    dar_minuta_categorias {
+        uuid minuta_id PK
+        int categoria_id PK
+        text apetite_proposto "baixo, moderado ou pendente_dar"
+        text justificativa
+    }
+    dar_rito_eventos {
+        bigint id PK "contador: a ordem dos eventos"
+        uuid minuta_id FK
+        text tipo "encaminhada_ctgric ... portaria_retificada"
+        date data_evento
+        text resultado "só CTGRIC e CIG"
+        text observacao
+        jsonb antes "só na retificação"
+        jsonb depois "só na retificação"
+        text motivo "só na retificação"
+        uuid registrado_por
+        timestamptz registrado_em
+    }
+    dar_portarias {
+        uuid minuta_id PK
+        text numero
+        date data_publicacao
+        text link
+        timestamptz registrada_em
+        uuid registrada_por
+    }
+
     objetos_contexto ||--o{ riscos : "objeto_id (apagado o objeto, apaga os riscos)"
     categorias_risco ||--o{ riscos : "categoria_id"
     categorias_risco ||--o{ subcategorias_risco : "categoria_id (não apaga categoria com subcategorias)"
@@ -260,6 +295,10 @@ erDiagram
     unidades ||--o{ comunicacoes_cgov : "unidade_id"
     comunicacoes_cgov ||--o{ comunicacoes_riscos : "comunicacao_id"
     riscos ||--o{ comunicacoes_riscos : "risco_id"
+    dar_minutas ||--o{ dar_minuta_categorias : "minuta_id"
+    categorias_risco ||--o{ dar_minuta_categorias : "categoria_id"
+    dar_minutas ||--o{ dar_rito_eventos : "minuta_id (eventos imutáveis)"
+    dar_minutas ||--o| dar_portarias : "minuta_id (uma portaria por minuta publicada)"
 ```
 
 "Em cascata" (`ON DELETE CASCADE`) quer dizer que, ao apagar a linha de cima, o banco apaga também as de
@@ -317,7 +356,7 @@ de `perfis_usuarios`, e fica vazio quando o administrador altera o banco direto.
 Em `historico_fluxo`, `usuario_nome` e `usuario_papel` são gravados como texto para mostrar quem agiu e
 com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 
-## Resumo das 18 tabelas
+## Resumo das 22 tabelas
 
 | Tabela | Bloco | Criada em | Chaves estrangeiras declaradas |
 | --- | --- | --- | --- |
@@ -337,6 +376,10 @@ com que papel **naquele dia**, mesmo que a pessoa mude de perfil depois.
 | `alertas_kri` | 2 | `20261123002` | `kri_id` → `indicadores_kri` (em cascata); `medicao_id` → `medicoes_kri` (a leitura que abriu o alerta); `comunicacao_id` → `comunicacoes_cgov` (`20261123003`) |
 | `comunicacoes_cgov` | 2 | `20261123003` | `unidade_id` → `unidades`; `alerta_id` → `alertas_kri` (único); comunicação imutável, só a ciência da CGOV muda (LAC-04) |
 | `comunicacoes_riscos` | 2 | `20261123003` | `comunicacao_id` → `comunicacoes_cgov`; `risco_id` → `riscos` (chave dupla) |
+| `dar_minutas` | 2 | `20261127001` | nenhuma (uma rodada do rito da DAR; só uma fora de `publicada` por vez, LAC-08) |
+| `dar_minuta_categorias` | 2 | `20261127001` | `minuta_id` → `dar_minutas`; `categoria_id` → `categorias_risco` (chave dupla) |
+| `dar_rito_eventos` | 2 | `20261127001` | `minuta_id` → `dar_minutas`; histórico imutável do rito |
+| `dar_portarias` | 2 | `20261127001` | `minuta_id` → `dar_minutas` (chave); só a RPC de retificação a altera |
 | `historico_fluxo` | 3 | `20261109001` (`usuario_id` e `sequencia` em `20261115004`) | `risco_id` → `riscos` (em cascata) |
 | `auditoria_log` | 3 | `20261109001` (`objeto_id`, `usuario_id`, `dados_anteriores` em `20261115005`) | nenhuma, de propósito |
 

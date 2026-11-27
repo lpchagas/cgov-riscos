@@ -323,7 +323,13 @@ create temp table _semente_sub as
 delete from public.riscos where codigo_radar like 'RADAR-T090-%' or id in (:'r_ficha', :'r_ficha_op', :'r_ficha_edicao');
 alter table public.categorias_risco drop constraint categorias_risco_nome_quadro_2;
 delete from public.subcategorias_risco;
+-- LAC-08: a DAR de exemplo da semente cita as 8 categorias (chave estrangeira
+-- de dar_minuta_categorias). Para recriar o estado antigo, as chaves ficam
+-- desligadas (session_replication_role = replica) SÓ neste DELETE; o
+-- alinhamento abaixo recria as categorias 9 a 11 e o rollback desfaz tudo.
+set local session_replication_role = replica;
 delete from public.categorias_risco where id in (9, 10, 11);
+set local session_replication_role = origin;
 update public.categorias_risco as c
    set nome = v.nome, descricao_normativa = v.descricao
   from (values

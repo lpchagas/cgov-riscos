@@ -657,7 +657,7 @@ select is((select string_agg(status_critico, ',' order by codigo_radar) from pub
           '14. ponto de partida: A e B já críticos; C dentro do apetite');
 
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 11$$,
+select lives_ok($$select pg_temp.publicar_dar_teste(11, 'baixo')$$,
                 '14. a mudança da DAR (moderado → baixo) termina sem exceção');
 select pg_temp.sair();
 select is((select status_fluxo from public.riscos where id = :'rd_a'), 'devolvido',
@@ -674,7 +674,7 @@ select is((select status_fluxo from public.riscos where id = :'rd_b'), 'aprovado
           '14. B (já crítico, com KRI completo) continua aprovado');
 
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 9$$,
+select lives_ok($$select pg_temp.publicar_dar_teste(9, 'pendente_dar')$$,
                 '14. a categoria 9 passa a pendente_dar sem exceção');
 select pg_temp.sair();
 select is((select status_fluxo || '/' || status_critico from public.riscos where id = :'rd_c'), 'devolvido/pendente_dar',

@@ -125,11 +125,11 @@ select is((select is_critico from public.riscos where id = :'r_f'), true,
 -- 1. Quem não é CGOV não muda a DAR (RLS: 0 linhas) e nada se mexe
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('gestor.uc@radar.test');
-select is(pg_temp.linhas_afetadas($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 2$$),
-          0, 'gestor.uc@ não altera o apetite da DAR (RLS)');
+select throws_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 2$$,
+                 '42501', null, 'gestor.uc@ não altera o apetite da DAR (sem permissão, LAC-08)');
 select pg_temp.entrar_como('gr@radar.test');
-select is(pg_temp.linhas_afetadas($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 2$$),
-          0, 'gr@ (titular de GR) também não altera a DAR');
+select throws_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 2$$,
+                 '42501', null, 'gr@ (titular de GR) também não altera a DAR');
 select pg_temp.sair();
 select is((select apetite_declarado from public.categorias_risco where id = 2), 'moderado',
           'apetite da categoria 2 continua moderado');
@@ -140,9 +140,9 @@ select is((select status_fluxo from public.riscos where id = :'r_a'), 'aprovado'
 -- 2. Mudar só o texto da DAR (sem mudar o apetite) não reavalia nada
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('cgov@radar.test');
-select is(pg_temp.linhas_afetadas($$update public.categorias_risco
-  set justificativa_dar = 'Texto revisto (teste 073).' where id = 2$$), 1,
-  'CGOV altera só a justificativa da categoria 2');
+select lives_ok($$select pg_temp.publicar_dar_pelo_rito(
+  '[{"categoria_id": 2, "apetite_proposto": "moderado", "justificativa": "Texto revisto (teste 073)."}]')$$,
+  'CGOV publica, pelo rito (LAC-08), uma DAR que muda só a justificativa da categoria 2');
 select pg_temp.sair();
 select is((select count(*)::int from public.historico_fluxo where acao = 'reaberto_mudanca_dar'), 0,
           'mudar só o texto da DAR não gera reabertura');
@@ -151,9 +151,12 @@ select is((select status_fluxo from public.riscos where id = :'r_a'), 'aprovado'
 
 -- ----------------------------------------------------------------------------
 -- 3. Apetite mais BAIXO: Operacional moderado → baixo (pela CGOV)
+-- LAC-08: os blocos 2 a 5 mudam a DAR pelo rito inteiro (minuta → CTGRIC →
+-- CIG → portaria, ajudante publicar_dar_pelo_rito); o apetite só vale na
+-- portaria (registrar_portaria_dar), e é ela que dispara o gatilho.
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 2$$,
+select lives_ok($$select pg_temp.publicar_dar_pelo_rito('[{"categoria_id": 2, "apetite_proposto": "baixo", "justificativa": "Texto revisto (teste 073)."}]')$$,
                 'CGOV baixa o apetite da categoria Operacional (moderado → baixo)');
 select pg_temp.sair();
 
@@ -252,7 +255,7 @@ select pg_temp.sair();
 -- 4. Apetite mais ALTO: Orçamentário baixo → moderado (F deixa de ser crítico)
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'moderado' where id = 3$$,
+select lives_ok($$select pg_temp.publicar_dar_pelo_rito('[{"categoria_id": 3, "apetite_proposto": "moderado", "justificativa": "Teste 073."}]')$$,
                 'CGOV sobe o apetite da categoria Financeiro/Orçamentário (baixo → moderado)');
 select pg_temp.sair();
 select is((select status_fluxo from public.riscos where id = :'r_f'), 'aprovado', 'F continua aprovado');
@@ -270,7 +273,7 @@ select ok((select count(*) from public.auditoria_log
 --    a 1ª publicação da DAR que torna o risco crítico reabre
 -- ----------------------------------------------------------------------------
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'pendente_dar' where id = 10$$,
+select lives_ok($$select pg_temp.publicar_dar_pelo_rito('[{"categoria_id": 10, "apetite_proposto": "pendente_dar", "justificativa": null}]')$$,
                 'CGOV põe a categoria Ocupacionais em pendente_dar (moderado → pendente_dar)');
 select pg_temp.sair();
 select is((select status_fluxo from public.riscos where id = :'r_g'), 'aprovado',
@@ -281,7 +284,7 @@ select is((select count(*)::int from public.historico_fluxo where risco_id = :'r
           'G: nenhuma linha de histórico');
 
 select pg_temp.entrar_como('cgov@radar.test');
-select lives_ok($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 10$$,
+select lives_ok($$select pg_temp.publicar_dar_pelo_rito('[{"categoria_id": 10, "apetite_proposto": "baixo", "justificativa": "Teste 073."}]')$$,
                 'CGOV publica a DAR da categoria Ocupacionais (pendente_dar → baixo)');
 select pg_temp.sair();
 select is((select status_fluxo from public.riscos where id = :'r_g'), 'em_homologacao_dir',

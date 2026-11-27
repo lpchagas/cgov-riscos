@@ -242,8 +242,10 @@ select is(pg_temp.linhas_afetadas($$update public.perfis_usuarios set titular_ch
           1, 'cgov torna servidor.gr titular (substituto em exercício)');
 -- Categoria 2 (Operacional, 'moderado' na semente). Antes era a 1
 -- (Estratégico), que saiu do Quadro 2 (LAC-14).
-select is(pg_temp.linhas_afetadas($$update public.categorias_risco set apetite_declarado = 'baixo' where id = 2$$),
-          1, 'cgov muda o apetite da categoria Operacional na DAR');
+-- LAC-08: o UPDATE direto foi fechado; o ajudante grava como dono, mas com o
+-- crachá da CGOV (auth.uid()), como faz a RPC da portaria.
+select lives_ok($$select pg_temp.publicar_dar_teste(2, 'baixo')$$,
+                'cgov muda o apetite da categoria Operacional na DAR (pelo ajudante; na tela, pela portaria)');
 select pg_temp.sair();
 
 select is((select count(*)::int from public.auditoria_log
