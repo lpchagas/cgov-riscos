@@ -18,7 +18,7 @@ begin;
 
 \ir ajudantes.psql
 
-select plan(36);
+select plan(90);
 
 -- ============================================================================
 -- 1. Tabelas, visão, RLS e o fim do UPDATE direto (Task 1)
@@ -106,6 +106,150 @@ select pg_temp.entrar_como('cgov@radar.test');
 select pg_temp.publicar_dar_teste(9, 'moderado');
 select is((select apetite_declarado from public.categorias_risco where id = 9), 'moderado',
           'ajudante publicar_dar_teste grava o apetite (só nos testes)');
+select pg_temp.sair();
+
+-- ============================================================================
+-- 2. Minuta, CTGRIC e CIG (Task 2)
+-- ============================================================================
+-- Datas relativas a "hoje" em Brasília (fn_hoje()), para o teste valer em
+-- qualquer dia. Ex.: :'d40' = hoje menos 40 dias.
+select public.fn_hoje() as hoje,
+       public.fn_hoje() - 41 as d41, public.fn_hoje() - 40 as d40, public.fn_hoje() - 35 as d35,
+       public.fn_hoje() - 30 as d30, public.fn_hoje() - 20 as d20, public.fn_hoje() - 10 as d10,
+       public.fn_hoje() - 9 as d9, public.fn_hoje() - 8 as d8, public.fn_hoje() - 5 as d5,
+       public.fn_hoje() + 1 as amanha,
+       (select id from auth.users where email = 'cgov@radar.test') as u_cgov
+\gset
+-- O bloco 1.5 abriu uma minuta de teste como dono; ela sai aqui (só no teste),
+-- com o gatilho que impede apagar desligado por um instante.
+alter table public.dar_minutas disable trigger trg_dar_minutas_sem_apagar;
+delete from public.dar_minutas where etapa <> 'publicada';
+alter table public.dar_minutas enable trigger trg_dar_minutas_sem_apagar;
+
+-- 2.1 Só a CGOV conduz o rito: as outras pessoas recebem 42501.
+select pg_temp.entrar_como('gestor.uc@radar.test');
+select throws_ok($$select public.salvar_minuta_dar('{"categorias": []}')$$, '42501', null,
+                 'gestor.uc não salva minuta');
+select throws_ok(format($$select public.encaminhar_minuta_dar_ctgric(%L)$$, :'d40'), '42501', null,
+                 'gestor.uc não encaminha ao CTGRIC');
+select throws_ok(format($$select public.registrar_manifestacao_ctgric_dar('favoravel', %L, null)$$, :'d40'), '42501', null,
+                 'gestor.uc não registra a manifestação do CTGRIC');
+select throws_ok(format($$select public.encaminhar_minuta_dar_cig(%L)$$, :'d40'), '42501', null,
+                 'gestor.uc não encaminha ao CIG');
+select throws_ok(format($$select public.registrar_deliberacao_cig_dar('aprovada', %L, null)$$, :'d40'), '42501', null,
+                 'gestor.uc não registra a deliberação do CIG');
+select pg_temp.entrar_como('diretor.dibio@radar.test');
+select throws_ok($$select public.salvar_minuta_dar('{"categorias": []}')$$, '42501', null,
+                 'diretor também não salva minuta');
+
+-- 2.2 A CGOV salva a minuta: a 1ª vez cria (com as 8 categorias, partindo do
+-- vigente); o vigente NÃO muda.
+select pg_temp.entrar_como('cgov@radar.test');
+select public.salvar_minuta_dar(
+  '{"categorias": [{"categoria_id": 2, "apetite_proposto": "baixo", "justificativa": "Proposta de teste (130)."}]}'
+) as m1 \gset
+select isnt(:'m1'::uuid, null::uuid, 'CGOV salva a minuta e recebe o id');
+select is((select count(*)::int from public.dar_minutas where etapa <> 'publicada'), 1, 'uma minuta em andamento');
+select is((select etapa from public.dar_minutas where id = :'m1'), 'minuta', 'a minuta nasce na etapa "minuta"');
+select is((select count(*)::int from public.dar_minuta_categorias where minuta_id = :'m1'), 8,
+          'a minuta tem as 8 categorias do Quadro 2');
+select is((select apetite_proposto || '/' || justificativa from public.dar_minuta_categorias
+            where minuta_id = :'m1' and categoria_id = 2), 'baixo/Proposta de teste (130).',
+          'a categoria 2 tem o apetite e a justificativa propostos');
+select is((select apetite_proposto from public.dar_minuta_categorias where minuta_id = :'m1' and categoria_id = 4), 'baixo',
+          'as outras categorias partem do vigente');
+select is((select apetite_declarado from public.categorias_risco where id = 2), 'moderado',
+          'o VIGENTE da categoria 2 não muda com a minuta');
+
+-- 2.3 A 2ª vez atualiza a mesma minuta (sem duplicar).
+select is(public.salvar_minuta_dar('{"categorias": [{"categoria_id": 3, "apetite_proposto": "moderado", "justificativa": "Outra proposta."}]}'),
+          :'m1'::uuid, 'salvar de novo devolve a mesma minuta');
+select is((select count(*)::int from public.dar_minutas where etapa <> 'publicada'), 1, 'continua uma minuta só');
+select is((select string_agg(categoria_id || '=' || apetite_proposto, ',' order by categoria_id)
+             from public.dar_minuta_categorias where minuta_id = :'m1' and categoria_id in (2, 3)),
+          '2=baixo,3=moderado', 'a categoria 2 continua proposta e a 3 foi acrescentada');
+
+-- 2.4 Valores inválidos.
+select throws_ok($$select public.salvar_minuta_dar('{"categorias": [{"categoria_id": 2, "apetite_proposto": "alto"}]}')$$,
+                 '22023', null, 'apetite proposto fora da lista é recusado');
+select throws_ok($$select public.salvar_minuta_dar('{"categorias": [{"categoria_id": 99, "apetite_proposto": "baixo"}]}')$$,
+                 '22023', null, 'categoria fora do Quadro 2 é recusada');
+
+-- 2.5 Encaminhar ao CTGRIC.
+select throws_ok(format($$select public.encaminhar_minuta_dar_ctgric(%L)$$, :'amanha'), '22023',
+                 'RADAR: a data do encaminhamento ao CTGRIC não pode ser futura.',
+                 'encaminhar com data futura é recusado');
+select throws_ok($$select public.encaminhar_minuta_dar_ctgric(null)$$, '22023', null,
+                 'encaminhar sem data é recusado');
+select lives_ok(format($$select public.encaminhar_minuta_dar_ctgric(%L)$$, :'d40'),
+                'CGOV encaminha a minuta ao CTGRIC');
+select is((select etapa from public.dar_minutas where id = :'m1'), 'no_ctgric', 'etapa: no_ctgric');
+select is((select count(*)::int from public.dar_rito_eventos
+            where minuta_id = :'m1' and tipo = 'encaminhada_ctgric' and registrado_por = :'u_cgov'), 1,
+          'o encaminhamento vira 1 evento, com a CGOV como autora');
+
+-- 2.6 Em no_ctgric, a minuta fica só para leitura, e não se abre outra.
+select throws_ok($$select public.salvar_minuta_dar('{"categorias": []}')$$, '55000',
+                 'RADAR: A minuta foi encaminhada ao CTGRIC e está só para leitura.',
+                 'salvar em no_ctgric é recusado');
+select is((select count(*)::int from public.dar_minutas where etapa <> 'publicada'), 1,
+          'não se abre outra minuta com uma em andamento');
+select throws_ok(format($$select public.encaminhar_minuta_dar_ctgric(%L)$$, :'d40'), '55000', null,
+                 'encaminhar de novo ao CTGRIC é recusado (etapa errada)');
+select throws_ok(format($$select public.registrar_deliberacao_cig_dar('aprovada', %L, null)$$, :'d40'), '55000', null,
+                 'deliberação do CIG antes do CTGRIC é recusada');
+
+-- 2.7 Manifestação do CTGRIC "com ressalvas": abre o prazo de 10 dias úteis.
+select throws_ok(format($$select public.registrar_manifestacao_ctgric_dar('favoravel', %L, null)$$, :'d41'), '22023', null,
+                 'manifestação com data anterior ao encaminhamento é recusada');
+select throws_ok(format($$select public.registrar_manifestacao_ctgric_dar('otimo', %L, null)$$, :'d30'), '22023', null,
+                 'resultado do CTGRIC fora da lista é recusado');
+select lives_ok(format($$select public.registrar_manifestacao_ctgric_dar('com_ressalvas', %L, 'Ajustar a justificativa.')$$, :'d30'),
+                'CGOV registra a manifestação "com ressalvas"');
+select is((select etapa from public.dar_minutas where id = :'m1'), 'ressalvas', 'etapa: ressalvas');
+select is((select dia_prazo from public.dar_situacao), public.fn_dias_uteis_entre(:'d30'::date, public.fn_hoje()),
+          'dar_situacao conta os dias úteis desde a manifestação');
+select is((select dentro_prazo from public.dar_situacao), false, '30 dias corridos depois: fora dos 10 dias úteis (aviso, sem bloqueio)');
+select is((select resultado_ctgric from public.dar_situacao), 'com_ressalvas', 'a visão traz o resultado do CTGRIC');
+
+-- 2.8 Em "ressalvas" a CGOV ainda edita a minuta; depois encaminha ao CIG.
+select lives_ok($$select public.salvar_minuta_dar('{"categorias": [{"categoria_id": 2, "apetite_proposto": "baixo", "justificativa": "Ressalva incorporada."}]}')$$,
+                'em "ressalvas" a minuta aceita ajustes');
+select lives_ok(format($$select public.encaminhar_minuta_dar_cig(%L)$$, :'d20'), 'CGOV encaminha ao CIG');
+select is((select etapa from public.dar_minutas where id = :'m1'), 'no_cig', 'etapa: no_cig');
+select is((select dia_prazo from public.dar_situacao), null::int, 'fora de "ressalvas" o contador some');
+
+-- 2.9 CIG reprova: a minuta volta à etapa "minuta", editável.
+select throws_ok(format($$select public.registrar_deliberacao_cig_dar('aprovada', %L, null)$$, :'d35'), '22023', null,
+                 'deliberação com data anterior à manifestação é recusada');
+select throws_ok(format($$select public.registrar_deliberacao_cig_dar('talvez', %L, null)$$, :'d10'), '22023', null,
+                 'resultado do CIG fora da lista é recusado');
+select lives_ok(format($$select public.registrar_deliberacao_cig_dar('reprovada', %L, 'Rever a categoria 2.')$$, :'d10'),
+                'CGOV registra a reprovação pelo CIG');
+select is((select etapa from public.dar_minutas where id = :'m1'), 'minuta', 'reprovada: volta à etapa "minuta"');
+select lives_ok($$select public.salvar_minuta_dar('{"categorias": [{"categoria_id": 2, "apetite_proposto": "baixo", "justificativa": "Versão revista."}]}')$$,
+                'reprovada: a minuta volta a aceitar edição');
+select is((select etapa || '/' || coalesce(data_encaminhada_ctgric::text, 'sem data')
+             from public.dar_situacao), 'minuta/sem data',
+          'a visão mostra a rodada nova (sem as datas da rodada reprovada)');
+
+-- 2.10 Nova rodada: CTGRIC favorável vai direto ao CIG; o CIG aprova.
+select lives_ok(format($$select public.encaminhar_minuta_dar_ctgric(%L)$$, :'d9'), 'nova rodada: encaminha ao CTGRIC');
+select lives_ok(format($$select public.registrar_manifestacao_ctgric_dar('favoravel', %L, null)$$, :'d8'),
+                'CTGRIC favorável');
+select is((select etapa from public.dar_minutas where id = :'m1'), 'no_cig', 'favorável: vai direto a no_cig');
+select throws_ok(format($$select public.encaminhar_minuta_dar_cig(%L)$$, :'d8'), '55000', null,
+                 'encaminhar ao CIG só existe depois das ressalvas');
+select lives_ok(format($$select public.registrar_deliberacao_cig_dar('aprovada', %L, null)$$, :'d5'), 'CIG aprova');
+select is((select etapa from public.dar_minutas where id = :'m1'), 'aprovada_cig', 'etapa: aprovada_cig');
+select throws_ok($$select public.salvar_minuta_dar('{"categorias": []}')$$, '55000', null,
+                 'aprovada pelo CIG: a minuta fica só para leitura');
+select is((select count(*)::int from public.dar_rito_eventos where minuta_id = :'m1'), 7,
+          'cada passo gravou 1 evento (7 no total, com a rodada reprovada)');
+select is((select count(*)::int from public.dar_rito_eventos where minuta_id = :'m1' and registrado_por = :'u_cgov'), 7,
+          'todos os eventos têm a CGOV como autora (auth.uid())');
+select is((select apetite_declarado from public.categorias_risco where id = 2), 'moderado',
+          'aprovada pelo CIG, mas sem portaria: o vigente continua moderado');
 select pg_temp.sair();
 
 select * from finish();

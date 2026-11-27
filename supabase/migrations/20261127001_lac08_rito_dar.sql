@@ -299,3 +299,333 @@ DROP POLICY IF EXISTS "Categorias: CGOV cria"   ON public.categorias_risco;
 DROP POLICY IF EXISTS "Categorias: CGOV altera" ON public.categorias_risco;
 DROP POLICY IF EXISTS "Categorias: CGOV apaga"  ON public.categorias_risco;
 REVOKE INSERT, UPDATE, DELETE ON public.categorias_risco FROM anon, authenticated;
+
+
+-- ============================================================================
+-- SEÇÃO 4 — RPCs da minuta, do CTGRIC e do CIG
+-- ============================================================================
+-- Todas seguem o mesmo molde (como as da LAC-04):
+--   * SECURITY DEFINER: rodam como dono, porque ninguém logado grava direto
+--     nas tabelas do rito (Seção 3);
+--   * SET search_path = '': todo nome vem com o esquema (public.…), para
+--     ninguém "trocar" uma tabela por outra de mesmo nome;
+--   * 1º a checagem de CGOV (erro 42501), SÓ DEPOIS a etapa: quem não é CGOV
+--     não descobre em que etapa a minuta está;
+--   * FOR UPDATE na minuta: dois cliques ao mesmo tempo esperam um pelo
+--     outro, e o segundo já vê a etapa nova (e é recusado com mensagem clara);
+--   * mensagens "RADAR: …" em português (o front mostra o texto sem o prefixo).
+--
+-- Códigos de erro usados:
+--   42501 (insufficient_privilege)            → não é a CGOV;
+--   55000 (object_not_in_prerequisite_state)  → etapa errada;
+--   22023 (invalid_parameter_value)           → valor ou data inválidos;
+--   P0002 (no_data_found)                     → não há minuta em andamento.
+
+-- 4.1 Ajudantes internos (ninguém logado os chama direto).
+
+-- fn_dar_exigir_cgov(): para tudo se quem chama não é a CGOV com perfil ativo.
+CREATE FUNCTION public.fn_dar_exigir_cgov()
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NOT coalesce((SELECT m.papel_governanca FROM public.meu_perfil() AS m WHERE m.id IS NOT NULL) = 'cgov', false) THEN
+    RAISE EXCEPTION 'RADAR: somente a CGOV registra o rito da DAR.'
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+END;
+$$;
+
+-- fn_dar_etapa_legivel(etapa): o nome da etapa para as mensagens.
+-- Ex.: 'no_ctgric' → 'no CTGRIC'.
+CREATE FUNCTION public.fn_dar_etapa_legivel(p_etapa text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT CASE p_etapa
+    WHEN 'minuta'       THEN 'minuta'
+    WHEN 'no_ctgric'    THEN 'no CTGRIC'
+    WHEN 'ressalvas'    THEN 'incorporação das ressalvas'
+    WHEN 'no_cig'       THEN 'no CIG'
+    WHEN 'aprovada_cig' THEN 'aprovada pelo CIG'
+    WHEN 'publicada'    THEN 'publicada'
+    ELSE p_etapa
+  END;
+$$;
+
+-- fn_dar_conferir_data(minuta, data, rótulo): a data do passo precisa existir,
+-- não pode ser futura (hoje em Brasília, fn_hoje()) nem anterior à do passo
+-- anterior desta minuta (o maior data_evento já gravado nela).
+-- Ex.: CIG deliberou em 10/03; portaria de 05/03 → recusada.
+CREATE FUNCTION public.fn_dar_conferir_data(p_minuta uuid, p_data date, p_rotulo text)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_anterior date;
+BEGIN
+  IF p_data IS NULL THEN
+    RAISE EXCEPTION 'RADAR: informe a data %.', p_rotulo
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF NOT isfinite(p_data) OR p_data < date '2000-01-01' THEN
+    RAISE EXCEPTION 'RADAR: a data % é inválida.', p_rotulo
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF p_data > public.fn_hoje() THEN
+    RAISE EXCEPTION 'RADAR: a data % não pode ser futura.', p_rotulo
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  SELECT max(e.data_evento) INTO v_anterior
+    FROM public.dar_rito_eventos AS e
+   WHERE e.minuta_id = p_minuta
+     AND e.tipo <> 'portaria_retificada';
+  IF v_anterior IS NOT NULL AND p_data < v_anterior THEN
+    RAISE EXCEPTION 'RADAR: a data % não pode ser anterior à do passo anterior (%).',
+      p_rotulo, to_char(v_anterior, 'DD/MM/YYYY')
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+END;
+$$;
+
+-- fn_dar_minuta_em_andamento(): a minuta fora de "publicada", travada
+-- (FOR UPDATE) até o fim da transação. Sem minuta em andamento → erro.
+CREATE FUNCTION public.fn_dar_minuta_em_andamento()
+RETURNS public.dar_minutas
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_m public.dar_minutas;
+BEGIN
+  SELECT m.* INTO v_m
+    FROM public.dar_minutas AS m
+   WHERE m.etapa <> 'publicada'
+     FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'RADAR: não há minuta da DAR em andamento.'
+      USING ERRCODE = 'no_data_found';
+  END IF;
+  RETURN v_m;
+END;
+$$;
+
+-- fn_dar_exigir_etapa(minuta, etapa esperada, ação): recusa a etapa errada.
+-- Ex.: encaminhar ao CTGRIC com a minuta "no CIG" →
+--   'RADAR: não é possível encaminhar ao CTGRIC: a minuta está na etapa "no CIG".'
+CREATE FUNCTION public.fn_dar_exigir_etapa(p_m public.dar_minutas, p_etapa text, p_acao text)
+RETURNS void
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = ''
+AS $$
+BEGIN
+  IF p_m.etapa IS DISTINCT FROM p_etapa THEN
+    RAISE EXCEPTION 'RADAR: não é possível %: a minuta está na etapa "%".',
+      p_acao, public.fn_dar_etapa_legivel(p_m.etapa)
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  END IF;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.fn_dar_exigir_cgov()                                FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_dar_etapa_legivel(text)                          FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_dar_conferir_data(uuid, date, text)              FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_dar_minuta_em_andamento()                        FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.fn_dar_exigir_etapa(public.dar_minutas, text, text) FROM public, anon, authenticated;
+
+-- 4.2 salvar_minuta_dar(p): cria a minuta (se não houver) ou atualiza a que
+-- está em andamento. Só nas etapas "minuta" e "ressalvas".
+-- p = {"categorias": [{"categoria_id": 2, "apetite_proposto": "baixo",
+--                      "justificativa": "..."}, ...]}
+-- Na 1ª vez, a minuta nasce com as 8 categorias copiadas do VIGENTE; depois,
+-- só as categorias enviadas mudam. Devolve o id da minuta.
+-- Ex.: salvar_minuta_dar('{"categorias": [{"categoria_id": 2,
+--        "apetite_proposto": "baixo", "justificativa": "Proposta."}]}')
+--      → a minuta passa a propor "baixo" para Operacional; o vigente não muda.
+CREATE FUNCTION public.salvar_minuta_dar(p jsonb)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_m     public.dar_minutas;
+  v_item  jsonb;
+  v_cat   integer;
+  v_ap    text;
+BEGIN
+  PERFORM public.fn_dar_exigir_cgov();
+
+  IF p IS NULL OR jsonb_typeof(p -> 'categorias') IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'RADAR: envie a lista de categorias da minuta.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  SELECT m.* INTO v_m
+    FROM public.dar_minutas AS m
+   WHERE m.etapa <> 'publicada'
+     FOR UPDATE;
+
+  IF NOT FOUND THEN
+    -- Não há minuta em andamento: abre a próxima, partindo do vigente.
+    -- (Dois cliques ao mesmo tempo: o índice único recusa a 2ª.)
+    BEGIN
+      INSERT INTO public.dar_minutas (etapa) VALUES ('minuta') RETURNING * INTO v_m;
+    EXCEPTION WHEN unique_violation THEN
+      RAISE EXCEPTION 'RADAR: outra minuta da DAR acabou de ser aberta. Atualize a página.'
+        USING ERRCODE = 'object_not_in_prerequisite_state';
+    END;
+    INSERT INTO public.dar_minuta_categorias (minuta_id, categoria_id, apetite_proposto, justificativa)
+    SELECT v_m.id, c.id, c.apetite_declarado, c.justificativa_dar
+      FROM public.categorias_risco AS c;
+  ELSIF v_m.etapa = 'no_ctgric' THEN
+    RAISE EXCEPTION 'RADAR: A minuta foi encaminhada ao CTGRIC e está só para leitura.'
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  ELSIF v_m.etapa = 'no_cig' THEN
+    RAISE EXCEPTION 'RADAR: A minuta foi encaminhada ao CIG e está só para leitura.'
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  ELSIF v_m.etapa = 'aprovada_cig' THEN
+    RAISE EXCEPTION 'RADAR: A minuta foi aprovada pelo CIG e aguarda a portaria; está só para leitura.'
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  END IF;
+
+  FOR v_item IN SELECT jsonb_array_elements(p -> 'categorias') LOOP
+    v_cat := CASE WHEN jsonb_typeof(v_item -> 'categoria_id') = 'number'
+                  THEN (v_item ->> 'categoria_id')::numeric::integer END;
+    v_ap  := v_item ->> 'apetite_proposto';
+    IF v_cat IS NULL OR NOT EXISTS (SELECT 1 FROM public.categorias_risco AS c WHERE c.id = v_cat) THEN
+      RAISE EXCEPTION 'RADAR: a categoria % não está no Quadro 2.', coalesce(v_item ->> 'categoria_id', '(vazia)')
+        USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF v_ap IS NULL OR v_ap NOT IN ('baixo', 'moderado', 'pendente_dar') THEN
+      RAISE EXCEPTION 'RADAR: apetite proposto inválido: use baixo, moderado ou pendente_dar.'
+        USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    INSERT INTO public.dar_minuta_categorias (minuta_id, categoria_id, apetite_proposto, justificativa)
+    VALUES (v_m.id, v_cat, v_ap, nullif(btrim(coalesce(v_item ->> 'justificativa', '')), ''))
+    ON CONFLICT (minuta_id, categoria_id) DO UPDATE
+      SET apetite_proposto = EXCLUDED.apetite_proposto,
+          justificativa    = EXCLUDED.justificativa;
+  END LOOP;
+
+  RETURN v_m.id;
+END;
+$$;
+
+-- 4.3 encaminhar_minuta_dar_ctgric(data): minuta → no_ctgric.
+CREATE FUNCTION public.encaminhar_minuta_dar_ctgric(p_data date)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_m public.dar_minutas;
+BEGIN
+  PERFORM public.fn_dar_exigir_cgov();
+  v_m := public.fn_dar_minuta_em_andamento();
+  PERFORM public.fn_dar_exigir_etapa(v_m, 'minuta', 'encaminhar ao CTGRIC');
+  PERFORM public.fn_dar_conferir_data(v_m.id, p_data, 'do encaminhamento ao CTGRIC');
+  INSERT INTO public.dar_rito_eventos (minuta_id, tipo, data_evento)
+  VALUES (v_m.id, 'encaminhada_ctgric', p_data);
+  UPDATE public.dar_minutas SET etapa = 'no_ctgric' WHERE id = v_m.id;
+END;
+$$;
+
+-- 4.4 registrar_manifestacao_ctgric_dar(resultado, data, observação):
+-- no_ctgric → ressalvas (com ressalvas) ou no_cig (favorável/desfavorável;
+-- o CIG decide mesmo com manifestação desfavorável).
+CREATE FUNCTION public.registrar_manifestacao_ctgric_dar(p_resultado text, p_data date, p_observacao text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_m public.dar_minutas;
+BEGIN
+  PERFORM public.fn_dar_exigir_cgov();
+  v_m := public.fn_dar_minuta_em_andamento();
+  PERFORM public.fn_dar_exigir_etapa(v_m, 'no_ctgric', 'registrar a manifestação do CTGRIC');
+  IF p_resultado IS NULL OR p_resultado NOT IN ('favoravel', 'com_ressalvas', 'desfavoravel') THEN
+    RAISE EXCEPTION 'RADAR: resultado do CTGRIC inválido: use favoravel, com_ressalvas ou desfavoravel.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  PERFORM public.fn_dar_conferir_data(v_m.id, p_data, 'da manifestação do CTGRIC');
+  INSERT INTO public.dar_rito_eventos (minuta_id, tipo, data_evento, resultado, observacao)
+  VALUES (v_m.id, 'manifestacao_ctgric', p_data, p_resultado, nullif(btrim(coalesce(p_observacao, '')), ''));
+  UPDATE public.dar_minutas
+     SET etapa = CASE WHEN p_resultado = 'com_ressalvas' THEN 'ressalvas' ELSE 'no_cig' END
+   WHERE id = v_m.id;
+END;
+$$;
+
+-- 4.5 encaminhar_minuta_dar_cig(data): ressalvas → no_cig (depois de
+-- incorporar as ressalvas do CTGRIC).
+CREATE FUNCTION public.encaminhar_minuta_dar_cig(p_data date)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_m public.dar_minutas;
+BEGIN
+  PERFORM public.fn_dar_exigir_cgov();
+  v_m := public.fn_dar_minuta_em_andamento();
+  PERFORM public.fn_dar_exigir_etapa(v_m, 'ressalvas', 'encaminhar ao CIG');
+  PERFORM public.fn_dar_conferir_data(v_m.id, p_data, 'do encaminhamento ao CIG');
+  INSERT INTO public.dar_rito_eventos (minuta_id, tipo, data_evento)
+  VALUES (v_m.id, 'encaminhada_cig', p_data);
+  UPDATE public.dar_minutas SET etapa = 'no_cig' WHERE id = v_m.id;
+END;
+$$;
+
+-- 4.6 registrar_deliberacao_cig_dar(resultado, data, observação):
+-- no_cig → aprovada_cig; reprovada → volta a "minuta" (a CGOV ajusta; o
+-- ajuste em 30 dias da F3.13 não tem contador, decisão de 2026-11-23).
+CREATE FUNCTION public.registrar_deliberacao_cig_dar(p_resultado text, p_data date, p_observacao text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_m public.dar_minutas;
+BEGIN
+  PERFORM public.fn_dar_exigir_cgov();
+  v_m := public.fn_dar_minuta_em_andamento();
+  PERFORM public.fn_dar_exigir_etapa(v_m, 'no_cig', 'registrar a deliberação do CIG');
+  IF p_resultado IS NULL OR p_resultado NOT IN ('aprovada', 'reprovada') THEN
+    RAISE EXCEPTION 'RADAR: resultado do CIG inválido: use aprovada ou reprovada.'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  PERFORM public.fn_dar_conferir_data(v_m.id, p_data, 'da deliberação do CIG');
+  INSERT INTO public.dar_rito_eventos (minuta_id, tipo, data_evento, resultado, observacao)
+  VALUES (v_m.id, 'deliberacao_cig', p_data, p_resultado, nullif(btrim(coalesce(p_observacao, '')), ''));
+  UPDATE public.dar_minutas
+     SET etapa = CASE WHEN p_resultado = 'aprovada' THEN 'aprovada_cig' ELSE 'minuta' END
+   WHERE id = v_m.id;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.salvar_minuta_dar(jsonb)                              FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.encaminhar_minuta_dar_ctgric(date)                    FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.registrar_manifestacao_ctgric_dar(text, date, text)   FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.encaminhar_minuta_dar_cig(date)                       FROM public, anon;
+REVOKE EXECUTE ON FUNCTION public.registrar_deliberacao_cig_dar(text, date, text)       FROM public, anon;
+GRANT  EXECUTE ON FUNCTION public.salvar_minuta_dar(jsonb)                              TO authenticated;
+GRANT  EXECUTE ON FUNCTION public.encaminhar_minuta_dar_ctgric(date)                    TO authenticated;
+GRANT  EXECUTE ON FUNCTION public.registrar_manifestacao_ctgric_dar(text, date, text)   TO authenticated;
+GRANT  EXECUTE ON FUNCTION public.encaminhar_minuta_dar_cig(date)                       TO authenticated;
+GRANT  EXECUTE ON FUNCTION public.registrar_deliberacao_cig_dar(text, date, text)       TO authenticated;
